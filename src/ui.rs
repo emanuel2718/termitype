@@ -36,6 +36,7 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
         )
         .split(inner_area);
 
+
     let paragraph = Paragraph::new(text)
         .style(Style::default().fg(Color::White))
         .alignment(Alignment::Center)

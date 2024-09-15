@@ -6,7 +6,7 @@ use std::{
 use crossterm::event::{self, Event};
 use ratatui::{prelude::Backend, Terminal};
 
-use crate::{input::handle_input, ui::draw_ui, version::VERSION};
+use crate::{generator::Generator, input::handle_input, ui::draw_ui, version::VERSION};
 
 pub struct Termi {
     pub title: String,
@@ -22,7 +22,8 @@ pub struct Termi {
 impl Termi {
     pub fn new() -> Self {
         // TODO: make generator.rs to generate the target_text
-        let target_text = String::from("When Mr Bilbo Baggins of Bag End announced that he would shortly be celebrating his eleventy-first birthday with a party of special magnificence, there was much talk and excitement in Hobbiton.");
+        let generator = Generator::new("assets/10k.txt").expect("Failed to load the word list");
+        let target_text = generator.generate(10);
         // the title will be TermiType plus the VERSION
         Termi {
             title: format!("TermiType {}", VERSION),
