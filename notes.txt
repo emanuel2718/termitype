@@ -1,0 +1,10 @@
+*Termitype*
+
+Tui app written in Rust, heavily inspired by Monkeytype, that will be 100% offline. No need to have
+internet connection to grind those wpm
+
+
+Ratatui as tui: https://github.com/ratatui/ratatui
+
+wordlist: https://github.com/first20hours/google-10000-english
+
