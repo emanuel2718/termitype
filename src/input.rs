@@ -13,14 +13,17 @@ pub fn handle_input(key: KeyEvent, termi: &mut Termi) -> bool {
 
     match key.code {
         KeyCode::Char(c) => {
-            termi.input.push(c);
-            // println!("received char: {}", c);
-            // TODO: update metrics
+            if termi.cursor_pos < termi.target_text.chars().count() {
+                termi.user_input[termi.cursor_pos] = Some(c);
+                termi.cursor_pos += 1;
+                termi.check_completion();
+            }
         },
         KeyCode::Backspace => {
-            termi.input.pop();
-            // println!("Received backspace");
-            // TODO: update metrics
+            if termi.cursor_pos > 0 {
+                termi.cursor_pos -= 1;
+                termi.user_input[termi.cursor_pos] = None;
+            }
         },
         KeyCode::Esc => {
             return true

@@ -6,10 +6,12 @@ use std::{
 use crossterm::event::{self, Event};
 use ratatui::{prelude::Backend, Terminal};
 
-use crate::{input::handle_input, ui::draw_ui};
+use crate::{input::handle_input, ui::draw_ui, version::VERSION};
 
 pub struct Termi {
-    pub input: String,
+    pub title: String,
+    pub user_input: Vec<Option<char>>,
+    pub cursor_pos: usize,
     pub target_text: String,
     pub is_finished: bool,
     pub start_time: Instant,
@@ -19,9 +21,14 @@ pub struct Termi {
 
 impl Termi {
     pub fn new() -> Self {
+        // TODO: make generator.rs to generate the target_text
+        let target_text = String::from("When Mr Bilbo Baggins of Bag End announced that he would shortly be celebrating his eleventy-first birthday with a party of special magnificence, there was much talk and excitement in Hobbiton.");
+        // the title will be TermiType plus the VERSION
         Termi {
-            input: String::new(),
-            target_text: String::from("Hello there, this is termitype text"), // TODO: generate this
+            title: format!("TermiType {}", VERSION),
+            user_input: vec![None; target_text.chars().count()],
+            target_text,
+            cursor_pos: 0,
             is_finished: false,
             start_time: Instant::now(),
             duration: Duration::from_secs(60), // TODO: get this from args
@@ -41,10 +48,17 @@ impl Termi {
         }
     }
 
+    pub fn check_completion(&mut self) {
+        if self.cursor_pos >= self.target_text.chars().count() {
+            self.is_finished = true;
+        }
+    }
+
     pub fn restart(&mut self) {
-        self.input.clear();
+        self.user_input = vec![None; self.target_text.chars().count()];
         self.start_time = Instant::now();
         self.is_finished = false;
+        self.cursor_pos = 0;
     }
 }
 

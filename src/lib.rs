@@ -1,10 +1,15 @@
+pub mod input;
 pub mod termi;
 pub mod ui;
-pub mod input;
+pub mod version;
 
 use std::{error::Error, io};
 
-use crossterm::{event::{DisableMouseCapture, EnableMouseCapture}, execute, terminal::{self, EnterAlternateScreen, LeaveAlternateScreen}};
+use crossterm::{
+    event::{DisableMouseCapture, EnableMouseCapture},
+    execute,
+    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use ratatui::{prelude::CrosstermBackend, Terminal};
 
 pub fn run() -> Result<(), Box<dyn Error>> {
@@ -25,4 +30,3 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     terminal.show_cursor()?;
     result
 }
-
