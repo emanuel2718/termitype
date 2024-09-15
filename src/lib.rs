@@ -1,8 +1,8 @@
+pub mod generator;
 pub mod input;
 pub mod termi;
 pub mod ui;
 pub mod version;
-pub mod generator;
 
 use std::{error::Error, io};
 

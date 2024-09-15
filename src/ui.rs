@@ -15,12 +15,10 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(&*termi.title)
+        .title("Termitype")
         .title_alignment(Alignment::Left);
 
     f.render_widget(&block, area);
-
-    let text = render_text(termi);
 
     let inner_area = block.inner(area);
 
@@ -28,28 +26,55 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
         .direction(Direction::Vertical)
         .constraints(
             [
-                Constraint::Percentage(40), // top padding
-                Constraint::Percentage(20), // text
-                Constraint::Percentage(40), // bottom padding
+                Constraint::Length(1),       // time and wmp
+                Constraint::Length(1),       // spacer
+                Constraint::Percentage(100), // text
             ]
             .as_ref(),
         )
         .split(inner_area);
 
+    let minutes = termi.time_remaining.as_secs() / 60;
+    let seconds = termi.time_remaining.as_secs() % 60;
+    let time_str = format!("Time Remaining: {:02}:{:02}", minutes, seconds);
+    let wpm_str = format!("WPM: {}", termi.wpm.round());
+
+    let time_span = Span::styled(
+        time_str,
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
+    let separator_span = Span::raw("   ");
+    let wpm_span = Span::styled(
+        wpm_str,
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
+    );
+
+    let line = Line::from(vec![time_span, separator_span, wpm_span]);
+
+    let time_wpm_paragraph = Paragraph::new(line)
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: false });
+
+    f.render_widget(time_wpm_paragraph, vertical_layout[0]);
+
+    let text = render_text(termi);
 
     let paragraph = Paragraph::new(text)
         .style(Style::default().fg(Color::White))
         .alignment(Alignment::Center)
-        .wrap(Wrap { trim: false }); // enable text wrapping
+        .wrap(Wrap { trim: false });
 
-    f.render_widget(paragraph, vertical_layout[1]);
+    f.render_widget(paragraph, vertical_layout[2]);
 
     if termi.is_finished {
-        let completion_message =
-            Paragraph::new("You have completed the test! Press Enter to restart.")
-                .style(Style::default().fg(Color::Yellow))
-                .alignment(Alignment::Center)
-                .wrap(Wrap { trim: true });
+        let completion_message = Paragraph::new("TODO: show stats. Press Enter to restart.")
+            .style(Style::default().fg(Color::Yellow))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
         f.render_widget(completion_message, size);
     }
 }
@@ -59,29 +84,32 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .direction(Direction::Vertical)
         .constraints(
             [
-                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage((100 - percent_x) / 2),
                 Constraint::Percentage(percent_y),
-                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage((100 - percent_x) / 2),
             ]
             .as_ref(),
         )
         .split(r);
 
-    Layout::default()
+    let horizontal_layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(
             [
-                Constraint::Percentage((100 - percent_x) / 2),
-                Constraint::Percentage(percent_x),
-                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Percentage(0),
+                Constraint::Percentage(100),
+                Constraint::Percentage(0),
             ]
             .as_ref(),
         )
-        .split(vertical_layout[1])[1]
+        .split(vertical_layout[1]);
+
+    horizontal_layout[1]
 }
 
 fn render_text(termi: &Termi) -> Text {
     let mut text = Text::default();
+
     let target_chars: Vec<char> = termi.target_text.chars().collect();
     let mut spans = Vec::new();
 

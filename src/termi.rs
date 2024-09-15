@@ -14,38 +14,33 @@ pub struct Termi {
     pub cursor_pos: usize,
     pub target_text: String,
     pub is_finished: bool,
+    pub is_started: bool,
     pub start_time: Instant,
     pub duration: Duration,
     pub time_remaining: Duration,
+    pub wpm: f64,
+    pub correct_chars: usize,
 }
+
+// TODO: get this from cli args
+static WORD_FILE: &str = "assets/100.txt";
 
 impl Termi {
     pub fn new() -> Self {
-        // TODO: make generator.rs to generate the target_text
-        let generator = Generator::new("assets/10k.txt").expect("Failed to load the word list");
+        let generator = Generator::new(WORD_FILE).expect("Failed to load the word list");
         let target_text = generator.generate(10);
-        // the title will be TermiType plus the VERSION
         Termi {
             title: format!("TermiType {}", VERSION),
             user_input: vec![None; target_text.chars().count()],
             target_text,
+            duration: Duration::from_secs(60),
+            time_remaining: Duration::from_secs(60),
             cursor_pos: 0,
             is_finished: false,
+            is_started: false,
             start_time: Instant::now(),
-            duration: Duration::from_secs(60), // TODO: get this from args
-            time_remaining: Duration::from_secs(60),
-        }
-    }
-
-    fn on_tick(&mut self) {
-        if !self.is_finished {
-            let elapsed = self.start_time.elapsed();
-            if elapsed >= self.duration {
-                self.is_finished = true;
-                self.time_remaining = Duration::from_secs(0);
-            } else {
-                self.time_remaining = self.duration - elapsed;
-            }
+            wpm: 0.0,
+            correct_chars: 0,
         }
     }
 
@@ -56,10 +51,43 @@ impl Termi {
     }
 
     pub fn restart(&mut self) {
-        self.user_input = vec![None; self.target_text.chars().count()];
+        let generator = Generator::new(WORD_FILE).expect("Failed to load words");
+        self.target_text = generator.generate(50);
+        let text_length = self.target_text.chars().count();
+
+        self.user_input = vec![None; text_length];
         self.start_time = Instant::now();
         self.is_finished = false;
+        self.is_started = false;
         self.cursor_pos = 0;
+        self.correct_chars = 0;
+        self.duration = Duration::from_secs(60);
+        self.time_remaining = Duration::from_secs(60);
+        self.wpm = 0.0;
+        self.time_remaining = self.duration;
+    }
+
+    fn on_tick(&mut self) {
+        if !self.is_finished && self.is_started {
+            let elapsed = self.start_time.elapsed();
+            if elapsed >= self.duration {
+                self.is_finished = true;
+                self.time_remaining = Duration::from_secs(0);
+            } else {
+                self.time_remaining = self.duration - elapsed;
+            }
+            self.update_wpm();
+        }
+    }
+
+    pub fn update_wpm(&mut self) {
+        if self.is_started {
+            let elapsed_minutes = self.start_time.elapsed().as_secs_f64() / 60.0;
+            let correct_words_typed = self.correct_chars as f64 / 5.0;
+            self.wpm = correct_words_typed / elapsed_minutes;
+        } else {
+            self.wpm = 0.0;
+        }
     }
 }
 
