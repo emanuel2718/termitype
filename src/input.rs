@@ -5,8 +5,6 @@ pub struct InputHandler {
     tab_pressed: bool,
 }
 
-
-
 impl InputHandler {
     pub fn new() -> Self {
         Self { tab_pressed: false }
@@ -14,11 +12,11 @@ impl InputHandler {
 
     pub fn handle_input(&mut self, key: KeyEvent, termi: &mut Termi) -> bool {
         if !termi.is_started {
-            termi.is_started = true
+            termi.start();
         }
         if termi.is_finished {
             if key.code == KeyCode::Enter {
-                termi.restart();
+                termi.reset();
             } else if key.code == KeyCode::Esc {
                 return true;
             }
@@ -41,7 +39,7 @@ impl InputHandler {
             }
             KeyCode::Enter => {
                 if self.tab_pressed {
-                    termi.restart();
+                    termi.reset();
                     self.tab_pressed = false;
                 }
             }
@@ -61,5 +59,4 @@ impl InputHandler {
         }
         false
     }
-
 }

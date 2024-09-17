@@ -67,7 +67,7 @@ impl Termi {
         }
     }
 
-    pub fn restart(&mut self) {
+    pub fn reset(&mut self) {
         let generator = Generator::new(WORD_FILE).expect("Failed to load words");
         self.target_text = match self.mode {
             Mode::Time => generator.generate(100),
@@ -75,7 +75,6 @@ impl Termi {
         };
 
         self.user_input = vec![None; self.target_text.chars().count()];
-        self.start_time = Instant::now();
         self.is_finished = false;
         self.is_started = false;
         self.cursor_pos = 0;
@@ -83,6 +82,11 @@ impl Termi {
         self.wpm = 0.0;
         self.duration = self.duration;
         self.time_remaining = self.duration;
+    }
+
+    pub fn start(&mut self) {
+        self.start_time = Instant::now();
+        self.is_started = true;
     }
 
     fn on_tick(&mut self) {
@@ -107,7 +111,7 @@ impl Termi {
         }
     }
 
-    pub fn update_wpm(&mut self) {
+   pub fn update_wpm(&mut self) {
         if self.is_started {
             let elapsed_minutes = self.start_time.elapsed().as_secs_f64() / 60.0;
             let correct_words_typed = self.correct_chars as f64 / 5.0;

@@ -15,7 +15,10 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title("Termitype")
+        .title(Span::styled(
+            &*termi.title,
+            Style::default().add_modifier(Modifier::BOLD),
+        ))
         .title_alignment(Alignment::Left);
 
     f.render_widget(&block, area);
@@ -24,14 +27,11 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
 
     let vertical_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Length(1),       // Header: Time/WPM or Words/WPM
-                Constraint::Length(1),       // Spacer
-                Constraint::Percentage(100), // Target text
-            ]
-            .as_ref(),
-        )
+        .constraints([
+            Constraint::Length(1),       // Header: Time/WPM or Words/WPM
+            Constraint::Length(3),       // Spacer
+            Constraint::Percentage(100), // Target text
+        ])
         .split(inner_area);
 
     let header_line = match termi.mode {
@@ -42,19 +42,9 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
             let wpm_str = format!("WPM: {}", termi.wpm.round());
 
             Line::from(vec![
-                Span::styled(
-                    time_str,
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                ),
+                Span::styled(time_str, Style::default().fg(Color::Yellow)),
                 Span::raw("   "), // Spacer
-                Span::styled(
-                    wpm_str,
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ),
+                Span::styled(wpm_str, Style::default().fg(Color::Cyan)),
             ])
         }
         Mode::Words => {
