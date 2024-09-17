@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::termi::Termi;
+use crate::{config::Mode, termi::Termi};
 
 pub fn draw_ui(f: &mut Frame, termi: &Termi) {
     let size = f.area();
@@ -26,40 +26,54 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
         .direction(Direction::Vertical)
         .constraints(
             [
-                Constraint::Length(1),       // time and wmp
-                Constraint::Length(1),       // spacer
-                Constraint::Percentage(100), // text
+                Constraint::Length(1),       // Header: Time/WPM or Words/WPM
+                Constraint::Length(1),       // Spacer
+                Constraint::Percentage(100), // Target text
             ]
             .as_ref(),
         )
         .split(inner_area);
 
-    let minutes = termi.time_remaining.as_secs() / 60;
-    let seconds = termi.time_remaining.as_secs() % 60;
-    let time_str = format!("Time Remaining: {:02}:{:02}", minutes, seconds);
-    let wpm_str = format!("WPM: {}", termi.wpm.round());
+    let header_line = match termi.mode {
+        Mode::Time => {
+            let minutes = termi.time_remaining.as_secs() / 60;
+            let seconds = termi.time_remaining.as_secs() % 60;
+            let time_str = format!("Time Remaining: {:02}:{:02}", minutes, seconds);
+            let wpm_str = format!("WPM: {}", termi.wpm.round());
 
-    let time_span = Span::styled(
-        time_str,
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD),
-    );
-    let separator_span = Span::raw("   ");
-    let wpm_span = Span::styled(
-        wpm_str,
-        Style::default()
-            .fg(Color::Cyan)
-            .add_modifier(Modifier::BOLD),
-    );
+            Line::from(vec![
+                Span::styled(
+                    time_str,
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw("   "), // Spacer
+                Span::styled(
+                    wpm_str,
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ])
+        }
+        Mode::Words => {
+            let wpm_str = format!("WPM: {}", termi.wpm.round());
 
-    let line = Line::from(vec![time_span, separator_span, wpm_span]);
+            Line::from(vec![Span::styled(
+                wpm_str,
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )])
+        }
+    };
 
-    let time_wpm_paragraph = Paragraph::new(line)
+    let header_paragraph = Paragraph::new(header_line)
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: false });
 
-    f.render_widget(time_wpm_paragraph, vertical_layout[0]);
+    f.render_widget(header_paragraph, vertical_layout[0]);
 
     let text = render_text(termi);
 
@@ -71,7 +85,7 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
     f.render_widget(paragraph, vertical_layout[2]);
 
     if termi.is_finished {
-        let completion_message = Paragraph::new("TODO: show stats. Press Enter to restart.")
+        let completion_message = Paragraph::new("TODO: show stats here! Press Enter to restart.")
             .style(Style::default().fg(Color::Yellow))
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
