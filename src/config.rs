@@ -1,24 +1,39 @@
-use clap::{Parser, ValueEnum};
+use clap::{ArgGroup, Parser};
 
-#[derive(Copy, Clone, Debug, Parser)]
-#[command(name = "TermiType", about = "Terminal-based typing game")]
+/// Terminal-based typing game
+#[derive(Parser, Debug)]
+#[command(name = "TermiType", about = "Terminal-based typing test")]
+#[command(group(
+    ArgGroup::new("mode")
+        .args(&["time", "words"])
+        .required(false)
+        .multiple(false)
+))]
 pub struct Config {
-    /// Mode of the typing test (Time or Words)
-    #[arg(long, default_value = "time", value_enum)]
-    pub mode: Mode,
+    /// Duration in seconds (only used in Time mode)
+    #[arg(short = 't', long = "time", group = "mode")]
+    pub time: Option<u64>,
 
-    /// Duration seconds (only used in Time mode)
-    #[arg(long, default_value = "30", requires_if("mdoe", "time"))]
-    pub time: u64,
-
-    // Number of words (only used in Words mode)
-    #[arg(long, default_value = "50", requires_if("mode", "words"))]
-    pub words: usize,
+    /// Number of words (only used in Words mode)
+    #[arg(short = 'w', long = "words", group = "mode")]
+    pub words: Option<usize>,
 }
 
-// Available modes
-#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
+/// Represents the operational mode of the game
 pub enum Mode {
-    Time,
-    Words,
+    Time { duration: u64 },
+    Words { word_count: usize },
+}
+
+impl Config {
+    /// Determines the mode based on provided options.
+    /// Defaults to Time mode with 309 seconds if no options are provided.
+    pub fn determine_mode(&self) -> Mode {
+        match (self.time, self.words) {
+            (Some(time), None) => Mode::Time { duration: time },
+            (None, Some(count)) => Mode::Words { word_count: count },
+            (None, None) => Mode::Time { duration: 30 }, // Default mode
+            _ => unreachable!("Clap's ArgGroup ensures only one option is set."),
+        }
+    }
 }

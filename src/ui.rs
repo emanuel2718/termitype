@@ -35,7 +35,7 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
         .split(inner_area);
 
     let header_line = match termi.mode {
-        Mode::Time => {
+        Mode::Time { .. } => {
             let minutes = termi.time_remaining.as_secs() / 60;
             let seconds = termi.time_remaining.as_secs() % 60;
             let time_str = format!("Time Remaining: {:02}:{:02}", minutes, seconds);
@@ -47,7 +47,7 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
                 Span::styled(wpm_str, Style::default().fg(Color::Cyan)),
             ])
         }
-        Mode::Words => {
+        Mode::Words { .. } => {
             let wpm_str = format!("WPM: {}", termi.wpm.round());
 
             Line::from(vec![Span::styled(

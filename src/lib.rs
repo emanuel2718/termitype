@@ -18,7 +18,6 @@ use ratatui::{prelude::CrosstermBackend, Terminal};
 
 pub fn run() -> Result<(), Box<dyn Error>> {
     let config = Config::parse();
-    dbg!("{:?}", config);
 
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();

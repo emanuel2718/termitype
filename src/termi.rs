@@ -7,7 +7,11 @@ use crossterm::event::{self, Event};
 use ratatui::{prelude::Backend, Terminal};
 
 use crate::{
-    config::{Config, Mode}, generator::Generator, input::InputHandler, ui::draw_ui, version::VERSION
+    config::{Config, Mode},
+    generator::Generator,
+    input::InputHandler,
+    ui::draw_ui,
+    version::VERSION,
 };
 
 pub struct Termi {
@@ -34,14 +38,16 @@ impl Termi {
     pub fn new(config: &Config) -> Self {
         let generator = Generator::new(WORD_FILE).expect("Failed to load the word list");
 
-        let target_text = match config.mode {
-            Mode::Time => generator.generate(100),
-            Mode::Words => generator.generate(config.words),
+        let mode = config.determine_mode();
+
+        let total_words = match mode {
+            Mode::Time { .. } => 100,
+            Mode::Words { word_count } => word_count,
         };
 
-        let duration = match config.mode {
-            Mode::Time => config.time,
-            Mode::Words => 0,
+        let (target_text, duration) = match mode {
+            Mode::Time { duration } => (generator.generate(100), duration),
+            Mode::Words { word_count } => (generator.generate(word_count), 0),
         };
 
         Termi {
@@ -50,8 +56,8 @@ impl Termi {
             target_text,
             duration: Duration::from_secs(duration),
             time_remaining: Duration::from_secs(duration),
-            mode: config.mode,
-            total_words: config.words,
+            mode,
+            total_words,
             cursor_pos: 0,
             is_finished: false,
             is_started: false,
@@ -70,8 +76,8 @@ impl Termi {
     pub fn reset(&mut self) {
         let generator = Generator::new(WORD_FILE).expect("Failed to load words");
         self.target_text = match self.mode {
-            Mode::Time => generator.generate(100),
-            Mode::Words => generator.generate(self.total_words),
+            Mode::Time { .. } => generator.generate(100),
+            Mode::Words { word_count } => generator.generate(word_count),
         };
 
         self.user_input = vec![None; self.target_text.chars().count()];
@@ -91,7 +97,7 @@ impl Termi {
 
     fn on_tick(&mut self) {
         match self.mode {
-            Mode::Time => {
+            Mode::Time { .. } => {
                 if !self.is_finished && self.is_started {
                     let elapsed = self.start_time.elapsed();
                     if elapsed >= self.duration {
@@ -103,7 +109,7 @@ impl Termi {
                     self.update_wpm();
                 }
             }
-            Mode::Words => {
+            Mode::Words { .. } => {
                 if !self.is_finished && self.is_started {
                     self.update_wpm();
                 }
@@ -111,7 +117,7 @@ impl Termi {
         }
     }
 
-   pub fn update_wpm(&mut self) {
+    pub fn update_wpm(&mut self) {
         if self.is_started {
             let elapsed_minutes = self.start_time.elapsed().as_secs_f64() / 60.0;
             let correct_words_typed = self.correct_chars as f64 / 5.0;
