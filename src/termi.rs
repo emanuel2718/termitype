@@ -7,11 +7,7 @@ use crossterm::event::{self, Event};
 use ratatui::{prelude::Backend, Terminal};
 
 use crate::{
-    config::{Config, Mode},
-    generator::Generator,
-    input::handle_input,
-    ui::draw_ui,
-    version::VERSION,
+    config::{Config, Mode}, generator::Generator, input::InputHandler, ui::draw_ui, version::VERSION
 };
 
 pub struct Termi {
@@ -126,6 +122,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
     let mut termi = Termi::new(&config);
     let tick_rate = Duration::from_millis(250);
     let mut last_tick = Instant::now();
+    let mut input_handler = InputHandler::new();
 
     loop {
         terminal.draw(|f| draw_ui(f, &termi))?;
@@ -135,7 +132,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
             .unwrap_or_else(|| Duration::from_secs(0));
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                if handle_input(key, &mut termi) {
+                if input_handler.handle_input(key, &mut termi) {
                     break;
                 }
             }
