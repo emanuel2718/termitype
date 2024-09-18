@@ -11,6 +11,7 @@ use crate::{config::Mode, termi::Termi};
 pub fn draw_ui(f: &mut Frame, termi: &Termi) {
     let size = f.area();
 
+    // 60% width and 50% height of the current trminal window size
     let area = centered_rect(60, 50, size);
 
     let block = Block::default()
@@ -27,11 +28,15 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
 
     let vertical_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),       // Header: Time/WPM or Words/WPM
-            Constraint::Length(3),       // Spacer
-            Constraint::Percentage(100), // Target text
-        ])
+        .constraints(
+            [
+                Constraint::Min(1), // Top spacer
+                Constraint::Length(3), // Header
+                Constraint::Min(1), // Target Text
+                Constraint::Min(1), // Bottom spacer
+            ]
+            .as_ref(),
+        )
         .split(inner_area);
 
     let header_line = match termi.mode {
@@ -60,10 +65,10 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
     };
 
     let header_paragraph = Paragraph::new(header_line)
-        .alignment(Alignment::Left)
+        .alignment(Alignment::Center)
         .wrap(Wrap { trim: false });
 
-    f.render_widget(header_paragraph, vertical_layout[0]);
+    f.render_widget(header_paragraph, vertical_layout[1]);
 
     let text = render_text(termi);
 
@@ -83,32 +88,27 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
     }
 }
 
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let vertical_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_x) / 2),
-                Constraint::Percentage(percent_y),
-                Constraint::Percentage((100 - percent_x) / 2),
-            ]
-            .as_ref(),
-        )
-        .split(r);
+/// Creates a centered rectangle with the given width and height percentages.
+/// 
+/// # Arguments
+/// 
+/// * `px` - The width percentage (0-100) of the rectangle
+/// * `py` - The height percentage (0-100) of the rectangle
+/// * `r` - The outer rectangle to center within
+/// 
+/// # Returns
+/// 
+/// A `Rect` representing the centered area
+fn centered_rect(px: u16, py: u16, r: Rect) -> Rect {
+    let horizontal_margin = (r.width.saturating_sub(r.width * px / 100)) / 2;
+    let vertical_margin = (r.height.saturating_sub(r.height * py / 100)) / 2;
 
-    let horizontal_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(
-            [
-                Constraint::Percentage(0),
-                Constraint::Percentage(100),
-                Constraint::Percentage(0),
-            ]
-            .as_ref(),
-        )
-        .split(vertical_layout[1]);
-
-    horizontal_layout[1]
+    Rect {
+        x: r.x + horizontal_margin,
+        y: r.y + vertical_margin,
+        width: r.width * px / 100,
+        height: r.height * py / 100,
+    }
 }
 
 fn render_text(termi: &Termi) -> Text {
@@ -146,3 +146,4 @@ fn render_text(termi: &Termi) -> Text {
 
     text
 }
+
