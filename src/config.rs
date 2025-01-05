@@ -28,6 +28,10 @@ pub struct Config {
     /// Introduces numbers to the test words
     #[arg(short = 'n', long = "use-numbers", value_name = "NUMBERS")]
     pub use_numbers: bool,
+
+    /// Sets the theme if a valid theme is given, ignored otherwise
+    #[arg(long = "theme", value_name = "THEME")]
+    pub use_theme: Option<String>,
 }
 
 /// Represents the operationlal mode of the game>
