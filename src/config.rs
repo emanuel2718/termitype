@@ -1,6 +1,6 @@
 use clap::{ArgGroup, Parser};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(name = "Termitype", about = "Terminal based typing game")]
 #[command(group(
     ArgGroup::new("mode")

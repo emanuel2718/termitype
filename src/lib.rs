@@ -3,16 +3,13 @@ use clap::Parser;
 use config::Config;
 
 pub mod config;
+pub mod termi;
 
 pub fn run() -> Result<()> {
     println!("Termitype running");
-    let mut config = Config::try_parse()?;
+    let config = Config::try_parse()?;
 
-    dbg!(&config);
-
-    config.toggle_use_symbols();
-
-    dbg!("After toggle_use_symbols: {:?}", &config);
+    let _ = termi::run(&config);
 
     Ok(())
 }
