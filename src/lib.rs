@@ -4,6 +4,7 @@ use config::Config;
 
 pub mod config;
 pub mod termi;
+pub mod tracker;
 
 pub fn run() -> Result<()> {
     println!("Termitype running");
