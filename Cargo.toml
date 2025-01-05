@@ -9,6 +9,7 @@ authors = ["Emanuel Ramirez <eramirez2718@gmail.com>"]
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.95"
 clap = { version = "4.0", features = ["derive"] }
 crossterm = "0.28.1"
 rand = "0.8.5"

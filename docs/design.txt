@@ -1,0 +1,108 @@
+# Termitype
+
+
+TUI app written in Rust, heavily inpired by Monketype, that will be 100% offline.
+
+- [wordlist example](https://github.com/first20hours/google-10000-english)
+
+
+### UI
+
+- Will be managed by Ratatui with crossterm
+- For now just a simple square with:
+  * the title `Termitype <version>` a
+  * The selected mode
+    - if time show time remaining
+    - if words show the words remaining
+  * WPM counter
+- The ui must be extremely responsive to terminal size changes
+- The missed words should be highlighted and underlined in the color for error
+- We should simulate a cursor right before the current letter instead of letter underline, this could be hard but worth it
+- Show hints such as `Type any letter to begin` etc.
+
+
+
+### Generator
+
+- will generate the test words based on the given config (language, punctuation, numbers etc.)
+- must be able to expand and generate must stuff in the future
+
+
+### Input handler
+
+- Will track anything related to input
+- Keybinds
+  * `Ctrl-c` or `Ctrl-z` to quit
+  * `Esc` to show menu
+  * `Tab + Enter` to restart
+    - this should highglight the restart button in the ui which should also be clickable
+
+
+### Config
+
+- themes
+  * must have a `default` theme and it should ship with most common themes such as `tokyonight`
+  * choose theme with `termitype --theme tokyonight` or at runtime
+  * more themes could be added in `$HOME/.config/termitype/themes/<custom-theme>` following a given guideline
+  * user must be able to change theme at runtime easily.
+
+- use punctuation
+  * use punctuation (symbols) in the test words
+    - `termitype --use-punctuation`
+    - they can be changed at runtime, which will reset the current test
+
+- use numbers
+  * `termitype --use-numbers`
+  * they can be changed at runtime, which will reset the current test
+
+- language
+  * defaults to english1k
+  * can be english1k, english10k...
+  * can be spanish, etc.
+
+- mode
+  * `termitype --mode time` or `termitype --mode words` etc.
+  * can be changed at runtime
+  * below are the available modes
+    - Time (15, 30, 60, 120)
+        - defaults to 30 seconds
+        - add ability for custom time?
+    - Words (10, 25, 50, 100)
+        - defaults to 50 words
+
+    - Quote
+        - short
+        - medium
+        - long
+
+### Tracker
+
+- wpm
+- raw_wpm
+- accuraccy
+- consistency
+- test_type
+- wrong_words
+- wrong_characters
+- time_started
+- time_remaining
+- word_count
+- user_input
+- target_text
+- cursor_position
+- status
+  * Typing
+  * Paused
+  * Idle
+  * Completed
+
+
+### Results (Neccessary?)
+- Receives by dependency injection the config and the tracker to formulate the results
+- used for graphs and stuff.
+
+### Endgame. Will be done eventually not now tho.
+- track games results with sqlite
+- give the option to not track with `termitype --no-track`
+- leaderboard/history
+
