@@ -18,6 +18,7 @@ pub mod renderer;
 pub mod termi;
 pub mod theme;
 pub mod tracker;
+pub mod version;
 
 pub fn run() -> Result<()> {
     let config = Config::try_parse()?;
