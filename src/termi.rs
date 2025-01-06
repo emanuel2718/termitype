@@ -5,10 +5,7 @@ use crossterm::event::{self, Event};
 use ratatui::{prelude::Backend, Terminal};
 
 use crate::{
-    config::Config,
-    input::{self, InputHandler},
-    renderer::draw_ui,
-    theme::Theme,
+    config::Config, generator::generate_test, input::InputHandler, renderer::draw_ui, theme::Theme,
     tracker::Tracker,
 };
 
@@ -17,16 +14,20 @@ pub struct Termi {
     pub config: Config,
     pub tracker: Tracker,
     pub theme: Theme,
+    pub words: String,
 }
 
 impl Termi {
     pub fn new(config: &Config) -> Self {
         let tracker = Tracker::new(&config);
         let theme = Theme::new(&config);
+        let words = generate_test(&config);
+        dbg!(&words);
         Termi {
             config: config.clone(),
             tracker,
             theme,
+            words,
         }
     }
 }

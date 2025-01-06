@@ -11,12 +11,12 @@ impl InputHandler {
         Self { last_keycode: None }
     }
 
-    pub fn handle_input(&mut self, key: KeyEvent, termi: &mut Termi) -> bool {
+    pub fn handle_input(&mut self, key: KeyEvent, _: &mut Termi) -> bool {
         if self.is_sigkill(key) {
             return true;
         }
         match key.code {
-            KeyCode::Char(c) => {
+            KeyCode::Char(_) => {
                 // TODO: update tracker
             }
             KeyCode::Enter => {
@@ -26,11 +26,9 @@ impl InputHandler {
             }
             KeyCode::Backspace => {
                 // TODO: handle basckspace
-                todo!();
             }
             KeyCode::Esc => {
                 // TODO: handle putting the game in pause
-                todo!();
             }
             _ => {}
         }

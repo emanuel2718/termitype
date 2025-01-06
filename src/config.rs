@@ -53,6 +53,20 @@ impl Config {
         }
     }
 
+    pub fn resolve_word_count(&self) -> usize {
+        match (self.time, self.words) {
+            (None, Some(count)) => count,
+            _ => 100,
+        }
+    }
+
+    pub fn resolve_duration(&self) -> u64 {
+        match (self.time, self.words) {
+            (Some(time), None) => time,
+            _ => 30,
+        }
+    }
+
     /// Toggles the presence of numbers in the test word pool.
     pub fn toggle_use_numbers(&mut self) {
         self.use_numbers = !self.use_numbers;
