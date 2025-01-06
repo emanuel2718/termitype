@@ -20,7 +20,7 @@ pub struct Tracker {
     pub wrong_chars: Vec<char>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Status {
     Idle,
     Typing,

@@ -4,7 +4,13 @@ use anyhow::Result;
 use crossterm::event::{self, Event};
 use ratatui::{prelude::Backend, Terminal};
 
-use crate::{config::Config, renderer::draw_ui, theme::Theme, tracker::Tracker};
+use crate::{
+    config::Config,
+    input::{self, InputHandler},
+    renderer::draw_ui,
+    theme::Theme,
+    tracker::Tracker,
+};
 
 #[derive(Debug)]
 pub struct Termi {
@@ -26,11 +32,11 @@ impl Termi {
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
-    println!("Running Termitype with config: {:?}", config);
-    let termi = Termi::new(&config);
+    let mut termi = Termi::new(&config);
 
     let tick_rate = Duration::from_millis(250);
     let mut last_tick = Instant::now();
+    let mut input_handler = InputHandler::new();
 
     loop {
         terminal.draw(|f| draw_ui(f, &termi))?;
@@ -40,8 +46,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
 
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                println!("The key: {:?}", key);
-                break;
+                if input_handler.handle_input(key, &mut termi) {
+                    break;
+                }
             }
         }
 

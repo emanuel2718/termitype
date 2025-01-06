@@ -12,6 +12,7 @@ use ratatui::{prelude::CrosstermBackend, Terminal};
 
 pub mod config;
 pub mod constants;
+pub mod input;
 pub mod renderer;
 pub mod termi;
 pub mod theme;
