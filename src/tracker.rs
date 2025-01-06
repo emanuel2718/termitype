@@ -30,7 +30,7 @@ pub enum Status {
 
 impl Tracker {
     pub fn new(config: &Config) -> Self {
-        let mode = config.resolve_mode();
+        let mode = config.parse_mode();
         let word_count = match mode {
             Mode::Time { .. } => 100,
             Mode::Words { count } => count,

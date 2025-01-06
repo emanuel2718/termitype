@@ -44,7 +44,7 @@ impl Config {
     /// Resolves the mode based onf the provided arguments
     /// Defaults to time mode with (30) seconds if no options are provided.
     /// If *both* `time` and `word` mode are passed, it will default to time mode.
-    pub fn resolve_mode(&self) -> Mode {
+    pub fn parse_mode(&self) -> Mode {
         match (self.time, self.words) {
             (Some(time), None) => Mode::Time { duration: time },
             (None, Some(count)) => Mode::Words { count },
@@ -64,6 +64,13 @@ impl Config {
         match (self.time, self.words) {
             (Some(time), None) => time,
             _ => 30,
+        }
+    }
+
+    pub fn current_mode(&self) -> &str {
+        match self.parse_mode() {
+            Mode::Time { .. } => "Time",
+            Mode::Words { .. } => "Words",
         }
     }
 
