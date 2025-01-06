@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 use ratatui::style::Color;
 
@@ -44,7 +44,26 @@ impl Theme {
         }
     }
 
-    pub fn change_theme(&mut self, new_theme: String) {
-        println!("Chaning theme to {new_theme}")
+    // NOTE: for testing changing theme at runtime
+    pub fn gruvbox_theme() -> Self {
+        Self {
+            text: Color::from_str("#ebdbb2").unwrap(),
+            background: Color::from_str("#282828").unwrap(),
+            hint: Color::from_str("#928374").unwrap(),
+            border: Color::from_str("#a89984").unwrap(),
+            highlight: Color::from_str("#fabd2f").unwrap(),
+            error: Color::from_str("#fb4934").unwrap(),
+            success: Color::from_str("#b8bb26").unwrap(),
+            inactive: Color::from_str("#504945").unwrap(),
+        }
+    }
+
+    // NOTE: for now this is hardcoded to change to gruvbox theme
+    pub fn change_theme(&mut self, new_theme: &str) {
+        if new_theme == "gruvbox" {
+            *self = Self::gruvbox_theme()
+        } else {
+            *self = Self::default_theme()
+        }
     }
 }

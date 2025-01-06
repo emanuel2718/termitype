@@ -11,25 +11,34 @@ impl InputHandler {
         Self { last_keycode: None }
     }
 
-    pub fn handle_input(&mut self, key: KeyEvent, _: &mut Termi) -> bool {
+    pub fn handle_input(&mut self, key: KeyEvent, termi: &mut Termi) -> bool {
         if self.is_sigkill(key) {
             return true;
         }
         match key.code {
-            KeyCode::Char(_) => {
+            KeyCode::Char(c) => {
+                if termi.tracker.cursor_position < termi.words.chars().count() {
+                    termi.tracker.user_input.push(Some(c));
+                    termi.tracker.cursor_position += 1;
+                }
                 // TODO: update tracker
             }
             KeyCode::Enter => {
                 if self.last_keycode.is_some() && self.last_keycode == Some(KeyCode::Tab) {
-                    // TODO: Restart the game
+                    termi.start();
                 }
             }
             KeyCode::Backspace => {
                 // TODO: handle basckspace
+                if termi.tracker.cursor_position > 0 {
+                    termi.tracker.user_input.pop();
+                    termi.tracker.cursor_position -= 1;
+                }
             }
             KeyCode::Esc => {
                 // TODO: handle putting the game in pause
             }
+
             _ => {}
         }
         self.last_keycode = Some(key.code);

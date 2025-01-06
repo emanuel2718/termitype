@@ -22,13 +22,16 @@ impl Termi {
         let tracker = Tracker::new(&config);
         let theme = Theme::new(&config);
         let words = generate_test(&config);
-        dbg!(&words);
         Termi {
             config: config.clone(),
             tracker,
             theme,
             words,
         }
+    }
+
+    pub fn start(&mut self) {
+        *self = Termi::new(&self.config)
     }
 }
 
