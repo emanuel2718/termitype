@@ -5,7 +5,11 @@ use crossterm::event::{self, Event};
 use ratatui::{prelude::Backend, Terminal};
 
 use crate::{
-    builder::Builder, config::Config, input::InputHandler, renderer::draw_ui, theme::Theme,
+    builder::Builder,
+    config::Config,
+    input::{process_action, Action, InputHandler},
+    renderer::draw_ui,
+    theme::Theme,
     tracker::Tracker,
 };
 
@@ -20,10 +24,10 @@ pub struct Termi {
 
 impl Termi {
     pub fn new(config: &Config) -> Self {
-        let tracker = Tracker::new(&config);
         let theme = Theme::new(&config);
         let mut builder = Builder::new();
         let words = builder.generate_test(config);
+        let tracker = Tracker::new(&config, words.clone());
         Termi {
             config: config.clone(),
             tracker,
@@ -34,7 +38,7 @@ impl Termi {
     }
 
     pub fn start(&mut self) {
-        *self = Termi::new(&self.config)
+        *self = Termi::new(&self.config);
     }
 }
 
@@ -53,13 +57,16 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
 
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                if input_handler.handle_input(key, &mut termi) {
+                let action = input_handler.handle_input(key);
+                if action == Action::Quit {
                     break;
                 }
+                process_action(action, &mut termi);
             }
         }
 
         if last_tick.elapsed() >= tick_rate {
+            termi.tracker.update_metrics();
             last_tick = Instant::now()
         }
     }

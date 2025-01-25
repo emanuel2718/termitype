@@ -9,6 +9,7 @@ use ratatui::{
 use crate::{
     constants::{APPNAME, WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT},
     termi::Termi,
+    tracker::Status,
     version::VERSION,
 };
 
@@ -27,12 +28,20 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
         size,
     );
     let block = create_main_block(termi);
-
     let inner_area = block.inner(area);
-    let layout_areas = create_main_layout(inner_area);
 
     f.render_widget(&block, area);
-    render_widgets(f, termi, &layout_areas);
+
+    match termi.tracker.status {
+        Status::Completed => {
+            let results = results_widget(termi, inner_area);
+            f.render_widget(&results, inner_area);
+        }
+        _ => {
+            let layout_areas = create_main_layout(inner_area);
+            render_widgets(f, termi, &layout_areas);
+        }
+    }
 }
 
 /// Creates the main widget layout for the entire UI
@@ -77,9 +86,11 @@ fn render_widgets(f: &mut Frame, termi: &Termi, layout_areas: &[Rect]) {
 
 fn header_widget(termi: &Termi) -> Paragraph {
     Paragraph::new(Text::raw(format!(
-        "Mode: {} | WPM: {}",
+        "Mode: {} | Time: {:.0?} | WPM: {:.0} | Status: {:?}",
         termi.config.current_mode().value(),
-        termi.tracker.wpm
+        termi.tracker.time_remaining.unwrap().as_secs(),
+        termi.tracker.wpm,
+        termi.tracker.status
     )))
     .style(Style::default().fg(termi.theme.highlight))
     .alignment(Alignment::Center)
@@ -146,6 +157,62 @@ fn footer_widget(termi: &Termi) -> Paragraph {
         ]),
     ]))
     .alignment(Alignment::Center)
+}
+
+fn results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
+    let completion_time = termi.tracker.completion_time.unwrap_or(0.0);
+
+    let content_lines = vec![
+        Line::from(vec![Span::styled(
+            "Test Completed!",
+            Style::default()
+                .fg(termi.theme.success)
+                .add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("WPM: "),
+            Span::styled(
+                format!("{:.0}", termi.tracker.wpm),
+                Style::default().fg(termi.theme.highlight),
+            ),
+        ]),
+        Line::from(vec![
+            Span::raw("Accuracy: "),
+            Span::styled(
+                format!("{}%", termi.tracker.accuracy),
+                Style::default().fg(termi.theme.highlight),
+            ),
+        ]),
+        Line::from(vec![
+            Span::raw("Time: "),
+            Span::styled(
+                format!("{:.1}s", completion_time),
+                Style::default().fg(termi.theme.highlight),
+            ),
+        ]),
+        Line::from(""),
+        Line::from(vec![Span::styled(
+            "Press tab + enter to restart",
+            Style::default()
+                .fg(termi.theme.inactive)
+                .add_modifier(Modifier::ITALIC),
+        )]),
+    ];
+
+    let total_height = area.height as usize;
+    let content_height = content_lines.len();
+    let padding_height = (total_height - content_height) / 2;
+
+    let padding = vec![Line::from(""); padding_height];
+
+    let mut lines = padding.clone();
+    lines.extend(content_lines);
+    lines.extend(padding);
+
+    Paragraph::new(lines)
+        .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true })
 }
 
 fn centered_rect(px: u16, py: u16, r: Rect) -> Rect {
