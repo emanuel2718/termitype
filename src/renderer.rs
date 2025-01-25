@@ -19,10 +19,6 @@ use crate::{
 /// - `f`: A mutable reference to the `Frame` where widgets will be rendered.
 /// - `termi`: A reference to the `Termi` struct containing application state and configuration.
 /// # Example
-///
-/// ```rust
-/// drae_ui(&mut frame, &termi);
-/// ```
 pub fn draw_ui(f: &mut Frame, termi: &Termi) {
     let size = f.area();
     let area = centered_rect(
@@ -82,7 +78,7 @@ fn render_widgets(f: &mut Frame, termi: &Termi, layout_areas: &[Rect]) {
 fn header_widget(termi: &Termi) -> Paragraph {
     Paragraph::new(Text::raw(format!(
         "Mode: {} | WPM: {}",
-        termi.config.current_mode(),
+        termi.config.current_mode().value(),
         termi.tracker.wpm
     )))
     .style(Style::default().fg(termi.theme.highlight))
