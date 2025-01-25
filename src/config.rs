@@ -145,11 +145,12 @@ mod tests {
 
     fn create_config() -> Config {
         let config = Config::default();
-        assert_default_state(&config);
         config
     }
 
-    fn assert_default_state(config: &Config) {
+    #[test]
+    fn test_default_state() {
+        let config = Config::default();
         assert!(config.language.is_some());
         assert!(config.time.is_some());
         assert!(config.words.is_none());
