@@ -14,10 +14,11 @@ pub mod builder;
 pub mod config;
 pub mod constants;
 pub mod input;
-pub mod renderer;
 pub mod termi;
 pub mod theme;
 pub mod tracker;
+#[path = "ui/ui.rs"]
+pub mod ui;
 pub mod version;
 
 pub fn run() -> Result<()> {

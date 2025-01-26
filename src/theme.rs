@@ -11,6 +11,7 @@ pub struct ThemeLoader {
 
 #[derive(Debug, Clone)]
 pub struct Theme {
+    pub identifier: String,
     pub background: Color,
     pub background_secondary: Color,
     pub foreground: Color,
@@ -82,6 +83,7 @@ impl Theme {
 
     fn fallback_theme() -> Self {
         Self {
+            identifier: "Default".to_string(),
             background: Color::Black,
             background_secondary: Color::Black,
             foreground: Color::White,
@@ -130,7 +132,7 @@ impl ThemeLoader {
 
         let path = PathBuf::from(format!("assets/themes/{theme_name}"));
         let content = fs::read_to_string(path)?;
-        let theme = Self::parse_theme_file(&content)?;
+        let theme = Self::parse_theme_file(&content, theme_name)?;
 
         self.themes.insert(theme_name.to_string(), theme);
         Ok(())
@@ -144,13 +146,16 @@ impl ThemeLoader {
         Ok(self.themes.get(theme_name).unwrap().clone())
     }
 
-    fn parse_color(colors: &HashMap<String, String>, key: &str) -> Result<Color, Box<dyn std::error::Error>> {
+    fn parse_color(
+        colors: &HashMap<String, String>,
+        key: &str,
+    ) -> Result<Color, Box<dyn std::error::Error>> {
         let value = colors.get(key).ok_or(format!("Missing {}", key))?;
         Color::from_str(&format!("#{}", value))
             .map_err(|e| format!("Invalid color for {}: {}", key, e).into())
     }
 
-    fn parse_theme_file(content: &str) -> Result<Theme, Box<dyn std::error::Error>> {
+    fn parse_theme_file(content: &str, name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
         let mut colors: HashMap<String, String> = HashMap::new();
 
         for line in content.lines() {
@@ -171,6 +176,7 @@ impl ThemeLoader {
         }
 
         Ok(Theme {
+            identifier: name.to_string(),
             background: Self::parse_color(&colors, "background")?,
             background_secondary: Self::parse_color(&colors, "selection-background")?,
             foreground: Self::parse_color(&colors, "foreground")?,
@@ -242,9 +248,9 @@ pub fn print_theme_list() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use std::fs;
     use tempfile::TempDir;
-    use std::env;
 
     fn create_test_theme(dir: &TempDir, name: &str, content: &str) {
         let theme_dir = dir.path().join("assets").join("themes");
@@ -269,7 +275,7 @@ mod tests {
             palette8 = #888888
         "#;
 
-        let theme = ThemeLoader::parse_theme_file(content).unwrap();
+        let theme = ThemeLoader::parse_theme_file(content, "test").unwrap();
 
         assert_eq!(theme.background, Color::Rgb(0, 0, 0));
         assert_eq!(theme.foreground, Color::Rgb(255, 255, 255));
@@ -322,7 +328,7 @@ mod tests {
             palette8 = #888888
         "#;
 
-        let result = ThemeLoader::parse_theme_file(content);
+        let result = ThemeLoader::parse_theme_file(content, "test");
         assert!(result.is_err());
     }
 
@@ -343,7 +349,7 @@ mod tests {
             palette8 = #888888
         "#;
 
-        let result = ThemeLoader::parse_theme_file(content);
+        let result = ThemeLoader::parse_theme_file(content, "test");
         assert!(result.is_err());
     }
 
@@ -387,5 +393,6 @@ mod tests {
         assert_eq!(theme.color_support, ColorSupport::Basic);
         assert_eq!(theme.background, Color::Black);
         assert_eq!(theme.foreground, Color::White);
+        assert_eq!(theme.identifier, "Default".to_string());
     }
 }
