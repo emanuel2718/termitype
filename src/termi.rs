@@ -8,9 +8,8 @@ use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
-    renderer::draw_ui,
     theme::Theme,
-    tracker::Tracker,
+    tracker::Tracker, ui::draw_ui,
 };
 
 #[derive(Debug)]
