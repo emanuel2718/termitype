@@ -144,6 +144,12 @@ impl ThemeLoader {
         Ok(self.themes.get(theme_name).unwrap().clone())
     }
 
+    fn parse_color(colors: &HashMap<String, String>, key: &str) -> Result<Color, Box<dyn std::error::Error>> {
+        let value = colors.get(key).ok_or(format!("Missing {}", key))?;
+        Color::from_str(&format!("#{}", value))
+            .map_err(|e| format!("Invalid color for {}: {}", key, e).into())
+    }
+
     fn parse_theme_file(content: &str) -> Result<Theme, Box<dyn std::error::Error>> {
         let mut colors: HashMap<String, String> = HashMap::new();
 
@@ -165,73 +171,24 @@ impl ThemeLoader {
         }
 
         Ok(Theme {
-            background: Color::from_str(&format!(
-                "#{}",
-                colors.get("background").ok_or("Missing background")?
-            ))?,
-            background_secondary: Color::from_str(&format!(
-                "#{}",
-                colors
-                    .get("selection-background")
-                    .ok_or("Missing selection-background")?
-            ))?,
-            foreground: Color::from_str(&format!(
-                "#{}",
-                colors.get("foreground").ok_or("Missing foreground")?
-            ))?,
-            foreground_secondary: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette8").ok_or("Missing palette 8")?
-            ))?,
+            background: Self::parse_color(&colors, "background")?,
+            background_secondary: Self::parse_color(&colors, "selection-background")?,
+            foreground: Self::parse_color(&colors, "foreground")?,
+            foreground_secondary: Self::parse_color(&colors, "palette8")?,
 
-            cursor: Color::from_str(&format!(
-                "#{}",
-                colors.get("cursor-color").ok_or("Missing cursor-color")?
-            ))?,
-            cursor_text: Color::from_str(&format!(
-                "#{}",
-                colors.get("cursor-text").ok_or("Missing cursor-text")?
-            ))?,
-            selection: Color::from_str(&format!(
-                "#{}",
-                colors
-                    .get("selection-background")
-                    .ok_or("Missing selection-background")?
-            ))?,
-            border: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette8").ok_or("Missing palette 8")?
-            ))?,
+            cursor: Self::parse_color(&colors, "cursor-color")?,
+            cursor_text: Self::parse_color(&colors, "cursor-text")?,
+            selection: Self::parse_color(&colors, "selection-background")?,
+            border: Self::parse_color(&colors, "palette8")?,
 
-            error: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette1").ok_or("Missing palette 1")?
-            ))?,
-            success: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette2").ok_or("Missing palette 2")?
-            ))?,
-            warning: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette3").ok_or("Missing palette 3")?
-            ))?,
-            info: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette4").ok_or("Missing palette 4")?
-            ))?,
+            error: Self::parse_color(&colors, "palette1")?,
+            success: Self::parse_color(&colors, "palette2")?,
+            warning: Self::parse_color(&colors, "palette3")?,
+            info: Self::parse_color(&colors, "palette4")?,
 
-            accent: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette5").ok_or("Missing palette 5")?
-            ))?,
-            highlight: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette6").ok_or("Missing palette 6")?
-            ))?,
-            inactive: Color::from_str(&format!(
-                "#{}",
-                colors.get("palette8").ok_or("Missing palette 8")?
-            ))?,
+            accent: Self::parse_color(&colors, "palette5")?,
+            highlight: Self::parse_color(&colors, "palette6")?,
+            inactive: Self::parse_color(&colors, "palette8")?,
             color_support: ColorSupport::Extended,
         })
     }
