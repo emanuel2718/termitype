@@ -7,7 +7,7 @@ use crate::tracker::Status;
 
 use super::{components::*, layout::*};
 
-pub fn draw_ui(f: &mut Frame, termi: &Termi) {
+pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
     f.render_widget(
         Block::default().style(Style::default().bg(termi.theme.background)),
         f.area(),
@@ -28,16 +28,16 @@ pub fn draw_ui(f: &mut Frame, termi: &Termi) {
 
     match termi.tracker.status {
         Status::Typing => {
-            render_progress_info(f, termi, layout[5]);
-            render_typing_area(f, termi, layout[6]);
+            progress_info(f, termi, layout[4]);
+            typing_area(f, termi, layout[4]);
         }
-        Status::Completed => render_results_screen(f, termi, inner_area),
+        Status::Completed => results_screen(f, termi, inner_area),
         _ => {
-            render_title(f, termi, layout[1]);
-            render_top_bar(f, termi, layout[2]);
-            render_typing_area(f, termi, layout[6]);
-            render_command_bar(f, termi, layout[7]);
-            render_footer(f, termi, layout[8]);
+            title(f, termi, layout[1]);
+            top_bar(f, termi, layout[3]);
+            typing_area(f, termi, layout[4]);
+            command_bar(f, termi, layout[5]);
+            footer(f, termi, layout[6]);
         }
     }
 }

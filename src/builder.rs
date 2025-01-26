@@ -160,7 +160,7 @@ mod tests {
     fn test_word_uniqueness() {
         let mut builder = create_builder();
         let mut config = Config::default();
-        config.change_mode(crate::config::ModeType::Words, 10);
+        config.change_mode(crate::config::ModeType::Words, Some(10));
 
         let test = builder.generate_test(&config);
         let words: Vec<&str> = test.split_whitespace().collect();

@@ -8,9 +8,67 @@ use ratatui::{
 };
 
 use super::constants::{FOOTER_HEIGHT, HEADER_HEIGHT, VERTICAL_MARGIN};
-use crate::{config::Mode, constants::APPNAME, termi::Termi, theme::Theme, version::VERSION};
+use crate::{
+    config::{Mode, ModeType},
+    constants::APPNAME,
+    termi::Termi,
+    theme::Theme,
+    version::VERSION,
+};
 
-pub fn render_title(f: &mut Frame, termi: &Termi, area: Rect) {
+#[derive(Debug)]
+pub struct ClickableRegion {
+    pub area: Rect,
+    pub action: ClickAction,
+}
+
+#[derive(Debug, Clone)]
+pub enum ClickAction {
+    TogglePunctuation,
+    ToggleNumbers,
+    SwitchMode(ModeType),
+    SetModeValue(usize),
+}
+
+#[derive(Debug)]
+struct UIElement {
+    content: String,
+    width: u16,
+    is_active: bool,
+    action: Option<ClickAction>,
+}
+
+impl UIElement {
+    fn new(content: impl Into<String>, is_active: bool, action: Option<ClickAction>) -> Self {
+        let content = content.into();
+        let width = content.chars().count() as u16;
+        Self {
+            content,
+            width,
+            is_active,
+            action,
+        }
+    }
+
+    fn to_span(&self, theme: &Theme) -> Span<'static> {
+        Span::styled(
+            self.content.clone(),
+            Style::default()
+                .fg(if self.is_active {
+                    theme.highlight
+                } else {
+                    theme.inactive
+                })
+                .add_modifier(if self.is_active {
+                    Modifier::BOLD
+                } else {
+                    Modifier::empty()
+                }),
+        )
+    }
+}
+
+pub fn title(f: &mut Frame, termi: &Termi, area: Rect) {
     let title = Paragraph::new(APPNAME)
         .style(Style::default().fg(termi.theme.highlight))
         .add_modifier(Modifier::BOLD)
@@ -18,7 +76,7 @@ pub fn render_title(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(title, area);
 }
 
-pub fn render_progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
+pub fn progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
     let progress_text = match termi.config.current_mode() {
         Mode::Time { duration } => {
             if let Some(remaining) = termi.tracker.time_remaining {
@@ -50,7 +108,7 @@ pub fn render_progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(paragraph, area);
 }
 
-pub fn render_typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
+pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -60,156 +118,201 @@ pub fn render_typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
         ])
         .split(area);
 
-    let words = create_styled_words(termi);
-
-    let typing_area = Paragraph::new(words)
+    let typing_area = Paragraph::new(create_styled_text(termi))
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: false });
 
     f.render_widget(typing_area, layout[1]);
 }
 
-fn styled_span(theme: &Theme, text: &str, is_active: bool) -> Span<'static> {
-    Span::styled(
-        text.to_string(),
-        Style::default()
-            .fg(if is_active {
-                theme.highlight
-            } else {
-                theme.inactive
-            })
-            .add_modifier(if is_active {
-                Modifier::BOLD
-            } else {
-                Modifier::empty()
-            }),
-    )
-}
+// TODO: do we like this? hmmm
+pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
+    termi.clickable_regions.clear();
 
-pub fn render_top_bar(f: &mut Frame, termi: &Termi, area: Rect) {
-    let mut spans: Vec<Span> = Vec::new();
-
-    let separator = || {
-        Span::styled(
-            format!(" {} ", line::VERTICAL),
-            Style::default().fg(termi.theme.inactive),
-        )
-    };
-
-    // first group
-    spans.extend(vec![
-        styled_span(&termi.theme, "@ ", termi.config.use_punctuation),
-        styled_span(&termi.theme, "punctuation", termi.config.use_punctuation),
-        Span::raw(" "),
-        styled_span(&termi.theme, "# ", termi.config.use_numbers),
-        styled_span(&termi.theme, "numbers", termi.config.use_numbers),
-    ]);
-
-    spans.push(separator());
-
-    // second gropu
     let is_time_mode = matches!(termi.config.current_mode(), Mode::Time { .. });
-    let is_words_mode = matches!(termi.config.current_mode(), Mode::Words { .. });
-    spans.extend(vec![
-        styled_span(&termi.theme, "⏱ ", is_time_mode),
-        styled_span(&termi.theme, "time", is_time_mode),
-        Span::raw(" "),
-        styled_span(&termi.theme, "A ", is_words_mode),
-        styled_span(&termi.theme, "words", is_words_mode),
-    ]);
 
-    spans.push(separator());
+    let elements = vec![
+        UIElement::new(
+            "@ punctuation ",
+            termi.config.use_punctuation,
+            Some(ClickAction::TogglePunctuation),
+        ),
+        UIElement::new(
+            "# numbers ",
+            termi.config.use_numbers,
+            Some(ClickAction::ToggleNumbers),
+        ),
+        UIElement::new("│ ", false, None), // separator
+        UIElement::new(
+            "⏱ time ",
+            is_time_mode,
+            Some(ClickAction::SwitchMode(ModeType::Time)),
+        ),
+        UIElement::new(
+            "A words ",
+            !is_time_mode,
+            Some(ClickAction::SwitchMode(ModeType::Words)),
+        ),
+        UIElement::new("│ ", false, None), // separator
+        UIElement::new(
+            format!("{} ", if is_time_mode { "15" } else { "10" }),
+            termi.config.current_mode().value() == if is_time_mode { 15 } else { 10 },
+            Some(ClickAction::SetModeValue(if is_time_mode {
+                15
+            } else {
+                10
+            })),
+        ),
+        UIElement::new(
+            format!("{} ", if is_time_mode { "30" } else { "25" }),
+            termi.config.current_mode().value() == if is_time_mode { 30 } else { 25 },
+            Some(ClickAction::SetModeValue(if is_time_mode {
+                30
+            } else {
+                25
+            })),
+        ),
+        UIElement::new(
+            format!("{} ", if is_time_mode { "60" } else { "50" }),
+            termi.config.current_mode().value() == if is_time_mode { 60 } else { 50 },
+            Some(ClickAction::SetModeValue(if is_time_mode {
+                60
+            } else {
+                50
+            })),
+        ),
+        UIElement::new(
+            format!("{} ", if is_time_mode { "120" } else { "100" }),
+            termi.config.current_mode().value() == if is_time_mode { 120 } else { 100 },
+            Some(ClickAction::SetModeValue(if is_time_mode {
+                120
+            } else {
+                100
+            })),
+        ),
+    ];
 
-    // third group
-    let modes = match is_time_mode {
-        true => vec![15, 30, 60, 120],
-        false => vec![10, 25, 50, 100],
-    };
-    let current_value = termi.config.current_mode().value();
-    for mode in modes {
-        spans.push(styled_span(
-            &termi.theme,
-            &format!("{} ", mode),
-            mode == current_value,
-        ));
+    let total_width: u16 = elements.iter().map(|e| e.width).sum();
+    let start_x = area.x + (area.width.saturating_sub(total_width)) / 2;
+
+    let mut current_x = start_x;
+    let mut spans = Vec::new();
+
+    for element in &elements {
+        spans.push(element.to_span(&termi.theme));
+
+        if let Some(action) = &element.action {
+            termi.clickable_regions.push(ClickableRegion {
+                area: Rect {
+                    x: current_x,
+                    y: area.y,
+                    width: element.width,
+                    height: 1,
+                },
+                action: action.clone(),
+            });
+        }
+
+        current_x += element.width;
     }
 
     let paragraph = Paragraph::new(Line::from(spans)).alignment(Alignment::Center);
     f.render_widget(paragraph, area);
 }
 
-pub fn render_command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
-    let spans = vec![
-        Span::styled(
-            "tab",
-            Style::default()
-                .fg(termi.theme.inactive)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" + ", Style::default().fg(termi.theme.inactive)),
-        Span::styled(
-            "enter",
-            Style::default()
-                .fg(termi.theme.inactive)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
-            " - restart test   ",
-            Style::default().fg(termi.theme.inactive),
-        ),
-        Span::styled(
-            "esc",
-            Style::default()
-                .fg(termi.theme.inactive)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" - command line", Style::default().fg(termi.theme.inactive)),
+// TODO: this could be simplified I think
+pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
+    fn styled_span(content: &str, is_key: bool, theme: &Theme) -> Span<'static> {
+        let mut style = Style::default().fg(theme.inactive);
+        if is_key {
+            style = style.fg(theme.background).bg(theme.foreground);
+            return Span::styled(format!(" {} ", content), style.add_modifier(Modifier::BOLD));
+        }
+
+        Span::styled(content.to_string(), style)
+    }
+
+    let command_groups = vec![
+        vec![vec![("", false)]], // spacing
+        vec![
+            vec![
+                ("tab", true),
+                (" + ", false),
+                ("enter", true),
+                (" - restart test", false),
+            ],
+            vec![("esc", true), (" - menu", false)],
+        ],
+        vec![vec![("", false)]], // spacing
+        vec![vec![
+            ("ctrl", true),
+            (" + ", false),
+            ("c", true),
+            (" or ", false),
+            ("ctrl", true),
+            (" + ", false),
+            ("z", true),
+            (" - to quit", false),
+        ]],
     ];
 
-    let paragraph = Paragraph::new(Line::from(spans)).alignment(Alignment::Center);
-
-    f.render_widget(paragraph, area);
-}
-
-pub fn render_footer(f: &mut Frame, termi: &Termi, area: Rect) {
-    let footer_items = vec!["github/emanuel2718"];
-
-    let spans: Vec<Span> = footer_items
+    let lines: Vec<Line> = command_groups
         .iter()
-        .map(|&item| {
-            vec![
-                Span::styled(item, Style::default().fg(termi.theme.inactive)),
-                Span::raw(" "),
-            ]
+        .map(|line_groups| {
+            let spans: Vec<Span> = line_groups
+                .iter()
+                .enumerate()
+                .flat_map(|(i, group)| {
+                    let mut group_spans: Vec<Span> = group
+                        .iter()
+                        .map(|&(text, is_key)| styled_span(text, is_key, &termi.theme))
+                        .collect();
+
+                    if i < line_groups.len() - 1 {
+                        group_spans.push(styled_span("   ", false, &termi.theme));
+                    }
+
+                    group_spans
+                })
+                .collect();
+
+            Line::from(spans)
         })
-        .flatten()
         .collect();
 
-    let version = format!("{}", VERSION);
-    let mut all_spans = spans;
-    all_spans.extend(vec![
-        Span::raw("    "),
-        // theme
+    f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
+}
+
+pub fn footer(f: &mut Frame, termi: &Termi, area: Rect) {
+    let spans = vec![
         Span::styled(
-            termi.theme.identifier.clone(), // NOTE: this is not good
+            "github/emanuel2718",
             Style::default().fg(termi.theme.inactive),
         ),
         Span::raw("    "),
-        // version
+        Span::styled(
+            termi.theme.identifier.clone(),
+            Style::default().fg(termi.theme.inactive),
+        ),
+        Span::raw("    "),
         Span::styled(
             line::DOUBLE_VERTICAL_RIGHT,
             Style::default().fg(termi.theme.inactive),
         ),
         Span::raw(" "),
-        Span::styled(version, Style::default().fg(termi.theme.inactive)),
-    ]);
+        Span::styled(
+            VERSION.to_string(),
+            Style::default().fg(termi.theme.inactive),
+        ),
+    ];
 
-    let paragraph = Paragraph::new(Line::from(all_spans)).alignment(Alignment::Center);
-
-    f.render_widget(paragraph, area);
+    f.render_widget(
+        Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
+        area,
+    );
 }
 
-pub fn render_results_screen(f: &mut Frame, termi: &Termi, area: Rect) {
+pub fn results_screen(f: &mut Frame, termi: &Termi, area: Rect) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -221,73 +324,60 @@ pub fn render_results_screen(f: &mut Frame, termi: &Termi, area: Rect) {
         ])
         .split(area);
 
-    render_title(f, termi, layout[1]);
-
-    let results = create_results_widget(termi);
-    f.render_widget(results, layout[2]);
-
-    render_footer(f, termi, layout[3]);
+    title(f, termi, layout[1]);
+    f.render_widget(create_results_widget(termi), layout[2]);
+    footer(f, termi, layout[3]);
 }
 
 fn create_results_widget(termi: &Termi) -> Paragraph<'static> {
-    let completion_time = termi.tracker.completion_time.unwrap_or(0.0);
-    let content_lines = vec![
-        Line::from(vec![
-            Span::raw("wpm: ").fg(termi.theme.inactive),
-            Span::styled(
-                format!("{:.0}", termi.tracker.wpm),
-                Style::default().fg(termi.theme.highlight),
-            ),
-        ]),
-        Line::from(vec![
-            Span::raw("acc: ").fg(termi.theme.inactive),
-            Span::styled(
-                format!("{}%", termi.tracker.accuracy),
-                Style::default().fg(termi.theme.highlight),
-            ),
-        ]),
-        Line::from(vec![
-            Span::raw("time: ").fg(termi.theme.inactive),
-            Span::styled(
-                format!("{:.1}s", completion_time),
-                Style::default().fg(termi.theme.highlight),
-            ),
-        ]),
+    let results = vec![
+        ("wpm", format!("{:.0}", termi.tracker.wpm)),
+        ("acc", format!("{}%", termi.tracker.accuracy)),
+        (
+            "time",
+            format!("{:.1}s", termi.tracker.completion_time.unwrap_or(0.0)),
+        ),
     ];
+
+    let content_lines: Vec<Line> = results
+        .into_iter()
+        .map(|(label, value)| {
+            Line::from(vec![
+                Span::raw(format!("{}: ", label)).fg(termi.theme.inactive),
+                Span::styled(value, Style::default().fg(termi.theme.highlight)),
+            ])
+        })
+        .collect();
 
     Paragraph::new(content_lines)
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: true })
 }
 
-fn create_styled_words(termi: &Termi) -> Text<'static> {
-    let words = &termi.words;
-    let cursor_pos = termi.tracker.cursor_position;
-    let target_chars: Vec<char> = words.chars().collect();
+fn create_styled_text(termi: &Termi) -> Text<'static> {
+    let target_chars: Vec<char> = termi.words.chars().collect();
 
     let spans: Vec<Span> = target_chars
         .iter()
         .enumerate()
-        .map(|(i, &char)| style_character(termi, i, char, cursor_pos))
+        .map(|(i, &c)| {
+            let style = match termi.tracker.user_input.get(i).copied().flatten() {
+                Some(input) if input == c => Style::default().fg(termi.theme.success),
+                Some(_) => Style::default().fg(termi.theme.error),
+                None => Style::default()
+                    .fg(termi.theme.inactive)
+                    .add_modifier(Modifier::DIM),
+            };
+
+            let style = if i == termi.tracker.cursor_position {
+                style.add_modifier(Modifier::UNDERLINED)
+            } else {
+                style
+            };
+
+            Span::styled(c.to_string(), style)
+        })
         .collect();
 
     Text::from(Line::from(spans))
-}
-
-fn style_character(termi: &Termi, index: usize, char: char, cursor_pos: usize) -> Span<'static> {
-    let base_style = match termi.tracker.user_input.get(index).copied().flatten() {
-        Some(input_char) if input_char == char => Style::default().fg(termi.theme.success),
-        Some(_) => Style::default().fg(termi.theme.error),
-        None => Style::default()
-            .fg(termi.theme.inactive)
-            .add_modifier(Modifier::DIM),
-    };
-
-    let style = if index == cursor_pos {
-        base_style.add_modifier(Modifier::UNDERLINED)
-    } else {
-        base_style
-    };
-
-    Span::styled(char.to_string(), style)
 }
