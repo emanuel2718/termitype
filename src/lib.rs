@@ -23,6 +23,11 @@ pub mod version;
 pub fn run() -> Result<()> {
     let config = Config::try_parse()?;
 
+    // NOTE: there should be a better way to do this
+    if should_print_to_console(&config) {
+        return Ok(());
+    }
+
     terminal::enable_raw_mode()?;
 
     let mut stdout = io::stdout();
@@ -41,4 +46,12 @@ pub fn run() -> Result<()> {
     )?;
     terminal.show_cursor()?;
     result
+}
+
+fn should_print_to_console(config: &Config) -> bool {
+    if config.list_themes {
+        theme::print_theme_list();
+        return true;
+    }
+    false
 }

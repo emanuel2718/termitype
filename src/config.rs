@@ -1,6 +1,6 @@
 use clap::{ArgGroup, Parser};
 
-use crate::constants::DEFAULT_LANGUAGE;
+use crate::constants::{DEFAULT_LANGUAGE, DEFAULT_THEME};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "Termitype", about = "Terminal based typing game")]
@@ -23,24 +23,28 @@ pub struct Config {
     #[arg(short = 'w', long = "words", group = "mode")]
     pub words: Option<usize>,
 
+    /// Sets the theme if a valid theme is given, ignored otherwise
+    #[arg(short = 'T', long = "theme")]
+    pub theme: Option<String>,
+
+    /// Lists the available themes
+    #[arg(short = 'L', long = "list-themes")]
+    pub list_themes: bool,
+
     /// Introduces symbols to the test words.
-    #[arg(short = 's', long = "use-symbols", value_name = "SYMBOLS")]
+    #[arg(short = 's', long = "use-symbols")]
     pub use_symbols: bool,
 
     /// Introduces punctuation to the test words.
-    #[arg(short = 'p', long = "use-punctuation", value_name = "PUNCTUATION")]
+    #[arg(short = 'p', long = "use-punctuation")]
     pub use_punctuation: bool,
 
     /// Introduces numbers to the test words
-    #[arg(short = 'n', long = "use-numbers", value_name = "NUMBERS")]
+    #[arg(short = 'n', long = "use-numbers")]
     pub use_numbers: bool,
 
-    /// Sets the theme if a valid theme is given, ignored otherwise
-    #[arg(long = "theme", value_name = "THEME")]
-    pub use_theme: Option<String>,
-
     /// Enable debug mode
-    #[arg(long = "debug", value_name = "DEBUG")]
+    #[arg(short = 'd', long = "debug")]
     pub debug: bool,
 }
 
@@ -76,7 +80,8 @@ impl Config {
             use_symbols: false,
             use_numbers: false,
             use_punctuation: false,
-            use_theme: None,
+            theme: Some(DEFAULT_THEME.to_string()),
+            list_themes: false,
             debug: false,
         }
     }

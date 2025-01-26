@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::{
+    config::Mode,
     constants::{APPNAME, WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT},
     termi::Termi,
     tracker::Status,
@@ -85,10 +86,19 @@ fn render_widgets(f: &mut Frame, termi: &Termi, layout_areas: &[Rect]) {
 }
 
 fn header_widget(termi: &Termi) -> Paragraph {
+    let mode = termi.config.current_mode();
+    let (mode_type, value) = match mode {
+        Mode::Time { .. } => (
+            "Time",
+            termi.tracker.time_remaining.unwrap().as_secs().to_string(),
+        ),
+        Mode::Words { .. } => ("Words", mode.value().to_string()),
+    };
     Paragraph::new(Text::raw(format!(
-        "Mode: {} | Time: {:.0?} | WPM: {:.0} | Status: {:?}",
+        "Mode: {} | {}: {:.0?} | WPM: {:.0} | Status: {:?}",
         termi.config.current_mode().value(),
-        termi.tracker.time_remaining.unwrap().as_secs(),
+        mode_type,
+        value,
         termi.tracker.wpm,
         termi.tracker.status
     )))
