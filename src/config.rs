@@ -99,18 +99,27 @@ impl Config {
     }
 
     /// Changes the mode of the game.
-    pub fn change_mode(&mut self, mode: ModeType, value: usize) {
+    pub fn change_mode(&mut self, mode: ModeType, value: Option<usize>) {
         match mode {
             ModeType::Time => {
-                self.time = Some(value as u64);
+                self.time = Some(value.unwrap_or(30) as u64);
                 self.words = None;
             }
             ModeType::Words => {
-                self.words = Some(value);
+                self.words = Some(value.unwrap_or(100));
                 self.time = None;
             }
         }
     }
+
+    /// Changes the value of the current mode.
+    pub fn change_mode_value(&mut self, value: usize) {
+        match self.current_mode() {
+            Mode::Time { .. } => self.time = Some(value as u64),
+            Mode::Words { .. } => self.words = Some(value),
+        }
+    }
+
 
     /// Resolves the test word count based on current configuration.
     pub fn resolve_word_count(&self) -> usize {
@@ -142,6 +151,8 @@ impl Config {
     pub fn toggle_symbols(&mut self) {
         self.use_symbols = !self.use_symbols;
     }
+
+
 }
 
 #[cfg(test)]
@@ -182,11 +193,11 @@ mod tests {
         let mut config = create_config();
 
         // modes
-        config.change_mode(ModeType::Time, 30);
+        config.change_mode(ModeType::Time, Some(30));
         assert!(config.words.is_none());
         assert_mode(&config, ModeType::Time, 30);
 
-        config.change_mode(ModeType::Words, 50);
+        config.change_mode(ModeType::Words, Some(50));
         assert!(config.time.is_none());
         assert_mode(&config, ModeType::Words, 50);
 
@@ -200,9 +211,9 @@ mod tests {
         assert!(config.use_punctuation);
 
         // resolvers
-        config.change_mode(ModeType::Time, 45);
+        config.change_mode(ModeType::Time, Some(45));
         assert_eq!(config.resolve_duration(), 45);
-        config.change_mode(ModeType::Words, 75);
+        config.change_mode(ModeType::Words, Some(75));
         assert_eq!(config.resolve_word_count(), 75);
     }
 }
