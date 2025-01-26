@@ -1,2 +1,5 @@
 /target
 .direnv/*
+/assets/themes/*
+!/assets/themes/.gitkeep
+
