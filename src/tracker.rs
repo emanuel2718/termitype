@@ -119,7 +119,6 @@ impl Tracker {
         self.register_keystroke(is_correct);
         self.user_input.push(Some(c));
         self.cursor_position += 1;
-        self.update_metrics();
         self.check_completion();
         true
     }
@@ -279,10 +278,13 @@ mod tests {
         assert!(tracker.time_started.is_some());
 
         assert!(tracker.type_char('h'));
+        // NOTE: we need to artifially call `update_metrics` as it is only called on every tick.
+        tracker.update_metrics();
         assert_eq!(tracker.accuracy, 100);
         assert_eq!(tracker.cursor_position, 1);
 
         assert!(tracker.type_char('x'));
+        tracker.update_metrics();
         assert_eq!(tracker.accuracy, 50);
         assert_eq!(tracker.cursor_position, 2);
 
