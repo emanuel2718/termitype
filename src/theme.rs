@@ -29,6 +29,77 @@ pub struct Theme {
     pub accent: Color,
     pub highlight: Color,
     pub inactive: Color,
+
+    pub color_support: ColorSupport,
+}
+
+/// Represents the terminal's color support capabilities
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum ColorSupport {
+    /// Basic ANSI colors (8 colors)
+    Basic = 4,
+    /// Extended color palette (256 colors)
+    Extended = 8,
+    /// Full RGB/True Color support (16.7 million colors)
+    TrueColor = 24,
+}
+
+impl ColorSupport {
+    pub fn supports_themes(self) -> bool {
+        self >= ColorSupport::Extended
+    }
+}
+
+impl Theme {
+    pub fn new(config: &Config) -> Self {
+        let color_support = Self::detect_color_support();
+
+        // No theme support. Get a better terminal m8
+        if !color_support.supports_themes() {
+            return Self::fallback_theme();
+        }
+        let mut loader = ThemeLoader::init();
+        let theme_name = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
+        loader.get_theme(theme_name).unwrap_or_else(|_| {
+            loader
+                .get_theme(DEFAULT_THEME)
+                .expect("Default theme must exist")
+        })
+    }
+
+    /// Detects the terminal's color support level
+    fn detect_color_support() -> ColorSupport {
+        if let Ok(colors) = std::env::var("COLORTERM") {
+            match colors.as_str() {
+                "truecolor" | "24bit" => ColorSupport::TrueColor,
+                "256color" => ColorSupport::Extended,
+                _ => ColorSupport::Basic,
+            }
+        } else {
+            ColorSupport::Basic
+        }
+    }
+
+    fn fallback_theme() -> Self {
+        Self {
+            background: Color::Black,
+            background_secondary: Color::Black,
+            foreground: Color::White,
+            foreground_secondary: Color::White,
+            cursor: Color::White,
+            cursor_text: Color::Black,
+            selection: Color::White,
+            border: Color::White,
+            error: Color::Red,
+            success: Color::Green,
+            warning: Color::Yellow,
+            info: Color::Blue,
+            accent: Color::Magenta,
+            highlight: Color::Cyan,
+            inactive: Color::DarkGray,
+            color_support: ColorSupport::Basic,
+        }
+    }
 }
 
 impl ThemeLoader {
@@ -161,6 +232,7 @@ impl ThemeLoader {
                 "#{}",
                 colors.get("palette8").ok_or("Missing palette 8")?
             ))?,
+            color_support: ColorSupport::Extended,
         })
     }
 }
@@ -187,25 +259,13 @@ pub fn available_themes() -> &'static [String] {
     })
 }
 
-impl Theme {
-    pub fn new(config: &Config) -> Self {
-        let mut loader = ThemeLoader::init();
-        let theme_name = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
-        loader.get_theme(theme_name).unwrap_or_else(|_| {
-            loader
-                .get_theme(DEFAULT_THEME)
-                .expect("Default theme must exist")
-        })
-    }
-}
-
 pub fn print_theme_list() {
     let mut themes: Vec<String> = available_themes().to_vec();
     themes.sort();
 
     println!("\n{} Available Themes ({}):", "•", themes.len());
     println!("{}", "─".repeat(40));
-    
+
     for theme in themes {
         let is_default = theme == DEFAULT_THEME;
         let theme_name = if is_default {
@@ -227,6 +287,7 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+    use std::env;
 
     fn create_test_theme(dir: &TempDir, name: &str, content: &str) {
         let theme_dir = dir.path().join("assets").join("themes");
@@ -252,7 +313,7 @@ mod tests {
         "#;
 
         let theme = ThemeLoader::parse_theme_file(content).unwrap();
-        
+
         assert_eq!(theme.background, Color::Rgb(0, 0, 0));
         assert_eq!(theme.foreground, Color::Rgb(255, 255, 255));
         assert_eq!(theme.cursor, Color::Rgb(204, 204, 204));
@@ -280,8 +341,10 @@ mod tests {
 
         create_test_theme(&temp_dir, "test_theme", test_theme_content);
 
-        let mut loader = ThemeLoader { themes: HashMap::new() };
-        let result = loader.load_theme("test_theme"); 
+        let mut loader = ThemeLoader {
+            themes: HashMap::new(),
+        };
+        let result = loader.load_theme("test_theme");
         assert!(result.is_err()); // should fail because wer not using the real assets dir
     }
 
@@ -325,5 +388,47 @@ mod tests {
 
         let result = ThemeLoader::parse_theme_file(content);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_color_support_comparison() {
+        assert!(ColorSupport::TrueColor > ColorSupport::Extended);
+        assert!(ColorSupport::Extended > ColorSupport::Basic);
+        assert!(ColorSupport::TrueColor > ColorSupport::Basic);
+    }
+
+    #[test]
+    fn test_supports_themes() {
+        assert_eq!(ColorSupport::Basic.supports_themes(), false);
+        assert_eq!(ColorSupport::Extended.supports_themes(), true);
+        assert_eq!(ColorSupport::TrueColor.supports_themes(), true);
+    }
+
+    #[test]
+    fn test_detect_color_support() {
+        env::set_var("COLORTERM", "truecolor");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::TrueColor);
+
+        env::set_var("COLORTERM", "24bit");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::TrueColor);
+
+        env::set_var("COLORTERM", "256color");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::Extended);
+
+        // fallback
+        env::set_var("COLORTERM", "other");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::Basic);
+
+        // no $COLORTERM found
+        env::remove_var("COLORTERM");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::Basic);
+    }
+
+    #[test]
+    fn test_fallback_theme() {
+        let theme = Theme::fallback_theme();
+        assert_eq!(theme.color_support, ColorSupport::Basic);
+        assert_eq!(theme.background, Color::Black);
+        assert_eq!(theme.foreground, Color::White);
     }
 }
