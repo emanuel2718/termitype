@@ -14,6 +14,7 @@ pub mod builder;
 pub mod config;
 pub mod constants;
 pub mod input;
+pub mod menu;
 pub mod termi;
 pub mod theme;
 pub mod tracker;
