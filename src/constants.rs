@@ -9,7 +9,8 @@ pub const WINDOW_HEIGHT_PERCENT: u16 = 90;
 pub const MIN_WIDTH: u16 = 40;
 pub const MIN_HEIGHT: u16 = 10;
 
-pub const TOP_BAR_HEIGHT: u16 = 1;
+pub const TOP_BAR_HEIGHT: u16 = 8;
+pub const MODE_BAR_OFFSET: u16 = 2;
 pub const COMMAND_BAR_HEIGHT: u16 = 4;
 pub const FOOTER_HEIGHT: u16 = 1;
 
