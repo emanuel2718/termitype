@@ -7,10 +7,9 @@ use ratatui::{
     Frame,
 };
 
-use super::constants::{FOOTER_HEIGHT, HEADER_HEIGHT, VERTICAL_MARGIN};
 use crate::{
     config::{Mode, ModeType},
-    constants::APPNAME,
+    constants::{APPNAME, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_TYPING_HEIGHT},
     termi::Termi,
     theme::Theme,
     version::VERSION,
@@ -316,17 +315,17 @@ pub fn results_screen(f: &mut Frame, termi: &Termi, area: Rect) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(VERTICAL_MARGIN),
-            Constraint::Length(HEADER_HEIGHT),
-            Constraint::Min(1),
-            Constraint::Length(FOOTER_HEIGHT),
-            Constraint::Length(VERTICAL_MARGIN),
+            Constraint::Min(1),                      // space
+            Constraint::Min(MIN_TYPING_HEIGHT),      // results
+            Constraint::Min(1),                      // space
+            Constraint::Length(COMMAND_BAR_HEIGHT),  // command bar
+            Constraint::Length(FOOTER_HEIGHT),       // footer
         ])
         .split(area);
 
-    title(f, termi, layout[1]);
-    f.render_widget(create_results_widget(termi), layout[2]);
-    footer(f, termi, layout[3]);
+    f.render_widget(create_results_widget(termi), layout[1]);
+    command_bar(f, termi, layout[3]);
+    footer(f, termi, layout[4]);
 }
 
 fn create_results_widget(termi: &Termi) -> Paragraph<'static> {

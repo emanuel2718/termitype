@@ -81,6 +81,7 @@ impl Theme {
         }
     }
 
+    // TODO: figure out why this looks horrible on ghostty on my work machine
     fn fallback_theme() -> Self {
         Self {
             identifier: "Default".to_string(),
@@ -109,9 +110,9 @@ impl ThemeLoader {
         let mut loader = Self {
             themes: HashMap::new(),
         };
-        loader
-            .load_theme(DEFAULT_THEME)
-            .expect("Default theme must exist");
+        if let Err(_) = loader.load_theme(DEFAULT_THEME) {
+            loader.themes.insert(DEFAULT_THEME.to_string(), Theme::fallback_theme());
+        }
         loader
     }
 
@@ -141,7 +142,9 @@ impl ThemeLoader {
     /// Get a theme by name, loading it if necessary
     pub fn get_theme(&mut self, theme_name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
         if !self.themes.contains_key(theme_name) {
-            self.load_theme(theme_name)?;
+            if let Err(_) = self.load_theme(theme_name) {
+                return Ok(Theme::fallback_theme());
+            }
         }
         Ok(self.themes.get(theme_name).unwrap().clone())
     }
