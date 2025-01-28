@@ -40,8 +40,8 @@ impl InputHandler {
         }
 
         match (key.code, key.modifiers) {
-            (KeyCode::Char('k'), _) if is_menu_visible => Action::MenuUp,
-            (KeyCode::Char('j'), _) if is_menu_visible => Action::MenuDown,
+            (KeyCode::Char('k'), _) | (KeyCode::Up, _) if is_menu_visible => Action::MenuUp,
+            (KeyCode::Char('j'), _) | (KeyCode::Down, _) if is_menu_visible => Action::MenuDown,
             (KeyCode::Char(' '), _) if is_menu_visible => Action::MenuToggle,
             (KeyCode::Char(c), _) => Action::TypeCharacter(c),
             (KeyCode::Enter, _) if is_menu_visible => Action::MenuSelect,

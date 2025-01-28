@@ -1,7 +1,6 @@
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::Modifier;
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Borders, Clear, List, ListItem};
+use ratatui::widgets::{Borders, Clear, List, ListItem, Paragraph};
 use ratatui::{style::Style, widgets::Block, Frame};
 
 use crate::menu::Menu;
@@ -59,7 +58,7 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
 
     let menu_area = {
         let width = 30u16;
-        let height = (menu.items.len() + 2) as u16;
+        let height = (menu.items.len() + 4) as u16;
 
         Rect {
             x: area.x + (area.width.saturating_sub(width)) / 2,
@@ -69,10 +68,21 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
         }
     };
 
+    let menu_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Min(1),
+            Constraint::Length(2),
+        ])
+        .split(menu_area);
+
     let background = Block::default()
         .style(Style::default().bg(termi.theme.background))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(termi.theme.border));
+        .border_style(Style::default().fg(termi.theme.border))
+        .title("Menu")
+        .title_alignment(Alignment::Center);
 
     let items: Vec<ListItem> = menu
         .items
@@ -82,35 +92,54 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
             let content = Menu::get_display_text(item);
             let is_selected = i == menu.selected;
 
-            let base_style = if menu.is_toggleable(item) {
+            let text_color = if menu.is_toggleable(item) {
                 if menu.is_toggle_active(item, termi) {
-                    Style::default().fg(termi.theme.foreground)
+                    termi.theme.success
                 } else {
-                    Style::default().fg(termi.theme.inactive)
+                    termi.theme.inactive
                 }
             } else {
-                Style::default().fg(termi.theme.foreground)
+                termi.theme.foreground
             };
 
-            let style = if is_selected {
-                base_style
-                    .bg(termi.theme.selection)
-                    .add_modifier(Modifier::BOLD)
+            let style = Style::default().fg(text_color).bg(if is_selected {
+                termi.theme.selection
             } else {
-                base_style.bg(termi.theme.background)
-            };
+                termi.theme.background
+            });
 
-            ListItem::new(Line::from(vec![Span::styled(
-                format!(" {} ", content),
-                style,
-            )]))
+            ListItem::new(Line::from(vec![
+                Span::styled(
+                    if is_selected { ">" } else { " " },
+                    Style::default().fg(termi.theme.highlight),
+                ),
+                Span::raw(" "),
+                Span::styled(content, style),
+            ]))
         })
         .collect();
 
-    let menu_widget = List::new(items)
-        .block(background)
-        .style(Style::default().bg(termi.theme.background));
+    let footer_text = vec![
+        Line::from(vec![
+            Span::styled("↑/k", Style::default().fg(termi.theme.highlight)),
+            Span::styled(" up   ", Style::default().fg(termi.theme.inactive)),
+            Span::styled("↓/j", Style::default().fg(termi.theme.highlight)),
+            Span::styled(" down", Style::default().fg(termi.theme.inactive)),
+        ]),
+        Line::from(vec![
+            Span::styled("enter", Style::default().fg(termi.theme.highlight)),
+            Span::styled(" select   ", Style::default().fg(termi.theme.inactive)),
+            Span::styled("esc", Style::default().fg(termi.theme.highlight)),
+            Span::styled(" close", Style::default().fg(termi.theme.inactive)),
+        ]),
+    ];
+
+    let footer = Paragraph::new(footer_text).alignment(Alignment::Center);
+
+    let menu_widget = List::new(items).style(Style::default().bg(termi.theme.background));
 
     f.render_widget(Clear, menu_area);
-    f.render_widget(menu_widget, menu_area);
+    f.render_widget(background, menu_area);
+    f.render_widget(menu_widget, menu_layout[1]);
+    f.render_widget(footer, menu_layout[2]);
 }
