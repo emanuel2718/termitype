@@ -227,7 +227,7 @@ pub fn available_themes() -> &'static [String] {
 
 pub fn print_theme_list() {
     let mut themes: Vec<String> = available_themes().to_vec();
-    themes.sort();
+    themes.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
 
     println!("\n{} Available Themes ({}):", "•", themes.len());
     println!("{}", "─".repeat(40));

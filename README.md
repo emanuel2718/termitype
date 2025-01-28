@@ -3,6 +3,8 @@
 
 ### TODO
 
+- [ ] only have three lines or less of text showing at a time. They should scrolloff when the
+user gets to a new line.
 - [x] tracker for all the metrics
   - wpm (normal/raw)
   - accuracy
@@ -12,7 +14,7 @@
   - wrong/total keystrokes
 - [x] toggle mode/punctuation/numbers/symbols at runtime
 - [x] click actions
-- [ ] menu
+- [x] menu
 - [ ] themes
   - [x] `termitype --list-themes`
   - [x] `termitype --theme tokyonight`

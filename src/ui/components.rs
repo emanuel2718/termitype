@@ -117,7 +117,7 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
         ])
         .split(area);
 
-    let typing_area = Paragraph::new(create_styled_text(termi))
+    let typing_area = Paragraph::new(text(termi))
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: false });
 
@@ -315,11 +315,11 @@ pub fn results_screen(f: &mut Frame, termi: &Termi, area: Rect) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(1),                      // space
-            Constraint::Min(MIN_TYPING_HEIGHT),      // results
-            Constraint::Min(1),                      // space
-            Constraint::Length(COMMAND_BAR_HEIGHT),  // command bar
-            Constraint::Length(FOOTER_HEIGHT),       // footer
+            Constraint::Min(1),                     // space
+            Constraint::Min(MIN_TYPING_HEIGHT),     // results
+            Constraint::Min(1),                     // space
+            Constraint::Length(COMMAND_BAR_HEIGHT), // command bar
+            Constraint::Length(FOOTER_HEIGHT),      // footer
         ])
         .split(area);
 
@@ -353,14 +353,14 @@ fn create_results_widget(termi: &Termi) -> Paragraph<'static> {
         .wrap(Wrap { trim: true })
 }
 
-fn create_styled_text(termi: &Termi) -> Text<'static> {
+fn text(termi: &Termi) -> Text<'static> {
     let target_chars: Vec<char> = termi.words.chars().collect();
 
     let spans: Vec<Span> = target_chars
         .iter()
         .enumerate()
         .map(|(i, &c)| {
-            let style = match termi.tracker.user_input.get(i).copied().flatten() {
+            let mut style = match termi.tracker.user_input.get(i).copied().flatten() {
                 Some(input) if input == c => Style::default().fg(termi.theme.success),
                 Some(_) => Style::default().fg(termi.theme.error),
                 None => Style::default()
@@ -368,11 +368,9 @@ fn create_styled_text(termi: &Termi) -> Text<'static> {
                     .add_modifier(Modifier::DIM),
             };
 
-            let style = if i == termi.tracker.cursor_position {
-                style.add_modifier(Modifier::UNDERLINED)
-            } else {
-                style
-            };
+            if i == termi.tracker.cursor_position {
+                style = style.fg(termi.theme.cursor_text).bg(termi.theme.cursor)
+            }
 
             Span::styled(c.to_string(), style)
         })
