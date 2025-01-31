@@ -1,15 +1,20 @@
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use crossterm::event::{self, Event, MouseEvent, MouseEventKind, MouseButton};
+use crossterm::event::{self, Event, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{prelude::Backend, Terminal};
 
 use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
+    menu::Menu,
     theme::Theme,
-    tracker::Tracker, ui::{components::{ClickAction, ClickableRegion}, draw_ui},
+    tracker::Tracker,
+    ui::{
+        components::{ClickAction, ClickableRegion},
+        draw_ui,
+    },
 };
 
 #[derive(Debug)]
@@ -19,6 +24,7 @@ pub struct Termi {
     pub theme: Theme,
     pub builder: Builder,
     pub words: String,
+    pub menu: Menu,
     pub clickable_regions: Vec<ClickableRegion>,
 }
 
@@ -34,15 +40,16 @@ impl Termi {
             theme,
             builder,
             words,
+            menu: Menu::default(),
             clickable_regions: Vec::new(),
         }
     }
     pub fn handle_click(&mut self, x: u16, y: u16) {
         for region in &self.clickable_regions {
-            if x >= region.area.x 
+            if x >= region.area.x
                 && x < region.area.x + region.area.width
-                && y >= region.area.y 
-                && y < region.area.y + region.area.height 
+                && y >= region.area.y
+                && y < region.area.y + region.area.height
             {
                 match region.action {
                     ClickAction::TogglePunctuation => self.config.toggle_punctuation(),
@@ -57,7 +64,10 @@ impl Termi {
     }
 
     pub fn start(&mut self) {
+        let menu = self.menu.clone();
         *self = Termi::new(&self.config);
+        self.menu = menu; // restore menu state
+        // TODO: eventually we would want to restore previous state. (themes come to mind)
     }
 }
 
@@ -77,11 +87,14 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
         if crossterm::event::poll(timeout)? {
             match event::read()? {
                 Event::Key(key) => {
-                    let action = input_handler.handle_input(key);
+                    let action = input_handler.handle_input(key, termi.menu.visible);
                     if action == Action::Quit {
                         break;
                     }
-                    process_action(action, &mut termi);
+                    let action = process_action(action, &mut termi);
+                    if action == Action::Quit {
+                        break;
+                    }
                 }
                 Event::Mouse(MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),

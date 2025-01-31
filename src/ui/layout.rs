@@ -1,8 +1,10 @@
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use std::rc::Rc;
 
-use crate::constants::{COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_HEIGHT, MIN_TYPING_HEIGHT, MIN_WIDTH, TYPING_AREA_WIDTH_PERCENT};
-
+use crate::constants::{
+    COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_HEIGHT, MIN_TYPING_HEIGHT, MIN_WIDTH, MODE_BAR_OFFSET,
+    TOP_BAR_HEIGHT, TYPING_AREA_WIDTH_PERCENT,
+};
 
 pub fn centered_rect(px: u16, py: u16, r: Rect) -> Rect {
     let width = r.width.saturating_mul(px) / 100;
@@ -27,13 +29,13 @@ pub fn create_main_layout(area: Rect) -> Rc<[Rect]> {
     let vertical_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),                  // [0] Top section (title + top bar)
-            Constraint::Min(1),                     // [1] space
-            Constraint::Min(MIN_TYPING_HEIGHT),     // [2] Typing area
-            Constraint::Min(1),                     // [3] space
-            Constraint::Length(COMMAND_BAR_HEIGHT), // [4] Command bar
-            Constraint::Length(1),                  // [5] space
-            Constraint::Length(FOOTER_HEIGHT),      // [6] Footer
+            Constraint::Length(TOP_BAR_HEIGHT + MODE_BAR_OFFSET), // [0] Top section (title + top bar + offset)
+            Constraint::Min(1),                                   // [1] space
+            Constraint::Min(MIN_TYPING_HEIGHT),                   // [2] Typing area
+            Constraint::Min(1),                                   // [3] space
+            Constraint::Length(COMMAND_BAR_HEIGHT),               // [4] Command bar
+            Constraint::Length(1),                                // [5] space
+            Constraint::Length(FOOTER_HEIGHT),                    // [6] Footer
         ])
         .split(area);
 
@@ -41,11 +43,11 @@ pub fn create_main_layout(area: Rect) -> Rc<[Rect]> {
     let top_section = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),  // title
-            Constraint::Length(2),  // top bar
+            Constraint::Length(TOP_BAR_HEIGHT),  // title
+            Constraint::Length(MODE_BAR_OFFSET), // space
+            Constraint::Length(MODE_BAR_OFFSET), // top bar
         ])
         .split(vertical_layout[0]);
-
 
     // title
     let title_area = Layout::default()
@@ -56,14 +58,13 @@ pub fn create_main_layout(area: Rect) -> Rc<[Rect]> {
         ])
         .split(top_section[0])[0];
 
-
     // TODO: left align the progress info
     Rc::from([
-        title_area,               // [0] Title area (left-aligned)
-        top_section[1],           // [1] Top bar area (centered)
-        vertical_layout[2],       // [2] Typing area (centered)
-        vertical_layout[4],       // [3] Command bar
-        vertical_layout[6],       // [4] Footer
+        title_area,         // [0] Title area (left-aligned)
+        top_section[1],     // [1] Top bar area (centered)
+        vertical_layout[2], // [2] Typing area (centered)
+        vertical_layout[4], // [3] Command bar
+        vertical_layout[6], // [4] Footer
     ])
 }
 

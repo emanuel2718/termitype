@@ -1,5 +1,5 @@
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style, Stylize},
     symbols::line,
     text::{Line, Span, Text},
@@ -107,6 +107,95 @@ pub fn progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(paragraph, area);
 }
 
+#[derive(Debug)]
+struct WordPosition {
+    start_index: usize,
+    line: usize,
+    col: usize,
+}
+
+fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosition> {
+    let mut positions = Vec::new();
+    let mut current_line = 0;
+    let mut current_col = 0;
+    let mut current_index = 0;
+
+    for word in text.split_whitespace() {
+        let word_len = word.len();
+        let total_len = word_len + 1; // word + space
+
+        // do we need to wrap?
+        if current_col + word_len > available_width {
+            current_line += 1;
+            current_col = 0;
+        }
+
+        positions.push(WordPosition {
+            start_index: current_index,
+            line: current_line,
+            col: current_col,
+        });
+
+        current_col += total_len;
+        current_index += total_len;
+    }
+
+    positions
+}
+
+fn text(termi: &Termi, word_positions: &[WordPosition]) -> Text<'static> {
+    let mut lines: Vec<Line> = Vec::new();
+    let mut current_line = 0;
+    let mut current_line_spans = Vec::new();
+
+    for (word_idx, pos) in word_positions.iter().enumerate() {
+        // make new line if we have to
+        if pos.line > current_line {
+            lines.push(Line::from(current_line_spans.clone()));
+            current_line_spans.clear();
+            current_line = pos.line;
+        }
+
+        let word = termi.words.split_whitespace().nth(word_idx).unwrap();
+
+        // style
+        let word_start = pos.start_index;
+        let chars: Vec<Span> = word
+            .chars()
+            .enumerate()
+            .map(|(i, c)| {
+                let char_idx = word_start + i;
+                let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
+                    Some(input) if input == c => Style::default().fg(termi.theme.success),
+                    Some(_) => Style::default().fg(termi.theme.error),
+                    None => Style::default()
+                        .fg(termi.theme.inactive)
+                        .add_modifier(Modifier::DIM),
+                };
+                Span::styled(c.to_string(), style)
+            })
+            .collect();
+
+        current_line_spans.extend(chars);
+
+        // add space after word (except for last word)
+        if word_idx < word_positions.len() - 1 {
+            current_line_spans.push(Span::styled(
+                " ",
+                Style::default()
+                    .fg(termi.theme.inactive)
+                    .add_modifier(Modifier::DIM),
+            ));
+        }
+    }
+
+    if !current_line_spans.is_empty() {
+        lines.push(Line::from(current_line_spans));
+    }
+
+    Text::from(lines)
+}
+
 pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
@@ -117,14 +206,31 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
         ])
         .split(area);
 
-    let typing_area = Paragraph::new(create_styled_text(termi))
-        .alignment(Alignment::Center)
+    let available_width = layout[1].width as usize;
+    let word_positions = calculate_word_positions(&termi.words, available_width);
+
+    let typing_area = Paragraph::new(text(termi, &word_positions))
+        .alignment(Alignment::Left)
         .wrap(Wrap { trim: false });
 
     f.render_widget(typing_area, layout[1]);
+
+    let current_word_pos = word_positions
+        .iter()
+        .rev()
+        .find(|pos| termi.tracker.cursor_position >= pos.start_index)
+        .unwrap_or(&word_positions[0]);
+
+    // offset within current word
+    let offset = termi.tracker.cursor_position - current_word_pos.start_index;
+
+    let x = layout[1].x + (current_word_pos.col + offset) as u16;
+    let y = layout[1].y + current_word_pos.line as u16;
+
+    f.set_cursor_position(Position::new(x, y));
 }
 
-// TODO: do we like this? hmmm
+// TODO: this could be simplified I think
 pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
     termi.clickable_regions.clear();
 
@@ -224,7 +330,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     fn styled_span(content: &str, is_key: bool, theme: &Theme) -> Span<'static> {
         let mut style = Style::default().fg(theme.inactive);
         if is_key {
-            style = style.fg(theme.background).bg(theme.foreground);
+            style = style.fg(theme.cursor_text).bg(theme.inactive);
             return Span::styled(format!(" {} ", content), style.add_modifier(Modifier::BOLD));
         }
 
@@ -315,11 +421,11 @@ pub fn results_screen(f: &mut Frame, termi: &Termi, area: Rect) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(1),                      // space
-            Constraint::Min(MIN_TYPING_HEIGHT),      // results
-            Constraint::Min(1),                      // space
-            Constraint::Length(COMMAND_BAR_HEIGHT),  // command bar
-            Constraint::Length(FOOTER_HEIGHT),       // footer
+            Constraint::Min(1),                     // space
+            Constraint::Min(MIN_TYPING_HEIGHT),     // results
+            Constraint::Min(1),                     // space
+            Constraint::Length(COMMAND_BAR_HEIGHT), // command bar
+            Constraint::Length(FOOTER_HEIGHT),      // footer
         ])
         .split(area);
 
@@ -353,30 +459,81 @@ fn create_results_widget(termi: &Termi) -> Paragraph<'static> {
         .wrap(Wrap { trim: true })
 }
 
-fn create_styled_text(termi: &Termi) -> Text<'static> {
-    let target_chars: Vec<char> = termi.words.chars().collect();
+#[cfg(test)]
+mod tests {
 
-    let spans: Vec<Span> = target_chars
-        .iter()
-        .enumerate()
-        .map(|(i, &c)| {
-            let style = match termi.tracker.user_input.get(i).copied().flatten() {
-                Some(input) if input == c => Style::default().fg(termi.theme.success),
-                Some(_) => Style::default().fg(termi.theme.error),
-                None => Style::default()
-                    .fg(termi.theme.inactive)
-                    .add_modifier(Modifier::DIM),
-            };
+    use super::*;
 
-            let style = if i == termi.tracker.cursor_position {
-                style.add_modifier(Modifier::UNDERLINED)
-            } else {
-                style
-            };
+    #[test]
+    fn test_word_position_basic() {
+        let text = "hello world";
+        let available_width = 20;
+        let positions = calculate_word_positions(text, available_width);
 
-            Span::styled(c.to_string(), style)
-        })
-        .collect();
+        assert_eq!(positions.len(), 2, "Should have positions for two words");
+        assert_eq!(positions[0].start_index, 0, "First word starts at 0");
+        assert_eq!(positions[0].line, 0, "First word on line 0");
+        assert_eq!(positions[0].col, 0, "First word at column 0");
 
-    Text::from(Line::from(spans))
+        assert_eq!(
+            positions[1].start_index, 6,
+            "Second word starts after 'hello '"
+        );
+        assert_eq!(positions[1].line, 0, "Second word on line 0");
+        assert_eq!(positions[1].col, 6, "Second word after first word + space");
+    }
+
+    #[test]
+    fn test_word_position_wrapping() {
+        let text = "hello world wrap";
+        let available_width = 8; // force wrap after "hello"
+        let positions = calculate_word_positions(text, available_width);
+        println!("{:?}", positions);
+
+        assert_eq!(positions[0].line, 0, "First word on line 0");
+        assert_eq!(positions[1].line, 1, "Second word should wrap to line 1");
+        assert_eq!(positions[1].col, 0, "Wrapped word starts at column 0");
+        assert_eq!(positions[2].line, 2, "Third word on line 2");
+    }
+
+    #[test]
+    fn test_cursor_positions() {
+        let text = "hello world next";
+        let available_width = 20;
+        let positions = calculate_word_positions(text, available_width);
+
+        let test_positions = vec![
+            (0, 0, "Start of text"),
+            (5, 0, "End of first word"),
+            (6, 1, "Start of second word"),
+            (11, 1, "End of second word"),
+            (12, 2, "Start of third word"),
+        ];
+
+        for (cursor_pos, expected_word_idx, description) in test_positions {
+            let current_pos = positions
+                .iter()
+                .rev()
+                .find(|pos| cursor_pos >= pos.start_index)
+                .unwrap();
+
+            assert_eq!(
+                positions
+                    .iter()
+                    .position(|p| p.start_index == current_pos.start_index)
+                    .unwrap(),
+                expected_word_idx,
+                "{}",
+                description
+            );
+        }
+    }
+
+    #[test]
+    fn test_empty_text() {
+        let text = "";
+        let available_width = 10;
+        let positions = calculate_word_positions(text, available_width);
+        assert!(positions.is_empty(), "Empty text should have no positions");
+    }
 }
