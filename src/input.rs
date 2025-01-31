@@ -128,6 +128,10 @@ impl InputProcessor for Termi {
 
     fn handle_menu_select(&mut self) -> Action {
         if let Some(item) = self.menu.selected_item() {
+            if self.menu.is_toggleable(item) {
+                self.handle_menu_toggle();
+                return Action::None;
+            }
             match item {
                 MenuItem::Restart => {
                     self.menu.toggle();
