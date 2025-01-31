@@ -58,7 +58,7 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
 
     let menu_area = {
         let width = 30u16;
-        let height = (menu.items.len() + 4) as u16;
+        let height = (menu.items.len() + 12) as u16;
 
         Rect {
             x: area.x + (area.width.saturating_sub(width)) / 2,

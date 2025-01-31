@@ -1,5 +1,5 @@
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style, Stylize},
     symbols::line,
     text::{Line, Span, Text},
@@ -14,6 +14,9 @@ use crate::{
     theme::Theme,
     version::VERSION,
 };
+
+use crossterm::cursor::SetCursorStyle;
+use crossterm::queue;
 
 #[derive(Debug)]
 pub struct ClickableRegion {
@@ -118,10 +121,14 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
         .split(area);
 
     let typing_area = Paragraph::new(text(termi))
-        .alignment(Alignment::Center)
+        .alignment(Alignment::Left)
         .wrap(Wrap { trim: false });
 
     f.render_widget(typing_area, layout[1]);
+    f.set_cursor_position(Position::new(
+        layout[1].x + termi.tracker.cursor_position as u16,
+        layout[1].y,
+    ));
 }
 
 // TODO: do we like this? hmmm
@@ -224,7 +231,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     fn styled_span(content: &str, is_key: bool, theme: &Theme) -> Span<'static> {
         let mut style = Style::default().fg(theme.inactive);
         if is_key {
-            style = style.fg(theme.background).bg(theme.foreground);
+            style = style.fg(theme.cursor_text).bg(theme.inactive);
             return Span::styled(format!(" {} ", content), style.add_modifier(Modifier::BOLD));
         }
 
@@ -360,17 +367,13 @@ fn text(termi: &Termi) -> Text<'static> {
         .iter()
         .enumerate()
         .map(|(i, &c)| {
-            let mut style = match termi.tracker.user_input.get(i).copied().flatten() {
+            let style = match termi.tracker.user_input.get(i).copied().flatten() {
                 Some(input) if input == c => Style::default().fg(termi.theme.success),
                 Some(_) => Style::default().fg(termi.theme.error),
                 None => Style::default()
                     .fg(termi.theme.inactive)
                     .add_modifier(Modifier::DIM),
             };
-
-            if i == termi.tracker.cursor_position {
-                style = style.fg(termi.theme.cursor_text).bg(termi.theme.cursor)
-            }
 
             Span::styled(c.to_string(), style)
         })
