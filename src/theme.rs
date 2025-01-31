@@ -68,6 +68,10 @@ impl Theme {
         })
     }
 
+    pub fn default() -> Self {
+        Self::new(&Config::default())
+    }
+
     /// Detects the terminal's color support level
     fn detect_color_support() -> ColorSupport {
         if let Ok(colors) = std::env::var("COLORTERM") {
@@ -111,7 +115,9 @@ impl ThemeLoader {
             themes: HashMap::new(),
         };
         if let Err(_) = loader.load_theme(DEFAULT_THEME) {
-            loader.themes.insert(DEFAULT_THEME.to_string(), Theme::fallback_theme());
+            loader
+                .themes
+                .insert(DEFAULT_THEME.to_string(), Theme::fallback_theme());
         }
         loader
     }
