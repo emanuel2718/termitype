@@ -55,19 +55,25 @@ impl ColorSupport {
 
 impl Theme {
     pub fn new(config: &Config) -> Self {
-        let color_support = Self::detect_color_support();
+        let color_support = config
+            .color_mode
+            .as_deref()
+            .and_then(|s| ColorSupport::from_str(s).ok())
+            .unwrap_or_else(|| Self::detect_color_support());
 
         // No theme support. Get a better terminal m8
         if !color_support.supports_themes() {
-            return Self::fallback_theme();
+            return Self::fallback_theme_with_support(color_support);
         }
         let mut loader = ThemeLoader::init();
         let theme_name = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
-        loader.get_theme(theme_name).unwrap_or_else(|_| {
+        let mut theme = loader.get_theme(theme_name).unwrap_or_else(|_| {
             loader
                 .get_theme(DEFAULT_THEME)
                 .expect("Default theme must exist")
-        })
+        });
+        theme.color_support = color_support;
+        theme
     }
 
     pub fn default() -> Self {
@@ -107,6 +113,26 @@ impl Theme {
             highlight: Color::Cyan,
             inactive: Color::DarkGray,
             color_support: ColorSupport::Basic,
+        }
+    }
+
+    fn fallback_theme_with_support(color_support: ColorSupport) -> Self {
+        let mut theme = Self::fallback_theme();
+        theme.color_support = color_support;
+        theme
+    }
+}
+
+impl std::str::FromStr for ColorSupport {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        println!("Given str: {}", s);
+        match s.to_lowercase().as_str() {
+            "basic" => Ok(Self::Basic),
+            "256" | "extended" => Ok(Self::Extended),
+            "true" | "truecolor" => Ok(Self::TrueColor),
+            _ => Err(format!("Invalid color support value: {}", s)),
         }
     }
 }
@@ -405,5 +431,33 @@ mod tests {
         assert_eq!(theme.background, Color::Black);
         assert_eq!(theme.foreground, Color::White);
         assert_eq!(theme.identifier, "Default".to_string());
+    }
+
+    #[test]
+    fn test_color_mode_from_config() {
+        let mut config = Config::default();
+
+        config.color_mode = Some("basic".to_string());
+        assert_eq!(Theme::new(&config).color_support, ColorSupport::Basic);
+
+        config.color_mode = Some("extended".to_string());
+        assert_eq!(Theme::new(&config).color_support, ColorSupport::Extended);
+
+        config.color_mode = Some("truecolor".to_string());
+        assert_eq!(Theme::new(&config).color_support, ColorSupport::TrueColor);
+
+        // Invalid mode given - should fallback to auto-detection
+        config.color_mode = Some("invalid".to_string());
+        let detected = Theme::detect_color_support();
+        assert_eq!(Theme::new(&config).color_support, detected);
+
+        // should auto-detect if no mode was given
+        config.color_mode = None;
+        assert_eq!(Theme::new(&config).color_support, detected);
+
+        // Config given have higher priority than the current terminal "capabiilities"
+        env::set_var("COLORTERM", "truecolor");
+        config.color_mode = Some("basic".to_string());
+        assert_eq!(Theme::new(&config).color_support, ColorSupport::Basic);
     }
 }
