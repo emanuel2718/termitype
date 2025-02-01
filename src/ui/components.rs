@@ -143,10 +143,11 @@ fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosit
     positions
 }
 
-fn text(termi: &Termi, word_positions: &[WordPosition]) -> Text<'static> {
-    let mut lines: Vec<Line> = Vec::new();
+fn text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a> {
+    let mut lines: Vec<Line> =
+        Vec::with_capacity(word_positions.last().map(|p| p.line + 1).unwrap_or(1));
     let mut current_line = 0;
-    let mut current_line_spans = Vec::new();
+    let mut current_line_spans = Vec::with_capacity(50);
 
     for (word_idx, pos) in word_positions.iter().enumerate() {
         // make new line if we have to

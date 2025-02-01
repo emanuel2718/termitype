@@ -8,6 +8,9 @@ homepage = "https://github.com/emanuel2718/termitype"
 authors = ["Emanuel Ramirez <eramirez2718@gmail.com>"]
 edition = "2021"
 
+[profile.release]
+debug = true
+
 [dependencies]
 anyhow = "1.0.95"
 clap = { version = "4.0", features = ["derive"] }
