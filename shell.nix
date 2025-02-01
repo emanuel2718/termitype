@@ -1,13 +1,17 @@
 {
-  pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz") { },
+  pkgs ? let
+    rust-overlay = builtins.fetchTarball "https://github.com/oxalica/rust-overlay/archive/master.tar.gz";
+    nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz";
+  in import nixpkgs {
+    overlays = [ (import rust-overlay) ];
+  },
 }:
 pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
-    rustc
-    cargo
+    (rust-bin.stable.latest.default.override {
+      extensions = [ "clippy" "rustfmt" "rust-src" ];
+    })
     gcc
-    rustfmt
-    clippy
     rust-analyzer
   ];
 
@@ -15,8 +19,5 @@ pkgs.mkShell {
   shellHook = ''
     export PATH=$PATH:$HOME/.cargo/bin
   '';
-
-  # Certain Rust tools won't work without this
-  RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
 }
 

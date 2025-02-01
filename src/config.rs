@@ -79,9 +79,8 @@ impl Mode {
     }
 }
 
-impl Config {
-    /// Returns a new instance of the Config struct with default values.
-    pub fn default() -> Self {
+impl Default for Config {
+    fn default() -> Self {
         Self {
             language: Some(DEFAULT_LANGUAGE.to_string()),
             time: Some(30),
@@ -94,6 +93,13 @@ impl Config {
             list_themes: false,
             debug: false,
         }
+    }
+}
+
+impl Config {
+    /// Returns a new instance of the Config struct with default values.
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Resolves the mode based onf the provided arguments

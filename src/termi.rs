@@ -30,10 +30,10 @@ pub struct Termi {
 
 impl Termi {
     pub fn new(config: &Config) -> Self {
-        let theme = Theme::new(&config);
+        let theme = Theme::new(config);
         let mut builder = Builder::new();
         let words = builder.generate_test(config);
-        let tracker = Tracker::new(&config, words.clone());
+        let tracker = Tracker::new(config, words.clone());
         Termi {
             config: config.clone(),
             tracker,
@@ -72,7 +72,7 @@ impl Termi {
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
-    let mut termi = Termi::new(&config);
+    let mut termi = Termi::new(config);
 
     let tick_rate = Duration::from_millis(500);
     let mut last_tick = Instant::now();

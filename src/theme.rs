@@ -53,13 +53,19 @@ impl ColorSupport {
     }
 }
 
+impl Default for Theme {
+    fn default() -> Self {
+        Self::new(&Config::default())
+    }
+}
+
 impl Theme {
     pub fn new(config: &Config) -> Self {
         let color_support = config
             .color_mode
             .as_deref()
             .and_then(|s| ColorSupport::from_str(s).ok())
-            .unwrap_or_else(|| Self::detect_color_support());
+            .unwrap_or_else(Self::detect_color_support);
 
         // No theme support. Get a better terminal m8
         if !color_support.supports_themes() {
@@ -74,10 +80,6 @@ impl Theme {
         });
         theme.color_support = color_support;
         theme
-    }
-
-    pub fn default() -> Self {
-        Self::new(&Config::default())
     }
 
     /// Detects the terminal's color support level
@@ -142,7 +144,7 @@ impl ThemeLoader {
         let mut loader = Self {
             themes: HashMap::new(),
         };
-        if let Err(_) = loader.load_theme(DEFAULT_THEME) {
+        if loader.load_theme(DEFAULT_THEME).is_err() {
             loader
                 .themes
                 .insert(DEFAULT_THEME.to_string(), Theme::fallback_theme());
@@ -175,10 +177,8 @@ impl ThemeLoader {
 
     /// Get a theme by name, loading it if necessary
     pub fn get_theme(&mut self, theme_name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
-        if !self.themes.contains_key(theme_name) {
-            if let Err(_) = self.load_theme(theme_name) {
-                return Ok(Theme::fallback_theme());
-            }
+        if !self.themes.contains_key(theme_name) && self.load_theme(theme_name).is_err() {
+            return Ok(Theme::fallback_theme());
         }
         Ok(self.themes.get(theme_name).unwrap().clone())
     }
@@ -250,6 +250,7 @@ pub fn available_themes() -> &'static [String] {
                             .path()
                             .file_name()
                             .and_then(|n| n.to_str())
+                            .filter(|name| *name != ".gitkeep")
                             .map(String::from)
                     })
                     .collect()
@@ -261,9 +262,10 @@ pub fn available_themes() -> &'static [String] {
 
 pub fn print_theme_list() {
     let mut themes: Vec<String> = available_themes().to_vec();
-    themes.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    themes.sort_by_key(|a| a.to_lowercase());
 
-    println!("\n{} Available Themes ({}):", "•", themes.len());
+    println!("\n• Available Themes ({}):", themes.len());
+
     println!("{}", "─".repeat(40));
 
     for theme in themes {
@@ -273,12 +275,12 @@ pub fn print_theme_list() {
         } else {
             theme
         };
-        println!("  {} {}", "•", theme_name);
+        println!("  • {}", theme_name);
     }
 
     println!("\nUsage:");
-    println!("  {} Set theme:    termitype --theme <name>", "•");
-    println!("  {} List themes:  termitype --list-themes", "•");
+    println!("  • Set theme:    termitype --theme <name>");
+    println!("  • List themes:  termitype --list-themes");
     println!();
 }
 

@@ -110,11 +110,8 @@ impl Tracker {
         if self.cursor_position >= self.target_text.len() {
             return false;
         }
-        let is_correct = self
-            .target_text
-            .chars()
-            .nth(self.cursor_position)
-            .map_or(false, |target| target == c);
+
+        let is_correct = self.target_text.chars().nth(self.cursor_position) == Some(c);
 
         self.register_keystroke(is_correct);
         self.user_input.push(Some(c));
