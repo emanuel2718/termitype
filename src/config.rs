@@ -43,6 +43,15 @@ pub struct Config {
     #[arg(short = 'n', long = "use-numbers")]
     pub use_numbers: bool,
 
+    /// Set color support level
+    #[arg(
+        long = "color-mode",
+        value_name = "MODE",
+        help = "Overwrite color support mode: 'basic' (8 colors), 'extended' (256 colors), \
+               or 'truecolor' (24-bit, default)."
+    )]
+    pub color_mode: Option<String>,
+
     /// Enable debug mode
     #[arg(short = 'd', long = "debug")]
     pub debug: bool,
@@ -81,6 +90,7 @@ impl Config {
             use_numbers: false,
             use_punctuation: false,
             theme: Some(DEFAULT_THEME.to_string()),
+            color_mode: None,
             list_themes: false,
             debug: false,
         }
@@ -120,7 +130,6 @@ impl Config {
         }
     }
 
-
     /// Resolves the test word count based on current configuration.
     pub fn resolve_word_count(&self) -> usize {
         match (self.time, self.words) {
@@ -151,8 +160,6 @@ impl Config {
     pub fn toggle_symbols(&mut self) {
         self.use_symbols = !self.use_symbols;
     }
-
-
 }
 
 #[cfg(test)]
