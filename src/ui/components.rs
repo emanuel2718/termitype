@@ -338,7 +338,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
         Span::styled(content.to_string(), style)
     }
 
-    let command_groups = vec![
+    let command_groups = [
         vec![vec![("", false)]], // spacing
         vec![
             vec![
