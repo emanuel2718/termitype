@@ -2,14 +2,14 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use crossterm::event::{self, Event, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::{prelude::Backend, style::Color, Terminal};
+use ratatui::{prelude::Backend, Terminal};
 
 use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
     menu::Menu,
-    theme::{ColorSupport, Theme},
+    theme::Theme,
     tracker::Tracker,
     ui::{
         components::{ClickAction, ClickableRegion},
