@@ -9,6 +9,8 @@ pub struct ThemeLoader {
     themes: HashMap<String, Theme>,
 }
 
+// NOTE: we could do something like `pub colors: [Color; 16]`, could be better for performance
+
 #[derive(Debug, Clone)]
 pub struct Theme {
     pub identifier: String,
@@ -95,7 +97,7 @@ impl Theme {
             foreground_secondary: Color::White,
             cursor: Color::White,
             cursor_text: Color::Black,
-            selection: Color::White,
+            selection: Color::Cyan,
             border: Color::White,
             error: Color::Red,
             success: Color::Green,

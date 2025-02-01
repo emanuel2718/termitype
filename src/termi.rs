@@ -2,14 +2,14 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use crossterm::event::{self, Event, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::{prelude::Backend, Terminal};
+use ratatui::{prelude::Backend, style::Color, Terminal};
 
 use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
     menu::Menu,
-    theme::Theme,
+    theme::{ColorSupport, Theme},
     tracker::Tracker,
     ui::{
         components::{ClickAction, ClickableRegion},
@@ -66,15 +66,15 @@ impl Termi {
     pub fn start(&mut self) {
         let menu = self.menu.clone();
         *self = Termi::new(&self.config);
-        self.menu = menu; // restore menu state
         // TODO: eventually we would want to restore previous state. (themes come to mind)
+        self.menu = menu; // restore menu state
     }
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
     let mut termi = Termi::new(&config);
 
-    let tick_rate = Duration::from_millis(250);
+    let tick_rate = Duration::from_millis(500);
     let mut last_tick = Instant::now();
     let mut input_handler = InputHandler::new();
 
