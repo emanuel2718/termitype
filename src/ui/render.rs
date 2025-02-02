@@ -129,12 +129,10 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                         } else {
                             theme.muted()
                         }
+                    } else if is_selected {
+                        theme.selection_fg()
                     } else {
-                        if is_selected {
-                            theme.selection_fg()
-                        } else {
-                            theme.foreground()
-                        }
+                        theme.foreground()
                     })
                     .bg(if is_selected {
                         theme.selection_bg()

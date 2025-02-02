@@ -391,11 +391,11 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
                 .flat_map(|(i, group)| {
                     let mut group_spans: Vec<Span> = group
                         .iter()
-                        .map(|&(text, is_key)| styled_span(text, is_key, &theme))
+                        .map(|&(text, is_key)| styled_span(text, is_key, theme))
                         .collect();
 
                     if i < line_groups.len() - 1 {
-                        group_spans.push(styled_span("   ", false, &theme));
+                        group_spans.push(styled_span("   ", false, theme));
                     }
 
                     group_spans

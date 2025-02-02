@@ -126,6 +126,7 @@ impl Theme {
         theme
     }
 
+    #[allow(clippy::field_reassign_with_default)]
     pub fn from_name(name: &str) -> Self {
         let mut config = Config::default();
         config.theme = Some(name.to_string());

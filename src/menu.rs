@@ -40,19 +40,10 @@ impl MenuItem {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct MenuState {
     menu_stack: Vec<(Vec<MenuItem>, usize)>, // (items, selected_idx)
     preview_theme: Option<String>,
-}
-
-impl Default for MenuState {
-    fn default() -> Self {
-        Self {
-            menu_stack: Vec::new(),
-            preview_theme: None,
-        }
-    }
 }
 
 impl MenuState {
@@ -209,16 +200,13 @@ impl MenuState {
         if let Some((items, _)) = self.menu_stack.first_mut() {
             for item in items.iter_mut() {
                 if item.is_toggleable {
-                    match &item.content {
-                        MenuContent::Action(MenuAction::Toggle(feature)) => {
-                            item.is_active = match feature.as_str() {
-                                "punctuation" => config.use_punctuation,
-                                "numbers" => config.use_numbers,
-                                "symbols" => config.use_symbols,
-                                _ => item.is_active,
-                            };
-                        }
-                        _ => {}
+                    if let MenuContent::Action(MenuAction::Toggle(feature)) = &item.content {
+                        item.is_active = match feature.as_str() {
+                            "punctuation" => config.use_punctuation,
+                            "numbers" => config.use_numbers,
+                            "symbols" => config.use_symbols,
+                            _ => item.is_active,
+                        };
                     }
                 }
             }
