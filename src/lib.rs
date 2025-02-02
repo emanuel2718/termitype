@@ -31,6 +31,8 @@ pub fn run() -> Result<()> {
         return Ok(());
     }
 
+    let cursor_style = config.resolve_cursor_style();
+
     terminal::enable_raw_mode()?;
 
     let mut stdout = io::stdout();
@@ -38,7 +40,7 @@ pub fn run() -> Result<()> {
         stdout,
         EnterAlternateScreen,
         EnableMouseCapture,
-        SetCursorStyle::SteadyBar
+        cursor_style
     )?;
     let backend = CrosstermBackend::new(stdout);
 

@@ -60,13 +60,10 @@ impl Termi {
                     ClickAction::SetModeValue(value) => self.config.change_mode_value(value),
                     ClickAction::OpenThemePicker => {
                         self.menu.toggle(&self.config);
-                        /* NOTE: ideally this would pass a identifier that maps to the index internally.
-                                for example: `self.menu.select_from_menu('theme_picker')`
-                        */
-                        self.menu.select_from_menu(3);
+                        self.menu.select_from_menu(5);
+                        self.menu.menu_enter();
                     }
                 }
-                self.start();
                 break;
             }
         }

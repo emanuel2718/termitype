@@ -4,7 +4,10 @@ use crate::{
     theme::Theme,
     tracker::Status,
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::{
+    event::{KeyCode, KeyEvent, KeyModifiers},
+    execute,
+};
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -183,6 +186,10 @@ impl InputProcessor for Termi {
                 MenuAction::ChangeTheme(theme_name) => {
                     self.config.change_theme(&theme_name);
                     self.theme = Theme::from_name(&theme_name);
+                }
+                MenuAction::ChangeCursorStyle(steyl) => {
+                    self.config.cursor_style = Some(steyl);
+                    execute!(std::io::stdout(), self.config.resolve_cursor_style()).ok();
                 }
                 MenuAction::Quit => return Action::Quit,
             }

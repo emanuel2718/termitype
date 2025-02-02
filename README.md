@@ -15,8 +15,6 @@
 
 ### TODO
 
-- [ ] Change cursor style via cli
-- [ ] Change cursor style at runtime
 - [ ] Proper Results screen
 - [ ] Improve the Footer with icons if possible
 - [ ] Change mode/value with the menu
@@ -29,6 +27,8 @@
 - [x] Build Github CI
 - [x] Theme swap at runtime (Menu -> Themes -> <list of themes>)
 - [x] Theme preview in menu
+- [x] Change cursor style via cli
+- [x] Change cursor style at runtime
 
 ### Notes
 - how to fetch themes
