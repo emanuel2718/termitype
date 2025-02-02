@@ -3,7 +3,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Borders, Clear, List, ListItem, Paragraph};
 use ratatui::{style::Style, widgets::Block, Frame};
 
-use crate::menu::Menu;
 use crate::termi::Termi;
 
 use crate::tracker::Status;
@@ -13,7 +12,9 @@ use crate::constants::{WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT};
 
 /// Main workhorse. This basically draws the whole ui
 pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
-    let container = Block::default().style(Style::default().bg(termi.theme.background));
+    let theme = termi.get_current_theme();
+
+    let container = Block::default().style(Style::default().bg(theme.background()));
     f.render_widget(container, f.area());
 
     let window_area = centered_rect(WINDOW_WIDTH_PERCENT, WINDOW_HEIGHT_PERCENT, f.area());
@@ -45,21 +46,27 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
             footer(f, termi, layout[4]);
         }
     }
-    if termi.menu.is_visible() {
+    if termi.menu.is_open() {
         draw_menu(f, termi, f.area());
     }
 }
 
 pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
     let menu = &termi.menu;
-    if !menu.is_visible() {
+    let theme = termi.get_current_theme();
+    if !menu.is_open() {
         return;
     }
 
     let menu_area = {
         let width = 30u16;
-        let height = (menu.items.len() + 12) as u16;
-
+        let max_visible_items = 10u16;
+        let height = if let Some((items, _)) = menu.current_menu() {
+            // 2 for the border/title and 2 for the footer
+            (items.len().min(max_visible_items as usize) + 4) as u16
+        } else {
+            4
+        };
         Rect {
             x: area.x + (area.width.saturating_sub(width)) / 2,
             y: area.y + (area.height.saturating_sub(height)) / 2,
@@ -77,66 +84,93 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
         ])
         .split(menu_area);
 
+    let title = if menu.menu_depth() > 1 {
+        "<SubMenu>"
+    } else {
+        "Menu"
+    };
+
     let background = Block::default()
-        .style(Style::default().bg(termi.theme.background))
+        .style(Style::default().bg(theme.background()))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(termi.theme.border))
-        .title("Menu")
+        .border_style(Style::default().fg(theme.border()))
+        .title(title)
         .title_alignment(Alignment::Center);
 
-    let items: Vec<ListItem> = menu
-        .items
-        .iter()
-        .enumerate()
-        .map(|(i, item)| {
-            let content = Menu::get_display_text(item);
-            let is_selected = i == menu.selected;
+    let items: Vec<ListItem> = if let Some((items, selected_idx)) = menu.current_menu() {
+        let total_items = items.len();
+        let max_visible = (menu_area.height as usize).saturating_sub(4); // minus border + footer
 
-            let text_color = if menu.is_toggleable(item) {
-                if menu.is_toggle_active(item, termi) {
-                    termi.theme.success
-                } else {
-                    termi.theme.inactive
-                }
+        // just to make sure we keep the selected item visible
+        let scroll_offset = if total_items <= max_visible {
+            0
+        } else {
+            let halfway = max_visible / 2;
+            if *selected_idx < halfway {
+                0
+            } else if *selected_idx >= total_items.saturating_sub(halfway) {
+                total_items.saturating_sub(max_visible)
             } else {
-                termi.theme.foreground
-            };
+                selected_idx.saturating_sub(halfway)
+            }
+        };
 
-            let style = Style::default().fg(text_color).bg(if is_selected {
-                termi.theme.selection
-            } else {
-                termi.theme.background
-            });
+        items
+            .iter()
+            .enumerate()
+            .skip(scroll_offset)
+            .take(max_visible)
+            .map(|(i, item)| {
+                let is_selected = i == *selected_idx;
+                let style = Style::default()
+                    .fg(if item.is_toggleable {
+                        if item.is_active {
+                            theme.success()
+                        } else {
+                            theme.muted()
+                        }
+                    } else if is_selected {
+                        theme.selection_fg()
+                    } else {
+                        theme.foreground()
+                    })
+                    .bg(if is_selected {
+                        theme.selection_bg()
+                    } else {
+                        theme.background()
+                    });
 
-            ListItem::new(Line::from(vec![
-                Span::styled(
-                    if is_selected { ">" } else { " " },
-                    Style::default().fg(termi.theme.highlight),
-                ),
-                Span::raw(" "),
-                Span::styled(content, style),
-            ]))
-        })
-        .collect();
+                ListItem::new(Line::from(vec![
+                    Span::styled(
+                        if is_selected { ">" } else { " " },
+                        Style::default().fg(theme.highlight()),
+                    ),
+                    Span::raw(" "),
+                    Span::styled(&item.label, style),
+                ]))
+            })
+            .collect()
+    } else {
+        vec![]
+    };
 
     let footer_text = vec![
         Line::from(vec![
-            Span::styled("↑/k", Style::default().fg(termi.theme.highlight)),
-            Span::styled(" up   ", Style::default().fg(termi.theme.inactive)),
-            Span::styled("↓/j", Style::default().fg(termi.theme.highlight)),
-            Span::styled(" down", Style::default().fg(termi.theme.inactive)),
+            Span::styled("↑/k", Style::default().fg(theme.highlight())),
+            Span::styled(" up   ", Style::default().fg(theme.muted())),
+            Span::styled("↓/j", Style::default().fg(theme.highlight())),
+            Span::styled(" down", Style::default().fg(theme.muted())),
         ]),
         Line::from(vec![
-            Span::styled("enter", Style::default().fg(termi.theme.highlight)),
-            Span::styled(" select   ", Style::default().fg(termi.theme.inactive)),
-            Span::styled("esc", Style::default().fg(termi.theme.highlight)),
-            Span::styled(" close", Style::default().fg(termi.theme.inactive)),
+            Span::styled("enter", Style::default().fg(theme.highlight())),
+            Span::styled(" select   ", Style::default().fg(theme.muted())),
+            Span::styled("esc", Style::default().fg(theme.highlight())),
+            Span::styled(" close", Style::default().fg(theme.muted())),
         ]),
     ];
 
     let footer = Paragraph::new(footer_text).alignment(Alignment::Center);
-
-    let menu_widget = List::new(items).style(Style::default().bg(termi.theme.background));
+    let menu_widget = List::new(items).style(Style::default().bg(theme.background()));
 
     f.render_widget(Clear, menu_area);
     f.render_widget(background, menu_area);

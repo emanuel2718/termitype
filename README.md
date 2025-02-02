@@ -17,16 +17,18 @@
 
 - [ ] Change cursor style via cli
 - [ ] Change cursor style at runtime
-- [ ] Theme swap at runtime (Menu -> Themes -> <list of themes>)
-- [ ] Theme preview in menu
 - [ ] Proper Results screen
 - [ ] Improve the Footer with icons if possible
 - [ ] Change mode/value with the menu
 - [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
-- [ ] Build Github CI
 - [ ] Add more languages and word lists
 - [ ] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
 - [ ] Performance optimization pass before release (cargo flamegraph --root)
+
+### Done
+- [x] Build Github CI
+- [x] Theme swap at runtime (Menu -> Themes -> <list of themes>)
+- [x] Theme preview in menu
 
 ### Notes
 - how to fetch themes

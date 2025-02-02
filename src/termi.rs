@@ -8,7 +8,7 @@ use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
-    menu::Menu,
+    menu::MenuState,
     theme::Theme,
     tracker::Tracker,
     ui::{
@@ -22,9 +22,10 @@ pub struct Termi {
     pub config: Config,
     pub tracker: Tracker,
     pub theme: Theme,
+    pub preview_theme: Option<Theme>,
     pub builder: Builder,
     pub words: String,
-    pub menu: Menu,
+    pub menu: MenuState,
     pub clickable_regions: Vec<ClickableRegion>,
 }
 
@@ -38,9 +39,10 @@ impl Termi {
             config: config.clone(),
             tracker,
             theme,
+            preview_theme: None,
             builder,
             words,
-            menu: Menu::default(),
+            menu: MenuState::default(),
             clickable_regions: Vec::new(),
         }
     }
@@ -56,6 +58,13 @@ impl Termi {
                     ClickAction::ToggleNumbers => self.config.toggle_numbers(),
                     ClickAction::SwitchMode(mode) => self.config.change_mode(mode, None),
                     ClickAction::SetModeValue(value) => self.config.change_mode_value(value),
+                    ClickAction::OpenThemePicker => {
+                        self.menu.toggle(&self.config);
+                        /* NOTE: ideally this would pass a identifier that maps to the index internally.
+                                for example: `self.menu.select_from_menu('theme_picker')`
+                        */
+                        self.menu.select_from_menu(3);
+                    }
                 }
                 self.start();
                 break;
@@ -65,9 +74,23 @@ impl Termi {
 
     pub fn start(&mut self) {
         let menu = self.menu.clone();
+        let preview_theme = self.preview_theme.clone();
         *self = Termi::new(&self.config);
+        self.menu = menu;
+        self.preview_theme = preview_theme;
         // TODO: eventually we would want to restore previous state. (themes come to mind)
-        self.menu = menu; // restore menu state
+        // self.menu = menu; // restore menu state
+    }
+    pub fn get_current_theme(&self) -> &Theme {
+        self.preview_theme.as_ref().unwrap_or(&self.theme)
+    }
+
+    pub fn update_preview_theme(&mut self) {
+        if let Some(theme_name) = self.menu.get_preview_theme() {
+            self.preview_theme = Some(Theme::from_name(theme_name));
+        } else {
+            self.preview_theme = None;
+        }
     }
 }
 
@@ -87,7 +110,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
         if crossterm::event::poll(timeout)? {
             match event::read()? {
                 Event::Key(key) => {
-                    let action = input_handler.handle_input(key, termi.menu.visible);
+                    let action = input_handler.handle_input(key, &termi.menu);
                     if action == Action::Quit {
                         break;
                     }
