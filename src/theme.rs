@@ -294,7 +294,7 @@ impl ThemeLoader {
         colors[ColorIndex::Info as usize] = parse_color("palette4")?;
         colors[ColorIndex::Accent as usize] = parse_color("palette5")?;
         colors[ColorIndex::Highlight as usize] = parse_color("palette6")?;
-        colors[ColorIndex::Muted as usize] = parse_color("palette7")?;
+        colors[ColorIndex::Muted as usize] = parse_color("palette8")?;
 
         Ok(Theme {
             identifier: name.to_string(),

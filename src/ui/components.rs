@@ -102,7 +102,12 @@ pub fn progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
 
     let spans = vec![
         Span::styled(progress_text, Style::default().fg(theme.info())),
-        Span::styled(wpm_text, Style::default().fg(theme.muted())),
+        Span::styled(
+            wpm_text,
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        ),
     ];
 
     let paragraph = Paragraph::new(Line::from(spans)).alignment(Alignment::Center);
@@ -172,9 +177,11 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
                 let char_idx = word_start + i;
                 let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
                     Some(input) if input == c => Style::default().fg(theme.success()),
-                    Some(_) => Style::default().fg(theme.error()),
+                    Some(_) => Style::default()
+                        .fg(theme.error())
+                        .add_modifier(Modifier::DIM),
                     None => Style::default()
-                        .fg(theme.muted())
+                        .fg(theme.foreground())
                         .add_modifier(Modifier::DIM),
                 };
                 Span::styled(c.to_string(), style)
@@ -343,7 +350,12 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
                     .add_modifier(Modifier::BOLD),
             );
         }
-        Span::styled(content.to_string(), Style::default().fg(theme.muted()))
+        Span::styled(
+            content.to_string(),
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        )
     }
 
     let command_groups = [
@@ -398,7 +410,6 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
 }
 
 pub fn footer(f: &mut Frame, termi: &Termi, area: Rect) -> Vec<ClickableRegion> {
-    let preview_theme = termi.get_current_theme();
     let mut regions = Vec::new();
 
     let elements = vec![
@@ -425,7 +436,7 @@ pub fn footer(f: &mut Frame, termi: &Termi, area: Rect) -> Vec<ClickableRegion> 
     let spans: Vec<Span> = elements
         .iter()
         .map(|element| {
-            let span = element.to_span(preview_theme);
+            let span = element.to_span(&termi.theme);
 
             if let Some(action) = &element.action {
                 regions.push(ClickableRegion {
@@ -484,7 +495,9 @@ fn create_results_widget(termi: &Termi) -> Paragraph<'static> {
         .into_iter()
         .map(|(label, value)| {
             Line::from(vec![
-                Span::raw(format!("{}: ", label)).fg(theme.muted()),
+                Span::raw(format!("{}: ", label))
+                    .fg(theme.muted())
+                    .add_modifier(Modifier::DIM),
                 Span::styled(value, Style::default().fg(theme.foreground())),
             ])
         })

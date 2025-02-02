@@ -1,6 +1,7 @@
 use crate::{
     menu::{MenuAction, MenuContent, MenuState},
     termi::Termi,
+    theme::Theme,
     tracker::Status,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -181,6 +182,7 @@ impl InputProcessor for Termi {
                 MenuAction::ChangeMode => {}
                 MenuAction::ChangeTheme(theme_name) => {
                     self.config.change_theme(&theme_name);
+                    self.theme = Theme::from_name(&theme_name);
                 }
                 MenuAction::Quit => return Action::Quit,
             }
