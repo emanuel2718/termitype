@@ -1,4 +1,5 @@
 use clap::{ArgGroup, Parser};
+use crossterm::cursor::SetCursorStyle;
 
 use crate::constants::{DEFAULT_LANGUAGE, DEFAULT_THEME};
 
@@ -52,6 +53,14 @@ pub struct Config {
     )]
     pub color_mode: Option<String>,
 
+    /// Sets the cursor style
+    #[arg(
+        long = "cursor-style",
+        value_name = "CURSOR",
+        help = "Sets the cursor style: 'beam', 'block', 'underline', 'blinking-beam', 'blinking-block', 'blinking-underline'"
+    )]
+    pub cursor_style: Option<String>,
+
     /// Enable debug mode
     #[arg(short = 'd', long = "debug")]
     pub debug: bool,
@@ -89,6 +98,7 @@ impl Default for Config {
             use_numbers: false,
             use_punctuation: false,
             theme: Some(DEFAULT_THEME.to_string()),
+            cursor_style: None,
             color_mode: None,
             list_themes: false,
             debug: false,
@@ -154,6 +164,19 @@ impl Config {
         match (self.time, self.words) {
             (Some(duration), None) => duration,
             _ => 30,
+        }
+    }
+
+    /// Resolves the cursor style based on current configuration.
+    pub fn resolve_cursor_style(&self) -> SetCursorStyle {
+        match self.cursor_style.as_deref() {
+            Some("beam") => SetCursorStyle::SteadyBar,
+            Some("block") => SetCursorStyle::DefaultUserShape,
+            Some("underline") => SetCursorStyle::SteadyUnderScore,
+            Some("blinking-beam") => SetCursorStyle::BlinkingBar,
+            Some("blinking-block") => SetCursorStyle::BlinkingBlock,
+            Some("blinking-underline") => SetCursorStyle::BlinkingUnderScore,
+            _ => SetCursorStyle::BlinkingBar, // default to beam style
         }
     }
 
@@ -237,5 +260,40 @@ mod tests {
         assert_eq!(config.resolve_duration(), 45);
         config.change_mode(ModeType::Words, Some(75));
         assert_eq!(config.resolve_word_count(), 75);
+    }
+
+    #[test]
+    fn test_config_resolve_cursor_style() {
+        let mut config = create_config();
+
+        // the default
+        matches!(config.resolve_cursor_style(), SetCursorStyle::BlinkingBar);
+
+        config.cursor_style = Some("beam".to_string());
+        matches!(config.resolve_cursor_style(), SetCursorStyle::SteadyBar);
+
+        config.cursor_style = Some("block".to_string());
+        matches!(
+            config.resolve_cursor_style(),
+            SetCursorStyle::DefaultUserShape
+        );
+
+        config.cursor_style = Some("underline".to_string());
+        matches!(
+            config.resolve_cursor_style(),
+            SetCursorStyle::SteadyUnderScore
+        );
+
+        config.cursor_style = Some("blinking-beam".to_string());
+        matches!(config.resolve_cursor_style(), SetCursorStyle::BlinkingBar);
+
+        config.cursor_style = Some("blinking-block".to_string());
+        matches!(config.resolve_cursor_style(), SetCursorStyle::BlinkingBlock);
+
+        config.cursor_style = Some("blinking-underline".to_string());
+        matches!(
+            config.resolve_cursor_style(),
+            SetCursorStyle::BlinkingUnderScore
+        );
     }
 }

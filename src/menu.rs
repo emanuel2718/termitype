@@ -6,6 +6,7 @@ pub enum MenuAction {
     Toggle(String),
     ChangeMode,
     ChangeTheme(String),
+    ChangeCursorStyle(String),
     Quit,
 }
 
@@ -76,6 +77,10 @@ impl MenuState {
                 "Theme Picker",
                 MenuContent::SubMenu(Self::build_theme_picker()),
             ),
+            MenuItem::new(
+                "Change Cursor",
+                MenuContent::SubMenu(Self::build_cursor_style_menu()),
+            ),
             MenuItem::new("Exit", MenuContent::Action(MenuAction::Quit)),
         ];
         self.menu_stack.push((menu, 0));
@@ -96,6 +101,35 @@ impl MenuState {
             .collect()
     }
 
+    fn build_cursor_style_menu() -> Vec<MenuItem> {
+        vec![
+            MenuItem::new(
+                "Beam",
+                MenuContent::Action(MenuAction::ChangeCursorStyle("beam".into())),
+            ),
+            MenuItem::new(
+                "Block",
+                MenuContent::Action(MenuAction::ChangeCursorStyle("block".into())),
+            ),
+            MenuItem::new(
+                "Underline",
+                MenuContent::Action(MenuAction::ChangeCursorStyle("underline".into())),
+            ),
+            MenuItem::new(
+                "Blinking Beam",
+                MenuContent::Action(MenuAction::ChangeCursorStyle("blinking-beam".into())),
+            ),
+            MenuItem::new(
+                "Blinking Block",
+                MenuContent::Action(MenuAction::ChangeCursorStyle("blinking-block".into())),
+            ),
+            MenuItem::new(
+                "Blinking Underline",
+                MenuContent::Action(MenuAction::ChangeCursorStyle("blinking-underline".into())),
+            ),
+        ]
+    }
+
     pub fn is_open(&self) -> bool {
         !self.menu_stack.is_empty()
     }
@@ -114,7 +148,7 @@ impl MenuState {
 
     pub fn select_from_menu(&mut self, index: usize) {
         if let Some((items, idx)) = self.current_menu_mut() {
-            if index < items.len() && index > 0 {
+            if index < items.len() {
                 *idx = index;
             }
         }
