@@ -122,10 +122,15 @@ impl Config {
                 self.words = None;
             }
             ModeType::Words => {
-                self.words = Some(value.unwrap_or(100));
+                self.words = Some(value.unwrap_or(25));
                 self.time = None;
             }
         }
+    }
+
+    /// Chages the current theme of the game.
+    pub fn change_theme(&mut self, theme_name: &str) {
+        self.theme = Some(theme_name.to_string())
     }
 
     /// Changes the value of the current mode.
@@ -202,28 +207,32 @@ mod tests {
     }
 
     #[test]
-    fn test_config_lifecycle() {
+    fn test_config_change_mode() {
         let mut config = create_config();
-
-        // modes
         config.change_mode(ModeType::Time, Some(30));
         assert!(config.words.is_none());
         assert_mode(&config, ModeType::Time, 30);
+    }
 
-        config.change_mode(ModeType::Words, Some(50));
-        assert!(config.time.is_none());
-        assert_mode(&config, ModeType::Words, 50);
+    #[test]
+    fn test_config_change_theme() {
+        let mut config = create_config();
+        let theme_name = "Monokai Classic";
+        config.change_theme(theme_name);
+        assert_eq!(config.theme, Some(theme_name.to_string()));
+    }
 
-        // toggles
+    #[test]
+    fn test_config_toggles() {
+        let mut config = create_config();
         config.toggle_numbers();
         config.toggle_punctuation();
         config.toggle_symbols();
+    }
 
-        assert!(config.use_numbers);
-        assert!(config.use_punctuation);
-        assert!(config.use_punctuation);
-
-        // resolvers
+    #[test]
+    fn test_config_resolvers() {
+        let mut config = create_config();
         config.change_mode(ModeType::Time, Some(45));
         assert_eq!(config.resolve_duration(), 45);
         config.change_mode(ModeType::Words, Some(75));

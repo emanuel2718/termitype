@@ -1,87 +1,229 @@
-use crate::termi::Termi;
+use crate::config::Config;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum MenuItem {
+pub enum MenuAction {
     Restart,
-    TogglePunctuation,
-    ToggleNumbers,
-    ToggleSymbols,
-    SwitchMode,
-    ChangeTheme,
+    Toggle(String),
+    ChangeMode,
+    ChangeTheme(String),
     Quit,
 }
 
 #[derive(Debug, Clone)]
-pub struct Menu {
-    pub items: Vec<MenuItem>,
-    pub selected: usize,
-    pub visible: bool,
+pub struct MenuItem {
+    pub label: String,
+    pub content: MenuContent,
+    pub is_active: bool,
+    pub is_toggleable: bool,
 }
 
-impl Default for Menu {
+#[derive(Debug, Clone)]
+pub enum MenuContent {
+    Action(MenuAction),
+    SubMenu(Vec<MenuItem>),
+}
+
+impl MenuItem {
+    pub fn new(label: impl Into<String>, content: MenuContent) -> Self {
+        Self {
+            label: label.into(),
+            content,
+            is_toggleable: false,
+            is_active: false,
+        }
+    }
+
+    pub fn toggleable(mut self, is_active: bool) -> Self {
+        self.is_toggleable = true;
+        self.is_active = is_active;
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MenuState {
+    menu_stack: Vec<(Vec<MenuItem>, usize)>, // (items, selected_idx)
+    preview_theme: Option<String>,
+}
+
+impl Default for MenuState {
     fn default() -> Self {
         Self {
-            items: vec![
-                MenuItem::Restart,
-                MenuItem::TogglePunctuation,
-                MenuItem::ToggleNumbers,
-                MenuItem::ToggleSymbols,
-                MenuItem::SwitchMode,
-                MenuItem::ChangeTheme,
-                MenuItem::Quit,
-            ],
-            selected: 0,
-            visible: false,
+            menu_stack: Vec::new(),
+            preview_theme: None,
         }
     }
 }
 
-impl Menu {
-    pub fn toggle(&mut self) {
-        self.visible = !self.visible
+impl MenuState {
+    pub fn new(config: &Config) -> Self {
+        let mut state = Self::default();
+        state.build_main_menu(config);
+        state
     }
 
-    pub fn is_visible(&self) -> bool {
-        self.visible
+    pub fn build_main_menu(&mut self, config: &Config) {
+        let menu = vec![
+            MenuItem::new("Restart", MenuContent::Action(MenuAction::Restart)),
+            MenuItem::new(
+                "Toggle Punctuation",
+                MenuContent::Action(MenuAction::Toggle("punctuation".into())),
+            )
+            .toggleable(config.use_punctuation),
+            MenuItem::new(
+                "Toggle Numbers",
+                MenuContent::Action(MenuAction::Toggle("numbers".into())),
+            )
+            .toggleable(config.use_numbers),
+            MenuItem::new(
+                "Toggle Symbols",
+                MenuContent::Action(MenuAction::Toggle("symbols".into())),
+            )
+            .toggleable(config.use_symbols),
+            MenuItem::new("Change Mode", MenuContent::Action(MenuAction::ChangeMode)),
+            MenuItem::new(
+                "Theme Picker",
+                MenuContent::SubMenu(Self::build_theme_picker()),
+            ),
+            MenuItem::new("Exit", MenuContent::Action(MenuAction::Quit)),
+        ];
+        self.menu_stack.push((menu, 0));
     }
 
-    pub fn select_next(&mut self) {
-        self.selected = (self.selected + 1) % self.items.len()
+    fn build_theme_picker() -> Vec<MenuItem> {
+        let mut themes = crate::theme::available_themes().to_vec();
+        themes.sort_by_key(|a| a.to_lowercase());
+
+        themes
+            .into_iter()
+            .map(|theme| {
+                MenuItem::new(
+                    theme.clone(),
+                    MenuContent::Action(MenuAction::ChangeTheme(theme.clone())),
+                )
+            })
+            .collect()
     }
 
-    pub fn select_prev(&mut self) {
-        self.selected = self.selected.checked_sub(1).unwrap_or(self.items.len() - 1)
+    pub fn is_open(&self) -> bool {
+        !self.menu_stack.is_empty()
     }
 
-    pub fn selected_item(&self) -> Option<&MenuItem> {
-        self.items.get(self.selected)
+    pub fn menu_depth(&self) -> usize {
+        self.menu_stack.len()
     }
 
-    pub fn get_display_text(item: &MenuItem) -> String {
-        match item {
-            MenuItem::Restart => "restart".into(),
-            MenuItem::TogglePunctuation => "toggle punctuation".into(),
-            MenuItem::ToggleNumbers => "toggle numbers".into(),
-            MenuItem::ToggleSymbols => "toggle symbols".into(),
-            MenuItem::SwitchMode => "switch mode".into(),
-            MenuItem::ChangeTheme => "change theme".into(),
-            MenuItem::Quit => "exit".into(),
+    pub fn current_menu(&self) -> Option<&(Vec<MenuItem>, usize)> {
+        self.menu_stack.last()
+    }
+
+    pub fn current_menu_mut(&mut self) -> Option<&mut (Vec<MenuItem>, usize)> {
+        self.menu_stack.last_mut()
+    }
+
+    pub fn select_from_menu(&mut self, index: usize) {
+        if let Some((items, idx)) = self.current_menu_mut() {
+            if index < items.len() && index > 0 {
+                *idx = index;
+            }
         }
     }
 
-    pub fn is_toggleable(&self, item: &MenuItem) -> bool {
-        matches!(
-            item,
-            MenuItem::TogglePunctuation | MenuItem::ToggleNumbers | MenuItem::ToggleSymbols
-        )
+    pub fn selected_menu_item(&self) -> Option<&MenuItem> {
+        self.current_menu().and_then(|(items, idx)| items.get(*idx))
     }
 
-    pub fn is_toggle_active(&self, item: &MenuItem, termi: &Termi) -> bool {
-        match item {
-            MenuItem::TogglePunctuation => termi.config.use_punctuation,
-            MenuItem::ToggleNumbers => termi.config.use_numbers,
-            MenuItem::ToggleSymbols => termi.config.use_symbols,
-            _ => false,
+    pub fn prev_menu_item(&mut self) {
+        if let Some((_, idx)) = self.current_menu_mut() {
+            if *idx > 0 {
+                *idx -= 1;
+            }
+        }
+    }
+
+    pub fn next_menu_item(&mut self) {
+        if let Some((items, idx)) = self.current_menu_mut() {
+            if *idx < items.len() - 1 {
+                *idx += 1;
+            }
+        }
+    }
+
+    pub fn toggle(&mut self, config: &Config) {
+        if self.is_open() {
+            self.menu_stack.clear();
+            self.preview_theme = None;
+        } else {
+            self.build_main_menu(config);
+        }
+    }
+
+    pub fn get_preview_theme(&self) -> Option<&String> {
+        self.preview_theme.as_ref()
+    }
+
+    pub fn preview_selected_theme(&mut self) {
+        if let Some(item) = self.selected_menu_item() {
+            if let MenuContent::Action(MenuAction::ChangeTheme(theme)) = &item.content {
+                self.preview_theme = Some(theme.clone());
+            }
+        }
+    }
+
+    pub fn menu_back(&mut self) {
+        if self.menu_depth() > 1 {
+            self.menu_stack.pop();
+        } else {
+            self.menu_stack.clear();
+        }
+        self.preview_theme = None
+    }
+
+    pub fn menu_enter(&mut self) -> Option<MenuAction> {
+        let action = if let Some((items, selected)) = self.current_menu() {
+            if let Some(item) = items.get(*selected) {
+                match &item.content {
+                    MenuContent::Action(action) => {
+                        let should_clear = !item.is_toggleable;
+                        let action = action.clone();
+                        if should_clear {
+                            self.menu_stack.clear();
+                        }
+                        Some(action)
+                    }
+                    MenuContent::SubMenu(submenu) => {
+                        self.menu_stack.push((submenu.clone(), 0));
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        action
+    }
+
+    pub fn update_toggles(&mut self, config: &Config) {
+        if let Some((items, _)) = self.menu_stack.first_mut() {
+            for item in items.iter_mut() {
+                if item.is_toggleable {
+                    match &item.content {
+                        MenuContent::Action(MenuAction::Toggle(feature)) => {
+                            item.is_active = match feature.as_str() {
+                                "punctuation" => config.use_punctuation,
+                                "numbers" => config.use_numbers,
+                                "symbols" => config.use_symbols,
+                                _ => item.is_active,
+                            };
+                        }
+                        _ => {}
+                    }
+                }
+            }
         }
     }
 }
+
+// TODO: Test this

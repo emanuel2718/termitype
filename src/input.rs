@@ -1,4 +1,8 @@
-use crate::{menu::MenuItem, termi::Termi, tracker::Status};
+use crate::{
+    menu::{MenuAction, MenuContent, MenuState},
+    termi::Termi,
+    tracker::Status,
+};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::VecDeque;
 
@@ -12,8 +16,8 @@ pub enum Action {
     None,
     MenuUp,
     MenuDown,
+    MenuBack,
     MenuSelect,
-    MenuToggle,
 }
 
 #[derive(Default)]
@@ -29,7 +33,7 @@ impl InputHandler {
     }
 
     /// Converts a keyboard event into an Action
-    pub fn handle_input(&mut self, key: KeyEvent, is_menu_visible: bool) -> Action {
+    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState) -> Action {
         self.update_history(key.code);
 
         if self.is_quit_sequence(&key) {
@@ -39,12 +43,17 @@ impl InputHandler {
             return Action::Start;
         }
 
+        if menu.is_open() {
+            return match key.code {
+                KeyCode::Char('k') | KeyCode::Up => Action::MenuUp,
+                KeyCode::Char('j') | KeyCode::Down => Action::MenuDown,
+                KeyCode::Enter | KeyCode::Char(' ') => Action::MenuSelect,
+                KeyCode::Esc => Action::MenuBack,
+                _ => Action::None,
+            };
+        }
         match (key.code, key.modifiers) {
-            (KeyCode::Char('k'), _) | (KeyCode::Up, _) if is_menu_visible => Action::MenuUp,
-            (KeyCode::Char('j'), _) | (KeyCode::Down, _) if is_menu_visible => Action::MenuDown,
-            (KeyCode::Char(' '), _) if is_menu_visible => Action::MenuToggle,
             (KeyCode::Char(c), _) => Action::TypeCharacter(c),
-            (KeyCode::Enter, _) if is_menu_visible => Action::MenuSelect,
             (KeyCode::Backspace, _) => Action::Backspace,
             (KeyCode::Esc, _) => Action::Pause,
             _ => Action::None,
@@ -78,8 +87,8 @@ pub trait InputProcessor {
     fn handle_pause(&mut self) -> Action;
     fn handle_menu_up(&mut self) -> Action;
     fn handle_menu_down(&mut self) -> Action;
+    fn handle_menu_back(&mut self) -> Action;
     fn handle_menu_select(&mut self) -> Action;
-    fn handle_menu_toggle(&mut self);
 }
 
 impl InputProcessor for Termi {
@@ -107,63 +116,76 @@ impl InputProcessor for Termi {
     }
 
     fn handle_pause(&mut self) -> Action {
-        if self.menu.is_visible() {
-            self.menu.toggle();
+        if self.menu.is_open() {
+            self.menu.toggle(&self.config);
             self.tracker.resume();
         } else {
             self.tracker.pause();
-            self.menu.toggle();
+            self.menu.toggle(&self.config);
         }
         Action::None
     }
+
+    fn handle_menu_back(&mut self) -> Action {
+        self.menu.menu_back();
+        if !self.menu.is_open() {
+            self.tracker.resume();
+        }
+        Action::None
+    }
+
     fn handle_menu_up(&mut self) -> Action {
-        self.menu.select_prev();
+        self.menu.prev_menu_item();
+        if let Some(item) = self.menu.selected_menu_item() {
+            if let MenuContent::Action(MenuAction::ChangeTheme(_)) = &item.content {
+                self.menu.preview_selected_theme();
+                self.update_preview_theme();
+            }
+        }
         Action::None
     }
 
     fn handle_menu_down(&mut self) -> Action {
-        self.menu.select_next();
+        self.menu.next_menu_item();
+        if let Some(item) = self.menu.selected_menu_item() {
+            if let MenuContent::Action(MenuAction::ChangeTheme(_)) = &item.content {
+                self.menu.preview_selected_theme();
+                self.update_preview_theme();
+            }
+        }
         Action::None
     }
 
     fn handle_menu_select(&mut self) -> Action {
-        if let Some(item) = self.menu.selected_item() {
-            if self.menu.is_toggleable(item) {
-                self.handle_menu_toggle();
-                return Action::None;
-            }
-            match item {
-                MenuItem::Restart => {
-                    self.menu.toggle();
+        if let Some(action) = self.menu.menu_enter() {
+            match action {
+                MenuAction::Restart => {
                     self.start();
+                    return Action::None;
                 }
-                MenuItem::TogglePunctuation => self.config.toggle_punctuation(),
-                MenuItem::ToggleNumbers => self.config.toggle_numbers(),
-                MenuItem::ToggleSymbols => self.config.toggle_symbols(),
-                MenuItem::SwitchMode => {
-                    // TODO: implement mode switching
+                MenuAction::Toggle(feature) => {
+                    match feature.as_str() {
+                        "punctuation" => {
+                            self.config.toggle_punctuation();
+                        }
+                        "numbers" => {
+                            self.config.toggle_numbers();
+                        }
+                        "symbols" => {
+                            self.config.toggle_symbols();
+                        }
+                        _ => {}
+                    }
+                    self.menu.update_toggles(&self.config);
                 }
-                MenuItem::ChangeTheme => {
-                    // TODO: implement theme changing
+                MenuAction::ChangeMode => {}
+                MenuAction::ChangeTheme(theme_name) => {
+                    self.config.change_theme(&theme_name);
                 }
-                MenuItem::Quit => return Action::Quit,
+                MenuAction::Quit => return Action::Quit,
             }
         }
         Action::None
-    }
-
-    fn handle_menu_toggle(&mut self) {
-        if let Some(item) = self.menu.selected_item() {
-            if self.menu.is_toggleable(item) {
-                match item {
-                    MenuItem::TogglePunctuation => self.config.toggle_punctuation(),
-                    MenuItem::ToggleNumbers => self.config.toggle_numbers(),
-                    MenuItem::ToggleSymbols => self.config.toggle_symbols(),
-                    _ => {}
-                }
-                self.start();
-            }
-        }
     }
 }
 
@@ -176,10 +198,7 @@ pub fn process_action(action: Action, state: &mut impl InputProcessor) -> Action
         Action::MenuUp => state.handle_menu_up(),
         Action::MenuDown => state.handle_menu_down(),
         Action::MenuSelect => state.handle_menu_select(),
-        Action::MenuToggle => {
-            state.handle_menu_toggle();
-            Action::None
-        }
+        Action::MenuBack => state.handle_menu_back(),
         Action::Quit => Action::Quit,
         Action::None => Action::None,
     }
