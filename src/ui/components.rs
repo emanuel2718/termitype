@@ -9,7 +9,9 @@ use ratatui::{
 
 use crate::{
     config::{Mode, ModeType},
-    constants::{APPNAME, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_TYPING_HEIGHT},
+    constants::{
+        AMOUNT_OF_VISIBLE_LINES, APPNAME, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_TYPING_HEIGHT,
+    },
     termi::Termi,
     theme::Theme,
     version::VERSION,
@@ -221,23 +223,42 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
     let available_width = layout[1].width as usize;
     let word_positions = calculate_word_positions(&termi.words, available_width);
 
-    let typing_area = Paragraph::new(typing_text(termi, &word_positions))
-        .alignment(Alignment::Left)
-        .wrap(Wrap { trim: false });
-
-    f.render_widget(typing_area, layout[1]);
-
     let current_word_pos = word_positions
         .iter()
         .rev()
         .find(|pos| termi.tracker.cursor_position >= pos.start_index)
         .unwrap_or(&word_positions[0]);
 
-    // offset within current word
-    let offset = termi.tracker.cursor_position - current_word_pos.start_index;
+    // let visible_lines = layout[1].height as usize;
+    let visible_lines = AMOUNT_OF_VISIBLE_LINES as usize;
+    let current_line = current_word_pos.line;
 
+    let scroll_offset = if current_line > visible_lines / 2 {
+        current_line - visible_lines / 2
+    } else {
+        0
+    };
+
+    let text = typing_text(termi, &word_positions);
+    let visible_text = Text::from(
+        text.lines
+            .iter()
+            .skip(scroll_offset)
+            .take(visible_lines)
+            .cloned()
+            .collect::<Vec<_>>(),
+    );
+
+    let typing_area = Paragraph::new(visible_text)
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: false });
+
+    f.render_widget(typing_area, layout[1]);
+
+    // adjust for accounting scroll offset
+    let offset = termi.tracker.cursor_position - current_word_pos.start_index;
     let x = layout[1].x + (current_word_pos.col + offset) as u16;
-    let y = layout[1].y + current_word_pos.line as u16;
+    let y = layout[1].y + (current_word_pos.line - scroll_offset) as u16;
 
     f.set_cursor_position(Position::new(x, y));
 }

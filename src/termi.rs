@@ -54,10 +54,22 @@ impl Termi {
                 && y < region.area.y + region.area.height
             {
                 match region.action {
-                    ClickAction::TogglePunctuation => self.config.toggle_punctuation(),
-                    ClickAction::ToggleNumbers => self.config.toggle_numbers(),
-                    ClickAction::SwitchMode(mode) => self.config.change_mode(mode, None),
-                    ClickAction::SetModeValue(value) => self.config.change_mode_value(value),
+                    ClickAction::TogglePunctuation => {
+                        self.config.toggle_punctuation();
+                        self.start();
+                    }
+                    ClickAction::ToggleNumbers => {
+                        self.config.toggle_numbers();
+                        self.start();
+                    }
+                    ClickAction::SwitchMode(mode) => {
+                        self.config.change_mode(mode, None);
+                        self.start();
+                    }
+                    ClickAction::SetModeValue(value) => {
+                        self.config.change_mode_value(value);
+                        self.start();
+                    }
                     ClickAction::OpenThemePicker => {
                         self.menu.toggle(&self.config);
                         self.menu.select_from_menu(5);

@@ -2,6 +2,8 @@ pub const APPNAME: &str = "Termitype";
 pub const DEFAULT_LANGUAGE: &str = "english";
 pub const DEFAULT_THEME: &str = "tokyonight";
 
+pub const AMOUNT_OF_VISIBLE_LINES: u8 = 3;
+
 // ui
 pub const WINDOW_WIDTH_PERCENT: u16 = 80;
 pub const WINDOW_HEIGHT_PERCENT: u16 = 90;

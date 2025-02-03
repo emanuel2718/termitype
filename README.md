@@ -15,6 +15,7 @@
 
 ### TODO
 
+- [ ] underline wrong words (must have at least one wrong character for it to be underlined)
 - [ ] Proper Results screen
 - [ ] Improve the Footer with icons if possible
 - [ ] Change mode/value with the menu
@@ -29,6 +30,7 @@
 - [x] Theme preview in menu
 - [x] Change cursor style via cli
 - [x] Change cursor style at runtime
+- [x] Only show (3) lines with scroll off
 
 ### Notes
 - how to fetch themes
