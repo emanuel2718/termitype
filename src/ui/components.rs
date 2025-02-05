@@ -558,7 +558,6 @@ mod tests {
         let text = "hello world wrap";
         let available_width = 8; // force wrap after "hello"
         let positions = calculate_word_positions(text, available_width);
-        println!("{:?}", positions);
 
         assert_eq!(positions[0].line, 0, "First word on line 0");
         assert_eq!(positions[1].line, 1, "Second word should wrap to line 1");

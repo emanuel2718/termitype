@@ -203,7 +203,6 @@ impl std::str::FromStr for ColorSupport {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!("Given str: {}", s);
         match s.to_lowercase().as_str() {
             "basic" => Ok(Self::Basic),
             "256" | "extended" => Ok(Self::Extended),

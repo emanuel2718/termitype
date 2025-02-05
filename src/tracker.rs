@@ -34,6 +34,20 @@ pub enum Status {
     Completed,
 }
 
+/*
+
+wrong words:  could be represented as a queue of indexes. Where the index is the index of the word in the target text.
+
+if we register a incorrectly typed char,
+for each word, in between <space>
+
+
+
+
+
+
+*/
+
 impl Tracker {
     pub fn new(config: &Config, target_text: String) -> Self {
         let mode = config.current_mode();
@@ -112,6 +126,10 @@ impl Tracker {
         }
 
         let is_correct = self.target_text.chars().nth(self.cursor_position) == Some(c);
+        if !is_correct && self.target_text.chars().nth(self.cursor_position) == Some(' ') {
+            self.register_keystroke(is_correct);
+            return true;
+        }
 
         self.register_keystroke(is_correct);
         self.user_input.push(Some(c));
@@ -289,6 +307,28 @@ mod tests {
         assert_eq!(tracker.cursor_position, 1);
 
         assert_eq!(tracker.correct_keystrokes, 1);
+    }
+
+    #[test]
+    fn test_typing_wrong_char_on_word_boundary_should_do_nothing() {
+        let config = Config::default();
+        let target_text = String::from("xyz hello");
+        let mut tracker = Tracker::new(&config, target_text);
+
+        tracker.start_typing();
+
+        assert!(tracker.type_char('x'));
+        assert!(tracker.type_char('y'));
+        assert!(tracker.type_char('z'));
+        assert!(tracker.type_char('x'));
+
+        assert_eq!(tracker.cursor_position, 3);
+        assert_eq!(tracker.correct_keystrokes, 3);
+
+        assert!(tracker.type_char('y'));
+
+        assert_eq!(tracker.cursor_position, 3);
+        assert_eq!(tracker.correct_keystrokes, 3);
     }
 
     #[test]
