@@ -27,10 +27,14 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
         Status::Typing => {
             let typing_chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Length(1), Constraint::Min(1)])
+                .constraints([
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Min(1),
+                ])
                 .split(layout[2]);
             progress_info(f, termi, typing_chunks[0]);
-            typing_area(f, termi, typing_chunks[1]);
+            typing_area(f, termi, typing_chunks[2]);
         }
         Status::Completed => {
             results_screen(f, termi, layout[2]);
@@ -41,9 +45,14 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
             // NOTE: hack to keep the typing area from shifting when we enter `Typing` mode
             let typing_chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Length(1), Constraint::Min(1)])
+                .constraints([
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Min(1),
+                ])
                 .split(layout[2]);
-            typing_area(f, termi, typing_chunks[1]);
+            progress_info(f, termi, typing_chunks[0]);
+            typing_area(f, termi, typing_chunks[2]);
             command_bar(f, termi, layout[3]);
             let footer_regions = footer(f, termi, layout[4]);
             termi.clickable_regions.extend(footer_regions);

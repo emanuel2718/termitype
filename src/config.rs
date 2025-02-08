@@ -12,7 +12,7 @@ use crate::constants::{DEFAULT_LANGUAGE, DEFAULT_THEME};
         .multiple(false)
 ))]
 pub struct Config {
-    /// The language dictionary used for the test. Defaults to English 10k words.
+    /// The language dictionary used for the test. Defaults to English.
     #[arg(short, long, value_name = "LANG")]
     pub language: Option<String>,
 

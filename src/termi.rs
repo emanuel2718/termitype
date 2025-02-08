@@ -102,6 +102,11 @@ impl Termi {
                     }
                     ClickAction::OpenThemePicker => {
                         self.menu.toggle(&self.config);
+                        self.menu.select_from_menu(6);
+                        self.menu.menu_enter();
+                    }
+                    ClickAction::OpenLanguagePicker => {
+                        self.menu.toggle(&self.config);
                         self.menu.select_from_menu(5);
                         self.menu.menu_enter();
                     }

@@ -10,7 +10,8 @@ use ratatui::{
 use crate::{
     config::{Mode, ModeType},
     constants::{
-        AMOUNT_OF_VISIBLE_LINES, APPNAME, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_TYPING_HEIGHT,
+        AMOUNT_OF_VISIBLE_LINES, APPNAME, COMMAND_BAR_HEIGHT, DEFAULT_LANGUAGE, FOOTER_HEIGHT,
+        MIN_TYPING_HEIGHT,
     },
     termi::Termi,
     theme::Theme,
@@ -31,6 +32,7 @@ pub enum ClickAction {
     SwitchMode(ModeType),
     SetModeValue(usize),
     OpenThemePicker,
+    OpenLanguagePicker,
 }
 
 #[derive(Debug)]
@@ -80,8 +82,35 @@ pub fn title(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(title, area);
 }
 
-pub fn progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
+pub fn progress_info(f: &mut Frame, termi: &mut Termi, area: Rect) {
+    if termi.tracker.status == crate::tracker::Status::Idle {
+        let language = termi.config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
+        let language_text = format!("語 {}", language);
+
+        let element = UIElement::new(language_text, false, Some(ClickAction::OpenLanguagePicker));
+
+        let start_x = area.x + (area.width.saturating_sub(element.width)) / 2;
+
+        termi.clickable_regions.push(ClickableRegion {
+            area: Rect {
+                x: start_x,
+                y: area.y,
+                width: element.width,
+                height: 1,
+            },
+            action: ClickAction::OpenLanguagePicker,
+        });
+
+        let theme = termi.get_current_theme();
+
+        let paragraph =
+            Paragraph::new(Line::from(vec![element.to_span(theme)])).alignment(Alignment::Center);
+        f.render_widget(paragraph, area);
+        return;
+    }
+
     let theme = termi.get_current_theme();
+
     let progress_text = match termi.config.current_mode() {
         Mode::Time { duration } => {
             if let Some(remaining) = termi.tracker.time_remaining {
@@ -114,7 +143,6 @@ pub fn progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
     ];
 
     let paragraph = Paragraph::new(Line::from(spans)).alignment(Alignment::Center);
-
     f.render_widget(paragraph, area);
 }
 

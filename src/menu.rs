@@ -7,6 +7,7 @@ pub enum MenuAction {
     ChangeMode,
     ChangeTheme(String),
     ChangeCursorStyle(String),
+    ChangeLanguage(String),
     Quit,
 }
 
@@ -75,6 +76,10 @@ impl MenuState {
             .toggleable(config.use_symbols),
             MenuItem::new("Change Mode", MenuContent::Action(MenuAction::ChangeMode)),
             MenuItem::new(
+                "Language Picker",
+                MenuContent::SubMenu(Self::build_language_picker()),
+            ),
+            MenuItem::new(
                 "Theme Picker",
                 MenuContent::SubMenu(Self::build_theme_picker()),
             ),
@@ -85,6 +90,22 @@ impl MenuState {
             MenuItem::new("Exit", MenuContent::Action(MenuAction::Quit)),
         ];
         self.menu_stack.push((menu, 0));
+    }
+
+    // TODO: we could make this be a generic builder to avoid duplication.
+    fn build_language_picker() -> Vec<MenuItem> {
+        let mut languages = crate::builder::Builder::available_languages().to_vec();
+        languages.sort_by_key(|a| a.to_lowercase());
+
+        languages
+            .into_iter()
+            .map(|lang| {
+                MenuItem::new(
+                    lang.clone(),
+                    MenuContent::Action(MenuAction::ChangeLanguage(lang.clone())),
+                )
+            })
+            .collect()
     }
 
     fn build_theme_picker() -> Vec<MenuItem> {
@@ -301,7 +322,7 @@ mod tests {
     fn test_theme_preview() {
         let mut menu = create_test_menu();
 
-        menu.select_from_menu(5); // select theme picker
+        menu.select_from_menu(6); // select theme picker
         assert!(menu.menu_enter().is_none()); // should return None as we're entering a submenu
         assert_eq!(menu.menu_depth(), 2); // should be in submenu
         assert!(menu.get_preview_theme().is_none()); // no theme preview yet
@@ -318,10 +339,30 @@ mod tests {
     }
 
     #[test]
-    fn test_theme_selection() {
+    fn test_language_picker() {
         let mut menu = create_test_menu();
 
         menu.select_from_menu(5);
+        assert!(menu.menu_enter().is_none());
+        assert_eq!(menu.menu_depth(), 2);
+
+        // select first language
+        if let Some((items, _)) = menu.current_menu() {
+            let first_lang = items[0].label.clone();
+            if let Some(MenuAction::ChangeLanguage(selected_lang)) = menu.menu_enter() {
+                assert_eq!(selected_lang, first_lang);
+            } else {
+                panic!("Expected ChangeLanguage action");
+            }
+            assert!(!menu.is_open());
+        }
+    }
+
+    #[test]
+    fn test_theme_selection() {
+        let mut menu = create_test_menu();
+
+        menu.select_from_menu(6);
         menu.menu_enter();
 
         // select first theme
@@ -344,7 +385,7 @@ mod tests {
     #[test]
     fn test_clear_cusor_preview() {
         let mut menu = create_test_menu();
-        menu.select_from_menu(6); // TODO: we need to do better than to guess the index.
+        menu.select_from_menu(7);
         menu.menu_enter();
 
         if let Some((items, _)) = menu.current_menu() {
