@@ -1,7 +1,11 @@
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use crossterm::event::{self, Event, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::{
+    cursor::SetCursorStyle,
+    event::{self, Event, MouseButton, MouseEvent, MouseEventKind},
+    execute,
+};
 use ratatui::{prelude::Backend, Terminal};
 
 use crate::{
@@ -17,16 +21,37 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
 pub struct Termi {
     pub config: Config,
     pub tracker: Tracker,
     pub theme: Theme,
     pub preview_theme: Option<Theme>,
+    pub preview_cursor: Option<SetCursorStyle>,
     pub builder: Builder,
     pub words: String,
     pub menu: MenuState,
     pub clickable_regions: Vec<ClickableRegion>,
+}
+
+impl std::fmt::Debug for Termi {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Termi")
+            .field("config", &self.config)
+            .field("tracker", &self.tracker)
+            .field("theme", &self.theme)
+            .field("preview_theme", &self.preview_theme)
+            .field(
+                "preview_cursor",
+                &self
+                    .config
+                    .resolve_cursor_name_from_style(&self.preview_cursor),
+            )
+            .field("builder", &self.builder)
+            .field("words", &self.words)
+            .field("menu", &self.menu)
+            .field("clickable_regions", &self.clickable_regions)
+            .finish()
+    }
 }
 
 impl Termi {
@@ -40,6 +65,7 @@ impl Termi {
             tracker,
             theme,
             preview_theme: None,
+            preview_cursor: None,
             builder,
             words,
             menu: MenuState::default(),
@@ -84,9 +110,11 @@ impl Termi {
     pub fn start(&mut self) {
         let menu = self.menu.clone();
         let preview_theme = self.preview_theme.clone();
+        let preview_cursor = self.preview_cursor;
         *self = Termi::new(&self.config);
         self.menu = menu;
         self.preview_theme = preview_theme;
+        self.preview_cursor = preview_cursor;
         // TODO: eventually we would want to restore previous state. (themes come to mind)
         // self.menu = menu; // restore menu state
     }
@@ -99,6 +127,21 @@ impl Termi {
             self.preview_theme = Some(Theme::from_name(theme_name));
         } else {
             self.preview_theme = None;
+        }
+    }
+
+    pub fn update_preview_cursor(&mut self) {
+        if let Some(cursor_name) = self.menu.get_preview_cursor() {
+            let cursor_style = self.config.resolve_cursor_style_from_name(cursor_name);
+            self.preview_cursor = Some(cursor_style);
+            execute!(std::io::stdout(), cursor_style).ok();
+        } else {
+            self.preview_cursor = None;
+            execute!(
+                std::io::stdout(),
+                self.config.resolve_current_cursor_style()
+            )
+            .ok();
         }
     }
 }

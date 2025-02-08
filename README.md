@@ -18,9 +18,7 @@
 - [ ] Change language at runtime
 - [ ] Settings persistance
 - [ ] Proper Results screen
-- [ ] Add scrolbar to the menu
 - [ ] Add click actions to the menu
-- [ ] Preview the cusror style change like we do with the theme picker
 - [ ] Improve the Footer with icons if possible
 - [ ] Change mode/value with the menu
 - [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
@@ -38,6 +36,8 @@
 - [x] Change cursor style at runtime
 - [x] Only show (3) lines with scroll off
 - [x] underline wrong words (must have at least one wrong character for it to be underlined)
+- [x] Add scrolbar to the menu
+- [x] Preview the cusror style change like we do with the theme picker
 
 ### Notes
 - how to fetch themes

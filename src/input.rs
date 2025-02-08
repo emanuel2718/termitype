@@ -132,7 +132,18 @@ impl InputProcessor for Termi {
 
     fn handle_menu_back(&mut self) -> Action {
         self.menu.menu_back();
+        if self.preview_theme.is_some() {
+            self.preview_theme = None;
+        }
         self.preview_theme = None; // Q: do we should be handling this here?
+        if self.preview_cursor.is_some() {
+            self.preview_cursor = None;
+            execute!(
+                std::io::stdout(),
+                self.config.resolve_current_cursor_style()
+            )
+            .ok();
+        }
         if !self.menu.is_open() {
             self.tracker.resume();
         }
@@ -145,6 +156,9 @@ impl InputProcessor for Termi {
             if let MenuContent::Action(MenuAction::ChangeTheme(_)) = &item.content {
                 self.menu.preview_selected_theme();
                 self.update_preview_theme();
+            } else if let MenuContent::Action(MenuAction::ChangeCursorStyle(_)) = &item.content {
+                self.menu.preview_selected_cursor();
+                self.update_preview_cursor();
             }
         }
         Action::None
@@ -156,6 +170,9 @@ impl InputProcessor for Termi {
             if let MenuContent::Action(MenuAction::ChangeTheme(_)) = &item.content {
                 self.menu.preview_selected_theme();
                 self.update_preview_theme();
+            } else if let MenuContent::Action(MenuAction::ChangeCursorStyle(_)) = &item.content {
+                self.menu.preview_selected_cursor();
+                self.update_preview_cursor();
             }
         }
         Action::None
@@ -190,7 +207,11 @@ impl InputProcessor for Termi {
                 }
                 MenuAction::ChangeCursorStyle(steyl) => {
                     self.config.cursor_style = Some(steyl);
-                    execute!(std::io::stdout(), self.config.resolve_cursor_style()).ok();
+                    execute!(
+                        std::io::stdout(),
+                        self.config.resolve_current_cursor_style()
+                    )
+                    .ok();
                 }
                 MenuAction::Quit => return Action::Quit,
             }

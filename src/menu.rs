@@ -45,6 +45,7 @@ impl MenuItem {
 pub struct MenuState {
     menu_stack: Vec<(Vec<MenuItem>, usize)>, // (items, selected_idx)
     preview_theme: Option<String>,
+    preview_cursor: Option<String>,
 }
 
 impl MenuState {
@@ -178,6 +179,7 @@ impl MenuState {
         if self.is_open() {
             self.menu_stack.clear();
             self.preview_theme = None;
+            self.preview_cursor = None;
         } else {
             self.build_main_menu(config);
         }
@@ -187,10 +189,22 @@ impl MenuState {
         self.preview_theme.as_ref()
     }
 
+    pub fn get_preview_cursor(&self) -> Option<&String> {
+        self.preview_cursor.as_ref()
+    }
+
     pub fn preview_selected_theme(&mut self) {
         if let Some(item) = self.selected_menu_item() {
             if let MenuContent::Action(MenuAction::ChangeTheme(theme)) = &item.content {
                 self.preview_theme = Some(theme.clone());
+            }
+        }
+    }
+
+    pub fn preview_selected_cursor(&mut self) {
+        if let Some(item) = self.selected_menu_item() {
+            if let MenuContent::Action(MenuAction::ChangeCursorStyle(cursor)) = &item.content {
+                self.preview_cursor = Some(cursor.clone());
             }
         }
     }
@@ -204,13 +218,16 @@ impl MenuState {
                         MenuContent::Action(MenuAction::ChangeTheme(_))
                     )
                 }) {
+                    // NOTE: we shouldn't clear something that doesn't need clearing...wasteful
                     self.preview_theme = None;
+                    self.preview_cursor = None;
                 }
             }
             self.menu_stack.pop();
         } else {
             self.menu_stack.clear();
             self.preview_theme = None;
+            self.preview_cursor = None;
         }
     }
 
@@ -225,6 +242,9 @@ impl MenuState {
                             self.menu_stack.clear();
                             if matches!(action, MenuAction::ChangeTheme(_)) {
                                 self.preview_theme = None;
+                            }
+                            if matches!(action, MenuAction::ChangeCursorStyle(_)) {
+                                self.preview_cursor = None;
                             }
                         }
                         Some(action)
@@ -272,7 +292,7 @@ mod tests {
         menu
     }
 
-    fn go_back_and_check_preview_is_cleared(menu: &mut MenuState) {
+    fn go_back_and_check_theme_preview_is_cleared(menu: &mut MenuState) {
         menu.menu_back();
         assert!(menu.get_preview_theme().is_none());
     }
@@ -294,7 +314,7 @@ mod tests {
         }
 
         // preview theme should be clear when we go back
-        go_back_and_check_preview_is_cleared(&mut menu);
+        go_back_and_check_theme_preview_is_cleared(&mut menu);
     }
 
     #[test]
@@ -319,6 +339,35 @@ mod tests {
 
             assert!(!menu.is_open());
             assert!(menu.get_preview_theme().is_none());
+        }
+    }
+    #[test]
+    fn test_clear_cusor_preview() {
+        let mut menu = create_test_menu();
+        menu.select_from_menu(6); // TODO: we need to do better than to guess the index.
+        menu.menu_enter();
+
+        if let Some((items, _)) = menu.current_menu() {
+            let mut second_cursor = items[2].label.clone();
+            menu.next_menu_item();
+            menu.next_menu_item();
+
+            menu.preview_selected_cursor();
+
+            // Why is capitalizing the first letter of a string so convoluted in Rust?
+            // https://stackoverflow.com/a/69996191
+            let uncapitalized_cursor =
+                format!("{}{second_cursor}", second_cursor.remove(0).to_lowercase());
+            assert_eq!(menu.get_preview_cursor(), Some(&uncapitalized_cursor));
+
+            if let Some(MenuAction::ChangeCursorStyle(selected_cursor)) = menu.menu_enter() {
+                assert_eq!(selected_cursor, uncapitalized_cursor);
+            } else {
+                panic!("Expected ChangeCursorStyle action");
+            }
+
+            assert!(!menu.is_open());
+            assert!(menu.get_preview_cursor().is_none());
         }
     }
 }
