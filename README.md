@@ -28,6 +28,11 @@
     - want to improve the word tracking `Word { start: usize, end: usize, text: String }` or something like that
         - might be heavy on the memory tho
 
+
+### Bugs
+- [] responsiveness needs some work.
+    - if we reduce the width just enough the top bar will be cut off (should wrap i think question mark)
+
 ### Done
 - [x] Build Github CI
 - [x] Theme swap at runtime (Menu -> Themes -> <list of themes>)

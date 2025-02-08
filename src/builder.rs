@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{config::Config, constants::DEFAULT_LANGUAGE};
 
-const SYMBOLS: &[char] = &['@', '#', '$', '%', '&', '*'];
+const SYMBOLS: &[char] = &[
+    '@', '#', '$', '%', '&', '*', '(', ')', '+', '-', '/', '=', '?', '<', '>', '^', '_', '`', '{',
+    '|', '}', '~',
+];
 const PUNCTUATION: &[char] = &['.', ',', '!', '?', ';', ':'];
 const NUMBERS: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const DEFAULT_WORDS: &[&str] = &["the", "be", "to", "of", "and"];

@@ -26,6 +26,7 @@ pub struct ClickableRegion {
 #[derive(Debug, Clone)]
 pub enum ClickAction {
     TogglePunctuation,
+    ToggleSymbols,
     ToggleNumbers,
     SwitchMode(ModeType),
     SetModeValue(usize),
@@ -296,6 +297,11 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
             "# numbers ",
             termi.config.use_numbers,
             Some(ClickAction::ToggleNumbers),
+        ),
+        UIElement::new(
+            "@ symbols",
+            termi.config.use_symbols,
+            Some(ClickAction::ToggleSymbols),
         ),
         UIElement::new("│ ", false, None), // separator
         UIElement::new(

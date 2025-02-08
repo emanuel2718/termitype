@@ -88,6 +88,10 @@ impl Termi {
                         self.config.toggle_numbers();
                         self.start();
                     }
+                    ClickAction::ToggleSymbols => {
+                        self.config.toggle_symbols();
+                        self.start();
+                    }
                     ClickAction::SwitchMode(mode) => {
                         self.config.change_mode(mode, None);
                         self.start();
