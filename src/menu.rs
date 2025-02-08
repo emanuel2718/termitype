@@ -197,11 +197,21 @@ impl MenuState {
 
     pub fn menu_back(&mut self) {
         if self.menu_depth() > 1 {
+            if let Some((items, _)) = self.current_menu() {
+                if items.iter().any(|item| {
+                    matches!(
+                        item.content,
+                        MenuContent::Action(MenuAction::ChangeTheme(_))
+                    )
+                }) {
+                    self.preview_theme = None;
+                }
+            }
             self.menu_stack.pop();
         } else {
             self.menu_stack.clear();
+            self.preview_theme = None;
         }
-        self.preview_theme = None
     }
 
     pub fn menu_enter(&mut self) -> Option<MenuAction> {
@@ -213,6 +223,9 @@ impl MenuState {
                         let action = action.clone();
                         if should_clear {
                             self.menu_stack.clear();
+                            if matches!(action, MenuAction::ChangeTheme(_)) {
+                                self.preview_theme = None;
+                            }
                         }
                         Some(action)
                     }
@@ -248,4 +261,88 @@ impl MenuState {
     }
 }
 
-// TODO: Test this
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_menu() -> MenuState {
+        let mut menu = MenuState::default();
+        let config = Config::default();
+        menu.build_main_menu(&config);
+        menu
+    }
+
+    fn go_back_and_check_preview_is_cleared(menu: &mut MenuState) {
+        menu.menu_back();
+        assert!(menu.get_preview_theme().is_none());
+    }
+
+    #[test]
+    fn test_theme_preview() {
+        let mut menu = create_test_menu();
+
+        menu.select_from_menu(5); // select theme picker
+        assert!(menu.menu_enter().is_none()); // should return None as we're entering a submenu
+        assert_eq!(menu.menu_depth(), 2); // should be in submenu
+        assert!(menu.get_preview_theme().is_none()); // no theme preview yet
+
+        // preview first theme we find
+        if let Some((items, _)) = menu.current_menu() {
+            let first_theme = items[0].label.clone();
+            menu.preview_selected_theme();
+            assert_eq!(menu.get_preview_theme(), Some(&first_theme));
+        }
+
+        // preview theme should be clear when we go back
+        go_back_and_check_preview_is_cleared(&mut menu);
+    }
+
+    #[test]
+    fn test_theme_selection() {
+        let mut menu = create_test_menu();
+
+        menu.select_from_menu(5);
+        menu.menu_enter();
+
+        // select first theme
+        if let Some((items, _)) = menu.current_menu() {
+            let first_theme = items[0].label.clone();
+            menu.preview_selected_theme();
+
+            assert_eq!(menu.get_preview_theme(), Some(&first_theme));
+
+            if let Some(MenuAction::ChangeTheme(selected_theme)) = menu.menu_enter() {
+                assert_eq!(selected_theme, first_theme);
+            } else {
+                panic!("Expected ChangeTheme action");
+            }
+
+            assert!(!menu.is_open());
+            assert!(menu.get_preview_theme().is_none());
+        }
+    }
+
+    #[test]
+    fn test_theme_preview_navigation() {
+        let mut menu = create_test_menu();
+
+        menu.select_from_menu(5);
+        menu.menu_enter();
+
+        let mut previewed_themes = Vec::new();
+        if let Some((_items, _)) = menu.current_menu() {
+            // preview first theme
+            menu.preview_selected_theme();
+            previewed_themes.push(menu.get_preview_theme().unwrap().clone());
+
+            menu.next_menu_item();
+            menu.preview_selected_theme();
+            previewed_themes.push(menu.get_preview_theme().unwrap().clone());
+
+            // verify we got different themes
+            assert_ne!(previewed_themes[0], previewed_themes[1]);
+        }
+
+        go_back_and_check_preview_is_cleared(&mut menu);
+    }
+}
