@@ -10,7 +10,8 @@ use ratatui::{
 use crate::{
     config::{Mode, ModeType},
     constants::{
-        AMOUNT_OF_VISIBLE_LINES, APPNAME, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_TYPING_HEIGHT,
+        AMOUNT_OF_VISIBLE_LINES, APPNAME, COMMAND_BAR_HEIGHT, DEFAULT_LANGUAGE, FOOTER_HEIGHT,
+        MIN_TYPING_HEIGHT,
     },
     termi::Termi,
     theme::Theme,
@@ -31,6 +32,7 @@ pub enum ClickAction {
     SwitchMode(ModeType),
     SetModeValue(usize),
     OpenThemePicker,
+    OpenLanguagePicker,
 }
 
 #[derive(Debug)]
@@ -350,6 +352,16 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
             } else {
                 100
             })),
+        ),
+        UIElement::new("│ ", false, None),
+        UIElement::new(
+            format!(
+                "語 {} ",
+                // NOTE: if no language passed in cli, then we need to show DEFAULT_LANGUAGE
+                termi.config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE)
+            ),
+            false,
+            Some(ClickAction::OpenLanguagePicker),
         ),
     ];
 

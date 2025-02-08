@@ -1,6 +1,6 @@
 <h1>
 <p align="center">
-  TermiType
+  termitype
 </h1>
   <p align="center">
     Just another rusty TUI typing game
