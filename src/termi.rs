@@ -115,13 +115,18 @@ impl Termi {
         let menu = self.menu.clone();
         let preview_theme = self.preview_theme.clone();
         let preview_cursor = self.preview_cursor;
+        // hmm, if the use passed the words flag, should we reset it?
+        // maybe the user wants to pracitice those sepecific words over and over again?
+        // reset words flag for now...
+        if self.config.words.is_some() {
+            self.config.reset_words_flag();
+        }
         *self = Termi::new(&self.config);
         self.menu = menu;
         self.preview_theme = preview_theme;
         self.preview_cursor = preview_cursor;
-        // TODO: eventually we would want to restore previous state. (themes come to mind)
-        // self.menu = menu; // restore menu state
     }
+
     pub fn get_current_theme(&self) -> &Theme {
         self.preview_theme.as_ref().unwrap_or(&self.theme)
     }

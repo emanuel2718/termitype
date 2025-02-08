@@ -47,6 +47,10 @@ impl Builder {
     pub fn generate_test(&mut self, config: &Config) -> String {
         let lang = config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
 
+        if config.words.is_some() {
+            return config.words.clone().unwrap();
+        }
+
         // load given language ahead of time
         if !self.languages.contains_key(lang) {
             let _ = self.load_language(lang);

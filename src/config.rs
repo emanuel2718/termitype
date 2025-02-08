@@ -7,7 +7,7 @@ use crate::constants::{DEFAULT_LANGUAGE, DEFAULT_THEME};
 #[command(name = "Termitype", about = "Terminal based typing game")]
 #[command(group(
     ArgGroup::new("mode")
-        .args(&["time", "words"])
+        .args(&["time", "word_count"])
         .required(false)
         .multiple(false)
 ))]
@@ -20,9 +20,13 @@ pub struct Config {
     #[arg(short = 't', long = "time", group = "mode")]
     pub time: Option<u64>,
 
-    /// Number of words used in the test (only valid in Words mode).
+    /// Words used in the test (only valid in Words mode).
     #[arg(short = 'w', long = "words", group = "mode")]
-    pub words: Option<usize>,
+    pub words: Option<String>,
+
+    /// Number of words used in the test (only valid in Words mode).
+    #[arg(long = "word-count", group = "mode")]
+    pub word_count: Option<usize>,
 
     /// Sets the theme if a valid theme is given, ignored otherwise
     #[arg(short = 'T', long = "theme")]
@@ -94,6 +98,7 @@ impl Default for Config {
             language: Some(DEFAULT_LANGUAGE.to_string()),
             time: Some(30),
             words: None,
+            word_count: None,
             use_symbols: false,
             use_numbers: false,
             use_punctuation: false,
@@ -116,11 +121,17 @@ impl Config {
     /// Defaults to time mode with (30) seconds if no options are provided.
     /// If *both* `time` and `word` mode are passed, it will default to time mode.
     pub fn current_mode(&self) -> Mode {
-        match (self.time, self.words) {
-            (Some(time), None) => Mode::Time { duration: time },
-            (None, Some(count)) => Mode::Words { count },
-            (None, None) => Mode::Time { duration: 30 },
-            _ => unreachable!("Both Time mode and Words mode cannot be used at the same time."),
+        if let Some(words) = self.words.clone() {
+            Mode::Words {
+                count: words.split_ascii_whitespace().count(),
+            }
+        } else {
+            match (self.time, self.word_count) {
+                (Some(time), None) => Mode::Time { duration: time },
+                (None, Some(count)) => Mode::Words { count },
+                (None, None) => Mode::Time { duration: 30 },
+                _ => unreachable!("Both Time mode and Words mode cannot be used at the same time."),
+            }
         }
     }
 
@@ -129,10 +140,10 @@ impl Config {
         match mode {
             ModeType::Time => {
                 self.time = Some(value.unwrap_or(30) as u64);
-                self.words = None;
+                self.word_count = None;
             }
             ModeType::Words => {
-                self.words = Some(value.unwrap_or(25));
+                self.word_count = Some(value.unwrap_or(25));
                 self.time = None;
             }
         }
@@ -143,17 +154,22 @@ impl Config {
         self.theme = Some(theme_name.to_string())
     }
 
+    /// Resets the words flag after a test has been run with it.
+    pub fn reset_words_flag(&mut self) {
+        self.words = None;
+    }
+
     /// Changes the value of the current mode.
     pub fn change_mode_value(&mut self, value: usize) {
         match self.current_mode() {
             Mode::Time { .. } => self.time = Some(value as u64),
-            Mode::Words { .. } => self.words = Some(value),
+            Mode::Words { .. } => self.word_count = Some(value),
         }
     }
 
     /// Resolves the test word count based on current configuration.
     pub fn resolve_word_count(&self) -> usize {
-        match (self.time, self.words) {
+        match (self.time, self.word_count) {
             (None, Some(count)) => count,
             _ => 100,
         }
@@ -161,7 +177,7 @@ impl Config {
 
     /// Resolves the test duration based on current configuration.
     pub fn resolve_duration(&self) -> u64 {
-        match (self.time, self.words) {
+        match (self.time, self.word_count) {
             (Some(duration), None) => duration,
             _ => 30,
         }
@@ -238,7 +254,7 @@ mod tests {
         let config = Config::default();
         assert!(config.language.is_some());
         assert!(config.time.is_some());
-        assert!(config.words.is_none());
+        assert!(config.word_count.is_none());
         assert_eq!(config.language, Some(DEFAULT_LANGUAGE.to_string()));
         assert_eq!(config.use_symbols, false);
         assert_eq!(config.use_punctuation, false);
@@ -261,7 +277,7 @@ mod tests {
     fn test_config_change_mode() {
         let mut config = create_config();
         config.change_mode(ModeType::Time, Some(30));
-        assert!(config.words.is_none());
+        assert!(config.word_count.is_none());
         assert_mode(&config, ModeType::Time, 30);
     }
 
