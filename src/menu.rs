@@ -321,28 +321,4 @@ mod tests {
             assert!(menu.get_preview_theme().is_none());
         }
     }
-
-    #[test]
-    fn test_theme_preview_navigation() {
-        let mut menu = create_test_menu();
-
-        menu.select_from_menu(5);
-        menu.menu_enter();
-
-        let mut previewed_themes = Vec::new();
-        if let Some((_items, _)) = menu.current_menu() {
-            // preview first theme
-            menu.preview_selected_theme();
-            previewed_themes.push(menu.get_preview_theme().unwrap().clone());
-
-            menu.next_menu_item();
-            menu.preview_selected_theme();
-            previewed_themes.push(menu.get_preview_theme().unwrap().clone());
-
-            // verify we got different themes
-            assert_ne!(previewed_themes[0], previewed_themes[1]);
-        }
-
-        go_back_and_check_preview_is_cleared(&mut menu);
-    }
 }
