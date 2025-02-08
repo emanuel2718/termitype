@@ -8,8 +8,6 @@ pub struct Tracker {
     pub wpm: f64,
     pub raw_wpm: f64,
     pub accuracy: u8,
-    total_keystrokes: usize,
-    correct_keystrokes: usize,
 
     // time
     pub time_started: Option<Instant>,
@@ -24,6 +22,10 @@ pub struct Tracker {
     pub target_text: String,
     pub word_count: usize,
     pub status: Status,
+
+    total_keystrokes: usize,
+    correct_keystrokes: usize,
+    wrong_words_start_indexes: std::collections::HashSet<usize>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -33,20 +35,6 @@ pub enum Status {
     Paused,
     Completed,
 }
-
-/*
-
-wrong words:  could be represented as a queue of indexes. Where the index is the index of the word in the target text.
-
-if we register a incorrectly typed char,
-for each word, in between <space>
-
-
-
-
-
-
-*/
 
 impl Tracker {
     pub fn new(config: &Config, target_text: String) -> Self {
@@ -72,6 +60,7 @@ impl Tracker {
             status: Status::Idle,
             total_keystrokes: 0,
             correct_keystrokes: 0,
+            wrong_words_start_indexes: std::collections::HashSet::new(),
         }
     }
 
@@ -94,6 +83,7 @@ impl Tracker {
         self.user_input.clear();
         self.cursor_position = 0;
         self.status = Status::Typing;
+        self.wrong_words_start_indexes.clear();
     }
 
     // TODO: maybe mmove this elsewhere. not sure if it makes sense here.
@@ -133,6 +123,15 @@ impl Tracker {
 
         self.register_keystroke(is_correct);
         self.user_input.push(Some(c));
+
+        // we are about to type a wrong word
+        if !is_correct {
+            let current_word_start = self.get_current_word_start();
+            if !self.wrong_words_start_indexes.contains(&current_word_start) {
+                self.wrong_words_start_indexes.insert(current_word_start);
+            }
+        }
+
         self.cursor_position += 1;
         self.check_completion();
         true
@@ -142,6 +141,11 @@ impl Tracker {
         if self.cursor_position == 0 {
             return false;
         }
+
+        // going back to a wrong word, unmark it
+        let current_word_start = self.get_current_word_start();
+        self.wrong_words_start_indexes.remove(&current_word_start);
+
         // allow backspace if we're at a mistyped character
         let current_input = self.user_input.get(self.cursor_position - 1);
         let target_char = self.target_text.chars().nth(self.cursor_position - 1);
@@ -260,6 +264,20 @@ impl Tracker {
             false
         }
     }
+
+    /// Returns the start index of the current word.
+    fn get_current_word_start(&self) -> usize {
+        let mut pos = self.cursor_position;
+        while pos > 0 && self.target_text.chars().nth(pos - 1) != Some(' ') {
+            pos -= 1;
+        }
+        pos
+    }
+
+    /// Returns true if the word at the given start index is marked as wrong.
+    pub fn is_word_wrong(&self, start_idx: usize) -> bool {
+        self.wrong_words_start_indexes.contains(&start_idx)
+    }
 }
 
 #[cfg(test)]
@@ -345,5 +363,68 @@ mod tests {
         tracker.resume();
         assert_eq!(tracker.status, Status::Typing);
         assert!(tracker.time_paused.is_none());
+    }
+
+    #[test]
+    fn test_wrong_word_backspace() {
+        let mut tracker = create_tracker();
+        tracker.start_typing();
+
+        // Type "hallo" (wrong) instead of "hello"
+        tracker.type_char('h');
+        tracker.type_char('a');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+        assert_eq!(tracker.is_word_wrong(0), true);
+
+        // bactrack
+        for _ in 0.."hallo".len() {
+            tracker.backspace();
+        }
+        assert_eq!(tracker.is_word_wrong(0), false);
+
+        // Type "hello" correctly
+        tracker.type_char('h');
+        tracker.type_char('e');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+        assert_eq!(tracker.is_word_wrong(0), false);
+    }
+
+    #[test]
+    fn test_multiple_wrong_words() {
+        let config = Config::default();
+        let target_text = String::from("hello world pog");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        // Type "hallo world pa"
+        // First word wrong
+        tracker.type_char('h');
+        tracker.type_char('a');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+        tracker.type_char(' ');
+
+        // Second word correct
+        tracker.type_char('w');
+        tracker.type_char('o');
+        tracker.type_char('r');
+        tracker.type_char('l');
+        tracker.type_char('d');
+        tracker.type_char(' ');
+
+        // Third word wrong
+        tracker.type_char('p');
+        tracker.type_char('a');
+
+        assert_eq!(tracker.is_word_wrong(6), false);
+        assert_eq!(tracker.is_word_wrong(12), true);
+
+        // is first word still marked as wrong? should be
+        assert_eq!(tracker.is_word_wrong(0), true);
     }
 }
