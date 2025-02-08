@@ -31,7 +31,7 @@ pub fn run() -> Result<()> {
         return Ok(());
     }
 
-    let cursor_style = config.resolve_cursor_style();
+    let cursor_style = config.resolve_current_cursor_style();
 
     terminal::enable_raw_mode()?;
 
