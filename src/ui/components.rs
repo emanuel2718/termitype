@@ -82,8 +82,35 @@ pub fn title(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(title, area);
 }
 
-pub fn progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
+pub fn progress_info(f: &mut Frame, termi: &mut Termi, area: Rect) {
+    if termi.tracker.status == crate::tracker::Status::Idle {
+        let language = termi.config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
+        let language_text = format!("語 {}", language);
+
+        let element = UIElement::new(language_text, false, Some(ClickAction::OpenLanguagePicker));
+
+        let start_x = area.x + (area.width.saturating_sub(element.width)) / 2;
+
+        termi.clickable_regions.push(ClickableRegion {
+            area: Rect {
+                x: start_x,
+                y: area.y,
+                width: element.width,
+                height: 1,
+            },
+            action: ClickAction::OpenLanguagePicker,
+        });
+
+        let theme = termi.get_current_theme();
+
+        let paragraph =
+            Paragraph::new(Line::from(vec![element.to_span(theme)])).alignment(Alignment::Center);
+        f.render_widget(paragraph, area);
+        return;
+    }
+
     let theme = termi.get_current_theme();
+
     let progress_text = match termi.config.current_mode() {
         Mode::Time { duration } => {
             if let Some(remaining) = termi.tracker.time_remaining {
@@ -116,7 +143,6 @@ pub fn progress_info(f: &mut Frame, termi: &Termi, area: Rect) {
     ];
 
     let paragraph = Paragraph::new(Line::from(spans)).alignment(Alignment::Center);
-
     f.render_widget(paragraph, area);
 }
 
@@ -352,16 +378,6 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
             } else {
                 100
             })),
-        ),
-        UIElement::new("│ ", false, None),
-        UIElement::new(
-            format!(
-                "語 {} ",
-                // NOTE: if no language passed in cli, then we need to show DEFAULT_LANGUAGE
-                termi.config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE)
-            ),
-            false,
-            Some(ClickAction::OpenLanguagePicker),
         ),
     ];
 
