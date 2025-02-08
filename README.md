@@ -15,7 +15,6 @@
 
 ### TODO
 
-- [ ] Change language at runtime
 - [ ] Settings persistance
 - [ ] Proper Results screen
 - [ ] Add click actions to the menu
@@ -43,6 +42,7 @@
 - [x] underline wrong words (must have at least one wrong character for it to be underlined)
 - [x] Add scrolbar to the menu
 - [x] Preview the cusror style change like we do with the theme picker
+- [x] Change language at runtime
 
 ### Notes
 - how to fetch themes
