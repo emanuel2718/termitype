@@ -110,7 +110,7 @@ impl Termi {
     pub fn start(&mut self) {
         let menu = self.menu.clone();
         let preview_theme = self.preview_theme.clone();
-        let preview_cursor = self.preview_cursor.clone();
+        let preview_cursor = self.preview_cursor;
         *self = Termi::new(&self.config);
         self.menu = menu;
         self.preview_theme = preview_theme;
@@ -132,7 +132,7 @@ impl Termi {
 
     pub fn update_preview_cursor(&mut self) {
         if let Some(cursor_name) = self.menu.get_preview_cursor() {
-            let cursor_style = self.config.resolve_cursor_style_from_name(&cursor_name);
+            let cursor_style = self.config.resolve_cursor_style_from_name(cursor_name);
             self.preview_cursor = Some(cursor_style);
             execute!(std::io::stdout(), cursor_style).ok();
         } else {
