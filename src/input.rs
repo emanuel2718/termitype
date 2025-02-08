@@ -132,6 +132,7 @@ impl InputProcessor for Termi {
 
     fn handle_menu_back(&mut self) -> Action {
         self.menu.menu_back();
+        self.preview_theme = None; // Q: do we should be handling this here?
         if !self.menu.is_open() {
             self.tracker.resume();
         }

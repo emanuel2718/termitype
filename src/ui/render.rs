@@ -1,6 +1,8 @@
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Borders, Clear, List, ListItem, Paragraph};
+use ratatui::widgets::{
+    Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+};
 use ratatui::{style::Style, widgets::Block, Frame};
 
 use crate::termi::Termi;
@@ -98,6 +100,8 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
         .title(title)
         .title_alignment(Alignment::Center);
 
+    let mut scrollbar_state = ScrollbarState::default();
+
     let items: Vec<ListItem> = if let Some((items, selected_idx)) = menu.current_menu() {
         let total_items = items.len();
         let max_visible = (menu_area.height as usize).saturating_sub(4); // minus border + footer
@@ -115,6 +119,11 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                 selected_idx.saturating_sub(halfway)
             }
         };
+
+        // update scrolbar position
+        scrollbar_state = scrollbar_state
+            .content_length(total_items)
+            .position(scroll_offset);
 
         items
             .iter()
@@ -177,4 +186,29 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(background, menu_area);
     f.render_widget(menu_widget, menu_layout[1]);
     f.render_widget(footer, menu_layout[2]);
+
+    // Only show scrollbar if we have more items than can fit in the visible area
+    if let Some((items, _)) = menu.current_menu() {
+        let total_items = items.len();
+        let max_visible = (menu_area.height as usize).saturating_sub(4);
+
+        if total_items > max_visible {
+            let scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None)
+                .track_symbol(Some("│"))
+                .thumb_symbol("█")
+                .style(Style::default().fg(theme.border()));
+
+            f.render_stateful_widget(
+                scrollbar,
+                menu_layout[1].inner(Margin {
+                    vertical: 0,
+                    horizontal: 1,
+                }),
+                &mut scrollbar_state,
+            );
+        }
+    }
 }
