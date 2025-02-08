@@ -299,7 +299,7 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
             Some(ClickAction::ToggleNumbers),
         ),
         UIElement::new(
-            "@ symbols",
+            "@ symbols ",
             termi.config.use_symbols,
             Some(ClickAction::ToggleSymbols),
         ),
