@@ -187,20 +187,28 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(menu_widget, menu_layout[1]);
     f.render_widget(footer, menu_layout[2]);
 
-    let scrollbar = Scrollbar::default()
-        .orientation(ScrollbarOrientation::VerticalRight)
-        .begin_symbol(None)
-        .end_symbol(None)
-        .track_symbol(Some("│"))
-        .thumb_symbol("█")
-        .style(Style::default().fg(theme.border()));
+    // Only show scrollbar if we have more items than can fit in the visible area
+    if let Some((items, _)) = menu.current_menu() {
+        let total_items = items.len();
+        let max_visible = (menu_area.height as usize).saturating_sub(4);
 
-    f.render_stateful_widget(
-        scrollbar,
-        menu_layout[1].inner(Margin {
-            vertical: 0,
-            horizontal: 1,
-        }),
-        &mut scrollbar_state,
-    );
+        if total_items > max_visible {
+            let scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None)
+                .track_symbol(Some("│"))
+                .thumb_symbol("█")
+                .style(Style::default().fg(theme.border()));
+
+            f.render_stateful_widget(
+                scrollbar,
+                menu_layout[1].inner(Margin {
+                    vertical: 0,
+                    horizontal: 1,
+                }),
+                &mut scrollbar_state,
+            );
+        }
+    }
 }
