@@ -169,19 +169,36 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
         }
 
         let word = termi.words.split_whitespace().nth(word_idx).unwrap();
+        let word_start = pos.start_index;
+        let is_current_word = termi.tracker.cursor_position >= word_start
+            && termi.tracker.cursor_position <= word_start + word.len();
+        let is_wrong_word = !is_current_word && termi.tracker.is_word_wrong(word_start);
 
         // style
-        let word_start = pos.start_index;
         let chars: Vec<Span> = word
             .chars()
             .enumerate()
             .map(|(i, c)| {
                 let char_idx = word_start + i;
                 let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
-                    Some(input) if input == c => Style::default().fg(theme.success()),
-                    Some(_) => Style::default()
-                        .fg(theme.error())
-                        .add_modifier(Modifier::DIM),
+                    Some(input) if input == c => {
+                        let mut style = Style::default().fg(theme.success());
+                        if is_wrong_word {
+                            style = style
+                                .add_modifier(Modifier::UNDERLINED)
+                                .underline_color(theme.error());
+                        }
+                        style
+                    }
+                    Some(_) => {
+                        let mut style = Style::default().fg(theme.error());
+                        if !is_current_word {
+                            style = style
+                                .add_modifier(Modifier::UNDERLINED)
+                                .underline_color(theme.error());
+                        }
+                        style
+                    }
                     None => Style::default()
                         .fg(theme.foreground())
                         .add_modifier(Modifier::DIM),
@@ -558,7 +575,6 @@ mod tests {
         let text = "hello world wrap";
         let available_width = 8; // force wrap after "hello"
         let positions = calculate_word_positions(text, available_width);
-        println!("{:?}", positions);
 
         assert_eq!(positions[0].line, 0, "First word on line 0");
         assert_eq!(positions[1].line, 1, "Second word should wrap to line 1");

@@ -15,14 +15,20 @@
 
 ### TODO
 
-- [ ] underline wrong words (must have at least one wrong character for it to be underlined)
+- [ ] Change language at runtime
+- [ ] Settings persistance
 - [ ] Proper Results screen
+- [ ] Add scrolbar to the menu
+- [ ] Add click actions to the menu
+- [ ] Preview the cusror style change like we do with the theme picker
 - [ ] Improve the Footer with icons if possible
 - [ ] Change mode/value with the menu
 - [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
 - [ ] Add more languages and word lists
 - [ ] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
 - [ ] Performance optimization pass before release (cargo flamegraph --root)
+    - want to improve the word tracking `Word { start: usize, end: usize, text: String }` or something like that
+        - might be heavy on the memory tho
 
 ### Done
 - [x] Build Github CI
@@ -31,6 +37,7 @@
 - [x] Change cursor style via cli
 - [x] Change cursor style at runtime
 - [x] Only show (3) lines with scroll off
+- [x] underline wrong words (must have at least one wrong character for it to be underlined)
 
 ### Notes
 - how to fetch themes
