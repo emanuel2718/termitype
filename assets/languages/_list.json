@@ -1,4 +1,11 @@
 [
   "english",
-  "spanish"
+  "spanish",
+  "latin",
+  "klingon",
+  "code_rust",
+  "code_c++",
+  "code_python",
+  "code_typescript",
+  "git"
 ]
