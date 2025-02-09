@@ -65,6 +65,10 @@ pub struct Config {
     )]
     pub cursor_style: Option<String>,
 
+    /// Prints termitype version
+    #[arg(short = 'v', long = "version")]
+    pub version: bool,
+
     /// Enable debug mode
     #[arg(short = 'd', long = "debug")]
     pub debug: bool,
@@ -106,6 +110,7 @@ impl Default for Config {
             cursor_style: None,
             color_mode: None,
             list_themes: false,
+            version: false,
             debug: false,
         }
     }

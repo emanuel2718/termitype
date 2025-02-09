@@ -3,6 +3,7 @@ use std::io;
 use anyhow::Result;
 use clap::Parser;
 use config::Config;
+use constants::APPNAME;
 use crossterm::{
     cursor::SetCursorStyle,
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -10,6 +11,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{prelude::CrosstermBackend, Terminal};
+use version::VERSION;
 
 pub mod builder;
 pub mod config;
@@ -60,6 +62,10 @@ pub fn run() -> Result<()> {
 }
 
 fn should_print_to_console(config: &Config) -> bool {
+    if config.version {
+        println!("{} {}", APPNAME, VERSION);
+        return true;
+    }
     if config.list_themes {
         theme::print_theme_list();
         return true;

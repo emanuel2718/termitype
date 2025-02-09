@@ -1,4 +1,4 @@
-pub const APPNAME: &str = "Termitype";
+pub const APPNAME: &str = "termitype";
 pub const DEFAULT_LANGUAGE: &str = "english";
 pub const DEFAULT_THEME: &str = "tokyonight";
 
