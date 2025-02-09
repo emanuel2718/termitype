@@ -115,6 +115,11 @@ impl Tracker {
             return false;
         }
 
+        if self.should_complete() {
+            self.complete();
+            return false;
+        }
+
         let is_correct = self.target_text.chars().nth(self.cursor_position) == Some(c);
         if !is_correct && self.target_text.chars().nth(self.cursor_position) == Some(' ') {
             self.register_keystroke(is_correct);
@@ -133,7 +138,11 @@ impl Tracker {
         }
 
         self.cursor_position += 1;
-        self.check_completion();
+
+        // only check completion if we have don't have a time limit
+        if self.time_remaining.is_none() {
+            self.check_completion();
+        }
         true
     }
 
@@ -199,14 +208,7 @@ impl Tracker {
         };
 
         if let Some(end_time) = self.time_end {
-            let now = Instant::now();
-            if now >= end_time {
-                self.time_remaining = Some(Duration::from_secs(0));
-                self.completion_time = Some(end_time.duration_since(start_time).as_secs_f64());
-                self.status = Status::Completed;
-                return;
-            }
-            self.time_remaining = Some(end_time.duration_since(now));
+            self.time_remaining = Some(end_time.duration_since(Instant::now()));
         }
 
         if !self.user_input.is_empty() {
@@ -220,7 +222,6 @@ impl Tracker {
             };
 
             self.raw_wpm = (self.user_input.len() as f64 / 5.0) / elapsed_minutes;
-
             self.wpm = (self.correct_keystrokes as f64 / 5.0) / elapsed_minutes;
             self.wpm = self.wpm.max(0.0);
         }
@@ -426,5 +427,40 @@ mod tests {
 
         // is first word still marked as wrong? should be
         assert_eq!(tracker.is_word_wrong(0), true);
+    }
+
+    #[test]
+    fn test_time_based_completion() {
+        let config = Config::default();
+        let target_text = String::from("test text for timing");
+        let mut tracker = Tracker::new(&config, target_text);
+
+        tracker.time_remaining = Some(Duration::from_secs(1));
+        tracker.start_typing();
+
+        assert!(tracker.type_char('t'));
+        assert!(tracker.type_char('e'));
+        assert_eq!(tracker.status, Status::Typing);
+
+        tracker.time_end = Some(Instant::now());
+
+        assert!(!tracker.type_char('s'));
+        assert_eq!(tracker.status, Status::Completed);
+        assert_eq!(tracker.time_remaining, Some(Duration::from_secs(0)));
+    }
+
+    #[test]
+    fn test_completion_time_accuracy() {
+        let config = Config::default();
+        let target_text = String::from("test");
+        let mut tracker = Tracker::new(&config, target_text);
+
+        tracker.time_remaining = Some(Duration::from_secs(1));
+        tracker.start_typing();
+
+        tracker.complete();
+
+        assert_eq!(tracker.completion_time, Some(1.0));
+        assert_eq!(tracker.status, Status::Completed);
     }
 }

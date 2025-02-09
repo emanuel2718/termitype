@@ -15,9 +15,11 @@
 
 ### TODO
 
-- [ ] Settings persistance
 - [ ] Proper Results screen
-- [ ] Add click actions to the menu
+- [ ] User defined config in `$XDG_CONFIG_HOME/termitype/config`. Takes precedence over default config and persitent config state in db
+- [ ] Settings persistance
+- [ ] Results tracking with sqlite (can be opted-out with `termitype --no-track`)
+- [ ] Add click actions everywhere it makes sense
 - [ ] Improve the Footer with icons if possible
 - [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
 - [ ] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
@@ -27,7 +29,7 @@
 
 
 ### Bugs
-- [] responsiveness needs some work.
+- [ ] responsiveness needs some work.
     - if we reduce the width just enough the top bar will be cut off (should wrap i think question mark)
 
 ### Done

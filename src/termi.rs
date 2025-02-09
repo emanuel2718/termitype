@@ -163,7 +163,7 @@ impl Termi {
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
     let mut termi = Termi::new(config);
 
-    let tick_rate = Duration::from_millis(500);
+    let tick_rate = Duration::from_millis(250);
     let mut last_tick = Instant::now();
     let mut input_handler = InputHandler::new();
 
