@@ -9,10 +9,7 @@ use ratatui::{
 
 use crate::{
     config::{Mode, ModeType},
-    constants::{
-        AMOUNT_OF_VISIBLE_LINES, APPNAME, COMMAND_BAR_HEIGHT, DEFAULT_LANGUAGE, FOOTER_HEIGHT,
-        MIN_TYPING_HEIGHT,
-    },
+    constants::{APPNAME, COMMAND_BAR_HEIGHT, DEFAULT_LANGUAGE, FOOTER_HEIGHT, MIN_TYPING_HEIGHT},
     termi::Termi,
     theme::Theme,
     version::VERSION,
@@ -161,11 +158,20 @@ fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosit
 
     for word in text.split_whitespace() {
         let word_len = word.len();
-        let total_len = word_len + 1; // word + space
 
-        // do we need to wrap?
-        if current_col + word_len > available_width {
+        // do we need to wrap and is the current word longer than the available width?
+        if current_col > 0
+            && (current_col + word_len >= available_width || current_col + 1 >= available_width)
+        {
             current_line += 1;
+            current_col = 0;
+        }
+
+        // move to next line if we have to (longer words)
+        if word_len >= available_width {
+            if current_col > 0 {
+                current_line += 1;
+            }
             current_col = 0;
         }
 
@@ -175,8 +181,14 @@ fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosit
             col: current_col,
         });
 
-        current_col += total_len;
-        current_index += total_len;
+        current_col += word_len + 1; // word + space
+        current_index += word_len + 1;
+
+        // force wrap after very long words
+        if current_col >= available_width {
+            current_line += 1;
+            current_col = 0;
+        }
     }
 
     positions
@@ -275,12 +287,13 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
         .find(|pos| termi.tracker.cursor_position >= pos.start_index)
         .unwrap_or(&word_positions[0]);
 
-    // let visible_lines = layout[1].height as usize;
-    let visible_lines = AMOUNT_OF_VISIBLE_LINES as usize;
+    // how many lines we can show based on the actual height
+    let visible_lines = layout[1].height as usize;
     let current_line = current_word_pos.line;
 
-    let scroll_offset = if current_line > visible_lines / 2 {
-        current_line - visible_lines / 2
+    // alwasy show the cursor line
+    let scroll_offset = if current_line >= visible_lines {
+        current_line - visible_lines + 1
     } else {
         0
     };
