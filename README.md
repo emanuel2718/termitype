@@ -19,9 +19,7 @@
 - [ ] Proper Results screen
 - [ ] Add click actions to the menu
 - [ ] Improve the Footer with icons if possible
-- [ ] Change mode/value with the menu
 - [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
-- [ ] Add more languages and word lists
 - [ ] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
 - [ ] Performance optimization pass before release (cargo flamegraph --root)
     - want to improve the word tracking `Word { start: usize, end: usize, text: String }` or something like that
@@ -43,6 +41,8 @@
 - [x] Add scrolbar to the menu
 - [x] Preview the cusror style change like we do with the theme picker
 - [x] Change language at runtime
+- [x] Add more languages and word lists (good enough for now)
+- [x] Change mode/value with the menu
 
 ### Notes
 - how to fetch themes

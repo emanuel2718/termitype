@@ -1,4 +1,5 @@
 use crate::{
+    config::ModeType,
     menu::{MenuAction, MenuContent, MenuState},
     termi::Termi,
     theme::Theme,
@@ -200,7 +201,15 @@ impl InputProcessor for Termi {
                     }
                     self.menu.update_toggles(&self.config);
                 }
-                MenuAction::ChangeMode => {}
+                MenuAction::ChangeMode(mode) => {
+                    self.config.change_mode(mode, None);
+                }
+                MenuAction::ChangeTime(time) => {
+                    self.config.change_mode(ModeType::Time, Some(time as usize));
+                }
+                MenuAction::ChangeWordCount(count) => {
+                    self.config.change_mode(ModeType::Words, Some(count));
+                }
                 MenuAction::ChangeTheme(theme_name) => {
                     self.config.change_theme(&theme_name);
                     self.theme = Theme::from_name(&theme_name);
