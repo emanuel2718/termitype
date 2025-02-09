@@ -135,16 +135,23 @@ impl Config {
         }
     }
 
+    pub fn current_mode_type(&self) -> ModeType {
+        match self.current_mode() {
+            Mode::Time { .. } => ModeType::Time,
+            Mode::Words { .. } => ModeType::Words,
+        }
+    }
+
     /// Changes the mode of the game.
     pub fn change_mode(&mut self, mode: ModeType, value: Option<usize>) {
         match mode {
             ModeType::Time => {
-                self.time = Some(value.unwrap_or(30) as u64);
                 self.word_count = None;
+                self.time = Some(value.unwrap_or(30) as u64);
             }
             ModeType::Words => {
-                self.word_count = Some(value.unwrap_or(25));
                 self.time = None;
+                self.word_count = Some(value.unwrap_or(25));
             }
         }
     }

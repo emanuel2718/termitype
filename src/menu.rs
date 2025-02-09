@@ -1,10 +1,12 @@
-use crate::config::Config;
+use crate::config::{Config, ModeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
     Restart,
     Toggle(String),
-    ChangeMode,
+    ChangeMode(ModeType),
+    ChangeTime(u64),
+    ChangeWordCount(usize),
     ChangeTheme(String),
     ChangeCursorStyle(String),
     ChangeLanguage(String),
@@ -74,7 +76,9 @@ impl MenuState {
                 MenuContent::Action(MenuAction::Toggle("symbols".into())),
             )
             .toggleable(config.use_symbols),
-            MenuItem::new("Change Mode", MenuContent::Action(MenuAction::ChangeMode)),
+            MenuItem::new("Mode...", MenuContent::SubMenu(Self::build_mode_menu())),
+            MenuItem::new("Time...", MenuContent::SubMenu(Self::build_time_menu())),
+            MenuItem::new("Words...", MenuContent::SubMenu(Self::build_words_menu())),
             MenuItem::new(
                 "Language Picker",
                 MenuContent::SubMenu(Self::build_language_picker()),
@@ -90,6 +94,53 @@ impl MenuState {
             MenuItem::new("Exit", MenuContent::Action(MenuAction::Quit)),
         ];
         self.menu_stack.push((menu, 0));
+    }
+
+    fn build_words_menu() -> Vec<MenuItem> {
+        let mut words = vec![
+            MenuItem::new("10", MenuContent::Action(MenuAction::ChangeWordCount(10))),
+            MenuItem::new("25", MenuContent::Action(MenuAction::ChangeWordCount(25))),
+            MenuItem::new("50", MenuContent::Action(MenuAction::ChangeWordCount(50))),
+            MenuItem::new("100", MenuContent::Action(MenuAction::ChangeWordCount(100))),
+        ];
+        words.sort_by(|a, b| {
+            a.label
+                .parse::<u32>()
+                .unwrap_or(0)
+                .cmp(&b.label.parse::<u32>().unwrap_or(0))
+        });
+        words
+    }
+
+    fn build_time_menu() -> Vec<MenuItem> {
+        let mut times = vec![
+            MenuItem::new("15", MenuContent::Action(MenuAction::ChangeTime(15))),
+            MenuItem::new("30", MenuContent::Action(MenuAction::ChangeTime(30))),
+            MenuItem::new("60", MenuContent::Action(MenuAction::ChangeTime(60))),
+            MenuItem::new("120", MenuContent::Action(MenuAction::ChangeTime(120))),
+        ];
+        times.sort_by(|a, b| {
+            a.label
+                .parse::<u32>()
+                .unwrap_or(0)
+                .cmp(&b.label.parse::<u32>().unwrap_or(0))
+        });
+        times
+    }
+
+    fn build_mode_menu() -> Vec<MenuItem> {
+        let mut modes = vec![
+            MenuItem::new(
+                "Time",
+                MenuContent::Action(MenuAction::ChangeMode(ModeType::Time)),
+            ),
+            MenuItem::new(
+                "Words",
+                MenuContent::Action(MenuAction::ChangeMode(ModeType::Words)),
+            ),
+        ];
+        modes.sort_by_key(|a| a.label.to_lowercase());
+        modes
     }
 
     // TODO: we could make this be a generic builder to avoid duplication.
@@ -318,11 +369,21 @@ mod tests {
         assert!(menu.get_preview_theme().is_none());
     }
 
+    /*
+       !TODO: jesus christ i need to fix this
+       mode 4
+       time 5
+       words 6
+       lang 7
+       theme 8
+       cursor: 9
+    */
+
     #[test]
     fn test_theme_preview() {
         let mut menu = create_test_menu();
 
-        menu.select_from_menu(6); // select theme picker
+        menu.select_from_menu(8); // select theme picker
         assert!(menu.menu_enter().is_none()); // should return None as we're entering a submenu
         assert_eq!(menu.menu_depth(), 2); // should be in submenu
         assert!(menu.get_preview_theme().is_none()); // no theme preview yet
@@ -342,7 +403,7 @@ mod tests {
     fn test_language_picker() {
         let mut menu = create_test_menu();
 
-        menu.select_from_menu(5);
+        menu.select_from_menu(7);
         assert!(menu.menu_enter().is_none());
         assert_eq!(menu.menu_depth(), 2);
 
@@ -362,7 +423,7 @@ mod tests {
     fn test_theme_selection() {
         let mut menu = create_test_menu();
 
-        menu.select_from_menu(6);
+        menu.select_from_menu(8);
         menu.menu_enter();
 
         // select first theme
@@ -385,7 +446,7 @@ mod tests {
     #[test]
     fn test_clear_cusor_preview() {
         let mut menu = create_test_menu();
-        menu.select_from_menu(7);
+        menu.select_from_menu(9);
         menu.menu_enter();
 
         if let Some((items, _)) = menu.current_menu() {
@@ -410,5 +471,33 @@ mod tests {
             assert!(!menu.is_open());
             assert!(menu.get_preview_cursor().is_none());
         }
+    }
+
+    #[test]
+    fn test_mode_selection() {
+        let mut menu = create_test_menu();
+
+        menu.select_from_menu(4);
+        menu.menu_enter();
+        assert_eq!(menu.menu_depth(), 2);
+
+        if let Some((items, _)) = menu.current_menu() {
+            assert_eq!(items.len(), 2); // TODO: too hardcoded
+
+            // TODO: items are sorted alphabetically, but what happens if we add a new mode? This will break
+            assert_eq!(items[0].label, "Time");
+            assert_eq!(items[1].label, "Words");
+
+            menu.select_from_menu(0);
+            if let Some(action) = menu.menu_enter() {
+                assert!(matches!(action, MenuAction::ChangeMode(ModeType::Time)));
+            } else {
+                panic!("Expected ChangeMode action");
+            }
+        } else {
+            panic!("Expected submenu items");
+        }
+
+        assert!(!menu.is_open());
     }
 }
