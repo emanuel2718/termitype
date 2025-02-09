@@ -260,9 +260,9 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(10),
-            Constraint::Percentage(80),
-            Constraint::Percentage(10),
+            Constraint::Percentage(25),
+            Constraint::Percentage(50),
+            Constraint::Percentage(25),
         ])
         .split(area);
 
