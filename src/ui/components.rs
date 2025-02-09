@@ -161,11 +161,20 @@ fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosit
 
     for word in text.split_whitespace() {
         let word_len = word.len();
-        let total_len = word_len + 1; // word + space
 
-        // do we need to wrap?
-        if current_col + word_len > available_width {
+        // do we need to wrap and is the current word longer than the available width?
+        if current_col > 0
+            && (current_col + word_len >= available_width || current_col + 1 >= available_width)
+        {
             current_line += 1;
+            current_col = 0;
+        }
+
+        // move to next line if we have to (longer words)
+        if word_len >= available_width {
+            if current_col > 0 {
+                current_line += 1;
+            }
             current_col = 0;
         }
 
@@ -175,8 +184,14 @@ fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosit
             col: current_col,
         });
 
-        current_col += total_len;
-        current_index += total_len;
+        current_col += word_len + 1; // word + space
+        current_index += word_len + 1;
+
+        // force wrap after very long words
+        if current_col >= available_width {
+            current_line += 1;
+            current_col = 0;
+        }
     }
 
     positions
@@ -257,6 +272,15 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
 }
 
 pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
+    // NOTE: i'm sure this is not the best way to go about this, but here we are.
+    // enfore min and max height to be `AMOUNT_OF_VISIBLE_LINES`.
+    let min_height = AMOUNT_OF_VISIBLE_LINES as u16;
+    let max_height = AMOUNT_OF_VISIBLE_LINES as u16;
+    let area = Rect {
+        height: area.height.clamp(min_height, max_height),
+        ..area
+    };
+
     let layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -275,15 +299,10 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
         .find(|pos| termi.tracker.cursor_position >= pos.start_index)
         .unwrap_or(&word_positions[0]);
 
-    // let visible_lines = layout[1].height as usize;
-    let visible_lines = AMOUNT_OF_VISIBLE_LINES as usize;
+    let visible_lines = layout[1].height as usize;
     let current_line = current_word_pos.line;
 
-    let scroll_offset = if current_line > visible_lines / 2 {
-        current_line - visible_lines / 2
-    } else {
-        0
-    };
+    let scroll_offset = current_line.saturating_sub(visible_lines.saturating_sub(2));
 
     let text = typing_text(termi, &word_positions);
     let visible_text = Text::from(
@@ -304,7 +323,7 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
     // adjust for accounting scroll offset
     let offset = termi.tracker.cursor_position - current_word_pos.start_index;
     let x = layout[1].x + (current_word_pos.col + offset) as u16;
-    let y = layout[1].y + (current_word_pos.line - scroll_offset) as u16;
+    let y = layout[1].y + (current_word_pos.line.saturating_sub(scroll_offset)) as u16;
 
     f.set_cursor_position(Position::new(x, y));
 }
