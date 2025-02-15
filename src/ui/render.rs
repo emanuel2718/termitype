@@ -73,9 +73,9 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
     let menu_area = {
         let width = 30u16;
         let max_visible_items = 10u16;
-        let height = if let Some((items, _)) = menu.current_menu() {
+        let height = if let Some(menu) = menu.current_menu() {
             // 2 for the border/title and 2 for the footer
-            (items.len().min(max_visible_items as usize) + 4) as u16
+            (menu.items().len().min(max_visible_items as usize) + 4) as u16
         } else {
             4
         };
@@ -111,8 +111,8 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
 
     let mut scrollbar_state = ScrollbarState::default();
 
-    let items: Vec<ListItem> = if let Some((items, selected_idx)) = menu.current_menu() {
-        let total_items = items.len();
+    let items: Vec<ListItem> = if let Some(menu) = menu.current_menu() {
+        let total_items = menu.items().len();
         let max_visible = (menu_area.height as usize).saturating_sub(4); // minus border + footer
 
         // just to make sure we keep the selected item visible
@@ -120,12 +120,12 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
             0
         } else {
             let halfway = max_visible / 2;
-            if *selected_idx < halfway {
+            if menu.selected_index() < halfway {
                 0
-            } else if *selected_idx >= total_items.saturating_sub(halfway) {
+            } else if menu.selected_index() >= total_items.saturating_sub(halfway) {
                 total_items.saturating_sub(max_visible)
             } else {
-                selected_idx.saturating_sub(halfway)
+                menu.selected_index().saturating_sub(halfway)
             }
         };
 
@@ -134,13 +134,13 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
             .content_length(total_items)
             .position(scroll_offset);
 
-        items
+        menu.items()
             .iter()
             .enumerate()
             .skip(scroll_offset)
             .take(max_visible)
             .map(|(i, item)| {
-                let is_selected = i == *selected_idx;
+                let is_selected = i == menu.selected_index();
                 let style = Style::default()
                     .fg(if item.is_toggleable {
                         if item.is_active {
@@ -197,8 +197,8 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(footer, menu_layout[2]);
 
     // Only show scrollbar if we have more items than can fit in the visible area
-    if let Some((items, _)) = menu.current_menu() {
-        let total_items = items.len();
+    if let Some(menu) = menu.current_menu() {
+        let total_items = menu.items().len();
         let max_visible = (menu_area.height as usize).saturating_sub(4);
 
         if total_items > max_visible {
