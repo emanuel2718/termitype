@@ -16,7 +16,7 @@ pub const MENU_WIDTH: u16 = 45;
 pub const MENU_HEIGHT: u16 = 20;
 
 pub const TOP_BAR_HEIGHT: u16 = 8;
-pub const MODE_BAR_OFFSET: u16 = 2;
+pub const MODE_BAR_OFFSET: u16 = 1;
 pub const COMMAND_BAR_HEIGHT: u16 = 4;
 pub const FOOTER_HEIGHT: u16 = 1;
 

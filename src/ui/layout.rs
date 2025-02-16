@@ -29,13 +29,13 @@ pub fn create_main_layout(area: Rect) -> Rc<[Rect]> {
     let vertical_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(TOP_BAR_HEIGHT + MODE_BAR_OFFSET), // [0] Top section (title + top bar + offset)
-            Constraint::Min(1),                                   // [1] space
-            Constraint::Min(MIN_TYPING_HEIGHT),                   // [2] Typing area
-            Constraint::Min(1),                                   // [3] space
-            Constraint::Length(COMMAND_BAR_HEIGHT),               // [4] Command bar
-            Constraint::Length(1),                                // [5] space
-            Constraint::Length(FOOTER_HEIGHT),                    // [6] Footer
+            Constraint::Length(TOP_BAR_HEIGHT), // [0] Top section (title + top bar + offset)
+            Constraint::Min(0),                 // [1] space
+            Constraint::Min(MIN_TYPING_HEIGHT), // [2] Typing area
+            Constraint::Min(6),                 // [3] space
+            Constraint::Length(COMMAND_BAR_HEIGHT), // [4] Command bar
+            Constraint::Length(2),              // [5] space
+            Constraint::Length(FOOTER_HEIGHT),  // [6] Footer
         ])
         .split(area);
 
