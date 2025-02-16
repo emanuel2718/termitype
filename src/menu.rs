@@ -1,7 +1,4 @@
-use crate::{
-    config::{Config, ModeType},
-    constants::{DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE},
-};
+use crate::config::{Config, ModeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
@@ -269,13 +266,7 @@ impl MenuState {
             }
             MenuAction::OpenLanguagePicker => {
                 let mut menu = Menu::new(Self::build_language_picker());
-                if let Some(index) = Self::get_label_index(
-                    menu.items(),
-                    config
-                        .language
-                        .as_ref()
-                        .unwrap_or(&DEFAULT_LANGUAGE.to_string()),
-                ) {
+                if let Some(index) = Self::get_label_index(menu.items(), config.language.as_str()) {
                     menu.select(index);
                 }
                 self.menu_stack.push(menu);
@@ -283,13 +274,9 @@ impl MenuState {
             }
             MenuAction::OpenCursorPicker => {
                 let mut menu = Menu::new(Self::build_cursor_picker());
-                if let Some(index) = Self::get_label_index(
-                    menu.items(),
-                    config
-                        .cursor_style
-                        .as_ref()
-                        .unwrap_or(&DEFAULT_CURSOR_STYLE.to_string()),
-                ) {
+                if let Some(index) =
+                    Self::get_label_index(menu.items(), config.cursor_style.as_str())
+                {
                     menu.select(index);
                 }
                 self.menu_stack.push(menu);

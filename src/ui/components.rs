@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     config::{Mode, ModeType},
-    constants::{APPNAME, COMMAND_BAR_HEIGHT, DEFAULT_LANGUAGE, FOOTER_HEIGHT, MIN_TYPING_HEIGHT},
+    constants::{APPNAME, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_TYPING_HEIGHT},
     termi::Termi,
     theme::Theme,
     version::VERSION,
@@ -81,7 +81,7 @@ pub fn title(f: &mut Frame, termi: &Termi, area: Rect) {
 
 pub fn progress_info(f: &mut Frame, termi: &mut Termi, area: Rect) {
     if termi.tracker.status == crate::tracker::Status::Idle {
-        let language = termi.config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
+        let language = termi.config.language.as_str();
         let language_text = format!("語 {}", language);
 
         let element = UIElement::new(language_text, false, Some(ClickAction::OpenLanguagePicker));

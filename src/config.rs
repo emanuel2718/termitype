@@ -15,8 +15,8 @@ use crate::constants::{
 ))]
 pub struct Config {
     /// The language dictionary used for the test. Defaults to English.
-    #[arg(short, long, value_name = "LANG")]
-    pub language: Option<String>,
+    #[arg(short, long, default_value = DEFAULT_LANGUAGE, value_name = "LANG")]
+    pub language: String,
 
     /// Duration of the test in seconds (only valid in Time mode).
     #[arg(short = 't', long = "time", group = "mode")]
@@ -63,9 +63,10 @@ pub struct Config {
     #[arg(
         long = "cursor-style",
         value_name = "CURSOR",
+        default_value = DEFAULT_CURSOR_STYLE,
         help = "Sets the cursor style: 'beam', 'block', 'underline', 'blinking-beam', 'blinking-block', 'blinking-underline'"
     )]
-    pub cursor_style: Option<String>,
+    pub cursor_style: String,
 
     /// Number of visible lines in the test.
     #[arg(long = "lines", default_value_t = AMOUNT_OF_VISIBLE_LINES)]
@@ -105,7 +106,6 @@ impl Mode {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            language: Some(DEFAULT_LANGUAGE.to_string()),
             time: Some(30),
             words: None,
             word_count: None,
@@ -113,7 +113,8 @@ impl Default for Config {
             use_numbers: false,
             use_punctuation: false,
             theme: DEFAULT_THEME.to_string(),
-            cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
+            language: DEFAULT_LANGUAGE.to_string(),
+            cursor_style: DEFAULT_CURSOR_STYLE.to_string(),
             visible_lines: AMOUNT_OF_VISIBLE_LINES,
             color_mode: None,
             list_themes: false,
@@ -180,7 +181,7 @@ impl Config {
 
     /// Chages the current style of the cursor.
     pub fn change_cursor_style(&mut self, style: &str) {
-        self.cursor_style = Some(style.to_string())
+        self.cursor_style = style.to_string()
     }
 
     /// Resets the words flag after a test has been run with it.
@@ -214,13 +215,13 @@ impl Config {
 
     /// Resolves the cursor style based on current configuration.
     pub fn resolve_current_cursor_style(&self) -> SetCursorStyle {
-        match self.cursor_style.as_deref() {
-            Some("beam") => SetCursorStyle::SteadyBar,
-            Some("block") => SetCursorStyle::DefaultUserShape,
-            Some("underline") => SetCursorStyle::SteadyUnderScore,
-            Some("blinking-beam") => SetCursorStyle::BlinkingBar,
-            Some("blinking-block") => SetCursorStyle::BlinkingBlock,
-            Some("blinking-underline") => SetCursorStyle::BlinkingUnderScore,
+        match self.cursor_style.as_str() {
+            "beam" => SetCursorStyle::SteadyBar,
+            "block" => SetCursorStyle::DefaultUserShape,
+            "underline" => SetCursorStyle::SteadyUnderScore,
+            "blinking-beam" => SetCursorStyle::BlinkingBar,
+            "blinking-block" => SetCursorStyle::BlinkingBlock,
+            "blinking-underline" => SetCursorStyle::BlinkingUnderScore,
             _ => SetCursorStyle::BlinkingBar, // default to beam style
         }
     }
@@ -281,14 +282,13 @@ mod tests {
     #[test]
     fn test_default_state() {
         let config = Config::default();
-        assert!(config.language.is_some());
         assert!(config.time.is_some());
         assert!(config.word_count.is_none());
 
+        assert_eq!(config.language, DEFAULT_LANGUAGE.to_string());
         assert_eq!(config.theme, DEFAULT_THEME.to_string());
         assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
 
-        assert_eq!(config.language, Some(DEFAULT_LANGUAGE.to_string()));
         assert_eq!(config.use_symbols, false);
         assert_eq!(config.use_punctuation, false);
         assert_eq!(config.debug, false);
@@ -357,37 +357,37 @@ mod tests {
             SetCursorStyle::BlinkingBar
         );
 
-        config.cursor_style = Some("beam".to_string());
+        config.cursor_style = "beam".to_string();
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::SteadyBar
         );
 
-        config.cursor_style = Some("block".to_string());
+        config.cursor_style = "block".to_string();
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::DefaultUserShape
         );
 
-        config.cursor_style = Some("underline".to_string());
+        config.cursor_style = "underline".to_string();
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::SteadyUnderScore
         );
 
-        config.cursor_style = Some("blinking-beam".to_string());
+        config.cursor_style = "blinking-beam".to_string();
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::BlinkingBar
         );
 
-        config.cursor_style = Some("blinking-block".to_string());
+        config.cursor_style = "blinking-block".to_string();
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::BlinkingBlock
         );
 
-        config.cursor_style = Some("blinking-underline".to_string());
+        config.cursor_style = "blinking-underline".to_string();
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::BlinkingUnderScore

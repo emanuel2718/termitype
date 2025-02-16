@@ -280,7 +280,7 @@ impl InputProcessor for Termi {
                     .ok();
                 }
                 MenuAction::ChangeLanguage(lang) => {
-                    self.config.language = Some(lang);
+                    self.config.language = lang;
                     self.start();
                 }
                 MenuAction::Quit => return Action::Quit,

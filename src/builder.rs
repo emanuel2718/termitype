@@ -45,7 +45,7 @@ impl Builder {
 
     /// Test word pool generator.
     pub fn generate_test(&mut self, config: &Config) -> String {
-        let lang = config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
+        let lang = config.language.as_str();
 
         if config.words.is_some() {
             return config.words.clone().unwrap();
