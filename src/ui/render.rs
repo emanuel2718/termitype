@@ -54,8 +54,7 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
             progress_info(f, termi, typing_chunks[0]);
             typing_area(f, termi, typing_chunks[2]);
             command_bar(f, termi, layout[3]);
-            let footer_regions = footer(f, termi, layout[4]);
-            termi.clickable_regions.extend(footer_regions);
+            footer(f, termi, layout[4]);
         }
     }
     if termi.menu.is_open() {

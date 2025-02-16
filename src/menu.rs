@@ -1,4 +1,7 @@
-use crate::config::{Config, ModeType};
+use crate::{
+    config::{Config, ModeType},
+    constants::{DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
@@ -115,11 +118,24 @@ pub struct MenuState {
     preview_cursor: Option<String>,
 }
 
+// let mut state = Self::default();
+//        state.execute(MenuAction::OpenMainMenu, config);
+//        state
+
 impl MenuState {
-    pub fn new(config: &Config) -> Self {
-        let mut state = Self::default();
-        state.execute(MenuAction::OpenMainMenu, config);
-        state
+    pub fn new() -> Self {
+        Self {
+            menu_stack: Vec::new(),
+            preview_theme: None,
+            preview_cursor: None,
+        }
+        // let mut state = Self {
+        //     menu_stack: Vec::new(),
+        //     preview_theme: None,
+        //     preview_cursor: None,
+        // };
+        // state.execute(MenuAction::OpenMainMenu, &config);
+        // state
     }
 
     pub fn is_open(&self) -> bool {
@@ -156,6 +172,12 @@ impl MenuState {
         self.clear_previews();
     }
 
+    fn get_label_index(items: &[MenuItem], label: &str) -> Option<usize> {
+        items
+            .iter()
+            .position(|item| item.label.to_lowercase() == label.to_lowercase())
+    }
+
     pub fn execute(&mut self, action: MenuAction, config: &Config) -> Option<MenuAction> {
         match action {
             MenuAction::OpenMainMenu => {
@@ -164,17 +186,41 @@ impl MenuState {
                 None
             }
             MenuAction::OpenThemePicker => {
-                let menu = Menu::new(Self::build_theme_picker());
+                let mut menu = Menu::new(Self::build_theme_picker());
+                if let Some(index) = Self::get_label_index(
+                    menu.items(),
+                    config.theme.as_ref().unwrap_or(&DEFAULT_THEME.to_string()),
+                ) {
+                    menu.select(index);
+                }
                 self.menu_stack.push(menu);
                 None
             }
             MenuAction::OpenLanguagePicker => {
-                let menu = Menu::new(Self::build_language_picker());
+                let mut menu = Menu::new(Self::build_language_picker());
+                if let Some(index) = Self::get_label_index(
+                    menu.items(),
+                    config
+                        .language
+                        .as_ref()
+                        .unwrap_or(&DEFAULT_LANGUAGE.to_string()),
+                ) {
+                    menu.select(index);
+                }
                 self.menu_stack.push(menu);
                 None
             }
             MenuAction::OpenCursorPicker => {
-                let menu = Menu::new(Self::build_cursor_picker());
+                let mut menu = Menu::new(Self::build_cursor_picker());
+                if let Some(index) = Self::get_label_index(
+                    menu.items(),
+                    config
+                        .cursor_style
+                        .as_ref()
+                        .unwrap_or(&DEFAULT_CURSOR_STYLE.to_string()),
+                ) {
+                    menu.select(index);
+                }
                 self.menu_stack.push(menu);
                 None
             }
@@ -289,14 +335,14 @@ impl MenuState {
 
     fn build_theme_picker() -> Vec<MenuItem> {
         let themes = crate::theme::available_themes().to_vec();
-        Self::build_generic_menu(themes, |theme| MenuAction::ChangeTheme(theme), {
+        Self::build_generic_menu(themes, MenuAction::ChangeTheme, {
             |a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase())
         })
     }
 
     fn build_language_picker() -> Vec<MenuItem> {
         let languages = crate::builder::Builder::available_languages().to_vec();
-        Self::build_generic_menu(languages, |lang| MenuAction::ChangeLanguage(lang), {
+        Self::build_generic_menu(languages, MenuAction::ChangeLanguage, {
             |a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase())
         })
     }
@@ -333,7 +379,7 @@ impl MenuState {
 
     fn build_time_menu() -> Vec<MenuItem> {
         let times = vec![15, 30, 60, 120];
-        Self::build_generic_menu(times, |time| MenuAction::ChangeTime(time), {
+        Self::build_generic_menu(times, MenuAction::ChangeTime, {
             |a, b| {
                 a.label
                     .parse::<u32>()
@@ -345,7 +391,7 @@ impl MenuState {
 
     fn build_words_menu() -> Vec<MenuItem> {
         let word_counts = vec![10, 25, 50, 100];
-        Self::build_generic_menu(word_counts, |count| MenuAction::ChangeWordCount(count), {
+        Self::build_generic_menu(word_counts, MenuAction::ChangeWordCount, {
             |a, b| {
                 a.label
                     .parse::<u32>()
@@ -362,11 +408,11 @@ impl MenuState {
         }
     }
 
-    pub fn enter(&mut self) -> Option<MenuAction> {
+    pub fn enter(&mut self, config: &Config) -> Option<MenuAction> {
         if let Some(menu) = self.current_menu() {
             let selected_item = menu.selected_item()?;
             let action = selected_item.action.clone();
-            self.execute(action, &Config::default())
+            self.execute(action, config)
         } else {
             None
         }
@@ -398,12 +444,13 @@ mod tests {
     use super::*;
 
     fn create_test_menu() -> MenuState {
-        MenuState::new(&Config::default())
+        MenuState::new()
     }
 
     #[test]
     fn test_menu_navigation() {
         let mut menu = create_test_menu();
+        menu.toggle(&Config::default());
         assert!(menu.is_open());
 
         menu.next_item();
@@ -420,6 +467,7 @@ mod tests {
     #[test]
     fn test_theme_picker() {
         let mut menu = create_test_menu();
+        menu.toggle(&Config::default());
 
         let theme_index = if let Some(menu_ref) = menu.current_menu() {
             menu_ref
@@ -459,6 +507,7 @@ mod tests {
     fn test_toggle_features() {
         let mut menu = create_test_menu();
         let mut config = Config::default();
+        menu.toggle(&Config::default());
         config.use_punctuation = true;
 
         menu.update_toggles(&config);

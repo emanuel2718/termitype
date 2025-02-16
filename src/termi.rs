@@ -68,7 +68,7 @@ impl Termi {
             preview_cursor: None,
             builder,
             words,
-            menu: MenuState::default(),
+            menu: MenuState::new(),
             clickable_regions: Vec::new(),
         }
     }
@@ -104,6 +104,7 @@ impl Termi {
                         self.menu.toggle(&self.config);
                         self.menu.execute(MenuAction::OpenThemePicker, &self.config);
                         self.menu.preview_selected();
+                        self.update_preview_theme();
                     }
                     ClickAction::OpenLanguagePicker => {
                         self.menu.toggle(&self.config);

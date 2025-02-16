@@ -180,7 +180,7 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_select(&mut self) -> Action {
-        if let Some(action) = self.menu.enter() {
+        if let Some(action) = self.menu.enter(&self.config) {
             match action {
                 MenuAction::Restart => {
                     self.start();
@@ -214,8 +214,8 @@ impl InputProcessor for Termi {
                     self.config.change_theme(&theme_name);
                     self.theme = Theme::from_name(&theme_name);
                 }
-                MenuAction::ChangeCursorStyle(steyl) => {
-                    self.config.cursor_style = Some(steyl);
+                MenuAction::ChangeCursorStyle(style) => {
+                    self.config.change_cursor_style(&style);
                     execute!(
                         std::io::stdout(),
                         self.config.resolve_current_cursor_style()
