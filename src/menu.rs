@@ -30,6 +30,7 @@ pub enum MenuAction {
 pub struct MenuItem {
     pub label: String,
     pub action: MenuAction,
+    pub has_submenu: bool,
     pub is_active: bool,
     pub is_toggleable: bool,
 }
@@ -40,6 +41,7 @@ impl MenuItem {
             label: label.into(),
             action,
             is_active: false,
+            has_submenu: false,
             is_toggleable: false,
         }
     }
@@ -47,6 +49,11 @@ impl MenuItem {
     pub fn toggleable(mut self, is_active: bool) -> Self {
         self.is_toggleable = true;
         self.is_active = is_active;
+        self
+    }
+
+    pub fn submenufy(mut self) -> Self {
+        self.has_submenu = true;
         self
     }
 }
@@ -71,6 +78,10 @@ impl Menu {
 
     pub fn selected_index(&self) -> usize {
         self.selected_index
+    }
+
+    pub fn current_item(&self) -> MenuItem {
+        self.items[self.selected_index].clone()
     }
 
     pub fn selected_item(&self) -> Option<&MenuItem> {
@@ -369,12 +380,12 @@ impl MenuState {
                 MenuAction::ToggleFeature("symbols".into()),
             )
             .toggleable(config.use_symbols),
-            MenuItem::new("Mode...", MenuAction::OpenModeSelector),
-            MenuItem::new("Time...", MenuAction::OpenTimeSelector),
-            MenuItem::new("Words...", MenuAction::OpenWordSelector),
-            MenuItem::new("Language...", MenuAction::OpenLanguagePicker),
-            MenuItem::new("Theme...", MenuAction::OpenThemePicker),
-            MenuItem::new("Cursor...", MenuAction::OpenCursorPicker),
+            MenuItem::new("Mode...", MenuAction::OpenModeSelector).submenufy(),
+            MenuItem::new("Time...", MenuAction::OpenTimeSelector).submenufy(),
+            MenuItem::new("Words...", MenuAction::OpenWordSelector).submenufy(),
+            MenuItem::new("Language...", MenuAction::OpenLanguagePicker).submenufy(),
+            MenuItem::new("Theme...", MenuAction::OpenThemePicker).submenufy(),
+            MenuItem::new("Cursor...", MenuAction::OpenCursorPicker).submenufy(),
             MenuItem::new("Exit", MenuAction::Quit),
         ]
     }

@@ -68,7 +68,30 @@ impl InputHandler {
                 KeyCode::Char('/') => Action::StartSearch,
                 KeyCode::Char('k') | KeyCode::Up => Action::MenuUp,
                 KeyCode::Char('j') | KeyCode::Down => Action::MenuDown,
-                KeyCode::Enter | KeyCode::Char(' ') => Action::MenuSelect,
+                KeyCode::Enter => Action::MenuSelect,
+                KeyCode::Char('l') => {
+                    // TODO: improve this. This pattern in annying. Would prefer if it were just `menu.current_item()` and the handling is done inside
+                    if let Some(menu) = menu.current_menu() {
+                        if menu.current_item().has_submenu {
+                            return Action::MenuSelect;
+                        }
+                    }
+                    Action::None
+                }
+                KeyCode::Char(' ') => {
+                    if let Some(menu) = menu.current_menu() {
+                        if menu.current_item().is_toggleable {
+                            return Action::MenuSelect;
+                        }
+                    }
+                    Action::None
+                }
+                KeyCode::Char('h') => {
+                    if menu.menu_depth() == 1 {
+                        return Action::None;
+                    }
+                    Action::MenuBack
+                }
                 KeyCode::Esc => Action::MenuBack,
                 _ => Action::None,
             };
