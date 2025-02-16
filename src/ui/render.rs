@@ -1,7 +1,8 @@
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
-    Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
+    ScrollbarState,
 };
 use ratatui::{style::Style, widgets::Block, Frame};
 
@@ -10,7 +11,7 @@ use crate::termi::Termi;
 use crate::tracker::Status;
 
 use super::{components::*, layout::*};
-use crate::constants::{WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT};
+use crate::constants::{MENU_HEIGHT, MENU_WIDTH, WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT};
 
 /// Main workhorse. This basically draws the whole ui
 pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
@@ -69,62 +70,82 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
         return;
     }
 
-    let menu_area = {
-        let width = 30u16;
-        let max_visible_items = 10u16;
-        let height = if let Some(current_menu) = menu.current_menu() {
-            // 2 for the border/title and 2 for the footer
-            // Add 1 for search bar when searching
-            (current_menu.items().len().min(max_visible_items as usize)
-                + 4
-                + if menu.is_searching() { 1 } else { 0 }) as u16
-        } else {
-            4
-        };
-        Rect {
-            x: area.x + (area.width.saturating_sub(width)) / 2,
-            y: area.y + (area.height.saturating_sub(height)) / 2,
-            width: width.min(area.width),
-            height: height.min(area.height),
-        }
+    let menu_area = Rect {
+        x: area.x + (area.width.saturating_sub(MENU_WIDTH)) / 2,
+        y: area.y + (area.height.saturating_sub(MENU_HEIGHT)) / 2,
+        width: MENU_WIDTH.min(area.width),
+        height: MENU_HEIGHT.min(area.height),
     };
+
+    f.render_widget(Clear, menu_area); // clear behind the menu
 
     let menu_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(if menu.is_searching() {
-            vec![
-                Constraint::Length(1), // Title
-                Constraint::Length(1), // Search bar
-                Constraint::Min(1),    // Menu items
-                Constraint::Length(2), // Footer
-            ]
-        } else {
-            vec![
-                Constraint::Length(1), // Title
-                Constraint::Min(1),    // Menu items
-                Constraint::Length(2), // Footer
-            ]
-        })
+        .constraints(vec![
+            Constraint::Length(4), // title + search + separator
+            Constraint::Min(1),    // items
+            Constraint::Length(2), // footer
+        ])
         .split(menu_area);
 
+    let menu_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(theme.border()))
+        .style(Style::default().bg(theme.background()));
+    f.render_widget(menu_block, menu_area);
+
+    let title_area = menu_layout[0];
+    let title_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Length(1), // title
+            Constraint::Length(1), // search bar
+            Constraint::Length(1), // serpartor
+        ])
+        .split(title_area);
+
+    // TODO: figure out how to make the title be the acutal title of the submenu (i.e 'Themes' instead of '<Submenu>')
     let title = if menu.menu_depth() > 1 {
         "<SubMenu>"
     } else {
         "Menu"
     };
 
-    let background = Block::default()
-        .style(Style::default().bg(theme.background()))
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border()))
-        .title(title)
-        .title_alignment(Alignment::Center);
+    let title_widget = Paragraph::new(Line::from(title)).alignment(Alignment::Center);
+    f.render_widget(title_widget, title_layout[0]);
 
+    let search_text = if menu.is_searching() {
+        Line::from(vec![
+            Span::styled("  /", Style::default().fg(theme.highlight())),
+            Span::styled(" ", Style::default()),
+            Span::styled(
+                menu.search_query(),
+                Style::default().fg(theme.selection_fg()),
+            ),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled("  ", Style::default()),
+            Span::styled("Search...", Style::default().fg(theme.muted())),
+        ])
+    };
+
+    let search_bar =
+        Paragraph::new(search_text).style(Style::default().bg(if menu.is_searching() {
+            theme.selection_bg()
+        } else {
+            theme.background()
+        }));
+    f.render_widget(search_bar, title_layout[1]);
+
+    let separator = Paragraph::new("─".repeat(MENU_WIDTH as usize - 2))
+        .style(Style::default().fg(theme.border()));
+    f.render_widget(separator, title_layout[2]);
+
+    // current menu items
     let mut scrollbar_state = ScrollbarState::default();
-
     let items: Vec<ListItem> = if let Some(current_menu) = menu.current_menu() {
         let menu_items = current_menu.items();
-
         let filtered_items: Vec<_> = if menu.is_searching() {
             current_menu.filtered_items(menu.search_query())
         } else {
@@ -132,10 +153,8 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
         };
 
         let total_items = filtered_items.len();
-        let max_visible =
-            (menu_area.height as usize).saturating_sub(4 + if menu.is_searching() { 1 } else { 0 }); // minus border + footer + search bar if searching
+        let max_visible = menu_layout[1].height as usize;
 
-        // just to make sure we keep the selected item visible
         let scroll_offset = if total_items <= max_visible {
             0
         } else {
@@ -149,7 +168,6 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
             }
         };
 
-        // update scrolbar position
         scrollbar_state = scrollbar_state
             .content_length(total_items)
             .position(scroll_offset);
@@ -179,6 +197,7 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                     });
 
                 ListItem::new(Line::from(vec![
+                    Span::raw(" "), // this helps with annoying border cutoff (?)
                     Span::styled(
                         if is_selected { ">" } else { " " },
                         Style::default().fg(theme.highlight()),
@@ -192,12 +211,25 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
         vec![]
     };
 
+    // prevent border cutoff
+    let items_block = Block::default()
+        .style(Style::default().bg(theme.background()))
+        .padding(Padding::new(1, 0, 0, 0));
+
+    let menu_widget = List::new(items)
+        .style(Style::default().bg(theme.background()))
+        .block(items_block);
+
+    f.render_widget(menu_widget, menu_layout[1]);
+
     let footer_text = vec![
         Line::from(vec![
             Span::styled("↑/k", Style::default().fg(theme.highlight())),
             Span::styled(" up   ", Style::default().fg(theme.muted())),
             Span::styled("↓/j", Style::default().fg(theme.highlight())),
-            Span::styled(" down", Style::default().fg(theme.muted())),
+            Span::styled(" down   ", Style::default().fg(theme.muted())),
+            Span::styled("/", Style::default().fg(theme.highlight())),
+            Span::styled(" search", Style::default().fg(theme.muted())),
         ]),
         Line::from(vec![
             Span::styled("enter", Style::default().fg(theme.highlight())),
@@ -208,31 +240,12 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
     ];
 
     let footer = Paragraph::new(footer_text).alignment(Alignment::Center);
-    let menu_widget = List::new(items).style(Style::default().bg(theme.background()));
+    f.render_widget(footer, menu_layout[2]);
 
-    f.render_widget(Clear, menu_area);
-    f.render_widget(background, menu_area);
-
-    // search bar
-    if menu.is_searching() {
-        let search_text = Line::from(vec![
-            Span::styled("/", Style::default().fg(theme.highlight())),
-            Span::styled(menu.search_query(), Style::default().fg(theme.foreground())),
-        ]);
-        let search_bar = Paragraph::new(search_text).style(Style::default().bg(theme.background()));
-        f.render_widget(search_bar, menu_layout[1]);
-        f.render_widget(menu_widget, menu_layout[2]);
-        f.render_widget(footer, menu_layout[3]);
-    } else {
-        f.render_widget(menu_widget, menu_layout[1]);
-        f.render_widget(footer, menu_layout[2]);
-    }
-
-    // Only show scrollbar if we have more items than can fit in the visible area
+    // scrollbar
     if let Some(current_menu) = menu.current_menu() {
         let total_items = current_menu.items().len();
-        let max_visible =
-            (menu_area.height as usize).saturating_sub(4 + if menu.is_searching() { 1 } else { 0 });
+        let max_visible = menu_layout[1].height as usize;
 
         if total_items > max_visible {
             let scrollbar = Scrollbar::default()
@@ -243,15 +256,9 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                 .thumb_symbol("█")
                 .style(Style::default().fg(theme.border()));
 
-            let scrollbar_area = if menu.is_searching() {
-                menu_layout[2]
-            } else {
-                menu_layout[1]
-            };
-
             f.render_stateful_widget(
                 scrollbar,
-                scrollbar_area.inner(Margin {
+                menu_layout[1].inner(Margin {
                     vertical: 0,
                     horizontal: 1,
                 }),
