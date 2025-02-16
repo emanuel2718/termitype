@@ -9,10 +9,7 @@ use ratatui::{
 
 use crate::{
     config::{Mode, ModeType},
-    constants::{
-        AMOUNT_OF_VISIBLE_LINES, APPNAME, COMMAND_BAR_HEIGHT, DEFAULT_LANGUAGE, FOOTER_HEIGHT,
-        MIN_TYPING_HEIGHT,
-    },
+    constants::{APPNAME, COMMAND_BAR_HEIGHT, DEFAULT_LANGUAGE, FOOTER_HEIGHT, MIN_TYPING_HEIGHT},
     termi::Termi,
     theme::Theme,
     version::VERSION,
@@ -274,8 +271,8 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
 pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
     // NOTE: i'm sure this is not the best way to go about this, but here we are.
     // enfore min and max height to be `AMOUNT_OF_VISIBLE_LINES`.
-    let min_height = AMOUNT_OF_VISIBLE_LINES as u16;
-    let max_height = AMOUNT_OF_VISIBLE_LINES as u16;
+    let min_height = termi.config.visible_lines as u16;
+    let max_height = termi.config.visible_lines as u16;
     let area = Rect {
         height: area.height.clamp(min_height, max_height),
         ..area

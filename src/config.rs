@@ -1,7 +1,9 @@
 use clap::{ArgGroup, Parser};
 use crossterm::cursor::SetCursorStyle;
 
-use crate::constants::{DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME};
+use crate::constants::{
+    AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME,
+};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "Termitype", about = "Terminal based typing game")]
@@ -65,6 +67,10 @@ pub struct Config {
     )]
     pub cursor_style: Option<String>,
 
+    /// Number of visible lines in the test.
+    #[arg(long = "lines", default_value_t = AMOUNT_OF_VISIBLE_LINES)]
+    pub visible_lines: u8,
+
     /// Prints termitype version
     #[arg(short = 'v', long = "version")]
     pub version: bool,
@@ -108,6 +114,7 @@ impl Default for Config {
             use_punctuation: false,
             theme: Some(DEFAULT_THEME.to_string()),
             cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
+            visible_lines: AMOUNT_OF_VISIBLE_LINES,
             color_mode: None,
             list_themes: false,
             version: false,
@@ -164,6 +171,11 @@ impl Config {
     /// Chages the current theme of the game.
     pub fn change_theme(&mut self, theme_name: &str) {
         self.theme = Some(theme_name.to_string())
+    }
+
+    /// Chages the number of visible lines in the test.
+    pub fn change_visible_lines(&mut self, lines: u8) {
+        self.visible_lines = lines;
     }
 
     /// Chages the current style of the cursor.
@@ -305,6 +317,14 @@ mod tests {
         let theme_name = "Monokai Classic";
         config.change_theme(theme_name);
         assert_eq!(config.theme, Some(theme_name.to_string()));
+    }
+
+    #[test]
+    fn test_config_change_visible_lines() {
+        let mut config = create_config();
+        assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
+        config.change_visible_lines(10);
+        assert_eq!(config.visible_lines, 10);
     }
 
     #[test]
