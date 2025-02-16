@@ -31,8 +31,8 @@ pub struct Config {
     pub word_count: Option<usize>,
 
     /// Sets the theme if a valid theme is given, ignored otherwise
-    #[arg(short = 'T', long = "theme")]
-    pub theme: Option<String>,
+    #[arg(short = 'T', long = "theme", default_value = DEFAULT_THEME)]
+    pub theme: String,
 
     /// Lists the available themes
     #[arg(short = 'L', long = "list-themes")]
@@ -112,7 +112,7 @@ impl Default for Config {
             use_symbols: false,
             use_numbers: false,
             use_punctuation: false,
-            theme: Some(DEFAULT_THEME.to_string()),
+            theme: DEFAULT_THEME.to_string(),
             cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
             visible_lines: AMOUNT_OF_VISIBLE_LINES,
             color_mode: None,
@@ -170,7 +170,7 @@ impl Config {
 
     /// Chages the current theme of the game.
     pub fn change_theme(&mut self, theme_name: &str) {
-        self.theme = Some(theme_name.to_string())
+        self.theme = theme_name.to_string()
     }
 
     /// Chages the number of visible lines in the test.
@@ -283,8 +283,11 @@ mod tests {
         let config = Config::default();
         assert!(config.language.is_some());
         assert!(config.time.is_some());
-        assert!(config.theme.is_some());
         assert!(config.word_count.is_none());
+
+        assert_eq!(config.theme, DEFAULT_THEME.to_string());
+        assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
+
         assert_eq!(config.language, Some(DEFAULT_LANGUAGE.to_string()));
         assert_eq!(config.use_symbols, false);
         assert_eq!(config.use_punctuation, false);
@@ -316,7 +319,7 @@ mod tests {
         let mut config = create_config();
         let theme_name = "Monokai Classic";
         config.change_theme(theme_name);
-        assert_eq!(config.theme, Some(theme_name.to_string()));
+        assert_eq!(config.theme, theme_name.to_string());
     }
 
     #[test]

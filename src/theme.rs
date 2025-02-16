@@ -71,7 +71,7 @@ impl Theme {
             return Self::fallback_theme_with_support(color_support);
         }
         let mut loader = ThemeLoader::init();
-        let theme_name = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
+        let theme_name = config.theme.as_str();
         let mut theme = loader.get_theme(theme_name).unwrap_or_else(|_| {
             loader
                 .get_theme(DEFAULT_THEME)
@@ -129,7 +129,7 @@ impl Theme {
     #[allow(clippy::field_reassign_with_default)]
     pub fn from_name(name: &str) -> Self {
         let mut config = Config::default();
-        config.theme = Some(name.to_string());
+        config.theme = name.to_string();
         Self::new(&config)
     }
 

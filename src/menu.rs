@@ -1,6 +1,6 @@
 use crate::{
     config::{Config, ModeType},
-    constants::{DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME},
+    constants::{DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -261,10 +261,7 @@ impl MenuState {
             }
             MenuAction::OpenThemePicker => {
                 let mut menu = Menu::new(Self::build_theme_picker());
-                if let Some(index) = Self::get_label_index(
-                    menu.items(),
-                    config.theme.as_ref().unwrap_or(&DEFAULT_THEME.to_string()),
-                ) {
+                if let Some(index) = Self::get_label_index(menu.items(), config.theme.as_str()) {
                     menu.select(index);
                 }
                 self.menu_stack.push(menu);
