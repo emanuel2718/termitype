@@ -1,5 +1,6 @@
 use crate::{
     config::ModeType,
+    constants::AMOUNT_OF_VISIBLE_LINES,
     menu::{MenuAction, MenuState},
     termi::Termi,
     theme::Theme,
@@ -261,6 +262,10 @@ impl InputProcessor for Termi {
                 }
                 MenuAction::ChangeWordCount(count) => {
                     self.config.change_mode(ModeType::Words, Some(count));
+                }
+                MenuAction::ChangeVisibleLineCount(count) => {
+                    self.config
+                        .change_visible_lines(count.try_into().unwrap_or(AMOUNT_OF_VISIBLE_LINES));
                 }
                 MenuAction::ChangeTheme(theme_name) => {
                     self.config.change_theme(&theme_name);

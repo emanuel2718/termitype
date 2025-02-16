@@ -9,9 +9,10 @@ pub enum MenuAction {
     OpenThemePicker,
     OpenLanguagePicker,
     OpenCursorPicker,
-    OpenModeSelector,
-    OpenTimeSelector,
-    OpenWordSelector,
+    OpenModePicker,
+    OpenTimePicker,
+    OpenWordsPicker,
+    OpenVisibleLines,
     Back,
     Close,
 
@@ -22,6 +23,7 @@ pub enum MenuAction {
     ChangeTheme(String),
     ChangeCursorStyle(String),
     ChangeLanguage(String),
+    ChangeVisibleLineCount(usize),
     Restart,
     Quit,
 }
@@ -296,18 +298,23 @@ impl MenuState {
                 self.menu_stack.push(menu);
                 None
             }
-            MenuAction::OpenModeSelector => {
+            MenuAction::OpenModePicker => {
                 let menu = Menu::new(Self::build_mode_menu());
                 self.menu_stack.push(menu);
                 None
             }
-            MenuAction::OpenTimeSelector => {
+            MenuAction::OpenTimePicker => {
                 let menu = Menu::new(Self::build_time_menu());
                 self.menu_stack.push(menu);
                 None
             }
-            MenuAction::OpenWordSelector => {
+            MenuAction::OpenWordsPicker => {
                 let menu = Menu::new(Self::build_words_menu());
+                self.menu_stack.push(menu);
+                None
+            }
+            MenuAction::OpenVisibleLines => {
+                let menu = Menu::new(Self::build_visible_lines_menu());
                 self.menu_stack.push(menu);
                 None
             }
@@ -380,12 +387,13 @@ impl MenuState {
                 MenuAction::ToggleFeature("symbols".into()),
             )
             .toggleable(config.use_symbols),
-            MenuItem::new("Mode...", MenuAction::OpenModeSelector).submenufy(),
-            MenuItem::new("Time...", MenuAction::OpenTimeSelector).submenufy(),
-            MenuItem::new("Words...", MenuAction::OpenWordSelector).submenufy(),
+            MenuItem::new("Mode...", MenuAction::OpenModePicker).submenufy(),
+            MenuItem::new("Time...", MenuAction::OpenTimePicker).submenufy(),
+            MenuItem::new("Words...", MenuAction::OpenWordsPicker).submenufy(),
             MenuItem::new("Language...", MenuAction::OpenLanguagePicker).submenufy(),
             MenuItem::new("Theme...", MenuAction::OpenThemePicker).submenufy(),
             MenuItem::new("Cursor...", MenuAction::OpenCursorPicker).submenufy(),
+            MenuItem::new("Visible Lines...", MenuAction::OpenVisibleLines).submenufy(),
             MenuItem::new("Exit", MenuAction::Quit),
         ]
     }
@@ -471,6 +479,18 @@ impl MenuState {
                     .parse::<u32>()
                     .unwrap_or(0)
                     .cmp(&b.label.parse::<u32>().unwrap_or(0))
+            }
+        })
+    }
+
+    fn build_visible_lines_menu() -> Vec<MenuItem> {
+        let line_counts = vec![1, 2, 3, 4, 5];
+        Self::build_generic_menu(line_counts, MenuAction::ChangeVisibleLineCount, {
+            |a, b| {
+                a.label
+                    .parse::<usize>()
+                    .unwrap_or(0)
+                    .cmp(&b.label.parse::<usize>().unwrap_or(0))
             }
         })
     }
