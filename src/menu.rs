@@ -109,6 +109,74 @@ impl Menu {
             }
         }
     }
+
+    pub fn filtered_items(&self, query: &str) -> Vec<(usize, &MenuItem)> {
+        if query.is_empty() {
+            return self.items.iter().enumerate().collect();
+        }
+
+        let query = query.to_lowercase();
+        self.items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| {
+                let label = item.label.to_lowercase();
+                // most simple fuzzy search on the market
+                Self::fuzzy_match(&label, &query)
+            })
+            .collect()
+    }
+
+    pub fn next_filtered_item(&mut self, query: &str) {
+        let filtered = self.filtered_items(query);
+        if filtered.is_empty() {
+            return;
+        }
+
+        let current_pos = filtered.iter().position(|(i, _)| *i == self.selected_index);
+        if let Some(pos) = current_pos {
+            if pos + 1 < filtered.len() {
+                self.selected_index = filtered[pos + 1].0;
+            }
+        } else {
+            self.selected_index = filtered[0].0;
+        }
+    }
+
+    pub fn prev_filtered_item(&mut self, query: &str) {
+        let filtered = self.filtered_items(query);
+        if filtered.is_empty() {
+            return;
+        }
+
+        let current_pos = filtered.iter().position(|(i, _)| *i == self.selected_index);
+        if let Some(pos) = current_pos {
+            if pos > 0 {
+                self.selected_index = filtered[pos - 1].0;
+            }
+        } else {
+            self.selected_index = filtered[0].0;
+        }
+    }
+
+    // TODO: improve this
+    // TODO: move this to utils file
+    fn fuzzy_match(text: &str, pattern: &str) -> bool {
+        let text = text.chars().collect::<Vec<_>>();
+        let pattern = pattern.chars().collect::<Vec<_>>();
+
+        let mut text_idx = 0;
+        let mut pattern_idx = 0;
+
+        while text_idx < text.len() && pattern_idx < pattern.len() {
+            if text[text_idx] == pattern[pattern_idx] {
+                pattern_idx += 1;
+            }
+            text_idx += 1;
+        }
+
+        pattern_idx == pattern.len()
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -116,11 +184,9 @@ pub struct MenuState {
     menu_stack: Vec<Menu>,
     preview_theme: Option<String>,
     preview_cursor: Option<String>,
+    search_query: String,
+    is_searching: bool,
 }
-
-// let mut state = Self::default();
-//        state.execute(MenuAction::OpenMainMenu, config);
-//        state
 
 impl MenuState {
     pub fn new() -> Self {
@@ -128,14 +194,9 @@ impl MenuState {
             menu_stack: Vec::new(),
             preview_theme: None,
             preview_cursor: None,
+            search_query: String::new(),
+            is_searching: false,
         }
-        // let mut state = Self {
-        //     menu_stack: Vec::new(),
-        //     preview_theme: None,
-        //     preview_cursor: None,
-        // };
-        // state.execute(MenuAction::OpenMainMenu, &config);
-        // state
     }
 
     pub fn is_open(&self) -> bool {
@@ -263,6 +324,8 @@ impl MenuState {
     fn clear_previews(&mut self) {
         self.preview_theme = None;
         self.preview_cursor = None;
+        self.is_searching = false;
+        self.search_query.clear();
     }
 
     pub fn preview_selected(&mut self) {
@@ -419,15 +482,37 @@ impl MenuState {
     }
 
     pub fn next_item(&mut self) {
+        let is_searching = self.is_searching();
+        let query = if is_searching {
+            self.search_query.clone()
+        } else {
+            String::new()
+        };
+
         if let Some(menu) = self.current_menu_mut() {
-            menu.next_item();
+            if is_searching {
+                menu.next_filtered_item(&query);
+            } else {
+                menu.next_item();
+            }
             self.preview_selected();
         }
     }
 
     pub fn prev_item(&mut self) {
+        let is_searching = self.is_searching();
+        let query = if is_searching {
+            self.search_query.clone()
+        } else {
+            String::new()
+        };
+
         if let Some(menu) = self.current_menu_mut() {
-            menu.prev_item();
+            if is_searching {
+                menu.prev_filtered_item(&query);
+            } else {
+                menu.prev_item();
+            }
             self.preview_selected();
         }
     }
@@ -435,6 +520,49 @@ impl MenuState {
     pub fn update_toggles(&mut self, config: &Config) {
         if let Some(menu) = self.current_menu_mut() {
             menu.update_toggles(config);
+        }
+    }
+
+    pub fn is_searching(&self) -> bool {
+        self.is_searching
+    }
+
+    pub fn search_query(&self) -> &str {
+        &self.search_query
+    }
+
+    pub fn start_search(&mut self) {
+        self.is_searching = true;
+    }
+
+    pub fn cancel_search(&mut self) {
+        self.is_searching = false;
+        self.search_query.clear();
+    }
+
+    pub fn finish_search(&mut self) {
+        self.is_searching = false;
+    }
+
+    pub fn update_search(&mut self, query: &str) {
+        self.search_query = query.to_string();
+        if let Some(menu) = self.current_menu() {
+            if let Some(index) = self.find_best_match(menu, &self.search_query) {
+                self.select(index);
+            }
+        }
+    }
+
+    pub fn find_best_match(&self, menu: &Menu, query: &str) -> Option<usize> {
+        if query.is_empty() {
+            return None;
+        }
+
+        let filtered = menu.filtered_items(query);
+        if filtered.is_empty() {
+            None
+        } else {
+            Some(filtered[0].0)
         }
     }
 }
@@ -518,5 +646,46 @@ mod tests {
                 .unwrap();
             assert!(toggle_item.is_active);
         }
+    }
+
+    #[test]
+    fn test_search_functionality() {
+        let mut menu = create_test_menu();
+        menu.toggle(&Config::default());
+        assert!(!menu.is_searching());
+
+        // start search
+        menu.start_search();
+        assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), "");
+
+        // update serach query
+        menu.update_search("theme");
+        assert_eq!(menu.search_query(), "theme");
+        if let Some(menu) = menu.current_menu() {
+            let selected_item = menu.selected_item().unwrap();
+            assert_eq!(selected_item.label, "Theme...");
+        }
+
+        // fuzzy
+        menu.update_search("thm");
+        if let Some(menu) = menu.current_menu() {
+            let selected_item = menu.selected_item().unwrap();
+            assert_eq!(selected_item.label, "Theme...");
+        }
+
+        // cancel
+        menu.cancel_search();
+        assert!(!menu.is_searching());
+        assert_eq!(menu.search_query(), "");
+
+        menu.update_search("cur");
+        menu.finish_search();
+        assert!(!menu.is_searching());
+        assert_eq!(menu.search_query(), "cur");
+
+        menu.start_search();
+        assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), "cur");
     }
 }

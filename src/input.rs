@@ -23,6 +23,10 @@ pub enum Action {
     MenuDown,
     MenuBack,
     MenuSelect,
+    StartSearch,
+    UpdateSearch(char),
+    FinishSearch,
+    CancelSearch,
 }
 
 #[derive(Default)]
@@ -49,7 +53,19 @@ impl InputHandler {
         }
 
         if menu.is_open() {
+            if menu.is_searching() {
+                return match key.code {
+                    KeyCode::Esc => Action::CancelSearch,
+                    KeyCode::Enter => Action::MenuSelect,
+                    KeyCode::Char(c) => Action::UpdateSearch(c),
+                    KeyCode::Backspace => Action::UpdateSearch('\x08'), // Special backspace character
+                    KeyCode::Up => Action::MenuUp,
+                    KeyCode::Down => Action::MenuDown,
+                    _ => Action::None,
+                };
+            }
             return match key.code {
+                KeyCode::Char('/') => Action::StartSearch,
                 KeyCode::Char('k') | KeyCode::Up => Action::MenuUp,
                 KeyCode::Char('j') | KeyCode::Down => Action::MenuDown,
                 KeyCode::Enter | KeyCode::Char(' ') => Action::MenuSelect,
@@ -94,6 +110,10 @@ pub trait InputProcessor {
     fn handle_menu_down(&mut self) -> Action;
     fn handle_menu_back(&mut self) -> Action;
     fn handle_menu_select(&mut self) -> Action;
+    fn handle_start_search(&mut self) -> Action;
+    fn handle_update_search(&mut self, c: char) -> Action;
+    fn handle_finish_search(&mut self) -> Action;
+    fn handle_cancel_search(&mut self) -> Action;
 }
 
 impl InputProcessor for Termi {
@@ -132,6 +152,10 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_back(&mut self) -> Action {
+        if self.menu.is_searching() {
+            self.menu.cancel_search();
+            return Action::None;
+        }
         self.menu.back();
         if self.preview_theme.is_some() {
             self.preview_theme = None;
@@ -180,6 +204,11 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_select(&mut self) -> Action {
+        // Exit search mode and clear query if we're in it
+        if self.menu.is_searching() {
+            self.menu.cancel_search();
+        }
+
         if let Some(action) = self.menu.enter(&self.config) {
             match action {
                 MenuAction::Restart => {
@@ -232,6 +261,34 @@ impl InputProcessor for Termi {
         }
         Action::None
     }
+
+    fn handle_start_search(&mut self) -> Action {
+        self.menu.start_search();
+        Action::None
+    }
+
+    fn handle_update_search(&mut self, c: char) -> Action {
+        // backspace
+        if c == '\x08' {
+            let mut query = self.menu.search_query().to_string();
+            query.pop();
+            self.menu.update_search(&query);
+        } else {
+            let query = format!("{}{}", self.menu.search_query(), c);
+            self.menu.update_search(&query);
+        }
+        Action::None
+    }
+
+    fn handle_finish_search(&mut self) -> Action {
+        self.menu.finish_search();
+        Action::None
+    }
+
+    fn handle_cancel_search(&mut self) -> Action {
+        self.menu.cancel_search();
+        Action::None
+    }
 }
 
 pub fn process_action(action: Action, state: &mut impl InputProcessor) -> Action {
@@ -246,5 +303,9 @@ pub fn process_action(action: Action, state: &mut impl InputProcessor) -> Action
         Action::MenuBack => state.handle_menu_back(),
         Action::Quit => Action::Quit,
         Action::None => Action::None,
+        Action::StartSearch => state.handle_start_search(),
+        Action::UpdateSearch(c) => state.handle_update_search(c),
+        Action::FinishSearch => state.handle_finish_search(),
+        Action::CancelSearch => state.handle_cancel_search(),
     }
 }

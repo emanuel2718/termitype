@@ -72,9 +72,12 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
     let menu_area = {
         let width = 30u16;
         let max_visible_items = 10u16;
-        let height = if let Some(menu) = menu.current_menu() {
+        let height = if let Some(current_menu) = menu.current_menu() {
             // 2 for the border/title and 2 for the footer
-            (menu.items().len().min(max_visible_items as usize) + 4) as u16
+            // Add 1 for search bar when searching
+            (current_menu.items().len().min(max_visible_items as usize)
+                + 4
+                + if menu.is_searching() { 1 } else { 0 }) as u16
         } else {
             4
         };
@@ -88,11 +91,20 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
 
     let menu_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Min(1),
-            Constraint::Length(2),
-        ])
+        .constraints(if menu.is_searching() {
+            vec![
+                Constraint::Length(1), // Title
+                Constraint::Length(1), // Search bar
+                Constraint::Min(1),    // Menu items
+                Constraint::Length(2), // Footer
+            ]
+        } else {
+            vec![
+                Constraint::Length(1), // Title
+                Constraint::Min(1),    // Menu items
+                Constraint::Length(2), // Footer
+            ]
+        })
         .split(menu_area);
 
     let title = if menu.menu_depth() > 1 {
@@ -110,21 +122,30 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
 
     let mut scrollbar_state = ScrollbarState::default();
 
-    let items: Vec<ListItem> = if let Some(menu) = menu.current_menu() {
-        let total_items = menu.items().len();
-        let max_visible = (menu_area.height as usize).saturating_sub(4); // minus border + footer
+    let items: Vec<ListItem> = if let Some(current_menu) = menu.current_menu() {
+        let menu_items = current_menu.items();
+
+        let filtered_items: Vec<_> = if menu.is_searching() {
+            current_menu.filtered_items(menu.search_query())
+        } else {
+            menu_items.iter().enumerate().collect()
+        };
+
+        let total_items = filtered_items.len();
+        let max_visible =
+            (menu_area.height as usize).saturating_sub(4 + if menu.is_searching() { 1 } else { 0 }); // minus border + footer + search bar if searching
 
         // just to make sure we keep the selected item visible
         let scroll_offset = if total_items <= max_visible {
             0
         } else {
             let halfway = max_visible / 2;
-            if menu.selected_index() < halfway {
+            if current_menu.selected_index() < halfway {
                 0
-            } else if menu.selected_index() >= total_items.saturating_sub(halfway) {
+            } else if current_menu.selected_index() >= total_items.saturating_sub(halfway) {
                 total_items.saturating_sub(max_visible)
             } else {
-                menu.selected_index().saturating_sub(halfway)
+                current_menu.selected_index().saturating_sub(halfway)
             }
         };
 
@@ -133,13 +154,12 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
             .content_length(total_items)
             .position(scroll_offset);
 
-        menu.items()
+        filtered_items
             .iter()
-            .enumerate()
             .skip(scroll_offset)
             .take(max_visible)
-            .map(|(i, item)| {
-                let is_selected = i == menu.selected_index();
+            .map(|&(i, item)| {
+                let is_selected = i == current_menu.selected_index();
                 let style = Style::default()
                     .fg(if item.is_toggleable {
                         if item.is_active {
@@ -192,13 +212,27 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
 
     f.render_widget(Clear, menu_area);
     f.render_widget(background, menu_area);
-    f.render_widget(menu_widget, menu_layout[1]);
-    f.render_widget(footer, menu_layout[2]);
+
+    // search bar
+    if menu.is_searching() {
+        let search_text = Line::from(vec![
+            Span::styled("/", Style::default().fg(theme.highlight())),
+            Span::styled(menu.search_query(), Style::default().fg(theme.foreground())),
+        ]);
+        let search_bar = Paragraph::new(search_text).style(Style::default().bg(theme.background()));
+        f.render_widget(search_bar, menu_layout[1]);
+        f.render_widget(menu_widget, menu_layout[2]);
+        f.render_widget(footer, menu_layout[3]);
+    } else {
+        f.render_widget(menu_widget, menu_layout[1]);
+        f.render_widget(footer, menu_layout[2]);
+    }
 
     // Only show scrollbar if we have more items than can fit in the visible area
-    if let Some(menu) = menu.current_menu() {
-        let total_items = menu.items().len();
-        let max_visible = (menu_area.height as usize).saturating_sub(4);
+    if let Some(current_menu) = menu.current_menu() {
+        let total_items = current_menu.items().len();
+        let max_visible =
+            (menu_area.height as usize).saturating_sub(4 + if menu.is_searching() { 1 } else { 0 });
 
         if total_items > max_visible {
             let scrollbar = Scrollbar::default()
@@ -209,9 +243,15 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                 .thumb_symbol("█")
                 .style(Style::default().fg(theme.border()));
 
+            let scrollbar_area = if menu.is_searching() {
+                menu_layout[2]
+            } else {
+                menu_layout[1]
+            };
+
             f.render_stateful_widget(
                 scrollbar,
-                menu_layout[1].inner(Margin {
+                scrollbar_area.inner(Margin {
                     vertical: 0,
                     horizontal: 1,
                 }),
