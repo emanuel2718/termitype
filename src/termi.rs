@@ -12,7 +12,7 @@ use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
-    menu::MenuState,
+    menu::{MenuAction, MenuState},
     theme::Theme,
     tracker::Tracker,
     ui::{
@@ -68,7 +68,7 @@ impl Termi {
             preview_cursor: None,
             builder,
             words,
-            menu: MenuState::default(),
+            menu: MenuState::new(),
             clickable_regions: Vec::new(),
         }
     }
@@ -102,13 +102,15 @@ impl Termi {
                     }
                     ClickAction::OpenThemePicker => {
                         self.menu.toggle(&self.config);
-                        self.menu.select_from_menu(6);
-                        self.menu.menu_enter();
+                        self.menu.execute(MenuAction::OpenThemePicker, &self.config);
+                        self.menu.preview_selected();
+                        self.update_preview_theme();
                     }
                     ClickAction::OpenLanguagePicker => {
                         self.menu.toggle(&self.config);
-                        self.menu.select_from_menu(5);
-                        self.menu.menu_enter();
+                        self.menu
+                            .execute(MenuAction::OpenLanguagePicker, &self.config);
+                        self.menu.preview_selected();
                     }
                 }
                 break;

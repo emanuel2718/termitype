@@ -1,6 +1,6 @@
 use crate::{
     config::ModeType,
-    menu::{MenuAction, MenuContent, MenuState},
+    menu::{MenuAction, MenuState},
     termi::Termi,
     theme::Theme,
     tracker::Status,
@@ -132,7 +132,7 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_back(&mut self) -> Action {
-        self.menu.menu_back();
+        self.menu.back();
         if self.preview_theme.is_some() {
             self.preview_theme = None;
         }
@@ -152,13 +152,13 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_up(&mut self) -> Action {
-        self.menu.prev_menu_item();
-        if let Some(item) = self.menu.selected_menu_item() {
-            if let MenuContent::Action(MenuAction::ChangeTheme(_)) = &item.content {
-                self.menu.preview_selected_theme();
+        self.menu.prev_item();
+        if let Some(item) = self.menu.current_menu().unwrap().selected_item() {
+            if let MenuAction::ChangeTheme(_) = &item.action {
+                self.menu.preview_selected();
                 self.update_preview_theme();
-            } else if let MenuContent::Action(MenuAction::ChangeCursorStyle(_)) = &item.content {
-                self.menu.preview_selected_cursor();
+            } else if let MenuAction::ChangeCursorStyle(_) = &item.action {
+                self.menu.preview_selected();
                 self.update_preview_cursor();
             }
         }
@@ -166,13 +166,13 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_down(&mut self) -> Action {
-        self.menu.next_menu_item();
-        if let Some(item) = self.menu.selected_menu_item() {
-            if let MenuContent::Action(MenuAction::ChangeTheme(_)) = &item.content {
-                self.menu.preview_selected_theme();
+        self.menu.next_item();
+        if let Some(item) = self.menu.current_menu().unwrap().selected_item() {
+            if let MenuAction::ChangeTheme(_) = &item.action {
+                self.menu.preview_selected();
                 self.update_preview_theme();
-            } else if let MenuContent::Action(MenuAction::ChangeCursorStyle(_)) = &item.content {
-                self.menu.preview_selected_cursor();
+            } else if let MenuAction::ChangeCursorStyle(_) = &item.action {
+                self.menu.preview_selected();
                 self.update_preview_cursor();
             }
         }
@@ -180,13 +180,13 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_select(&mut self) -> Action {
-        if let Some(action) = self.menu.menu_enter() {
+        if let Some(action) = self.menu.enter(&self.config) {
             match action {
                 MenuAction::Restart => {
                     self.start();
                     return Action::None;
                 }
-                MenuAction::Toggle(feature) => {
+                MenuAction::ToggleFeature(feature) => {
                     match feature.as_str() {
                         "punctuation" => {
                             self.config.toggle_punctuation();
@@ -214,8 +214,8 @@ impl InputProcessor for Termi {
                     self.config.change_theme(&theme_name);
                     self.theme = Theme::from_name(&theme_name);
                 }
-                MenuAction::ChangeCursorStyle(steyl) => {
-                    self.config.cursor_style = Some(steyl);
+                MenuAction::ChangeCursorStyle(style) => {
+                    self.config.change_cursor_style(&style);
                     execute!(
                         std::io::stdout(),
                         self.config.resolve_current_cursor_style()
@@ -227,6 +227,7 @@ impl InputProcessor for Termi {
                     self.start();
                 }
                 MenuAction::Quit => return Action::Quit,
+                _ => {}
             }
         }
         Action::None

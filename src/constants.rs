@@ -1,5 +1,6 @@
 pub const APPNAME: &str = "termitype";
 pub const DEFAULT_LANGUAGE: &str = "english";
+pub const DEFAULT_CURSOR_STYLE: &str = "beam";
 pub const DEFAULT_THEME: &str = "tokyonight";
 
 pub const AMOUNT_OF_VISIBLE_LINES: u8 = 3;

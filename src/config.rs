@@ -1,7 +1,7 @@
 use clap::{ArgGroup, Parser};
 use crossterm::cursor::SetCursorStyle;
 
-use crate::constants::{DEFAULT_LANGUAGE, DEFAULT_THEME};
+use crate::constants::{DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "Termitype", about = "Terminal based typing game")]
@@ -107,7 +107,7 @@ impl Default for Config {
             use_numbers: false,
             use_punctuation: false,
             theme: Some(DEFAULT_THEME.to_string()),
-            cursor_style: None,
+            cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
             color_mode: None,
             list_themes: false,
             version: false,
@@ -164,6 +164,11 @@ impl Config {
     /// Chages the current theme of the game.
     pub fn change_theme(&mut self, theme_name: &str) {
         self.theme = Some(theme_name.to_string())
+    }
+
+    /// Chages the current style of the cursor.
+    pub fn change_cursor_style(&mut self, style: &str) {
+        self.cursor_style = Some(style.to_string())
     }
 
     /// Resets the words flag after a test has been run with it.
@@ -266,6 +271,7 @@ mod tests {
         let config = Config::default();
         assert!(config.language.is_some());
         assert!(config.time.is_some());
+        assert!(config.theme.is_some());
         assert!(config.word_count.is_none());
         assert_eq!(config.language, Some(DEFAULT_LANGUAGE.to_string()));
         assert_eq!(config.use_symbols, false);

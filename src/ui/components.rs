@@ -500,9 +500,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
 }
 
-pub fn footer(f: &mut Frame, termi: &Termi, area: Rect) -> Vec<ClickableRegion> {
-    let mut regions = Vec::new();
-
+pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let elements = vec![
         UIElement::new(" ", false, None),
         UIElement::new("github.com/emanuel2718/termitype", false, None),
@@ -530,7 +528,7 @@ pub fn footer(f: &mut Frame, termi: &Termi, area: Rect) -> Vec<ClickableRegion> 
             let span = element.to_span(&termi.theme);
 
             if let Some(action) = &element.action {
-                regions.push(ClickableRegion {
+                termi.clickable_regions.push(ClickableRegion {
                     area: Rect {
                         x: current_x,
                         y: area.y,
@@ -550,11 +548,9 @@ pub fn footer(f: &mut Frame, termi: &Termi, area: Rect) -> Vec<ClickableRegion> 
         Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
         area,
     );
-
-    regions
 }
 
-pub fn results_screen(f: &mut Frame, termi: &Termi, area: Rect) {
+pub fn results_screen(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
