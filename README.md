@@ -11,6 +11,8 @@
   </p>
 </p>
 
+![image](https://github.com/user-attachments/assets/50764473-b647-4e7c-b07f-8dd779c1458c)
+
 
 
 ### TODO
@@ -24,13 +26,6 @@
 - [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
 - [ ] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
 - [ ] Performance optimization pass before release (cargo flamegraph --root)
-    - want to improve the word tracking `Word { start: usize, end: usize, text: String }` or something like that
-        - might be heavy on the memory tho
-
-
-### Bugs
-- [ ] responsiveness needs some work.
-    - if we reduce the width just enough the top bar will be cut off (should wrap i think question mark)
 
 ### Done
 - [x] Build Github CI
@@ -46,10 +41,12 @@
 - [x] Add more languages and word lists (good enough for now)
 - [x] Change mode/value with the menu
 
+
+
 ### Notes
 - how to fetch themes
 ```sh
 # hash: 12204fc99743d8232e691ac22e058519bfc6ea92de4a11c6dba59b117531c847cd6a
 wget -qO- https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz | tar -xvzf -
-mv iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/ghostty/* . && rm -rf iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/
+mv iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/ghostty/* assets/themes/ && rm -rf iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/
 ```
