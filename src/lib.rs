@@ -13,6 +13,7 @@ use crossterm::{
 use ratatui::{prelude::CrosstermBackend, Terminal};
 use version::VERSION;
 
+pub mod assets;
 pub mod builder;
 pub mod config;
 pub mod constants;

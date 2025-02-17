@@ -13,7 +13,37 @@
 
 ![image](https://github.com/user-attachments/assets/50764473-b647-4e7c-b07f-8dd779c1458c)
 
+## Development
 
+### Getting Started
+
+1. Clone the repository:
+```sh
+git clone https://github.com/emanuel2718/termitype.git
+cd termitype
+```
+
+2. Build and run:
+```sh
+# Normal run
+cargo run
+
+# Debug mode
+cargo run -- --debug
+```
+
+3. Optional: Install theme Pack
+```sh
+# Download the theme pack
+wget -qO- https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz | tar -xvzf -
+
+# Move the themes to the assets folder
+mv iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/ghostty/* assets/themes/ && rm -rf iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/
+```
+
+- NOTE: The build process will automatically download and embed the theme pack during the first build. The themes are stored in `assets/themes` and will be included in the final release binary.
+
+### Installation (coming soon)
 
 ### TODO
 
@@ -25,7 +55,10 @@
 - [ ] Improve the Footer with icons if possible
 - [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
 - [ ] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
+- [ ] Layout cleanup pass
 - [ ] Performance optimization pass before release (cargo flamegraph --root)
+- [ ] Add LICENSE
+- [ ] Release on crates.io, Homebrew, AUR, nixpkgs, etc
 
 ### Done
 - [x] Build Github CI

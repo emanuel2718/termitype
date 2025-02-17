@@ -1,8 +1,8 @@
-use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, sync::OnceLock};
+use std::{collections::HashMap, str::FromStr, sync::OnceLock};
 
 use ratatui::style::Color;
 
-use crate::{config::Config, constants::DEFAULT_THEME};
+use crate::{assets, config::Config, constants::DEFAULT_THEME};
 
 #[derive(Debug)]
 pub struct ThemeLoader {
@@ -227,10 +227,10 @@ impl ThemeLoader {
 
     /// Checks if the given theme is available
     pub fn has_theme(theme: &str) -> bool {
-        available_themes().contains(&theme.to_string())
+        assets::get_theme(theme).is_some()
     }
 
-    /// Loads a theme from file
+    /// Loads a theme from assets
     fn load_theme(&mut self, theme_name: &str) -> Result<(), Box<dyn std::error::Error>> {
         if !Self::has_theme(theme_name) {
             return Err(format!("Theme '{theme_name}' is not available.").into());
@@ -240,8 +240,8 @@ impl ThemeLoader {
             return Ok(());
         }
 
-        let path = PathBuf::from(format!("assets/themes/{theme_name}"));
-        let content = fs::read_to_string(path)?;
+        let content = assets::get_theme(theme_name)
+            .ok_or_else(|| format!("Theme '{theme_name}' not found"))?;
         let theme = Self::parse_theme_file(&content, theme_name)?;
 
         self.themes.insert(theme_name.to_string(), theme);
@@ -303,27 +303,14 @@ impl ThemeLoader {
         })
     }
 }
+
 /// Returns the list of available themes.
 pub fn available_themes() -> &'static [String] {
     static THEMES: OnceLock<Vec<String>> = OnceLock::new();
     THEMES.get_or_init(|| {
-        let paths = fs::read_dir("assets/themes")
-            .map(|entries| {
-                entries
-                    .filter_map(Result::ok)
-                    .filter(|entry| entry.path().is_file())
-                    .filter_map(|entry| {
-                        entry
-                            .path()
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .filter(|name| *name != ".gitkeep")
-                            .map(String::from)
-                    })
-                    .collect()
-            })
-            .unwrap_or_else(|_| vec![DEFAULT_THEME.to_string()]);
-        paths
+        let mut themes = assets::list_themes();
+        themes.sort_by_key(|a| a.to_lowercase());
+        themes
     })
 }
 
