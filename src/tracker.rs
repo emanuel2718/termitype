@@ -23,9 +23,9 @@ pub struct Tracker {
     pub word_count: usize,
     pub status: Status,
 
-    total_keystrokes: usize,
-    correct_keystrokes: usize,
-    wrong_words_start_indexes: std::collections::HashSet<usize>,
+    pub total_keystrokes: usize,
+    pub correct_keystrokes: usize,
+    pub wrong_words_start_indexes: std::collections::HashSet<usize>,
 }
 
 #[derive(Debug, PartialEq)]

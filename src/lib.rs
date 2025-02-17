@@ -16,6 +16,7 @@ use version::VERSION;
 pub mod builder;
 pub mod config;
 pub mod constants;
+pub mod debug;
 pub mod input;
 pub mod menu;
 pub mod termi;

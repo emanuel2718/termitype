@@ -61,6 +61,18 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
     if termi.menu.is_open() {
         draw_menu(f, termi, f.area());
     }
+
+    if let Some(debug) = &termi.debug {
+        if debug.visible {
+            let debug_area = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+                .split(f.area())[1];
+
+            f.render_widget(Clear, debug_area);
+            debug.draw(f, termi, debug_area);
+        }
+    }
 }
 
 pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
