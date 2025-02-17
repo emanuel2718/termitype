@@ -12,8 +12,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=assets/themes");
     println!("cargo:rerun-if-changed=assets/languages");
 
-    let themes_dir = Path::new("assets/themes");
-    fs::create_dir_all(themes_dir)?;
+    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let themes_dir = Path::new(&out_dir).join("themes");
+    fs::create_dir_all(&themes_dir)?;
 
     let has_themes = themes_dir.read_dir()?.filter_map(Result::ok).any(|entry| {
         let name = entry.file_name();
@@ -49,6 +50,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Themes installed successfully");
         }
     }
+
+    println!("cargo:rustc-env=THEMES_DIR={}", themes_dir.display());
 
     Ok(())
 }

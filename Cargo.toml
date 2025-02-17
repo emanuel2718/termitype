@@ -2,7 +2,7 @@
 name = "termitype"
 build = "build.rs"
 description = "Terminal-based typing test inspired by monkeytype"
-version = "0.1.0"
+version = "0.0.1-alpha.1"
 license = "MIT"
 categories = ["command-line-utilities", "games"]
 keywords = ["tui", "cli", "typing", "game"]
@@ -10,6 +10,15 @@ repository = "https://github.com/emanuel2718/termitype.git"
 homepage = "https://github.com/emanuel2718/termitype"
 authors = ["Emanuel Ramirez <eramirez2718@gmail.com>"]
 edition = "2021"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "assets/themes/**/*",
+    "assets/languages/**/*"
+]
+exclude = [
+    "assets/themes/.gitkeep",
+]
 
 [profile.release]
 debug = true

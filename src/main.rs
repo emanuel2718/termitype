@@ -1,6 +1,6 @@
 fn main() {
     if let Err(err) = termitype::run() {
-        eprintln!("Termitype error: {:?}", err);
+        eprintln!("termitype: {:?}", err);
         std::process::exit(1)
     }
 }
