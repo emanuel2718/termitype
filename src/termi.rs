@@ -194,7 +194,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                     if action == Action::Quit {
                         break;
                     }
-                    if let Some(_) = termi.debug.as_mut() {
+                    if termi.debug.as_mut().is_some() {
                         LOG(format!(
                             "Key Event - code: {:?}, modifiers: {:?}, action: {:?}, menu_open: {}",
                             key.code,
