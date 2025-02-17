@@ -35,8 +35,12 @@ pub struct Config {
     pub theme: String,
 
     /// Lists the available themes
-    #[arg(short = 'L', long = "list-themes")]
+    #[arg(long = "list-themes")]
     pub list_themes: bool,
+
+    /// Lists the available languages
+    #[arg(long = "list-languages")]
+    pub list_languages: bool,
 
     /// Introduces symbols to the test words.
     #[arg(short = 's', long = "use-symbols")]
@@ -118,6 +122,7 @@ impl Default for Config {
             visible_lines: AMOUNT_OF_VISIBLE_LINES,
             color_mode: None,
             list_themes: false,
+            list_languages: false,
             version: false,
             debug: false,
         }

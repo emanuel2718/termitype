@@ -72,5 +72,10 @@ fn should_print_to_console(config: &Config) -> bool {
         theme::print_theme_list();
         return true;
     }
+
+    if config.list_languages {
+        builder::print_language_list();
+        return true;
+    }
     false
 }

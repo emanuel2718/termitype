@@ -133,6 +133,29 @@ impl Default for Builder {
     }
 }
 
+pub fn print_language_list() {
+    let mut languages: Vec<String> = Builder::available_languages().to_vec();
+    languages.sort_by_key(|a| a.to_lowercase());
+
+    println!("\n• Available Languages ({}):", languages.len());
+
+    println!("{}", "─".repeat(40));
+
+    for language in languages {
+        let is_default = language == DEFAULT_LANGUAGE;
+        let language_name = if is_default {
+            format!("{} (default)", language)
+        } else {
+            language
+        };
+        println!("  • {}", language_name);
+    }
+    println!("\nUsage:");
+    println!("  • Set language:    termitype --language <name>");
+    println!("  • List languages:  termitype --list-languages");
+    println!();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
