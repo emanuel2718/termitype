@@ -11,7 +11,7 @@ use ratatui::{prelude::Backend, Terminal};
 use crate::{
     builder::Builder,
     config::Config,
-    debug::Debug,
+    debug::{Debug, LOG},
     input::{process_action, Action, InputHandler},
     menu::{MenuAction, MenuState},
     theme::Theme,
@@ -194,8 +194,8 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                     if action == Action::Quit {
                         break;
                     }
-                    if let Some(debug) = termi.debug.as_mut() {
-                        debug.log(format!(
+                    if let Some(_) = termi.debug.as_mut() {
+                        LOG(format!(
                             "Key Event - code: {:?}, modifiers: {:?}, action: {:?}, menu_open: {}",
                             key.code,
                             key.modifiers,
@@ -222,6 +222,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
 
         if last_tick.elapsed() >= tick_rate {
             termi.tracker.update_metrics();
+            if let Some(debug) = termi.debug.as_mut() {
+                debug.sync_with_global();
+            }
             last_tick = Instant::now()
         }
     }

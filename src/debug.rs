@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
     style::{Modifier, Style},
@@ -6,10 +7,26 @@ use ratatui::{
     Frame,
 };
 use std::collections::VecDeque;
+use std::sync::Mutex;
 
 use crate::{termi::Termi, theme::Theme};
 
 const MAX_LOG_ENTRIES: usize = 100;
+
+static GLOBAL_DEBUG: Lazy<Mutex<VecDeque<String>>> =
+    Lazy::new(|| Mutex::new(VecDeque::with_capacity(MAX_LOG_ENTRIES)));
+
+/// GLOBAL DEBUG BECAUSE THIS IS DEBUG LAND
+#[allow(non_snake_case)]
+pub fn LOG(message: impl Into<String>) {
+    if let Ok(mut logs) = GLOBAL_DEBUG.lock() {
+        let message = message.into();
+        if logs.len() >= MAX_LOG_ENTRIES {
+            logs.pop_front();
+        }
+        logs.push_back(message);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Debug {
@@ -43,15 +60,12 @@ impl Debug {
         self.visible = !self.visible;
     }
 
-    pub fn log(&mut self, message: impl Into<String>) {
-        let message = message.into();
-        if self.logs.len() >= MAX_LOG_ENTRIES {
-            self.logs.pop_front();
-        }
-        self.logs.push_back(message);
-
-        if self.logs_auto_scroll {
-            self.logs_scroll = self.logs.len().saturating_sub(1);
+    pub fn sync_with_global(&mut self) {
+        if let Ok(logs) = GLOBAL_DEBUG.lock() {
+            self.logs = logs.clone();
+            if self.logs_auto_scroll {
+                self.logs_scroll = self.logs.len().saturating_sub(1);
+            }
         }
     }
 
