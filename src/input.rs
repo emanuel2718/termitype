@@ -1,6 +1,6 @@
 use crate::{
     config::ModeType,
-    constants::AMOUNT_OF_VISIBLE_LINES,
+    constants::{AMOUNT_OF_VISIBLE_LINES, BACKSPACE, DEBUG_KEY},
     menu::{MenuAction, MenuState},
     termi::Termi,
     theme::Theme,
@@ -28,6 +28,12 @@ pub enum Action {
     UpdateSearch(char),
     FinishSearch,
     CancelSearch,
+    ToggleDebugPanel,
+    DebugNextTab,
+    DebugPrevTab,
+    DebugScrollUp,
+    DebugScrollDown,
+    DebugToggleAutoScroll,
 }
 
 #[derive(Default)]
@@ -43,7 +49,7 @@ impl InputHandler {
     }
 
     /// Converts a keyboard event into an Action
-    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState) -> Action {
+    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, is_debug: bool) -> Action {
         self.update_history(key.code);
 
         if self.is_quit_sequence(&key) {
@@ -53,54 +59,36 @@ impl InputHandler {
             return Action::Start;
         }
 
-        if menu.is_open() {
-            if menu.is_searching() {
-                return match key.code {
-                    KeyCode::Esc => Action::CancelSearch,
-                    KeyCode::Enter => Action::MenuSelect,
-                    KeyCode::Char(c) => Action::UpdateSearch(c),
-                    KeyCode::Backspace => Action::UpdateSearch('\x08'), // Special backspace character
-                    KeyCode::Up => Action::MenuUp,
-                    KeyCode::Down => Action::MenuDown,
-                    _ => Action::None,
-                };
+        // debug panel
+        if is_debug {
+            match (key.code, key.modifiers) {
+                (KeyCode::Char(DEBUG_KEY), KeyModifiers::CONTROL) => {
+                    return Action::ToggleDebugPanel
+                }
+                (KeyCode::Left, KeyModifiers::NONE) => return Action::DebugPrevTab,
+                (KeyCode::Right, KeyModifiers::NONE) => return Action::DebugNextTab,
+                (KeyCode::Up, KeyModifiers::NONE) => return Action::DebugScrollUp,
+                (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
+                    return Action::DebugToggleAutoScroll
+                }
+                (KeyCode::Down, KeyModifiers::NONE) => return Action::DebugScrollDown,
+                _ => {}
             }
-            return match key.code {
-                KeyCode::Char('/') => Action::StartSearch,
-                KeyCode::Char('k') | KeyCode::Up => Action::MenuUp,
-                KeyCode::Char('j') | KeyCode::Down => Action::MenuDown,
-                KeyCode::Enter => Action::MenuSelect,
-                KeyCode::Char('l') => {
-                    // TODO: improve this. This pattern in annying. Would prefer if it were just `menu.current_item()` and the handling is done inside
-                    if let Some(menu) = menu.current_menu() {
-                        if menu.current_item().has_submenu {
-                            return Action::MenuSelect;
-                        }
-                    }
-                    Action::None
-                }
-                KeyCode::Char(' ') => {
-                    if let Some(menu) = menu.current_menu() {
-                        if menu.current_item().is_toggleable {
-                            return Action::MenuSelect;
-                        }
-                    }
-                    Action::None
-                }
-                KeyCode::Char('h') => {
-                    if menu.menu_depth() == 1 {
-                        return Action::None;
-                    }
-                    Action::MenuBack
-                }
-                KeyCode::Esc => Action::MenuBack,
-                _ => Action::None,
-            };
         }
+
+        // menu
+        if menu.is_open() {
+            return self.handle_menu_input(menu, key);
+        }
+
+        // normal
         match (key.code, key.modifiers) {
-            (KeyCode::Char(c), _) => Action::TypeCharacter(c),
-            (KeyCode::Backspace, _) => Action::Backspace,
-            (KeyCode::Esc, _) => Action::Pause,
+            (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
+            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                Action::TypeCharacter(c)
+            }
+            (KeyCode::Backspace, KeyModifiers::NONE) => Action::Backspace,
+            (KeyCode::Esc, KeyModifiers::NONE) => Action::Pause,
             _ => Action::None,
         }
     }
@@ -122,6 +110,51 @@ impl InputHandler {
             self.input_history.iter().collect::<Vec<_>>()[..],
             [KeyCode::Tab, KeyCode::Enter]
         )
+    }
+
+    fn handle_menu_input(&self, menu: &MenuState, key: KeyEvent) -> Action {
+        if menu.is_searching() {
+            return match key.code {
+                KeyCode::Esc => Action::CancelSearch,
+                KeyCode::Enter => Action::MenuSelect,
+                KeyCode::Char(c) => Action::UpdateSearch(c),
+                KeyCode::Backspace => Action::UpdateSearch(BACKSPACE), // backspace
+                KeyCode::Up => Action::MenuUp,
+                KeyCode::Down => Action::MenuDown,
+                _ => Action::None,
+            };
+        }
+        match key.code {
+            KeyCode::Char('/') => Action::StartSearch,
+            KeyCode::Char('k') | KeyCode::Up => Action::MenuUp,
+            KeyCode::Char('j') | KeyCode::Down => Action::MenuDown,
+            KeyCode::Enter => Action::MenuSelect,
+            KeyCode::Char('l') => {
+                // TODO: improve this. This pattern in annying. Would prefer if it were just `menu.current_item()` and the handling is done inside
+                if let Some(menu) = menu.current_menu() {
+                    if menu.current_item().has_submenu {
+                        return Action::MenuSelect;
+                    }
+                }
+                Action::None
+            }
+            KeyCode::Char(' ') => {
+                if let Some(menu) = menu.current_menu() {
+                    if menu.current_item().is_toggleable {
+                        return Action::MenuSelect;
+                    }
+                }
+                Action::None
+            }
+            KeyCode::Char('h') => {
+                if menu.menu_depth() == 1 {
+                    return Action::None;
+                }
+                Action::MenuBack
+            }
+            KeyCode::Esc => Action::MenuBack,
+            _ => Action::None,
+        }
     }
 }
 
@@ -297,7 +330,7 @@ impl InputProcessor for Termi {
 
     fn handle_update_search(&mut self, c: char) -> Action {
         // backspace
-        if c == '\x08' {
+        if c == BACKSPACE {
             let mut query = self.menu.search_query().to_string();
             query.pop();
             self.menu.update_search(&query);
@@ -319,21 +352,62 @@ impl InputProcessor for Termi {
     }
 }
 
-pub fn process_action(action: Action, state: &mut impl InputProcessor) -> Action {
+pub fn process_action(action: Action, state: &mut Termi) -> Action {
     match action {
         Action::TypeCharacter(c) => state.handle_type_char(c),
         Action::Backspace => state.handle_backspace(),
         Action::Start => state.handle_start(),
         Action::Pause => state.handle_pause(),
+        Action::Quit => Action::Quit,
         Action::MenuUp => state.handle_menu_up(),
         Action::MenuDown => state.handle_menu_down(),
-        Action::MenuSelect => state.handle_menu_select(),
         Action::MenuBack => state.handle_menu_back(),
-        Action::Quit => Action::Quit,
-        Action::None => Action::None,
+        Action::MenuSelect => state.handle_menu_select(),
         Action::StartSearch => state.handle_start_search(),
         Action::UpdateSearch(c) => state.handle_update_search(c),
         Action::FinishSearch => state.handle_finish_search(),
         Action::CancelSearch => state.handle_cancel_search(),
+        Action::ToggleDebugPanel => {
+            if let Some(debug) = state.debug.as_mut() {
+                debug.toggle();
+            }
+            Action::None
+        }
+        Action::DebugNextTab => {
+            if let Some(debug) = state.debug.as_mut() {
+                debug.next_tab();
+            }
+            Action::None
+        }
+        Action::DebugPrevTab => {
+            if let Some(debug) = state.debug.as_mut() {
+                debug.prev_tab();
+            }
+            Action::None
+        }
+        Action::DebugScrollUp => {
+            if let Some(debug) = state.debug.as_mut() {
+                debug.scroll_up();
+            }
+            Action::None
+        }
+        Action::DebugScrollDown => {
+            if let Some(debug) = state.debug.as_mut() {
+                let max_lines = match debug.current_tab {
+                    0 => 3, // Number of state lines
+                    1 => debug.logs.len(),
+                    _ => unreachable!(),
+                };
+                debug.scroll_down(max_lines);
+            }
+            Action::None
+        }
+        Action::DebugToggleAutoScroll => {
+            if let Some(debug) = state.debug.as_mut() {
+                debug.toggle_auto_scroll();
+            }
+            Action::None
+        }
+        Action::None => Action::None,
     }
 }

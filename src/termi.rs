@@ -11,6 +11,7 @@ use ratatui::{prelude::Backend, Terminal};
 use crate::{
     builder::Builder,
     config::Config,
+    debug::{Debug, LOG},
     input::{process_action, Action, InputHandler},
     menu::{MenuAction, MenuState},
     theme::Theme,
@@ -31,6 +32,7 @@ pub struct Termi {
     pub words: String,
     pub menu: MenuState,
     pub clickable_regions: Vec<ClickableRegion>,
+    pub debug: Option<Debug>,
 }
 
 impl std::fmt::Debug for Termi {
@@ -50,6 +52,7 @@ impl std::fmt::Debug for Termi {
             .field("words", &self.words)
             .field("menu", &self.menu)
             .field("clickable_regions", &self.clickable_regions)
+            .field("debug", &self.debug)
             .finish()
     }
 }
@@ -60,7 +63,14 @@ impl Termi {
         let mut builder = Builder::new();
         let words = builder.generate_test(config);
         let tracker = Tracker::new(config, words.clone());
-        Termi {
+        let menu = MenuState::new();
+        let debug = if config.debug {
+            Some(Debug::new())
+        } else {
+            None
+        };
+
+        Self {
             config: config.clone(),
             tracker,
             theme,
@@ -68,8 +78,9 @@ impl Termi {
             preview_cursor: None,
             builder,
             words,
-            menu: MenuState::new(),
+            menu,
             clickable_regions: Vec::new(),
+            debug,
         }
     }
     pub fn handle_click(&mut self, x: u16, y: u16) {
@@ -132,6 +143,7 @@ impl Termi {
         self.menu = menu;
         self.preview_theme = preview_theme;
         self.preview_cursor = preview_cursor;
+        self.debug = self.debug.clone();
     }
 
     pub fn get_current_theme(&self) -> &Theme {
@@ -178,9 +190,18 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
         if crossterm::event::poll(timeout)? {
             match event::read()? {
                 Event::Key(key) => {
-                    let action = input_handler.handle_input(key, &termi.menu);
+                    let action = input_handler.handle_input(key, &termi.menu, termi.config.debug);
                     if action == Action::Quit {
                         break;
+                    }
+                    if termi.debug.as_mut().is_some() {
+                        LOG(format!(
+                            "Key Event - code: {:?}, modifiers: {:?}, action: {:?}, menu_open: {}",
+                            key.code,
+                            key.modifiers,
+                            action,
+                            termi.menu.is_open()
+                        ));
                     }
                     let action = process_action(action, &mut termi);
                     if action == Action::Quit {
@@ -201,6 +222,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
 
         if last_tick.elapsed() >= tick_rate {
             termi.tracker.update_metrics();
+            if let Some(debug) = termi.debug.as_mut() {
+                debug.sync_with_global();
+            }
             last_tick = Instant::now()
         }
     }
