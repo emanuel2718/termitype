@@ -16,9 +16,6 @@ include = [
     "assets/themes/**/*",
     "assets/languages/**/*"
 ]
-exclude = [
-    "assets/themes/.gitkeep",
-]
 
 [profile.release]
 debug = true
