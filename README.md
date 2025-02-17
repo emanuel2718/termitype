@@ -43,10 +43,9 @@ mv iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/ghostty/* asset
 
 - NOTE: The build process will automatically download and embed the theme pack during the first build. The themes are stored in `assets/themes` and will be included in the final release binary.
 
-### Installation (coming soon)
-
 ### TODO
 
+- [ ] Don't include `debug` flag in release
 - [ ] Proper Results screen
 - [ ] User defined config in `$XDG_CONFIG_HOME/termitype/config`. Takes precedence over default config and persitent config state in db
 - [ ] Settings persistance
