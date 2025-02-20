@@ -1,5 +1,7 @@
 # Termitype
 
+JUJUMAN
+
 
 ### TODO
 
