@@ -286,6 +286,7 @@ impl InputProcessor for Termi {
                         _ => {}
                     }
                     self.menu.update_toggles(&self.config);
+                    self.start();
                 }
                 MenuAction::ChangeMode(mode) => {
                     self.config.change_mode(mode, None);
