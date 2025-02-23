@@ -501,13 +501,13 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
 pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let elements = vec![
         UIElement::new(" ", false, None),
-        UIElement::new("ⓘ about", false, Some(ClickAction::ToggleAbout)),
+        UIElement::new("ⓘ about", termi.about_open, Some(ClickAction::ToggleAbout)),
         UIElement::new(" ", false, None),
         UIElement::new(line::DOUBLE_VERTICAL_LEFT, false, None),
         UIElement::new(" ", false, None),
         UIElement::new(
             termi.theme.identifier.clone(),
-            false,
+            termi.menu.get_preview_theme().is_some(),
             Some(ClickAction::ToggleThemePicker),
         ),
         UIElement::new(" ", false, None),
