@@ -28,7 +28,7 @@ pub enum ClickAction {
     ToggleNumbers,
     SwitchMode(ModeType),
     SetModeValue(usize),
-    OpenThemePicker,
+    ToggleThemePicker,
     OpenLanguagePicker,
     ToggleAbout,
 }
@@ -508,7 +508,7 @@ pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
         UIElement::new(
             termi.theme.identifier.clone(),
             false,
-            Some(ClickAction::OpenThemePicker),
+            Some(ClickAction::ToggleThemePicker),
         ),
         UIElement::new(" ", false, None),
         UIElement::new(line::DOUBLE_VERTICAL_RIGHT, false, None),

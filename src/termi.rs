@@ -125,11 +125,17 @@ impl Termi {
                         self.config.change_mode_value(value);
                         self.start();
                     }
-                    ClickAction::OpenThemePicker => {
-                        self.menu.toggle(&self.config);
-                        self.menu.execute(MenuAction::OpenThemePicker, &self.config);
-                        self.menu.preview_selected();
-                        self.update_preview_theme();
+                    ClickAction::ToggleThemePicker => {
+                        if self.menu.get_preview_theme().is_some() {
+                            self.menu.close();
+                            self.preview_theme = None;
+                        } else {
+                            self.menu.toggle(&self.config);
+                            self.menu
+                                .execute(MenuAction::ToggleThemePicker, &self.config);
+                            self.menu.preview_selected();
+                            self.update_preview_theme();
+                        }
                     }
                     ClickAction::OpenLanguagePicker => {
                         self.menu.toggle(&self.config);

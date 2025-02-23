@@ -3,7 +3,7 @@ use crate::config::{Config, ModeType};
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
     OpenMainMenu,
-    OpenThemePicker,
+    ToggleThemePicker,
     OpenLanguagePicker,
     OpenCursorPicker,
     OpenModePicker,
@@ -244,6 +244,11 @@ impl MenuState {
         self.clear_previews();
     }
 
+    pub fn close(&mut self) {
+        self.menu_stack.clear();
+        self.clear_previews();
+    }
+
     fn get_label_index(items: &[MenuItem], label: &str) -> Option<usize> {
         items
             .iter()
@@ -257,7 +262,7 @@ impl MenuState {
                 self.menu_stack.push(menu);
                 None
             }
-            MenuAction::OpenThemePicker => {
+            MenuAction::ToggleThemePicker => {
                 let mut menu = Menu::new(Self::build_theme_picker());
                 if let Some(index) = Self::get_label_index(menu.items(), config.theme.as_str()) {
                     menu.select(index);
@@ -377,7 +382,7 @@ impl MenuState {
             MenuItem::new("Time...", MenuAction::OpenTimePicker).submenufy(),
             MenuItem::new("Words...", MenuAction::OpenWordsPicker).submenufy(),
             MenuItem::new("Language...", MenuAction::OpenLanguagePicker).submenufy(),
-            MenuItem::new("Theme...", MenuAction::OpenThemePicker).submenufy(),
+            MenuItem::new("Theme...", MenuAction::ToggleThemePicker).submenufy(),
             MenuItem::new("Cursor...", MenuAction::OpenCursorPicker).submenufy(),
             MenuItem::new("Visible Lines...", MenuAction::OpenVisibleLines).submenufy(),
             MenuItem::new("About", MenuAction::OpenAbout),
@@ -619,7 +624,7 @@ mod tests {
             menu_ref
                 .items()
                 .iter()
-                .position(|item| matches!(item.action, MenuAction::OpenThemePicker))
+                .position(|item| matches!(item.action, MenuAction::ToggleThemePicker))
                 .unwrap()
         } else {
             panic!("Menu should be open");

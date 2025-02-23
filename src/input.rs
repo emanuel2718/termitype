@@ -30,6 +30,7 @@ pub enum Action {
     UpdateSearch(char),
     FinishSearch,
     CancelSearch,
+    ToggleAbout,
     #[cfg(debug_assertions)]
     ToggleDebugPanel,
     #[cfg(debug_assertions)]
@@ -93,6 +94,7 @@ impl InputHandler {
         // normal
         match (key.code, key.modifiers) {
             (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
+            (KeyCode::Char('o'), KeyModifiers::CONTROL) => Action::ToggleAbout,
             (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                 Action::TypeCharacter(c)
             }
@@ -219,6 +221,7 @@ pub trait InputProcessor {
     fn handle_update_search(&mut self, c: char) -> Action;
     fn handle_finish_search(&mut self) -> Action;
     fn handle_cancel_search(&mut self) -> Action;
+    fn handle_toggle_about(&mut self) -> Action;
 }
 
 impl InputProcessor for Termi {
@@ -418,6 +421,16 @@ impl InputProcessor for Termi {
         self.menu.cancel_search();
         Action::None
     }
+
+    // FIXME: eventually we could have many 'floating boxes' (i.e keybings, help, etc). This could get messy
+    fn handle_toggle_about(&mut self) -> Action {
+        // close menu first if the menu is alrdy open
+        if self.menu.is_open() {
+            self.menu.toggle(&self.config);
+        }
+        self.about_open = !self.about_open;
+        Action::None
+    }
 }
 
 pub fn process_action(action: Action, state: &mut Termi) -> Action {
@@ -435,6 +448,7 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
         Action::UpdateSearch(c) => state.handle_update_search(c),
         Action::FinishSearch => state.handle_finish_search(),
         Action::CancelSearch => state.handle_cancel_search(),
+        Action::ToggleAbout => state.handle_toggle_about(),
         #[cfg(debug_assertions)]
         Action::ToggleDebugPanel => {
             if let Some(debug) = state.debug.as_mut() {
