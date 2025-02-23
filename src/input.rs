@@ -114,13 +114,15 @@ impl InputHandler {
 
     fn handle_menu_input(&self, menu: &MenuState, key: KeyEvent) -> Action {
         if menu.is_searching() {
-            return match key.code {
-                KeyCode::Esc => Action::CancelSearch,
-                KeyCode::Enter => Action::MenuSelect,
-                KeyCode::Char(c) => Action::UpdateSearch(c),
-                KeyCode::Backspace => Action::UpdateSearch(BACKSPACE), // backspace
-                KeyCode::Up => Action::MenuUp,
-                KeyCode::Down => Action::MenuDown,
+            return match (key.code, key.modifiers) {
+                (KeyCode::Esc, _) => Action::CancelSearch,
+                (KeyCode::Enter, _) => Action::MenuSelect,
+                (KeyCode::Char('j' | 'n'), KeyModifiers::CONTROL) => Action::MenuDown,
+                (KeyCode::Char('k' | 'p'), KeyModifiers::CONTROL) => Action::MenuUp,
+                (KeyCode::Char(c), KeyModifiers::NONE) => Action::UpdateSearch(c),
+                (KeyCode::Backspace, _) => Action::UpdateSearch(BACKSPACE), // backspace
+                (KeyCode::Up, _) => Action::MenuUp,
+                (KeyCode::Down, _) => Action::MenuDown,
                 _ => Action::None,
             };
         }
