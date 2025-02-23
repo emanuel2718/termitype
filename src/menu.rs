@@ -10,6 +10,7 @@ pub enum MenuAction {
     OpenTimePicker,
     OpenWordsPicker,
     OpenVisibleLines,
+    OpenAbout,
     Back,
     Close,
 
@@ -302,6 +303,7 @@ impl MenuState {
                 self.menu_stack.push(menu);
                 None
             }
+            MenuAction::OpenAbout => Some(MenuAction::OpenAbout),
             MenuAction::Back => {
                 self.back();
                 None
@@ -378,6 +380,7 @@ impl MenuState {
             MenuItem::new("Theme...", MenuAction::OpenThemePicker).submenufy(),
             MenuItem::new("Cursor...", MenuAction::OpenCursorPicker).submenufy(),
             MenuItem::new("Visible Lines...", MenuAction::OpenVisibleLines).submenufy(),
+            MenuItem::new("About", MenuAction::OpenAbout),
             MenuItem::new("Exit", MenuAction::Quit),
         ]
     }

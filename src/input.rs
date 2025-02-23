@@ -113,6 +113,15 @@ impl InputHandler {
             return Action::Start;
         }
 
+        //esc check
+        if matches!(key.code, KeyCode::Esc) {
+            return if menu.is_open() {
+                Action::MenuBack
+            } else {
+                Action::Pause
+            };
+        }
+
         // menu
         if menu.is_open() {
             return self.handle_menu_input(menu, key);
@@ -125,7 +134,6 @@ impl InputHandler {
                 Action::TypeCharacter(c)
             }
             (KeyCode::Backspace, KeyModifiers::NONE) => Action::Backspace,
-            (KeyCode::Esc, KeyModifiers::NONE) => Action::Pause,
             _ => Action::None,
         }
     }
@@ -156,7 +164,9 @@ impl InputHandler {
                 (KeyCode::Enter, _) => Action::MenuSelect,
                 (KeyCode::Char('j' | 'n'), KeyModifiers::CONTROL) => Action::MenuDown,
                 (KeyCode::Char('k' | 'p'), KeyModifiers::CONTROL) => Action::MenuUp,
-                (KeyCode::Char(c), KeyModifiers::NONE) => Action::UpdateSearch(c),
+                (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    Action::UpdateSearch(c)
+                }
                 (KeyCode::Backspace, _) => Action::UpdateSearch(BACKSPACE), // backspace
                 (KeyCode::Up, _) => Action::MenuUp,
                 (KeyCode::Down, _) => Action::MenuDown,
@@ -169,7 +179,6 @@ impl InputHandler {
             KeyCode::Char('j') | KeyCode::Down => Action::MenuDown,
             KeyCode::Enter => Action::MenuSelect,
             KeyCode::Char('l') => {
-                // TODO: improve this. This pattern in annying. Would prefer if it were just `menu.current_item()` and the handling is done inside
                 if let Some(menu) = menu.current_menu() {
                     if menu.current_item().has_submenu {
                         return Action::MenuSelect;
@@ -214,6 +223,10 @@ pub trait InputProcessor {
 
 impl InputProcessor for Termi {
     fn handle_type_char(&mut self, c: char) -> Action {
+        if self.has_floating_box_open() {
+            return Action::None;
+        }
+
         match self.tracker.status {
             Status::Paused => self.tracker.resume(),
             Status::Idle => self.tracker.start_typing(),
@@ -224,6 +237,10 @@ impl InputProcessor for Termi {
     }
 
     fn handle_backspace(&mut self) -> Action {
+        if self.has_floating_box_open() {
+            return Action::None;
+        }
+
         if self.tracker.status == Status::Paused {
             self.tracker.resume();
         }
@@ -237,6 +254,10 @@ impl InputProcessor for Termi {
     }
 
     fn handle_pause(&mut self) -> Action {
+        if self.about_open {
+            self.about_open = false;
+            return Action::None;
+        }
         if self.menu.is_open() {
             self.menu.toggle(&self.config);
             self.tracker.resume();
@@ -248,6 +269,10 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_back(&mut self) -> Action {
+        if self.about_open {
+            self.about_open = false;
+            return Action::None;
+        }
         if self.menu.is_searching() {
             self.menu.cancel_search();
             return Action::None;
@@ -256,7 +281,6 @@ impl InputProcessor for Termi {
         if self.preview_theme.is_some() {
             self.preview_theme = None;
         }
-        self.preview_theme = None; // Q: do we should be handling this here?
         if self.preview_cursor.is_some() {
             self.preview_cursor = None;
             execute!(
@@ -355,6 +379,10 @@ impl InputProcessor for Termi {
                 MenuAction::ChangeLanguage(lang) => {
                     self.config.language = lang;
                     self.start();
+                }
+                MenuAction::OpenAbout => {
+                    self.about_open = true;
+                    self.menu.toggle(&self.config);
                 }
                 MenuAction::Quit => return Action::Quit,
                 _ => {}

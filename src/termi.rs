@@ -196,6 +196,10 @@ impl Termi {
             .ok();
         }
     }
+
+    pub fn has_floating_box_open(&self) -> bool {
+        self.menu.is_open() || self.about_open
+    }
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {

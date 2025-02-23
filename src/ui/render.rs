@@ -342,10 +342,7 @@ pub fn draw_about(f: &mut Frame, termi: &Termi, area: Rect) {
             Span::raw("  "),
             Span::styled("\"description\"", Style::default().fg(theme.highlight())),
             Span::styled(": ", Style::default().fg(theme.muted())),
-            Span::styled(
-                "\"Terminal-based typing test inspired by monkeytype\"",
-                Style::default().fg(theme.success()),
-            ),
+            Span::styled("\"TUI typing game\"", Style::default().fg(theme.success())),
             Span::styled(",", Style::default().fg(theme.muted())),
         ]),
         Line::from(vec![
@@ -384,5 +381,5 @@ pub fn draw_about(f: &mut Frame, termi: &Termi, area: Rect) {
         Line::from(vec![Span::styled("}", Style::default().fg(theme.muted()))]),
     ];
 
-    draw_floating_box(f, area, content, "about.json", 60, 12, theme);
+    draw_floating_box(f, area, content, "about.json", 60, 11, theme);
 }
