@@ -51,15 +51,13 @@ cargo install termitype@0.0.1-alpha.1
 
 ### TODO
 
-- [ ] Don't include `debug` flag in release
 - [ ] Proper Results screen
 - [ ] User defined config in `$XDG_CONFIG_HOME/termitype/config`. Takes precedence over default config and persitent config state in db
 - [ ] Settings persistance
-- [ ] Results tracking with sqlite (can be opted-out with `termitype --no-track`)
+- [ ] Results (locally) tracking with sqlite (can be opted-out with `termitype --no-track`)
 - [ ] Add click actions everywhere it makes sense
 - [ ] Improve the Footer with icons if possible
 - [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
-- [ ] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
 - [ ] Layout cleanup pass
 - [ ] Performance optimization pass before release (cargo flamegraph --root)
 - [ ] Add LICENSE
@@ -78,6 +76,8 @@ cargo install termitype@0.0.1-alpha.1
 - [x] Change language at runtime
 - [x] Add more languages and word lists (good enough for now)
 - [x] Change mode/value with the menu
+- [x] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
+- [x] Don't include `debug` flag in release
 
 
 
