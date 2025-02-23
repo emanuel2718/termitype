@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fs, path::PathBuf, sync::OnceLock};
+use std::{collections::HashMap, sync::OnceLock};
 
 use rand::{seq::SliceRandom, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{config::Config, constants::DEFAULT_LANGUAGE};
+use crate::{assets, config::Config, constants::DEFAULT_LANGUAGE};
 
 const SYMBOLS: &[char] = &[
     '@', '#', '$', '%', '&', '*', '(', ')', '+', '-', '/', '=', '?', '<', '>', '^', '_', '`', '{',
@@ -95,10 +95,7 @@ impl Builder {
     /// Returns the list of available languages.
     pub fn available_languages() -> &'static [String] {
         static LANGUAGES: OnceLock<Vec<String>> = OnceLock::new();
-        LANGUAGES.get_or_init(|| {
-            Self::load_list_of_available_languages()
-                .unwrap_or_else(|_| vec![DEFAULT_LANGUAGE.to_string()])
-        })
+        LANGUAGES.get_or_init(|| assets::list_languages())
     }
 
     /// Checks if the given language is available.
@@ -111,19 +108,13 @@ impl Builder {
         if !Self::has_language(lang) {
             return Err(format!("Language '{}' is not available.", lang).into());
         }
-        let path = PathBuf::from(format!("assets/languages/{lang}.json"));
-        let content = fs::read_to_string(path)?;
-        let language: Language = serde_json::from_str(&content)?;
 
+        let content =
+            assets::get_language(lang).ok_or_else(|| format!("Language '{}' not found", lang))?;
+
+        let language: Language = serde_json::from_str(&content)?;
         self.languages.insert(language.name, language.words);
         Ok(())
-    }
-
-    /// Loads the list of available languages.
-    fn load_list_of_available_languages() -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        let path = PathBuf::from("assets/languages/_list.json");
-        let content = fs::read_to_string(path)?;
-        Ok(serde_json::from_str(&content)?)
     }
 }
 
