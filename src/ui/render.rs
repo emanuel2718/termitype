@@ -8,6 +8,7 @@ use ratatui::{style::Style, widgets::Block, Frame};
 
 use crate::termi::Termi;
 
+use crate::theme::Theme;
 use crate::tracker::Status;
 
 use super::{components::*, layout::*};
@@ -60,6 +61,10 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
     }
     if termi.menu.is_open() {
         draw_menu(f, termi, f.area());
+    }
+
+    if termi.about_open {
+        draw_about(f, termi, f.area());
     }
 
     #[cfg(debug_assertions)]
@@ -279,4 +284,105 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
             );
         }
     }
+}
+
+/// Reusable helper for drawing floating boxes
+fn draw_floating_box(
+    f: &mut Frame,
+    area: Rect,
+    content: Vec<Line<'_>>,
+    title: &str,
+    width: u16,
+    height: u16,
+    theme: &Theme,
+) {
+    let box_area = Rect {
+        x: area.x + (area.width.saturating_sub(width)) / 2,
+        y: area.y + (area.height.saturating_sub(height)) / 2,
+        width: width.min(area.width),
+        height: height.min(area.height),
+    };
+
+    f.render_widget(Clear, box_area);
+
+    let box_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(theme.border()))
+        .style(Style::default().bg(theme.background()))
+        .title_alignment(Alignment::Right)
+        .title(Span::styled(title, Style::default().fg(theme.muted())));
+
+    f.render_widget(box_block, box_area);
+
+    let content_area = box_area.inner(Margin {
+        vertical: 1,
+        horizontal: 2,
+    });
+
+    let widget = Paragraph::new(content)
+        .style(Style::default().bg(theme.background()))
+        .wrap(ratatui::widgets::Wrap { trim: true });
+
+    f.render_widget(widget, content_area);
+}
+
+pub fn draw_about(f: &mut Frame, termi: &Termi, area: Rect) {
+    let theme = termi.get_current_theme();
+
+    let content = vec![
+        Line::from(vec![Span::styled("{", Style::default().fg(theme.muted()))]),
+        Line::from(vec![
+            Span::raw("\n"),
+            Span::styled("\"name\"", Style::default().fg(theme.highlight())),
+            Span::styled(": ", Style::default().fg(theme.muted())),
+            Span::styled("\"termitype\"", Style::default().fg(theme.success())),
+            Span::styled(",", Style::default().fg(theme.muted())),
+        ]),
+        Line::from(vec![
+            Span::raw("  "),
+            Span::styled("\"description\"", Style::default().fg(theme.highlight())),
+            Span::styled(": ", Style::default().fg(theme.muted())),
+            Span::styled(
+                "\"Terminal-based typing test inspired by monkeytype\"",
+                Style::default().fg(theme.success()),
+            ),
+            Span::styled(",", Style::default().fg(theme.muted())),
+        ]),
+        Line::from(vec![
+            Span::raw("  "),
+            Span::styled("\"version\"", Style::default().fg(theme.highlight())),
+            Span::styled(": ", Style::default().fg(theme.muted())),
+            Span::styled("\"0.0.1-alpha.5\"", Style::default().fg(theme.success())),
+            Span::styled(",", Style::default().fg(theme.muted())),
+        ]),
+        Line::from(vec![
+            Span::raw("  "),
+            Span::styled("\"license\"", Style::default().fg(theme.highlight())),
+            Span::styled(": ", Style::default().fg(theme.muted())),
+            Span::styled("\"MIT\"", Style::default().fg(theme.success())),
+            Span::styled(",", Style::default().fg(theme.muted())),
+        ]),
+        Line::from(vec![
+            Span::raw("  "),
+            Span::styled("\"author\"", Style::default().fg(theme.highlight())),
+            Span::styled(": ", Style::default().fg(theme.muted())),
+            Span::styled(
+                "\"Emanuel Ramirez <eramirez2718@gmail.com>\"",
+                Style::default().fg(theme.success()),
+            ),
+            Span::styled(",", Style::default().fg(theme.muted())),
+        ]),
+        Line::from(vec![
+            Span::raw("  "),
+            Span::styled("\"source\"", Style::default().fg(theme.highlight())),
+            Span::styled(": ", Style::default().fg(theme.muted())),
+            Span::styled(
+                "\"http://github.com/emanuel2718/termitype\"",
+                Style::default().fg(theme.success()),
+            ),
+        ]),
+        Line::from(vec![Span::styled("}", Style::default().fg(theme.muted()))]),
+    ];
+
+    draw_floating_box(f, area, content, "about.json", 60, 12, theme);
 }

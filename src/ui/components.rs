@@ -30,6 +30,7 @@ pub enum ClickAction {
     SetModeValue(usize),
     OpenThemePicker,
     OpenLanguagePicker,
+    ToggleAbout,
 }
 
 #[derive(Debug)]
@@ -500,7 +501,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
 pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let elements = vec![
         UIElement::new(" ", false, None),
-        UIElement::new("github.com/emanuel2718/termitype", false, None),
+        UIElement::new("about", false, Some(ClickAction::ToggleAbout)),
         UIElement::new(" ", false, None),
         UIElement::new(line::DOUBLE_VERTICAL_LEFT, false, None),
         UIElement::new(" ", false, None),

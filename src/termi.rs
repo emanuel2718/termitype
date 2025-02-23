@@ -34,6 +34,7 @@ pub struct Termi {
     pub words: String,
     pub menu: MenuState,
     pub clickable_regions: Vec<ClickableRegion>,
+    pub about_open: bool,
     #[cfg(debug_assertions)]
     pub debug: Option<Debug>,
 }
@@ -55,7 +56,8 @@ impl std::fmt::Debug for Termi {
             .field("builder", &self.builder)
             .field("words", &self.words)
             .field("menu", &self.menu)
-            .field("clickable_regions", &self.clickable_regions);
+            .field("clickable_regions", &self.clickable_regions)
+            .field("about_open", &self.about_open);
 
         #[cfg(debug_assertions)]
         debug_struct.field("debug", &self.debug);
@@ -89,6 +91,7 @@ impl Termi {
             words,
             menu,
             clickable_regions: Vec::new(),
+            about_open: false,
             #[cfg(debug_assertions)]
             debug,
         }
@@ -106,12 +109,12 @@ impl Termi {
                         self.config.toggle_punctuation();
                         self.start();
                     }
-                    ClickAction::ToggleNumbers => {
-                        self.config.toggle_numbers();
-                        self.start();
-                    }
                     ClickAction::ToggleSymbols => {
                         self.config.toggle_symbols();
+                        self.start();
+                    }
+                    ClickAction::ToggleNumbers => {
+                        self.config.toggle_numbers();
                         self.start();
                     }
                     ClickAction::SwitchMode(mode) => {
@@ -133,6 +136,9 @@ impl Termi {
                         self.menu
                             .execute(MenuAction::OpenLanguagePicker, &self.config);
                         self.menu.preview_selected();
+                    }
+                    ClickAction::ToggleAbout => {
+                        self.about_open = !self.about_open;
                     }
                 }
                 break;
