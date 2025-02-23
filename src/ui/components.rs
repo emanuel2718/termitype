@@ -501,7 +501,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
 pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let elements = vec![
         UIElement::new(" ", false, None),
-        UIElement::new("about", false, Some(ClickAction::ToggleAbout)),
+        UIElement::new("ⓘ about", false, Some(ClickAction::ToggleAbout)),
         UIElement::new(" ", false, None),
         UIElement::new(line::DOUBLE_VERTICAL_LEFT, false, None),
         UIElement::new(" ", false, None),
@@ -510,7 +510,7 @@ pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
             false,
             Some(ClickAction::OpenThemePicker),
         ),
-        UIElement::new("    ", false, None),
+        UIElement::new(" ", false, None),
         UIElement::new(line::DOUBLE_VERTICAL_RIGHT, false, None),
         UIElement::new(" ", false, None),
         UIElement::new(VERSION.to_string(), false, None),
