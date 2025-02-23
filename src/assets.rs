@@ -5,14 +5,13 @@ use include_dir::{include_dir, Dir};
 pub static ASSETS: Dir = include_dir!("assets");
 
 pub fn get_theme(name: &str) -> Option<String> {
-    let path = format!("themes/{}", name);
-    let result = ASSETS.get_file(&path);
+    let result = ASSETS.get_file(format!("themes/{}", name));
     result.map(|f| f.contents_utf8().unwrap_or_default().to_string())
 }
 
 pub fn get_language(name: &str) -> Option<String> {
     ASSETS
-        .get_file(format!("languages/{}", name))
+        .get_file(format!("languages/{}.json", name))
         .map(|f| f.contents_utf8().unwrap_or_default().to_string())
 }
 
@@ -48,10 +47,11 @@ pub fn list_languages() -> Vec<String> {
                 .filter(|f| f.path().extension().is_some_and(|ext| ext == "json"))
                 .filter_map(|f| {
                     f.path()
-                        .file_name()
+                        .file_stem()
                         .and_then(|n| n.to_str())
                         .map(String::from)
                 })
+                .filter(|name| name != "_list")
                 .collect()
         })
         .unwrap_or_default()
