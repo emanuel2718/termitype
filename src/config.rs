@@ -81,6 +81,7 @@ pub struct Config {
     pub version: bool,
 
     /// Enable debug mode
+    #[cfg(debug_assertions)]
     #[arg(short = 'd', long = "debug")]
     pub debug: bool,
 }
@@ -124,6 +125,7 @@ impl Default for Config {
             list_themes: false,
             list_languages: false,
             version: false,
+            #[cfg(debug_assertions)]
             debug: false,
         }
     }

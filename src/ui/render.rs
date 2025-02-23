@@ -62,6 +62,7 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
         draw_menu(f, termi, f.area());
     }
 
+    #[cfg(debug_assertions)]
     if let Some(debug) = &termi.debug {
         if debug.visible {
             let debug_area = Layout::default()

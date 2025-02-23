@@ -1,4 +1,6 @@
+#[cfg(debug_assertions)]
 use once_cell::sync::Lazy;
+#[cfg(debug_assertions)]
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
     style::{Modifier, Style},
@@ -6,17 +8,23 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Tabs},
     Frame,
 };
+#[cfg(debug_assertions)]
 use std::collections::VecDeque;
+#[cfg(debug_assertions)]
 use std::sync::Mutex;
 
+#[cfg(debug_assertions)]
 use crate::{termi::Termi, theme::Theme};
 
+#[cfg(debug_assertions)]
 const MAX_LOG_ENTRIES: usize = 100;
 
+#[cfg(debug_assertions)]
 static GLOBAL_DEBUG: Lazy<Mutex<VecDeque<String>>> =
     Lazy::new(|| Mutex::new(VecDeque::with_capacity(MAX_LOG_ENTRIES)));
 
 /// GLOBAL DEBUG BECAUSE THIS IS DEBUG LAND
+#[cfg(debug_assertions)]
 #[allow(non_snake_case)]
 pub fn LOG(message: impl Into<String>) {
     if let Ok(mut logs) = GLOBAL_DEBUG.lock() {
@@ -28,6 +36,7 @@ pub fn LOG(message: impl Into<String>) {
     }
 }
 
+#[cfg(debug_assertions)]
 #[derive(Debug, Clone)]
 pub struct Debug {
     pub visible: bool,
@@ -38,6 +47,7 @@ pub struct Debug {
     logs_auto_scroll: bool,
 }
 
+#[cfg(debug_assertions)]
 impl Default for Debug {
     fn default() -> Self {
         Self {
@@ -51,6 +61,7 @@ impl Default for Debug {
     }
 }
 
+#[cfg(debug_assertions)]
 impl Debug {
     pub fn new() -> Self {
         Self::default()

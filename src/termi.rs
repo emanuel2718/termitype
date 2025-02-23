@@ -11,7 +11,6 @@ use ratatui::{prelude::Backend, Terminal};
 use crate::{
     builder::Builder,
     config::Config,
-    debug::{Debug, LOG},
     input::{process_action, Action, InputHandler},
     menu::{MenuAction, MenuState},
     theme::Theme,
@@ -21,6 +20,9 @@ use crate::{
         draw_ui,
     },
 };
+
+#[cfg(debug_assertions)]
+use crate::debug::{Debug, LOG};
 
 pub struct Termi {
     pub config: Config,
@@ -32,12 +34,14 @@ pub struct Termi {
     pub words: String,
     pub menu: MenuState,
     pub clickable_regions: Vec<ClickableRegion>,
+    #[cfg(debug_assertions)]
     pub debug: Option<Debug>,
 }
 
 impl std::fmt::Debug for Termi {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Termi")
+        let mut debug_struct = f.debug_struct("Termi");
+        debug_struct
             .field("config", &self.config)
             .field("tracker", &self.tracker)
             .field("theme", &self.theme)
@@ -51,9 +55,12 @@ impl std::fmt::Debug for Termi {
             .field("builder", &self.builder)
             .field("words", &self.words)
             .field("menu", &self.menu)
-            .field("clickable_regions", &self.clickable_regions)
-            .field("debug", &self.debug)
-            .finish()
+            .field("clickable_regions", &self.clickable_regions);
+
+        #[cfg(debug_assertions)]
+        debug_struct.field("debug", &self.debug);
+
+        debug_struct.finish()
     }
 }
 
@@ -64,6 +71,8 @@ impl Termi {
         let words = builder.generate_test(config);
         let tracker = Tracker::new(config, words.clone());
         let menu = MenuState::new();
+
+        #[cfg(debug_assertions)]
         let debug = if config.debug {
             Some(Debug::new())
         } else {
@@ -80,9 +89,11 @@ impl Termi {
             words,
             menu,
             clickable_regions: Vec::new(),
+            #[cfg(debug_assertions)]
             debug,
         }
     }
+
     pub fn handle_click(&mut self, x: u16, y: u16) {
         for region in &self.clickable_regions {
             if x >= region.area.x
@@ -133,17 +144,24 @@ impl Termi {
         let menu = self.menu.clone();
         let preview_theme = self.preview_theme.clone();
         let preview_cursor = self.preview_cursor;
+        #[cfg(debug_assertions)]
+        let debug = self.debug.clone();
+
         // hmm, if the use passed the words flag, should we reset it?
         // maybe the user wants to pracitice those sepecific words over and over again?
         // reset words flag for now...
         if self.config.words.is_some() {
             self.config.reset_words_flag();
         }
+
         *self = Termi::new(&self.config);
         self.menu = menu;
         self.preview_theme = preview_theme;
         self.preview_cursor = preview_cursor;
-        self.debug = self.debug.clone();
+        #[cfg(debug_assertions)]
+        {
+            self.debug = debug;
+        }
     }
 
     pub fn get_current_theme(&self) -> &Theme {
@@ -176,7 +194,6 @@ impl Termi {
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
     let mut termi = Termi::new(config);
-
     let tick_rate = Duration::from_millis(250);
     let mut last_tick = Instant::now();
     let mut input_handler = InputHandler::new();
@@ -190,11 +207,17 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
         if crossterm::event::poll(timeout)? {
             match event::read()? {
                 Event::Key(key) => {
+                    #[cfg(debug_assertions)]
                     let action = input_handler.handle_input(key, &termi.menu, termi.config.debug);
+                    #[cfg(not(debug_assertions))]
+                    let action = input_handler.handle_input(key, &termi.menu, false);
+
                     if action == Action::Quit {
                         break;
                     }
-                    if termi.debug.as_mut().is_some() {
+
+                    #[cfg(debug_assertions)]
+                    if termi.debug.is_some() {
                         LOG(format!(
                             "Key Event - code: {:?}, modifiers: {:?}, action: {:?}, menu_open: {}",
                             key.code,
@@ -203,6 +226,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                             termi.menu.is_open()
                         ));
                     }
+
                     let action = process_action(action, &mut termi);
                     if action == Action::Quit {
                         break;
@@ -222,6 +246,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
 
         if last_tick.elapsed() >= tick_rate {
             termi.tracker.update_metrics();
+            #[cfg(debug_assertions)]
             if let Some(debug) = termi.debug.as_mut() {
                 debug.sync_with_global();
             }

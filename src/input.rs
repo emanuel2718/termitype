@@ -1,6 +1,8 @@
+#[cfg(debug_assertions)]
+use crate::constants::DEBUG_KEY;
 use crate::{
     config::ModeType,
-    constants::{AMOUNT_OF_VISIBLE_LINES, BACKSPACE, DEBUG_KEY},
+    constants::{AMOUNT_OF_VISIBLE_LINES, BACKSPACE},
     menu::{MenuAction, MenuState},
     termi::Termi,
     theme::Theme,
@@ -28,11 +30,17 @@ pub enum Action {
     UpdateSearch(char),
     FinishSearch,
     CancelSearch,
+    #[cfg(debug_assertions)]
     ToggleDebugPanel,
+    #[cfg(debug_assertions)]
     DebugNextTab,
+    #[cfg(debug_assertions)]
     DebugPrevTab,
+    #[cfg(debug_assertions)]
     DebugScrollUp,
+    #[cfg(debug_assertions)]
     DebugScrollDown,
+    #[cfg(debug_assertions)]
     DebugToggleAutoScroll,
 }
 
@@ -49,6 +57,7 @@ impl InputHandler {
     }
 
     /// Converts a keyboard event into an Action
+    #[cfg(debug_assertions)]
     pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, is_debug: bool) -> Action {
         self.update_history(key.code);
 
@@ -74,6 +83,34 @@ impl InputHandler {
                 (KeyCode::Down, KeyModifiers::NONE) => return Action::DebugScrollDown,
                 _ => {}
             }
+        }
+
+        // menu
+        if menu.is_open() {
+            return self.handle_menu_input(menu, key);
+        }
+
+        // normal
+        match (key.code, key.modifiers) {
+            (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
+            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                Action::TypeCharacter(c)
+            }
+            (KeyCode::Backspace, KeyModifiers::NONE) => Action::Backspace,
+            (KeyCode::Esc, KeyModifiers::NONE) => Action::Pause,
+            _ => Action::None,
+        }
+    }
+
+    #[cfg(not(debug_assertions))]
+    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, _is_debug: bool) -> Action {
+        self.update_history(key.code);
+
+        if self.is_quit_sequence(&key) {
+            return Action::Quit;
+        }
+        if self.is_restart_sequence() && matches!(key.code, KeyCode::Enter) {
+            return Action::Start;
         }
 
         // menu
@@ -370,30 +407,35 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
         Action::UpdateSearch(c) => state.handle_update_search(c),
         Action::FinishSearch => state.handle_finish_search(),
         Action::CancelSearch => state.handle_cancel_search(),
+        #[cfg(debug_assertions)]
         Action::ToggleDebugPanel => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.toggle();
             }
             Action::None
         }
+        #[cfg(debug_assertions)]
         Action::DebugNextTab => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.next_tab();
             }
             Action::None
         }
+        #[cfg(debug_assertions)]
         Action::DebugPrevTab => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.prev_tab();
             }
             Action::None
         }
+        #[cfg(debug_assertions)]
         Action::DebugScrollUp => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.scroll_up();
             }
             Action::None
         }
+        #[cfg(debug_assertions)]
         Action::DebugScrollDown => {
             if let Some(debug) = state.debug.as_mut() {
                 let max_lines = match debug.current_tab {
@@ -405,6 +447,7 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             }
             Action::None
         }
+        #[cfg(debug_assertions)]
         Action::DebugToggleAutoScroll => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.toggle_auto_scroll();
