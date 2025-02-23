@@ -95,7 +95,7 @@ impl Builder {
     /// Returns the list of available languages.
     pub fn available_languages() -> &'static [String] {
         static LANGUAGES: OnceLock<Vec<String>> = OnceLock::new();
-        LANGUAGES.get_or_init(|| assets::list_languages())
+        LANGUAGES.get_or_init(assets::list_languages)
     }
 
     /// Checks if the given language is available.
