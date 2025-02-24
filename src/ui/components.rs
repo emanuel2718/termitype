@@ -28,8 +28,9 @@ pub enum ClickAction {
     ToggleNumbers,
     SwitchMode(ModeType),
     SetModeValue(usize),
-    OpenThemePicker,
+    ToggleThemePicker,
     OpenLanguagePicker,
+    ToggleAbout,
 }
 
 #[derive(Debug)]
@@ -500,16 +501,16 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
 pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let elements = vec![
         UIElement::new(" ", false, None),
-        UIElement::new("github.com/emanuel2718/termitype", false, None),
+        UIElement::new("ⓘ about", termi.about_open, Some(ClickAction::ToggleAbout)),
         UIElement::new(" ", false, None),
         UIElement::new(line::DOUBLE_VERTICAL_LEFT, false, None),
         UIElement::new(" ", false, None),
         UIElement::new(
             termi.theme.identifier.clone(),
-            false,
-            Some(ClickAction::OpenThemePicker),
+            termi.menu.get_preview_theme().is_some(),
+            Some(ClickAction::ToggleThemePicker),
         ),
-        UIElement::new("    ", false, None),
+        UIElement::new(" ", false, None),
         UIElement::new(line::DOUBLE_VERTICAL_RIGHT, false, None),
         UIElement::new(" ", false, None),
         UIElement::new(VERSION.to_string(), false, None),

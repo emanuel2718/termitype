@@ -30,6 +30,7 @@ pub enum Action {
     UpdateSearch(char),
     FinishSearch,
     CancelSearch,
+    ToggleAbout,
     #[cfg(debug_assertions)]
     ToggleDebugPanel,
     #[cfg(debug_assertions)]
@@ -93,6 +94,7 @@ impl InputHandler {
         // normal
         match (key.code, key.modifiers) {
             (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
+            (KeyCode::Char('o'), KeyModifiers::CONTROL) => Action::ToggleAbout,
             (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                 Action::TypeCharacter(c)
             }
@@ -113,6 +115,15 @@ impl InputHandler {
             return Action::Start;
         }
 
+        //esc check
+        if matches!(key.code, KeyCode::Esc) {
+            return if menu.is_open() {
+                Action::MenuBack
+            } else {
+                Action::Pause
+            };
+        }
+
         // menu
         if menu.is_open() {
             return self.handle_menu_input(menu, key);
@@ -125,7 +136,6 @@ impl InputHandler {
                 Action::TypeCharacter(c)
             }
             (KeyCode::Backspace, KeyModifiers::NONE) => Action::Backspace,
-            (KeyCode::Esc, KeyModifiers::NONE) => Action::Pause,
             _ => Action::None,
         }
     }
@@ -156,7 +166,9 @@ impl InputHandler {
                 (KeyCode::Enter, _) => Action::MenuSelect,
                 (KeyCode::Char('j' | 'n'), KeyModifiers::CONTROL) => Action::MenuDown,
                 (KeyCode::Char('k' | 'p'), KeyModifiers::CONTROL) => Action::MenuUp,
-                (KeyCode::Char(c), KeyModifiers::NONE) => Action::UpdateSearch(c),
+                (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    Action::UpdateSearch(c)
+                }
                 (KeyCode::Backspace, _) => Action::UpdateSearch(BACKSPACE), // backspace
                 (KeyCode::Up, _) => Action::MenuUp,
                 (KeyCode::Down, _) => Action::MenuDown,
@@ -169,7 +181,6 @@ impl InputHandler {
             KeyCode::Char('j') | KeyCode::Down => Action::MenuDown,
             KeyCode::Enter => Action::MenuSelect,
             KeyCode::Char('l') => {
-                // TODO: improve this. This pattern in annying. Would prefer if it were just `menu.current_item()` and the handling is done inside
                 if let Some(menu) = menu.current_menu() {
                     if menu.current_item().has_submenu {
                         return Action::MenuSelect;
@@ -210,10 +221,15 @@ pub trait InputProcessor {
     fn handle_update_search(&mut self, c: char) -> Action;
     fn handle_finish_search(&mut self) -> Action;
     fn handle_cancel_search(&mut self) -> Action;
+    fn handle_toggle_about(&mut self) -> Action;
 }
 
 impl InputProcessor for Termi {
     fn handle_type_char(&mut self, c: char) -> Action {
+        if self.has_floating_box_open() {
+            return Action::None;
+        }
+
         match self.tracker.status {
             Status::Paused => self.tracker.resume(),
             Status::Idle => self.tracker.start_typing(),
@@ -224,6 +240,10 @@ impl InputProcessor for Termi {
     }
 
     fn handle_backspace(&mut self) -> Action {
+        if self.has_floating_box_open() {
+            return Action::None;
+        }
+
         if self.tracker.status == Status::Paused {
             self.tracker.resume();
         }
@@ -237,6 +257,10 @@ impl InputProcessor for Termi {
     }
 
     fn handle_pause(&mut self) -> Action {
+        if self.about_open {
+            self.about_open = false;
+            return Action::None;
+        }
         if self.menu.is_open() {
             self.menu.toggle(&self.config);
             self.tracker.resume();
@@ -248,6 +272,10 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_back(&mut self) -> Action {
+        if self.about_open {
+            self.about_open = false;
+            return Action::None;
+        }
         if self.menu.is_searching() {
             self.menu.cancel_search();
             return Action::None;
@@ -256,7 +284,6 @@ impl InputProcessor for Termi {
         if self.preview_theme.is_some() {
             self.preview_theme = None;
         }
-        self.preview_theme = None; // Q: do we should be handling this here?
         if self.preview_cursor.is_some() {
             self.preview_cursor = None;
             execute!(
@@ -356,6 +383,10 @@ impl InputProcessor for Termi {
                     self.config.language = lang;
                     self.start();
                 }
+                MenuAction::OpenAbout => {
+                    self.about_open = true;
+                    self.menu.toggle(&self.config);
+                }
                 MenuAction::Quit => return Action::Quit,
                 _ => {}
             }
@@ -390,6 +421,16 @@ impl InputProcessor for Termi {
         self.menu.cancel_search();
         Action::None
     }
+
+    // FIXME: eventually we could have many 'floating boxes' (i.e keybings, help, etc). This could get messy
+    fn handle_toggle_about(&mut self) -> Action {
+        // close menu first if the menu is alrdy open
+        if self.menu.is_open() {
+            self.menu.toggle(&self.config);
+        }
+        self.about_open = !self.about_open;
+        Action::None
+    }
 }
 
 pub fn process_action(action: Action, state: &mut Termi) -> Action {
@@ -407,6 +448,7 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
         Action::UpdateSearch(c) => state.handle_update_search(c),
         Action::FinishSearch => state.handle_finish_search(),
         Action::CancelSearch => state.handle_cancel_search(),
+        Action::ToggleAbout => state.handle_toggle_about(),
         #[cfg(debug_assertions)]
         Action::ToggleDebugPanel => {
             if let Some(debug) = state.debug.as_mut() {
