@@ -11,7 +11,8 @@
   </p>
 </p>
 
-![image](https://github.com/user-attachments/assets/50764473-b647-4e7c-b07f-8dd779c1458c)
+![image](https://github.com/user-attachments/assets/b301261a-c2fc-47b1-8059-724dba05e45f)
+
 
 ## Development
 
