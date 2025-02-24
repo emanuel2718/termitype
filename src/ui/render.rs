@@ -347,13 +347,6 @@ pub fn draw_about(f: &mut Frame, termi: &Termi, area: Rect) {
         ]),
         Line::from(vec![
             Span::raw("  "),
-            Span::styled("\"version\"", Style::default().fg(theme.highlight())),
-            Span::styled(": ", Style::default().fg(theme.muted())),
-            Span::styled("\"0.0.1-alpha.5\"", Style::default().fg(theme.success())),
-            Span::styled(",", Style::default().fg(theme.muted())),
-        ]),
-        Line::from(vec![
-            Span::raw("  "),
             Span::styled("\"license\"", Style::default().fg(theme.highlight())),
             Span::styled(": ", Style::default().fg(theme.muted())),
             Span::styled("\"MIT\"", Style::default().fg(theme.success())),
