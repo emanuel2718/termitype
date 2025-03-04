@@ -432,7 +432,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     fn styled_span(content: &str, is_key: bool, theme: &Theme) -> Span<'static> {
         if is_key {
             return Span::styled(
-                format!("{}", content),
+                content.to_string(),
                 Style::default()
                     .fg(theme.highlight())
                     .add_modifier(Modifier::BOLD),
