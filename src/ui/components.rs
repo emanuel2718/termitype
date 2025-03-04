@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     config::{Mode, ModeType},
-    constants::{APPNAME, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_TYPING_HEIGHT},
+    constants::APPNAME,
     termi::Termi,
     theme::Theme,
     version::VERSION,
@@ -549,44 +549,106 @@ pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
 }
 
 pub fn results_screen(f: &mut Frame, termi: &mut Termi, area: Rect) {
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(1),                     // space
-            Constraint::Min(MIN_TYPING_HEIGHT),     // results
-            Constraint::Min(1),                     // space
-            Constraint::Length(COMMAND_BAR_HEIGHT), // command bar
-            Constraint::Length(FOOTER_HEIGHT),      // footer
-        ])
-        .split(area);
-
-    f.render_widget(create_results_widget(termi), layout[1]);
-    command_bar(f, termi, layout[3]);
-    footer(f, termi, layout[4]);
+    f.render_widget(create_results_widget(termi, area), area);
 }
 
-fn create_results_widget(termi: &Termi) -> Paragraph<'static> {
+fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
     let theme = termi.get_current_theme();
-    let results = vec![
-        ("wpm", format!("{:.0}", termi.tracker.wpm)),
-        ("acc", format!("{}%", termi.tracker.accuracy)),
-        (
-            "time",
-            format!("{:.1}s", termi.tracker.completion_time.unwrap_or(0.0)),
-        ),
-    ];
 
-    let content_lines: Vec<Line> = results
-        .into_iter()
-        .map(|(label, value)| {
-            Line::from(vec![
-                Span::raw(format!("{}: ", label))
-                    .fg(theme.muted())
-                    .add_modifier(Modifier::DIM),
-                Span::styled(value, Style::default().fg(theme.foreground())),
-            ])
-        })
-        .collect();
+    let test_type = match termi.config.current_mode() {
+        Mode::Time { duration } => format!("{}s {}", duration, termi.config.language),
+        Mode::Words { count } => format!("{} words {}", count, termi.config.language),
+    };
+
+    let total_chars = termi.tracker.total_keystrokes;
+    let correct_chars = termi.tracker.correct_keystrokes;
+    let wrong_chars = total_chars.saturating_sub(correct_chars);
+
+    let wpm = format!("{}", termi.tracker.wpm.round() as u32);
+    let raw_wpm = format!("{}", termi.tracker.raw_wpm.round() as u32);
+    let accuracy = format!("{}%", termi.tracker.accuracy);
+
+    let mut content_lines = Vec::new();
+
+    // we are running out of space
+    if area.height <= 3 {
+        content_lines.push(Line::from(vec![
+            Span::styled(wpm, Style::default().fg(theme.highlight())),
+            Span::styled(" wpm", Style::default().fg(theme.muted())),
+        ]));
+    }
+    // compact mode (4-6 lines)
+    else if area.height <= 6 {
+        content_lines.push(Line::from(vec![
+            Span::styled(wpm, Style::default().fg(theme.highlight())),
+            Span::styled(" wpm", Style::default().fg(theme.muted())),
+        ]));
+        content_lines.push(Line::from(vec![Span::styled(
+            test_type,
+            Style::default().fg(theme.foreground()),
+        )]));
+        content_lines.push(Line::from(vec![
+            Span::styled(accuracy, Style::default().fg(theme.info())),
+            Span::styled(" accuracy", Style::default().fg(theme.muted())),
+        ]));
+    }
+    // full results
+    else {
+        content_lines.push(Line::default());
+        content_lines.push(Line::from(vec![
+            Span::styled(
+                wpm,
+                Style::default()
+                    .fg(theme.highlight())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" wpm", Style::default().fg(theme.muted())),
+        ]));
+        content_lines.push(Line::default());
+
+        content_lines.push(Line::from(vec![Span::styled(
+            test_type,
+            Style::default().fg(theme.foreground()),
+        )]));
+        content_lines.push(Line::default());
+
+        content_lines.push(Line::from(vec![
+            Span::styled(raw_wpm, Style::default().fg(theme.foreground())),
+            Span::styled(" raw", Style::default().fg(theme.muted())),
+            Span::raw("  "),
+            Span::styled(accuracy, Style::default().fg(theme.info())),
+            Span::styled(" accuracy", Style::default().fg(theme.muted())),
+        ]));
+
+        content_lines.push(Line::from(vec![
+            Span::styled(
+                format!("{}", correct_chars),
+                Style::default().fg(theme.success()),
+            ),
+            Span::styled(" correct", Style::default().fg(theme.muted())),
+            Span::raw("  "),
+            Span::styled(
+                format!("{}", wrong_chars),
+                Style::default().fg(theme.error()),
+            ),
+            Span::styled(" errors", Style::default().fg(theme.muted())),
+        ]));
+
+        if area.height > 8 {
+            content_lines.push(Line::default());
+            content_lines.push(Line::from(vec![
+                Span::styled("tab", Style::default().fg(theme.highlight())),
+                Span::styled(" + ", Style::default().fg(theme.muted())),
+                Span::styled("enter", Style::default().fg(theme.highlight())),
+                Span::styled(" restart", Style::default().fg(theme.muted())),
+                Span::raw("  "),
+                Span::styled("ctrl", Style::default().fg(theme.highlight())),
+                Span::styled(" + ", Style::default().fg(theme.muted())),
+                Span::styled("q", Style::default().fg(theme.highlight())),
+                Span::styled(" menu", Style::default().fg(theme.muted())),
+            ]));
+        }
+    }
 
     Paragraph::new(content_lines)
         .alignment(Alignment::Center)

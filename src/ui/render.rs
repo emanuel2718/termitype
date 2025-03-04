@@ -24,7 +24,6 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
     let window_area = centered_rect(WINDOW_WIDTH_PERCENT, WINDOW_HEIGHT_PERCENT, f.area());
 
     let layout = create_main_layout(window_area);
-
     match termi.tracker.status {
         Status::Typing => {
             let typing_chunks = Layout::default()
@@ -39,7 +38,26 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
             typing_area(f, termi, typing_chunks[2]);
         }
         Status::Completed => {
-            results_screen(f, termi, layout[2]);
+            let results_height = 8;
+            let vertical_layout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(50 - ((results_height * 100) / (f.area().height * 2))),
+                    Constraint::Length(results_height),
+                    Constraint::Min(0),
+                ])
+                .split(f.area());
+
+            let horizontal_layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(25),
+                    Constraint::Percentage(50),
+                    Constraint::Percentage(25),
+                ])
+                .split(vertical_layout[1]);
+
+            results_screen(f, termi, horizontal_layout[1]);
         }
         _ => {
             title(f, termi, layout[0]);
