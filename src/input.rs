@@ -48,16 +48,30 @@ pub enum Action {
 #[derive(Default)]
 pub struct InputHandler {
     input_history: VecDeque<KeyCode>,
+    pending_accent: Option<char>,
 }
 
 impl InputHandler {
     pub fn new() -> Self {
         Self {
             input_history: VecDeque::with_capacity(2),
+            pending_accent: None,
         }
     }
 
-    /// Converts a keyboard event into an Action
+    // TODO: this is a hack to handle pending accents. We should use the OS's native support for accents instead
+    fn handle_pending_accent(&mut self, base: char) -> Option<char> {
+        match base {
+            'e' => Some('é'),
+            'a' => Some('á'),
+            'i' => Some('í'),
+            'o' => Some('ó'),
+            'u' => Some('ú'),
+            'n' => Some('ñ'),
+            _ => None,
+        }
+    }
+
     #[cfg(debug_assertions)]
     pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, is_debug: bool) -> Action {
         self.update_history(key.code);
@@ -91,15 +105,32 @@ impl InputHandler {
             return self.handle_menu_input(menu, key);
         }
 
-        // normal
         match (key.code, key.modifiers) {
             (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
             (KeyCode::Char('o'), KeyModifiers::CONTROL) => Action::ToggleAbout,
-            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
-                Action::TypeCharacter(c)
+            (KeyCode::Backspace, KeyModifiers::NONE) => {
+                self.pending_accent = None;
+                Action::Backspace
             }
-            (KeyCode::Backspace, KeyModifiers::NONE) => Action::Backspace,
-            (KeyCode::Esc, KeyModifiers::NONE) => Action::Pause,
+            (KeyCode::Esc, KeyModifiers::NONE) => {
+                self.pending_accent = None;
+                Action::Pause
+            }
+            (KeyCode::Char(c), KeyModifiers::ALT) => {
+                self.pending_accent = Some(c);
+                Action::None
+            }
+            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                if self.pending_accent.take().is_some() {
+                    if let Some(composed) = self.handle_pending_accent(c) {
+                        Action::TypeCharacter(composed)
+                    } else {
+                        Action::TypeCharacter(c)
+                    }
+                } else {
+                    Action::TypeCharacter(c)
+                }
+            }
             _ => Action::None,
         }
     }
@@ -115,27 +146,36 @@ impl InputHandler {
             return Action::Start;
         }
 
-        //esc check
-        if matches!(key.code, KeyCode::Esc) {
-            return if menu.is_open() {
-                Action::MenuBack
-            } else {
-                Action::Pause
-            };
-        }
-
         // menu
         if menu.is_open() {
             return self.handle_menu_input(menu, key);
         }
 
-        // normal
         match (key.code, key.modifiers) {
             (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
-            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
-                Action::TypeCharacter(c)
+            (KeyCode::Backspace, KeyModifiers::NONE) => {
+                self.pending_accent = None;
+                Action::Backspace
             }
-            (KeyCode::Backspace, KeyModifiers::NONE) => Action::Backspace,
+            (KeyCode::Esc, KeyModifiers::NONE) => {
+                self.pending_accent = None;
+                Action::Pause
+            }
+            (KeyCode::Char(c), KeyModifiers::ALT) => {
+                self.pending_accent = Some(c);
+                Action::None
+            }
+            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                if let Some(accent) = self.pending_accent.take() {
+                    if let Some(composed) = self.handle_pending_accent(c) {
+                        Action::TypeCharacter(composed)
+                    } else {
+                        Action::TypeCharacter(c)
+                    }
+                } else {
+                    Action::TypeCharacter(c)
+                }
+            }
             _ => Action::None,
         }
     }

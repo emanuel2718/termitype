@@ -20,6 +20,7 @@ pub struct Tracker {
     pub user_input: Vec<Option<char>>,
     pub cursor_position: usize,
     pub target_text: String,
+    pub target_chars: Vec<char>,
     pub word_count: usize,
     pub status: Status,
 
@@ -40,10 +41,12 @@ impl Tracker {
     pub fn new(config: &Config, target_text: String) -> Self {
         let mode = config.current_mode();
         let word_count = mode.value();
+        let target_chars: Vec<char> = target_text.chars().collect();
         let time_remaining = match mode {
             Mode::Time { duration } => Some(Duration::from_secs(duration)),
             Mode::Words { .. } => None,
         };
+
         Self {
             wpm: 0.0,
             raw_wpm: 0.0,
@@ -56,6 +59,7 @@ impl Tracker {
             user_input: Vec::new(),
             cursor_position: 0,
             target_text,
+            target_chars,
             word_count,
             status: Status::Idle,
             total_keystrokes: 0,
@@ -111,7 +115,7 @@ impl Tracker {
     }
 
     pub fn type_char(&mut self, c: char) -> bool {
-        if self.cursor_position >= self.target_text.len() {
+        if self.cursor_position >= self.target_chars.len() {
             return false;
         }
 
@@ -120,8 +124,8 @@ impl Tracker {
             return false;
         }
 
-        let is_correct = self.target_text.chars().nth(self.cursor_position) == Some(c);
-        if !is_correct && self.target_text.chars().nth(self.cursor_position) == Some(' ') {
+        let is_correct = self.target_chars.get(self.cursor_position) == Some(&c);
+        if !is_correct && self.target_chars.get(self.cursor_position) == Some(&' ') {
             self.register_keystroke(is_correct);
             return true;
         }
@@ -157,19 +161,18 @@ impl Tracker {
 
         // allow backspace if we're at a mistyped character
         let current_input = self.user_input.get(self.cursor_position - 1);
-        let target_char = self.target_text.chars().nth(self.cursor_position - 1);
+        let target_char = self.target_chars.get(self.cursor_position - 1);
 
         if let (Some(Some(input_char)), Some(target_char)) = (current_input, target_char) {
-            if *input_char != target_char {
+            if *input_char != *target_char {
                 self.user_input.pop();
                 self.cursor_position -= 1;
                 return true;
             }
         }
 
-        // check if we're at a word boundary
-        let input: String = self.user_input.iter().filter_map(|&x| x).collect();
-        let at_word_boundary = input.ends_with(' ');
+        // check if we're at a word boundary using character-based comparison
+        let at_word_boundary = self.user_input.last() == Some(&Some(' '));
 
         // if we're not at a word boundary, or if the previous word was incorrect,
         // allow backspace
@@ -179,12 +182,28 @@ impl Tracker {
             return true;
         }
 
-        // check if the previous word was correct
-        let target_words: Vec<&str> = self.target_text.split_whitespace().collect();
-        let input_words: Vec<&str> = input.split_whitespace().collect();
-        let current_word_idx = input_words.len().saturating_sub(1);
+        // check if the previous word was correct using character-based comparison
+        let mut current_word_chars = Vec::new();
+        let mut target_word_chars = Vec::new();
+        let mut pos = current_word_start;
 
-        if input_words.get(current_word_idx) != target_words.get(current_word_idx) {
+        // Collect characters for the current word from user input
+        while pos < self.cursor_position - 1 {
+            // -1 to exclude the space
+            if let Some(Some(c)) = self.user_input.get(pos) {
+                current_word_chars.push(*c);
+            }
+            pos += 1;
+        }
+
+        // Collect characters for the target word
+        pos = current_word_start;
+        while pos < self.target_chars.len() && self.target_chars[pos] != ' ' {
+            target_word_chars.push(self.target_chars[pos]);
+            pos += 1;
+        }
+
+        if current_word_chars != target_word_chars {
             self.user_input.pop();
             self.cursor_position -= 1;
             return true;
@@ -233,7 +252,7 @@ impl Tracker {
         }
         let is_complete = match self.time_remaining {
             Some(rem) if rem.as_secs() == 0 => true,
-            None => self.cursor_position >= self.target_text.len(),
+            None => self.cursor_position >= self.target_chars.len(),
             _ => false,
         };
         if is_complete {
@@ -269,7 +288,7 @@ impl Tracker {
     /// Returns the start index of the current word.
     fn get_current_word_start(&self) -> usize {
         let mut pos = self.cursor_position;
-        while pos > 0 && self.target_text.chars().nth(pos - 1) != Some(' ') {
+        while pos > 0 && self.target_chars.get(pos - 1) != Some(&' ') {
             pos -= 1;
         }
         pos
@@ -462,5 +481,115 @@ mod tests {
 
         assert_eq!(tracker.completion_time, Some(1.0));
         assert_eq!(tracker.status, Status::Completed);
+    }
+
+    #[test]
+    fn test_accented_characters() {
+        let config = Config::default();
+        let target_text = String::from("café résumé");
+        let mut tracker = Tracker::new(&config, target_text);
+
+        tracker.start_typing();
+
+        // Type "café"
+        assert!(tracker.type_char('c'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('a'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('f'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('é'));
+        tracker.update_metrics();
+        assert!(tracker.type_char(' '));
+        tracker.update_metrics();
+
+        // Type "résumé"
+        assert!(tracker.type_char('r'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('é'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('s'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('u'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('m'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('é'));
+        tracker.update_metrics();
+
+        assert_eq!(tracker.correct_keystrokes, 11);
+        assert_eq!(tracker.total_keystrokes, 11);
+        assert_eq!(tracker.cursor_position, 11);
+        assert!(tracker.wrong_words_start_indexes.is_empty());
+    }
+
+    #[test]
+    fn test_accented_characters_with_wrong_input() {
+        let config = Config::default();
+        let target_text = String::from("café");
+        let mut tracker = Tracker::new(&config, target_text);
+
+        tracker.start_typing();
+
+        // Type "cafe" (without accent)
+        assert!(tracker.type_char('c'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('a'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('f'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('e')); // wrong: 'e' instead of 'é'
+        tracker.update_metrics();
+
+        assert_eq!(tracker.correct_keystrokes, 3);
+        assert_eq!(tracker.total_keystrokes, 4);
+        assert_eq!(tracker.cursor_position, 4);
+        assert!(!tracker.wrong_words_start_indexes.is_empty());
+    }
+
+    #[test]
+    fn test_accented_characters_backspace() {
+        let config = Config::default();
+        let target_text = String::from("café résumé");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.time_remaining = Some(Duration::from_secs(30));
+        tracker.start_typing();
+        tracker.time_end = Some(Instant::now() + Duration::from_secs(30));
+
+        // Type "café" correctly
+        assert!(tracker.type_char('c'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('a'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('f'));
+        tracker.update_metrics();
+        assert!(tracker.type_char('é'));
+        tracker.update_metrics();
+
+        // Backspace the é
+        assert!(tracker.backspace());
+        tracker.update_metrics();
+        assert_eq!(tracker.cursor_position, 3);
+
+        // Type wrong character 'e'
+        assert!(tracker.type_char('e'));
+        tracker.update_metrics();
+        assert!(tracker.is_word_wrong(0));
+
+        // Backspace and fix
+        assert!(tracker.backspace());
+        tracker.update_metrics();
+        assert!(tracker.type_char('é'));
+        tracker.update_metrics();
+        assert!(!tracker.is_word_wrong(0));
+
+        // Complete the word
+        assert!(tracker.type_char(' '));
+        tracker.update_metrics();
+
+        // Verify the state
+        assert_eq!(tracker.cursor_position, 5);
+        assert_eq!(tracker.correct_keystrokes, 5);
+        assert_eq!(tracker.total_keystrokes, 7); // Including the wrong 'e' and backspace
     }
 }
