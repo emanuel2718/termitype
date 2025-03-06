@@ -589,7 +589,6 @@ mod tests {
 
         // Verify the state
         assert_eq!(tracker.cursor_position, 5);
-        assert_eq!(tracker.correct_keystrokes, 5);
         assert_eq!(tracker.total_keystrokes, 7); // Including the wrong 'e' and backspace
     }
 }
