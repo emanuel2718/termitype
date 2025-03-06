@@ -158,7 +158,7 @@ fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosit
     let mut current_index = 0;
 
     for word in text.split_whitespace() {
-        let word_len = word.len();
+        let word_len = word.chars().count();
 
         // do we need to wrap and is the current word longer than the available width?
         if current_col > 0
@@ -212,8 +212,9 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
 
         let word = termi.words.split_whitespace().nth(word_idx).unwrap();
         let word_start = pos.start_index;
+        let word_len = word.chars().count();
         let is_current_word = termi.tracker.cursor_position >= word_start
-            && termi.tracker.cursor_position <= word_start + word.len();
+            && termi.tracker.cursor_position <= word_start + word_len;
         let is_wrong_word = !is_current_word && termi.tracker.is_word_wrong(word_start);
 
         // style
