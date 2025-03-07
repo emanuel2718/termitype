@@ -155,61 +155,23 @@ impl Tracker {
             return false;
         }
 
+        // check if we're at a word boundary
+        let at_word_boundary = self.user_input.last() == Some(&Some(' '));
+        if at_word_boundary {
+            let previous_word_start_idx = self.get_previous_word_start();
+            // only allow backspace if the previous word was wrong
+            if !self.is_word_wrong(previous_word_start_idx) {
+                return false;
+            }
+        }
+
         // going back to a wrong word, unmark it
         let current_word_start = self.get_current_word_start();
         self.wrong_words_start_indexes.remove(&current_word_start);
 
-        // allow backspace if we're at a mistyped character
-        let current_input = self.user_input.get(self.cursor_position - 1);
-        let target_char = self.target_chars.get(self.cursor_position - 1);
-
-        if let (Some(Some(input_char)), Some(target_char)) = (current_input, target_char) {
-            if *input_char != *target_char {
-                self.user_input.pop();
-                self.cursor_position -= 1;
-                return true;
-            }
-        }
-
-        // check if we're at a word boundary using character-based comparison
-        let at_word_boundary = self.user_input.last() == Some(&Some(' '));
-
-        // if we're not at a word boundary, or if the previous word was incorrect,
-        // allow backspace
-        if !at_word_boundary {
-            self.user_input.pop();
-            self.cursor_position -= 1;
-            return true;
-        }
-
-        // check if the previous word was correct using character-based comparison
-        let mut current_word_chars = Vec::new();
-        let mut target_word_chars = Vec::new();
-        let mut pos = current_word_start;
-
-        // Collect characters for the current word from user input
-        while pos < self.cursor_position - 1 {
-            // -1 to exclude the space
-            if let Some(Some(c)) = self.user_input.get(pos) {
-                current_word_chars.push(*c);
-            }
-            pos += 1;
-        }
-
-        // Collect characters for the target word
-        pos = current_word_start;
-        while pos < self.target_chars.len() && self.target_chars[pos] != ' ' {
-            target_word_chars.push(self.target_chars[pos]);
-            pos += 1;
-        }
-
-        if current_word_chars != target_word_chars {
-            self.user_input.pop();
-            self.cursor_position -= 1;
-            return true;
-        }
-
-        false
+        self.user_input.pop();
+        self.cursor_position -= 1;
+        true
     }
 
     pub fn update_metrics(&mut self) {
@@ -288,6 +250,15 @@ impl Tracker {
     /// Returns the start index of the current word.
     fn get_current_word_start(&self) -> usize {
         let mut pos = self.cursor_position;
+        while pos > 0 && self.target_chars.get(pos - 1) != Some(&' ') {
+            pos -= 1;
+        }
+        pos
+    }
+
+    /// Returns the start index of the previous word.
+    fn get_previous_word_start(&self) -> usize {
+        let mut pos = self.cursor_position - 1; // Start from before the space
         while pos > 0 && self.target_chars.get(pos - 1) != Some(&' ') {
             pos -= 1;
         }
@@ -590,5 +561,60 @@ mod tests {
         // Verify the state
         assert_eq!(tracker.cursor_position, 5);
         assert_eq!(tracker.total_keystrokes, 7); // Including the wrong 'e' and backspace
+    }
+
+    #[test]
+    fn test_disallow_backspace_at_word_boundary() {
+        let config = Config::default();
+        let target_text = String::from("hello world");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        tracker.type_char('h');
+        tracker.type_char('e');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+        tracker.type_char(' ');
+
+        assert!(
+            !tracker.backspace(),
+            "Should not allow backspace after correct word"
+        );
+        assert_eq!(
+            tracker.cursor_position, 6,
+            "Cursor position should not change"
+        );
+        assert_eq!(
+            tracker.user_input.len(),
+            6,
+            "Input length should not change"
+        );
+    }
+
+    #[test]
+    fn test_allow_backspace_at_word_boundary() {
+        let config = Config::default();
+        let target_text = String::from("hello world");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        tracker.type_char('h');
+        tracker.type_char('e');
+        tracker.type_char('y');
+        tracker.type_char('y');
+        tracker.type_char('o');
+        tracker.type_char(' ');
+
+        // Should allow backspace after incorrect word
+        assert!(
+            tracker.backspace(),
+            "Should allow backspace after incorrect word"
+        );
+        assert_eq!(
+            tracker.cursor_position, 5,
+            "Cursor position should decrease"
+        );
+        assert_eq!(tracker.user_input.len(), 5, "Input length should decrease");
     }
 }
