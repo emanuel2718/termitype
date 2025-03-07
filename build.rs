@@ -43,7 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Downloading themes...");
         let response = ureq::get(THEME_URL).call()?;
         let mut buffer = Vec::new();
-        response.into_reader().read_to_end(&mut buffer)?;
+        response
+            .into_body()
+            .into_reader()
+            .read_to_end(&mut buffer)?;
 
         // verify the hash
         let mut hasher = Sha256::new();

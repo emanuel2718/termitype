@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::OnceLock};
 
-use rand::{seq::SliceRandom, thread_rng, Rng};
+use rand::{rng, seq::IndexedRandom, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::{assets, config::Config, constants::DEFAULT_LANGUAGE};
@@ -62,7 +62,7 @@ impl Builder {
             .or_else(|| self.languages.get(DEFAULT_LANGUAGE))
             .unwrap_or_else(|| &self.languages[DEFAULT_LANGUAGE]);
 
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let word_count = config.resolve_word_count();
 
         let mut final_words: Vec<String> = if word_count <= base_words.len() {
@@ -78,13 +78,13 @@ impl Builder {
 
         // modifiers
         for word in &mut final_words {
-            if config.use_symbols && rng.gen_bool(SYMBOL_PROBABILITY) {
+            if config.use_symbols && rng.random_bool(SYMBOL_PROBABILITY) {
                 word.push(*SYMBOLS.choose(&mut rng).unwrap());
             }
-            if config.use_punctuation && rng.gen_bool(PUNCTUATION_PROBABILITY) {
+            if config.use_punctuation && rng.random_bool(PUNCTUATION_PROBABILITY) {
                 word.push(*PUNCTUATION.choose(&mut rng).unwrap());
             }
-            if config.use_numbers && rng.gen_bool(NUMBER_PROBABILITY) {
+            if config.use_numbers && rng.random_bool(NUMBER_PROBABILITY) {
                 word.push(*NUMBERS.choose(&mut rng).unwrap());
             }
         }
