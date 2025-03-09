@@ -12,6 +12,7 @@ use crate::{
     constants::APPNAME,
     termi::Termi,
     theme::Theme,
+    tracker::Status,
     version::VERSION,
 };
 
@@ -319,12 +320,17 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
 
     f.render_widget(typing_area, layout[1]);
 
-    // adjust for accounting scroll offset
-    let offset = termi.tracker.cursor_position - current_word_pos.start_index;
-    let x = layout[1].x + (current_word_pos.col + offset) as u16;
-    let y = layout[1].y + (current_word_pos.line.saturating_sub(scroll_offset)) as u16;
+    // only show cursor while IDLE or TYPING
+    if (termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing)
+        && !termi.has_floating_box_open()
+    {
+        // adjust for accounting scroll offset
+        let offset = termi.tracker.cursor_position - current_word_pos.start_index;
+        let x = layout[1].x + (current_word_pos.col + offset) as u16;
+        let y = layout[1].y + (current_word_pos.line.saturating_sub(scroll_offset)) as u16;
 
-    f.set_cursor_position(Position::new(x, y));
+        f.set_cursor_position(Position::new(x, y));
+    }
 }
 
 // TODO: this could be simplified I think
