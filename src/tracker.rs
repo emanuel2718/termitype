@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use crate::config::{Config, Mode};
-use crate::debug::LOG;
 
 #[derive(Debug)]
 pub struct Tracker {
@@ -361,6 +360,8 @@ impl Tracker {
         if is_word_correct {
             #[cfg(debug_assertions)]
             {
+                use crate::debug::LOG;
+
                 LOG(format!(
                     "Unmarking word at position {} as correct",
                     word_start
