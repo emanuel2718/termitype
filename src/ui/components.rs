@@ -54,9 +54,9 @@ impl UIElement {
         }
     }
 
-    fn to_span(&self, theme: &Theme) -> Span<'static> {
+    fn to_span(&self, theme: &Theme) -> Span<'_> {
         Span::styled(
-            self.content.clone(),
+            self.content.as_str(),
             Style::default()
                 .fg(if self.is_active {
                     theme.highlight()
@@ -146,14 +146,15 @@ pub fn progress_info(f: &mut Frame, termi: &mut Termi, area: Rect) {
 }
 
 #[derive(Debug)]
-struct WordPosition {
-    start_index: usize,
-    line: usize,
-    col: usize,
+pub struct WordPosition {
+    pub start_index: usize,
+    pub line: usize,
+    pub col: usize,
 }
 
 fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosition> {
-    let mut positions = Vec::new();
+    let word_count = text.split_whitespace().count();
+    let mut positions = Vec::with_capacity(word_count);
     let mut current_line = 0;
     let mut current_col = 0;
     let mut current_index = 0;
@@ -203,57 +204,67 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
     let mut current_line = 0;
     let mut current_line_spans = Vec::with_capacity(50);
 
+    let words: Vec<&str> = termi.words.split_whitespace().collect();
+
     for (word_idx, pos) in word_positions.iter().enumerate() {
         // make new line if we have to
         if pos.line > current_line {
-            lines.push(Line::from(current_line_spans.clone()));
-            current_line_spans.clear();
+            lines.push(Line::from(std::mem::take(&mut current_line_spans)));
+            // current_line_spans is now empty but capacity is preserved
             current_line = pos.line;
         }
 
-        let word = termi.words.split_whitespace().nth(word_idx).unwrap();
+        let word = words[word_idx];
         let word_start = pos.start_index;
         let word_len = word.chars().count();
+
         let is_current_word = termi.tracker.cursor_position >= word_start
             && termi.tracker.cursor_position <= word_start + word_len;
+
         let is_wrong_word = !is_current_word && termi.tracker.is_word_wrong(word_start);
 
-        // style
-        let chars: Vec<Span> = word
-            .chars()
-            .enumerate()
-            .map(|(i, c)| {
-                let char_idx = word_start + i;
-                let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
-                    Some(input) if input == c => {
-                        let mut style = Style::default().fg(theme.success());
-                        if is_wrong_word {
-                            style = style
-                                .add_modifier(Modifier::UNDERLINED)
-                                .underline_color(theme.error());
-                        }
-                        style
+        #[cfg(debug_assertions)]
+        if is_wrong_word {
+            use crate::debug::LOG;
+            LOG(format!(
+                "Word at {} is wrong and is not current word (cursor at {})",
+                word_start, termi.tracker.cursor_position
+            ));
+        }
+
+        let mut chars = Vec::with_capacity(word_len);
+
+        for (i, c) in word.chars().enumerate() {
+            let char_idx = word_start + i;
+            let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
+                Some(input) if input == c => {
+                    let mut style = Style::default().fg(theme.success());
+                    if is_wrong_word {
+                        style = style
+                            .add_modifier(Modifier::UNDERLINED)
+                            .underline_color(theme.error());
                     }
-                    Some(_) => {
-                        let mut style = Style::default().fg(theme.error());
-                        if !is_current_word {
-                            style = style
-                                .add_modifier(Modifier::UNDERLINED)
-                                .underline_color(theme.error());
-                        }
-                        style
+                    style
+                }
+                Some(_) => {
+                    let mut style = Style::default().fg(theme.error());
+                    if !is_current_word {
+                        style = style
+                            .add_modifier(Modifier::UNDERLINED)
+                            .underline_color(theme.error());
                     }
-                    None => Style::default()
-                        .fg(theme.foreground())
-                        .add_modifier(Modifier::DIM),
-                };
-                Span::styled(c.to_string(), style)
-            })
-            .collect();
+                    style
+                }
+                None => Style::default()
+                    .fg(theme.foreground())
+                    .add_modifier(Modifier::DIM),
+            };
+
+            chars.push(Span::styled(c.to_string(), style));
+        }
 
         current_line_spans.extend(chars);
 
-        // add space after word (except for last word)
         if word_idx < word_positions.len() - 1 {
             current_line_spans.push(Span::styled(
                 " ",
@@ -271,9 +282,9 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
     Text::from(lines)
 }
 
-pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
+pub fn typing_area(f: &mut Frame, termi: &mut Termi, area: Rect) {
     // NOTE: i'm sure this is not the best way to go about this, but here we are.
-    // enfore min and max height to be `AMOUNT_OF_VISIBLE_LINES`.
+    // enforce min and max height to be `AMOUNT_OF_VISIBLE_LINES`.
     let min_height = termi.config.visible_lines as u16;
     let max_height = termi.config.visible_lines as u16;
     let area = Rect {
@@ -290,35 +301,45 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
         ])
         .split(area);
 
-    let available_width = layout[1].width as usize;
+    let content_area = layout[1];
+    let available_width = content_area.width as usize;
+
     let word_positions = calculate_word_positions(&termi.words, available_width);
 
+    let cursor_pos = termi.tracker.cursor_position;
     let current_word_pos = word_positions
         .iter()
         .rev()
-        .find(|pos| termi.tracker.cursor_position >= pos.start_index)
+        .find(|pos| cursor_pos >= pos.start_index)
         .unwrap_or(&word_positions[0]);
 
-    let visible_lines = layout[1].height as usize;
+    let visible_lines = content_area.height as usize;
     let current_line = current_word_pos.line;
 
     let scroll_offset = current_line.saturating_sub(visible_lines.saturating_sub(2));
 
     let text = typing_text(termi, &word_positions);
-    let visible_text = Text::from(
-        text.lines
-            .iter()
-            .skip(scroll_offset)
-            .take(visible_lines)
-            .cloned()
-            .collect::<Vec<_>>(),
-    );
+
+    let visible_lines_count = content_area.height as usize;
+    let start = scroll_offset;
+    let end = (start + visible_lines_count).min(text.lines.len());
+
+    let visible_lines_capacity = end.saturating_sub(start);
+    let mut visible_lines = Vec::with_capacity(visible_lines_capacity);
+
+    for i in start..end {
+        if let Some(line) = text.lines.get(i) {
+            visible_lines.push(line.clone());
+        }
+    }
+
+    let visible_text = Text::from(visible_lines);
 
     let typing_area = Paragraph::new(visible_text)
         .alignment(Alignment::Left)
         .wrap(Wrap { trim: false });
 
-    f.render_widget(typing_area, layout[1]);
+    f.render_widget(typing_area, content_area);
 
     // only show cursor while IDLE or TYPING
     if (termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing)
@@ -326,8 +347,8 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
     {
         // adjust for accounting scroll offset
         let offset = termi.tracker.cursor_position - current_word_pos.start_index;
-        let x = layout[1].x + (current_word_pos.col + offset) as u16;
-        let y = layout[1].y + (current_word_pos.line.saturating_sub(scroll_offset)) as u16;
+        let x = content_area.x + (current_word_pos.col + offset) as u16;
+        let y = content_area.y + (current_word_pos.line.saturating_sub(scroll_offset)) as u16;
 
         f.set_cursor_position(Position::new(x, y));
     }
@@ -335,8 +356,6 @@ pub fn typing_area(f: &mut Frame, termi: &Termi, area: Rect) {
 
 // TODO: this could be simplified I think
 pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
-    termi.clickable_regions.clear();
-
     let is_time_mode = matches!(termi.config.current_mode(), Mode::Time { .. });
 
     let elements = vec![
@@ -436,17 +455,17 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
 // TODO: this could be simplified I think
 pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     let theme = termi.get_current_theme();
-    fn styled_span(content: &str, is_key: bool, theme: &Theme) -> Span<'static> {
+    fn styled_span<'a>(content: &'a str, is_key: bool, theme: &Theme) -> Span<'a> {
         if is_key {
             return Span::styled(
-                content.to_string(),
+                content,
                 Style::default()
                     .fg(theme.highlight())
                     .add_modifier(Modifier::BOLD),
             );
         }
         Span::styled(
-            content.to_string(),
+            content,
             Style::default()
                 .fg(theme.muted())
                 .add_modifier(Modifier::DIM),

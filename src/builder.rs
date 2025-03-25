@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::OnceLock};
 
-use rand::{rng, seq::IndexedRandom, Rng};
+use rand::{seq::IndexedRandom, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::{assets, config::Config, constants::DEFAULT_LANGUAGE};
@@ -26,6 +26,9 @@ struct Language {
 #[derive(Debug)]
 pub struct Builder {
     languages: HashMap<String, Vec<String>>,
+    rng_cache: rand::rngs::ThreadRng,
+    result_cache: String,
+    words_cache: Vec<String>,
 }
 
 impl Builder {
@@ -33,6 +36,10 @@ impl Builder {
     pub fn new() -> Self {
         let mut builder = Self {
             languages: HashMap::new(),
+            // rng_cache: rand::thread_rng(),
+            rng_cache: rand::rng(),
+            result_cache: String::with_capacity(1024),
+            words_cache: Vec::with_capacity(100),
         };
         if builder.load_language(DEFAULT_LANGUAGE).is_err() {
             builder.languages.insert(
@@ -45,13 +52,12 @@ impl Builder {
 
     /// Test word pool generator.
     pub fn generate_test(&mut self, config: &Config) -> String {
-        let lang = config.language.as_str();
-
-        if config.words.is_some() {
-            return config.words.clone().unwrap();
+        if let Some(words) = &config.words {
+            return words.clone();
         }
 
-        // load given language ahead of time
+        let lang = config.language.as_str();
+
         if !self.languages.contains_key(lang) {
             let _ = self.load_language(lang);
         }
@@ -62,34 +68,64 @@ impl Builder {
             .or_else(|| self.languages.get(DEFAULT_LANGUAGE))
             .unwrap_or_else(|| &self.languages[DEFAULT_LANGUAGE]);
 
-        let mut rng = rng();
         let word_count = config.resolve_word_count();
 
-        let mut final_words: Vec<String> = if word_count <= base_words.len() {
-            base_words
-                .choose_multiple(&mut rng, word_count)
-                .cloned()
-                .collect()
-        } else {
-            (0..word_count)
-                .map(|_| base_words.choose(&mut rng).unwrap().clone())
-                .collect()
-        };
+        self.words_cache.clear();
+        self.words_cache.reserve(word_count);
 
-        // modifiers
-        for word in &mut final_words {
-            if config.use_symbols && rng.random_bool(SYMBOL_PROBABILITY) {
-                word.push(*SYMBOLS.choose(&mut rng).unwrap());
+        if word_count <= base_words.len() {
+            let indices: Vec<usize> = (0..base_words.len()).collect();
+            let selected_indices = indices
+                .choose_multiple(&mut self.rng_cache, word_count)
+                .copied()
+                .collect::<Vec<usize>>();
+
+            for idx in selected_indices {
+                self.words_cache.push(base_words[idx].clone());
             }
-            if config.use_punctuation && rng.random_bool(PUNCTUATION_PROBABILITY) {
-                word.push(*PUNCTUATION.choose(&mut rng).unwrap());
-            }
-            if config.use_numbers && rng.random_bool(NUMBER_PROBABILITY) {
-                word.push(*NUMBERS.choose(&mut rng).unwrap());
+        } else {
+            for _ in 0..word_count {
+                let idx = self.rng_cache.random_range(0..base_words.len());
+                self.words_cache.push(base_words[idx].clone());
             }
         }
 
-        final_words.join(" ")
+        let use_symbols = config.use_symbols;
+        let use_punctuation = config.use_punctuation;
+        let use_numbers = config.use_numbers;
+
+        let avg_word_len = 5;
+        let extra_chars_per_word = 2;
+        let total_capacity = word_count * (avg_word_len + extra_chars_per_word);
+
+        self.result_cache.clear();
+        if self.result_cache.capacity() < total_capacity {
+            self.result_cache
+                .reserve(total_capacity - self.result_cache.capacity());
+        }
+
+        for (i, word) in self.words_cache.iter().enumerate() {
+            if i > 0 {
+                self.result_cache.push(' ');
+            }
+
+            self.result_cache.push_str(word);
+
+            if use_symbols && self.rng_cache.random_bool(SYMBOL_PROBABILITY) {
+                let idx = self.rng_cache.random_range(0..SYMBOLS.len());
+                self.result_cache.push(SYMBOLS[idx]);
+            }
+            if use_punctuation && self.rng_cache.random_bool(PUNCTUATION_PROBABILITY) {
+                let idx = self.rng_cache.random_range(0..PUNCTUATION.len());
+                self.result_cache.push(PUNCTUATION[idx]);
+            }
+            if use_numbers && self.rng_cache.random_bool(NUMBER_PROBABILITY) {
+                let idx = self.rng_cache.random_range(0..NUMBERS.len());
+                self.result_cache.push(NUMBERS[idx]);
+            }
+        }
+
+        self.result_cache.clone()
     }
 
     /// Returns the list of available languages.
@@ -192,10 +228,8 @@ mod tests {
         let test = builder.generate_test(&config);
         let words: Vec<&str> = test.split_whitespace().collect();
 
-        // check we got the requested number of words
         assert_eq!(words.len(), 10);
 
-        // check that words are not all the same
         let unique_words: std::collections::HashSet<&str> = words.iter().copied().collect();
         assert!(unique_words.len() > 1);
     }

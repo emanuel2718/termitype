@@ -49,6 +49,7 @@ pub enum Action {
 pub struct InputHandler {
     input_history: VecDeque<KeyCode>,
     pending_accent: Option<char>,
+    is_restart_sequence: bool,
 }
 
 impl InputHandler {
@@ -56,10 +57,10 @@ impl InputHandler {
         Self {
             input_history: VecDeque::with_capacity(2),
             pending_accent: None,
+            is_restart_sequence: false,
         }
     }
 
-    // TODO: this is a hack to handle pending accents. We should use the OS's native support for accents instead
     fn handle_pending_accent(&mut self, base: char) -> Option<char> {
         match base {
             'e' => Some('é'),
@@ -74,16 +75,27 @@ impl InputHandler {
 
     #[cfg(debug_assertions)]
     pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, is_debug: bool) -> Action {
+        if !menu.is_open() && !is_debug {
+            if let (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) =
+                (key.code, key.modifiers)
+            {
+                if self.pending_accent.is_none() {
+                    self.update_history(key.code);
+                    return Action::TypeCharacter(c);
+                }
+            }
+        }
+
         self.update_history(key.code);
 
         if self.is_quit_sequence(&key) {
             return Action::Quit;
         }
-        if self.is_restart_sequence() && matches!(key.code, KeyCode::Enter) {
+
+        if self.is_restart_sequence && matches!(key.code, KeyCode::Enter) {
             return Action::Start;
         }
 
-        // debug panel
         if is_debug {
             match (key.code, key.modifiers) {
                 (KeyCode::Char(DEBUG_KEY), KeyModifiers::CONTROL) => {
@@ -100,7 +112,6 @@ impl InputHandler {
             }
         }
 
-        // menu
         if menu.is_open() {
             return self.handle_menu_input(menu, key);
         }
@@ -142,11 +153,10 @@ impl InputHandler {
         if self.is_quit_sequence(&key) {
             return Action::Quit;
         }
-        if self.is_restart_sequence() && matches!(key.code, KeyCode::Enter) {
+        if self.is_restart_sequence && matches!(key.code, KeyCode::Enter) {
             return Action::Start;
         }
 
-        // menu
         if menu.is_open() {
             return self.handle_menu_input(menu, key);
         }
@@ -166,7 +176,7 @@ impl InputHandler {
                 Action::None
             }
             (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
-                if let Some(accent) = self.pending_accent.take() {
+                if let Some(_) = self.pending_accent.take() {
                     if let Some(composed) = self.handle_pending_accent(c) {
                         Action::TypeCharacter(composed)
                     } else {
@@ -185,18 +195,16 @@ impl InputHandler {
             self.input_history.pop_front();
         }
         self.input_history.push_back(key_code);
+
+        self.is_restart_sequence = matches!(
+            self.input_history.iter().collect::<Vec<_>>()[..],
+            [KeyCode::Tab, KeyCode::Enter]
+        );
     }
 
     fn is_quit_sequence(&self, key: &KeyEvent) -> bool {
         matches!(key.code, KeyCode::Char('c' | 'z'))
             && key.modifiers.contains(KeyModifiers::CONTROL)
-    }
-
-    fn is_restart_sequence(&self) -> bool {
-        matches!(
-            self.input_history.iter().collect::<Vec<_>>()[..],
-            [KeyCode::Tab, KeyCode::Enter]
-        )
     }
 
     fn handle_menu_input(&self, menu: &MenuState, key: KeyEvent) -> Action {
@@ -209,7 +217,7 @@ impl InputHandler {
                 (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                     Action::UpdateSearch(c)
                 }
-                (KeyCode::Backspace, _) => Action::UpdateSearch(BACKSPACE), // backspace
+                (KeyCode::Backspace, _) => Action::UpdateSearch(BACKSPACE),
                 (KeyCode::Up, _) => Action::MenuUp,
                 (KeyCode::Down, _) => Action::MenuDown,
                 _ => Action::None,
@@ -367,7 +375,6 @@ impl InputProcessor for Termi {
     }
 
     fn handle_menu_select(&mut self) -> Action {
-        // Exit search mode and clear query if we're in it
         if self.menu.is_searching() {
             self.menu.cancel_search();
         }
@@ -440,7 +447,6 @@ impl InputProcessor for Termi {
     }
 
     fn handle_update_search(&mut self, c: char) -> Action {
-        // backspace
         if c == BACKSPACE {
             let mut query = self.menu.search_query().to_string();
             query.pop();
@@ -462,9 +468,7 @@ impl InputProcessor for Termi {
         Action::None
     }
 
-    // FIXME: eventually we could have many 'floating boxes' (i.e keybings, help, etc). This could get messy
     fn handle_toggle_about(&mut self) -> Action {
-        // close menu first if the menu is alrdy open
         if self.menu.is_open() {
             self.menu.toggle(&self.config);
         }
@@ -521,7 +525,7 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
         Action::DebugScrollDown => {
             if let Some(debug) = state.debug.as_mut() {
                 let max_lines = match debug.current_tab {
-                    0 => 3, // Number of state lines
+                    0 => 3,
                     1 => debug.logs.len(),
                     _ => unreachable!(),
                 };
