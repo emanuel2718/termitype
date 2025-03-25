@@ -201,6 +201,7 @@ impl Tracker {
 
             #[cfg(debug_assertions)]
             {
+                use crate::debug::LOG;
                 LOG(format!("Previous word start: {}", previous_word_start_idx));
                 LOG(format!(
                     "Word is wrong: {}",
