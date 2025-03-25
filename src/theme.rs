@@ -101,20 +101,20 @@ impl Theme {
         Self {
             identifier: "Default".to_string(),
             colors: [
-                Color::Black,     // Background = 0,
-                Color::White,     // Foreground,
-                Color::LightCyan, // Cursor,
-                Color::Black,     // CursorText,
-                Color::Cyan,      // SelectionBg,
-                Color::Black,     // SelectionFg,
-                Color::LightBlue, // Border,
-                Color::Red,       // Error,
-                Color::Green,     // Success,
-                Color::Yellow,    // Warning,
-                Color::LightCyan, // Info,
-                Color::Magenta,   // Accent,
-                Color::Cyan,      // Highlight,
-                Color::Gray,      // Muted,
+                Color::Black,    // Background
+                Color::White,    // Foreground
+                Color::Yellow,   // Cursor
+                Color::Black,    // CursorText
+                Color::DarkGray, // SelectionBg
+                Color::White,    // SelectionFg
+                Color::DarkGray, // Border
+                Color::LightRed, // Error
+                Color::White,    // Success
+                Color::Yellow,   // Warning
+                Color::DarkGray, // Info
+                Color::Yellow,   // Accent
+                Color::Yellow,   // Highlight
+                Color::Gray,     // Muted
             ],
             color_support: ColorSupport::Basic,
         }
@@ -287,6 +287,8 @@ impl ThemeLoader {
         colors[ColorIndex::CursorText as usize] = parse_color("cursor-text")?;
         colors[ColorIndex::SelectionBg as usize] = parse_color("selection-background")?;
         colors[ColorIndex::SelectionFg as usize] = parse_color("selection-foreground")?;
+
+        // Standard color mappings for all themes
         colors[ColorIndex::Border as usize] = parse_color("palette8")?;
         colors[ColorIndex::Error as usize] = parse_color("palette1")?;
         colors[ColorIndex::Success as usize] = parse_color("palette2")?;

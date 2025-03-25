@@ -229,7 +229,7 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                 let style = Style::default()
                     .fg(if item.is_toggleable {
                         if item.is_active {
-                            theme.success()
+                            theme.highlight()
                         } else {
                             theme.muted()
                         }
@@ -302,7 +302,7 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                 .end_symbol(None)
                 .track_symbol(Some("│"))
                 .thumb_symbol("█")
-                .style(Style::default().fg(theme.border()));
+                .style(Style::default().fg(theme.accent()));
 
             f.render_stateful_widget(
                 scrollbar,

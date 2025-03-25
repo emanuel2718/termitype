@@ -66,7 +66,7 @@ impl UIElement {
                 .add_modifier(if self.is_active {
                     Modifier::BOLD
                 } else {
-                    Modifier::empty()
+                    Modifier::DIM
                 }),
         )
     }
