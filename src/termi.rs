@@ -185,11 +185,12 @@ impl Termi {
 
     pub fn update_preview_theme(&mut self) {
         if let Some(theme_name) = self.menu.get_preview_theme() {
-            if self
-                .preview_theme
-                .as_ref()
-                .map_or(true, |t| t.identifier != *theme_name)
-            {
+            let needs_update = match &self.preview_theme {
+                None => true,
+                Some(current_theme) => current_theme.identifier != *theme_name,
+            };
+
+            if needs_update {
                 self.preview_theme = None;
                 self.preview_theme = Some(Theme::from_name(theme_name));
             }

@@ -1,5 +1,3 @@
-#[cfg(debug_assertions)]
-use crate::constants::DEBUG_KEY;
 use crate::{
     config::ModeType,
     constants::{AMOUNT_OF_VISIBLE_LINES, BACKSPACE},
@@ -12,113 +10,95 @@ use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
 };
-use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
-    TypeCharacter(char),
-    Backspace,
+    None,
     Start,
     Pause,
     Quit,
-    None,
-    MenuUp,
-    MenuDown,
-    MenuBack,
-    MenuSelect,
+    TypeCharacter(char),
+    Backspace,
+    Menu(MenuInputAction),
+    Toggle(ToggleAction),
+    #[cfg(debug_assertions)]
+    Debug(DebugAction),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MenuInputAction {
+    Up,
+    Down,
+    Back,
+    Select,
     StartSearch,
     UpdateSearch(char),
     FinishSearch,
     CancelSearch,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ToggleAction {
     ToggleAbout,
-    #[cfg(debug_assertions)]
     ToggleDebugPanel,
-    #[cfg(debug_assertions)]
-    DebugNextTab,
-    #[cfg(debug_assertions)]
-    DebugPrevTab,
-    #[cfg(debug_assertions)]
-    DebugScrollUp,
-    #[cfg(debug_assertions)]
-    DebugScrollDown,
-    #[cfg(debug_assertions)]
-    DebugToggleAutoScroll,
+}
+
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum DebugAction {
+    TogglePanel,
+    NextTab,
+    PrevTab,
+    ScrollUp,
+    ScrollDown,
+    ToggleAutoScroll,
 }
 
 #[derive(Default)]
 pub struct InputHandler {
-    input_history: VecDeque<KeyCode>,
+    last_key: Option<KeyCode>,
     pending_accent: Option<char>,
-    is_restart_sequence: bool,
 }
 
 impl InputHandler {
     pub fn new() -> Self {
         Self {
-            input_history: VecDeque::with_capacity(2),
+            last_key: None,
             pending_accent: None,
-            is_restart_sequence: false,
         }
     }
 
-    fn handle_pending_accent(&mut self, base: char) -> Option<char> {
-        match base {
-            'e' => Some('é'),
-            'a' => Some('á'),
-            'i' => Some('í'),
-            'o' => Some('ó'),
-            'u' => Some('ú'),
-            'n' => Some('ñ'),
-            _ => None,
-        }
-    }
-
-    #[cfg(debug_assertions)]
     pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, is_debug: bool) -> Action {
-        if !menu.is_open() && !is_debug {
-            if let (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) =
-                (key.code, key.modifiers)
-            {
-                if self.pending_accent.is_none() {
-                    self.update_history(key.code);
-                    return Action::TypeCharacter(c);
-                }
-            }
-        }
-
-        self.update_history(key.code);
+        let last_key_cache = self.last_key;
+        self.last_key = Some(key.code);
 
         if self.is_quit_sequence(&key) {
             return Action::Quit;
         }
 
-        if self.is_restart_sequence && matches!(key.code, KeyCode::Enter) {
+        if self.is_restart_sequence(&key.code, &last_key_cache) {
             return Action::Start;
         }
 
+        #[cfg(debug_assertions)]
         if is_debug {
-            match (key.code, key.modifiers) {
-                (KeyCode::Char(DEBUG_KEY), KeyModifiers::CONTROL) => {
-                    return Action::ToggleDebugPanel
-                }
-                (KeyCode::Left, KeyModifiers::NONE) => return Action::DebugPrevTab,
-                (KeyCode::Right, KeyModifiers::NONE) => return Action::DebugNextTab,
-                (KeyCode::Up, KeyModifiers::NONE) => return Action::DebugScrollUp,
-                (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
-                    return Action::DebugToggleAutoScroll
-                }
-                (KeyCode::Down, KeyModifiers::NONE) => return Action::DebugScrollDown,
-                _ => {}
+            if let Some(action) = self.handle_debug_keys(&key) {
+                return action;
             }
         }
 
         if menu.is_open() {
             return self.handle_menu_input(menu, key);
         }
+        self.handle_type_input(key)
+    }
 
+    fn handle_type_input(&mut self, key: KeyEvent) -> Action {
         match (key.code, key.modifiers) {
             (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
-            (KeyCode::Char('o'), KeyModifiers::CONTROL) => Action::ToggleAbout,
+            (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
+                Action::Toggle(ToggleAction::ToggleAbout)
+            }
             (KeyCode::Backspace, KeyModifiers::NONE) => {
                 self.pending_accent = None;
                 Action::Backspace
@@ -133,7 +113,7 @@ impl InputHandler {
             }
             (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                 if self.pending_accent.take().is_some() {
-                    if let Some(composed) = self.handle_pending_accent(c) {
+                    if let Some(composed) = self.compose_accent(c) {
                         Action::TypeCharacter(composed)
                     } else {
                         Action::TypeCharacter(c)
@@ -144,94 +124,38 @@ impl InputHandler {
             }
             _ => Action::None,
         }
-    }
-
-    #[cfg(not(debug_assertions))]
-    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, _is_debug: bool) -> Action {
-        self.update_history(key.code);
-
-        if self.is_quit_sequence(&key) {
-            return Action::Quit;
-        }
-        if self.is_restart_sequence && matches!(key.code, KeyCode::Enter) {
-            return Action::Start;
-        }
-
-        if menu.is_open() {
-            return self.handle_menu_input(menu, key);
-        }
-
-        match (key.code, key.modifiers) {
-            (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
-            (KeyCode::Backspace, KeyModifiers::NONE) => {
-                self.pending_accent = None;
-                Action::Backspace
-            }
-            (KeyCode::Esc, KeyModifiers::NONE) => {
-                self.pending_accent = None;
-                Action::Pause
-            }
-            (KeyCode::Char(c), KeyModifiers::ALT) => {
-                self.pending_accent = Some(c);
-                Action::None
-            }
-            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
-                if let Some(_) = self.pending_accent.take() {
-                    if let Some(composed) = self.handle_pending_accent(c) {
-                        Action::TypeCharacter(composed)
-                    } else {
-                        Action::TypeCharacter(c)
-                    }
-                } else {
-                    Action::TypeCharacter(c)
-                }
-            }
-            _ => Action::None,
-        }
-    }
-
-    fn update_history(&mut self, key_code: KeyCode) {
-        if self.input_history.len() >= 2 {
-            self.input_history.pop_front();
-        }
-        self.input_history.push_back(key_code);
-
-        self.is_restart_sequence = matches!(
-            self.input_history.iter().collect::<Vec<_>>()[..],
-            [KeyCode::Tab, KeyCode::Enter]
-        );
-    }
-
-    fn is_quit_sequence(&self, key: &KeyEvent) -> bool {
-        matches!(key.code, KeyCode::Char('c' | 'z'))
-            && key.modifiers.contains(KeyModifiers::CONTROL)
     }
 
     fn handle_menu_input(&self, menu: &MenuState, key: KeyEvent) -> Action {
         if menu.is_searching() {
             return match (key.code, key.modifiers) {
-                (KeyCode::Esc, _) => Action::CancelSearch,
-                (KeyCode::Enter, _) => Action::MenuSelect,
-                (KeyCode::Char('j' | 'n'), KeyModifiers::CONTROL) => Action::MenuDown,
-                (KeyCode::Char('k' | 'p'), KeyModifiers::CONTROL) => Action::MenuUp,
-                (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
-                    Action::UpdateSearch(c)
+                (KeyCode::Esc, _) => Action::Menu(MenuInputAction::CancelSearch),
+                (KeyCode::Enter, _) => Action::Menu(MenuInputAction::Select),
+                (KeyCode::Char('j' | 'n'), KeyModifiers::CONTROL) => {
+                    Action::Menu(MenuInputAction::Down)
                 }
-                (KeyCode::Backspace, _) => Action::UpdateSearch(BACKSPACE),
-                (KeyCode::Up, _) => Action::MenuUp,
-                (KeyCode::Down, _) => Action::MenuDown,
+                (KeyCode::Char('k' | 'p'), KeyModifiers::CONTROL) => {
+                    Action::Menu(MenuInputAction::Up)
+                }
+                (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    Action::Menu(MenuInputAction::UpdateSearch(c))
+                }
+                (KeyCode::Backspace, _) => Action::Menu(MenuInputAction::UpdateSearch(BACKSPACE)),
+                (KeyCode::Up, _) => Action::Menu(MenuInputAction::Up),
+                (KeyCode::Down, _) => Action::Menu(MenuInputAction::Down),
                 _ => Action::None,
             };
         }
+
         match key.code {
-            KeyCode::Char('/') => Action::StartSearch,
-            KeyCode::Char('k') | KeyCode::Up => Action::MenuUp,
-            KeyCode::Char('j') | KeyCode::Down => Action::MenuDown,
-            KeyCode::Enter => Action::MenuSelect,
+            KeyCode::Char('/') => Action::Menu(MenuInputAction::StartSearch),
+            KeyCode::Char('k') | KeyCode::Up => Action::Menu(MenuInputAction::Up),
+            KeyCode::Char('j') | KeyCode::Down => Action::Menu(MenuInputAction::Down),
+            KeyCode::Enter => Action::Menu(MenuInputAction::Select),
             KeyCode::Char('l') => {
                 if let Some(menu) = menu.current_menu() {
                     if menu.current_item().has_submenu {
-                        return Action::MenuSelect;
+                        return Action::Menu(MenuInputAction::Select);
                     }
                 }
                 Action::None
@@ -239,7 +163,7 @@ impl InputHandler {
             KeyCode::Char(' ') => {
                 if let Some(menu) = menu.current_menu() {
                     if menu.current_item().is_toggleable {
-                        return Action::MenuSelect;
+                        return Action::Menu(MenuInputAction::Select);
                     }
                 }
                 Action::None
@@ -248,281 +172,291 @@ impl InputHandler {
                 if menu.menu_depth() == 1 {
                     return Action::None;
                 }
-                Action::MenuBack
+                Action::Menu(MenuInputAction::Back)
             }
-            KeyCode::Esc => Action::MenuBack,
+            KeyCode::Esc => Action::Menu(MenuInputAction::Back),
             _ => Action::None,
         }
     }
-}
 
-pub trait InputProcessor {
-    fn handle_type_char(&mut self, c: char) -> Action;
-    fn handle_backspace(&mut self) -> Action;
-    fn handle_start(&mut self) -> Action;
-    fn handle_pause(&mut self) -> Action;
-    fn handle_menu_up(&mut self) -> Action;
-    fn handle_menu_down(&mut self) -> Action;
-    fn handle_menu_back(&mut self) -> Action;
-    fn handle_menu_select(&mut self) -> Action;
-    fn handle_start_search(&mut self) -> Action;
-    fn handle_update_search(&mut self, c: char) -> Action;
-    fn handle_finish_search(&mut self) -> Action;
-    fn handle_cancel_search(&mut self) -> Action;
-    fn handle_toggle_about(&mut self) -> Action;
-}
+    #[cfg(debug_assertions)]
+    fn handle_debug_keys(&self, key: &KeyEvent) -> Option<Action> {
+        use crate::constants::DEBUG_KEY;
 
-impl InputProcessor for Termi {
-    fn handle_type_char(&mut self, c: char) -> Action {
-        if self.has_floating_box_open() {
-            return Action::None;
-        }
-
-        match self.tracker.status {
-            Status::Paused => self.tracker.resume(),
-            Status::Idle => self.tracker.start_typing(),
-            _ => {}
-        }
-        self.tracker.type_char(c);
-        Action::None
-    }
-
-    fn handle_backspace(&mut self) -> Action {
-        if self.has_floating_box_open() {
-            return Action::None;
-        }
-
-        if self.tracker.status == Status::Paused {
-            self.tracker.resume();
-        }
-        self.tracker.backspace();
-        Action::None
-    }
-
-    fn handle_start(&mut self) -> Action {
-        self.start();
-        Action::None
-    }
-
-    fn handle_pause(&mut self) -> Action {
-        if self.about_open {
-            self.about_open = false;
-            return Action::None;
-        }
-        if self.menu.is_open() {
-            self.menu.toggle(&self.config);
-            self.tracker.resume();
-        } else {
-            self.tracker.pause();
-            self.menu.toggle(&self.config);
-        }
-        Action::None
-    }
-
-    fn handle_menu_back(&mut self) -> Action {
-        if self.about_open {
-            self.about_open = false;
-            return Action::None;
-        }
-        if self.menu.is_searching() {
-            self.menu.cancel_search();
-            return Action::None;
-        }
-        self.menu.back();
-        if self.preview_theme.is_some() {
-            self.preview_theme = None;
-        }
-        if self.preview_cursor.is_some() {
-            self.preview_cursor = None;
-            execute!(
-                std::io::stdout(),
-                self.config.resolve_current_cursor_style()
-            )
-            .ok();
-        }
-        if !self.menu.is_open() {
-            self.tracker.resume();
-        }
-        Action::None
-    }
-
-    fn handle_menu_up(&mut self) -> Action {
-        self.menu.prev_item();
-        if let Some(item) = self.menu.current_menu().unwrap().selected_item() {
-            if let MenuAction::ChangeTheme(_) = &item.action {
-                self.menu.preview_selected();
-                self.update_preview_theme();
-            } else if let MenuAction::ChangeCursorStyle(_) = &item.action {
-                self.menu.preview_selected();
-                self.update_preview_cursor();
+        match (key.code, key.modifiers) {
+            (KeyCode::Char(DEBUG_KEY), KeyModifiers::CONTROL) => {
+                Some(Action::Debug(DebugAction::TogglePanel))
             }
-        }
-        Action::None
-    }
-
-    fn handle_menu_down(&mut self) -> Action {
-        self.menu.next_item();
-        if let Some(item) = self.menu.current_menu().unwrap().selected_item() {
-            if let MenuAction::ChangeTheme(_) = &item.action {
-                self.menu.preview_selected();
-                self.update_preview_theme();
-            } else if let MenuAction::ChangeCursorStyle(_) = &item.action {
-                self.menu.preview_selected();
-                self.update_preview_cursor();
+            (KeyCode::Left, KeyModifiers::NONE) => Some(Action::Debug(DebugAction::PrevTab)),
+            (KeyCode::Right, KeyModifiers::NONE) => Some(Action::Debug(DebugAction::NextTab)),
+            (KeyCode::Up, KeyModifiers::NONE) => Some(Action::Debug(DebugAction::ScrollUp)),
+            (KeyCode::Down, KeyModifiers::NONE) => Some(Action::Debug(DebugAction::ScrollDown)),
+            (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
+                Some(Action::Debug(DebugAction::ToggleAutoScroll))
             }
+            _ => None,
         }
-        Action::None
     }
 
-    fn handle_menu_select(&mut self) -> Action {
-        if self.menu.is_searching() {
-            self.menu.cancel_search();
+    fn is_quit_sequence(&self, key: &KeyEvent) -> bool {
+        matches!(key.code, KeyCode::Char('c' | 'z'))
+            && key.modifiers.contains(KeyModifiers::CONTROL)
+    }
+
+    fn is_restart_sequence(&self, current_key: &KeyCode, last_key: &Option<KeyCode>) -> bool {
+        matches!(last_key, Some(KeyCode::Tab)) && matches!(current_key, KeyCode::Enter)
+    }
+
+    // TODO: this is dumb, i think (?). There has to be a better way to handle this
+    fn compose_accent(&self, c: char) -> Option<char> {
+        match c {
+            'e' => Some('é'),
+            'a' => Some('á'),
+            'i' => Some('í'),
+            'o' => Some('ó'),
+            'u' => Some('ú'),
+            'n' => Some('ñ'),
+            _ => None,
         }
-
-        if let Some(action) = self.menu.enter(&self.config) {
-            match action {
-                MenuAction::Restart => {
-                    self.start();
-                    return Action::None;
-                }
-                MenuAction::ToggleFeature(feature) => {
-                    match feature.as_str() {
-                        "punctuation" => {
-                            self.config.toggle_punctuation();
-                        }
-                        "numbers" => {
-                            self.config.toggle_numbers();
-                        }
-                        "symbols" => {
-                            self.config.toggle_symbols();
-                        }
-                        _ => {}
-                    }
-                    self.menu.update_toggles(&self.config);
-                    self.start();
-                }
-                MenuAction::ChangeMode(mode) => {
-                    self.config.change_mode(mode, None);
-                }
-                MenuAction::ChangeTime(time) => {
-                    self.config.change_mode(ModeType::Time, Some(time as usize));
-                }
-                MenuAction::ChangeWordCount(count) => {
-                    self.config.change_mode(ModeType::Words, Some(count));
-                }
-                MenuAction::ChangeVisibleLineCount(count) => {
-                    self.config
-                        .change_visible_lines(count.try_into().unwrap_or(AMOUNT_OF_VISIBLE_LINES));
-                }
-                MenuAction::ChangeTheme(theme_name) => {
-                    self.config.change_theme(&theme_name);
-                    self.theme = Theme::from_name(&theme_name);
-                }
-                MenuAction::ChangeCursorStyle(style) => {
-                    self.config.change_cursor_style(&style);
-                    execute!(
-                        std::io::stdout(),
-                        self.config.resolve_current_cursor_style()
-                    )
-                    .ok();
-                }
-                MenuAction::ChangeLanguage(lang) => {
-                    self.config.language = lang;
-                    self.start();
-                }
-                MenuAction::OpenAbout => {
-                    self.about_open = true;
-                    self.menu.toggle(&self.config);
-                }
-                MenuAction::Quit => return Action::Quit,
-                _ => {}
-            }
-        }
-        Action::None
-    }
-
-    fn handle_start_search(&mut self) -> Action {
-        self.menu.start_search();
-        Action::None
-    }
-
-    fn handle_update_search(&mut self, c: char) -> Action {
-        if c == BACKSPACE {
-            let mut query = self.menu.search_query().to_string();
-            query.pop();
-            self.menu.update_search(&query);
-        } else {
-            let query = format!("{}{}", self.menu.search_query(), c);
-            self.menu.update_search(&query);
-        }
-        Action::None
-    }
-
-    fn handle_finish_search(&mut self) -> Action {
-        self.menu.finish_search();
-        Action::None
-    }
-
-    fn handle_cancel_search(&mut self) -> Action {
-        self.menu.cancel_search();
-        Action::None
-    }
-
-    fn handle_toggle_about(&mut self) -> Action {
-        if self.menu.is_open() {
-            self.menu.toggle(&self.config);
-        }
-        self.about_open = !self.about_open;
-        Action::None
     }
 }
 
 pub fn process_action(action: Action, state: &mut Termi) -> Action {
     match action {
-        Action::TypeCharacter(c) => state.handle_type_char(c),
-        Action::Backspace => state.handle_backspace(),
-        Action::Start => state.handle_start(),
-        Action::Pause => state.handle_pause(),
-        Action::Quit => Action::Quit,
-        Action::MenuUp => state.handle_menu_up(),
-        Action::MenuDown => state.handle_menu_down(),
-        Action::MenuBack => state.handle_menu_back(),
-        Action::MenuSelect => state.handle_menu_select(),
-        Action::StartSearch => state.handle_start_search(),
-        Action::UpdateSearch(c) => state.handle_update_search(c),
-        Action::FinishSearch => state.handle_finish_search(),
-        Action::CancelSearch => state.handle_cancel_search(),
-        Action::ToggleAbout => state.handle_toggle_about(),
+        Action::None => Action::None,
+        Action::TypeCharacter(char) => {
+            if state.has_floating_box_open() {
+                return Action::None;
+            }
+
+            match state.tracker.status {
+                Status::Paused => state.tracker.resume(),
+                Status::Idle => state.tracker.start_typing(),
+                _ => {}
+            }
+            state.tracker.type_char(char);
+            Action::None
+        }
+        Action::Backspace => {
+            if state.has_floating_box_open() {
+                return Action::None;
+            }
+
+            if state.tracker.status == Status::Paused {
+                state.tracker.resume();
+            }
+            state.tracker.backspace();
+            Action::None
+        }
+        Action::Menu(menu_action) => execute_menu_action(menu_action, state),
         #[cfg(debug_assertions)]
-        Action::ToggleDebugPanel => {
+        Action::Debug(debug_action) => execute_debug_action(debug_action, state),
+        Action::Start => {
+            state.start();
+            Action::None
+        }
+        Action::Pause => {
+            if state.about_open {
+                state.about_open = false;
+                return Action::None;
+            }
+            if state.menu.is_open() {
+                state.menu.toggle(&state.config);
+                state.tracker.resume();
+            } else {
+                state.tracker.pause();
+                state.menu.toggle(&state.config);
+            }
+            Action::None
+        }
+        Action::Quit => Action::Quit,
+        Action::Toggle(_) => {
+            // TODO: handling this here might not be the right approach
+            if state.menu.is_open() {
+                state.menu.toggle(&state.config);
+            }
+            state.about_open = !state.about_open;
+            Action::None
+        }
+    }
+}
+
+fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
+    match action {
+        MenuInputAction::Up => {
+            state.menu.prev_item();
+            if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
+                if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
+                    state.menu.preview_selected();
+                    state.update_preview_theme();
+                } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
+                    state.menu.preview_selected();
+                    state.update_preview_cursor();
+                }
+            }
+            Action::None
+        }
+        MenuInputAction::Down => {
+            state.menu.next_item();
+            if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
+                if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
+                    state.menu.preview_selected();
+                    state.update_preview_theme();
+                } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
+                    state.menu.preview_selected();
+                    state.update_preview_cursor();
+                }
+            }
+            Action::None
+        }
+        MenuInputAction::Back => {
+            if state.about_open {
+                state.about_open = false;
+                return Action::None;
+            }
+            if state.menu.is_searching() {
+                state.menu.cancel_search();
+                return Action::None;
+            }
+            state.menu.back();
+            if state.preview_theme.is_some() {
+                state.preview_theme = None;
+            }
+            if state.preview_cursor.is_some() {
+                state.preview_cursor = None;
+                execute!(
+                    std::io::stdout(),
+                    state.config.resolve_current_cursor_style()
+                )
+                .ok();
+            }
+            if !state.menu.is_open() {
+                state.tracker.resume();
+            }
+            Action::None
+        }
+        MenuInputAction::Select => {
+            if state.menu.is_searching() {
+                state.menu.cancel_search();
+            }
+
+            if let Some(action) = state.menu.enter(&state.config) {
+                match action {
+                    MenuAction::Restart => {
+                        state.start();
+                        return Action::None;
+                    }
+                    MenuAction::ToggleFeature(feature) => {
+                        match feature.as_str() {
+                            "punctuation" => {
+                                state.config.toggle_punctuation();
+                            }
+                            "numbers" => {
+                                state.config.toggle_numbers();
+                            }
+                            "symbols" => {
+                                state.config.toggle_symbols();
+                            }
+                            _ => {}
+                        }
+                        state.menu.update_toggles(&state.config);
+                        state.start();
+                    }
+                    MenuAction::ChangeMode(mode) => {
+                        state.config.change_mode(mode, None);
+                    }
+                    MenuAction::ChangeTime(time) => {
+                        state
+                            .config
+                            .change_mode(ModeType::Time, Some(time as usize));
+                    }
+                    MenuAction::ChangeWordCount(count) => {
+                        state.config.change_mode(ModeType::Words, Some(count));
+                    }
+                    MenuAction::ChangeVisibleLineCount(count) => {
+                        state.config.change_visible_lines(
+                            count.try_into().unwrap_or(AMOUNT_OF_VISIBLE_LINES),
+                        );
+                    }
+                    MenuAction::ChangeTheme(theme_name) => {
+                        state.config.change_theme(&theme_name);
+                        state.theme = Theme::from_name(&theme_name);
+                    }
+                    MenuAction::ChangeCursorStyle(style) => {
+                        state.config.change_cursor_style(&style);
+                        execute!(
+                            std::io::stdout(),
+                            state.config.resolve_current_cursor_style()
+                        )
+                        .ok();
+                    }
+                    MenuAction::ChangeLanguage(lang) => {
+                        state.config.language = lang;
+                        state.start();
+                    }
+                    MenuAction::OpenAbout => {
+                        state.about_open = true;
+                        state.menu.toggle(&state.config);
+                    }
+                    MenuAction::Quit => return Action::Quit,
+                    _ => {}
+                }
+            }
+            Action::None
+        }
+        MenuInputAction::StartSearch => {
+            state.menu.start_search();
+            Action::None
+        }
+        MenuInputAction::UpdateSearch(c) => {
+            if c == BACKSPACE {
+                let mut query = state.menu.search_query().to_string();
+                query.pop();
+                state.menu.update_search(&query);
+            } else {
+                let query = format!("{}{}", state.menu.search_query(), c);
+                state.menu.update_search(&query);
+            }
+            Action::None
+        }
+        MenuInputAction::FinishSearch => {
+            state.menu.finish_search();
+            Action::None
+        }
+        MenuInputAction::CancelSearch => {
+            state.menu.cancel_search();
+            Action::None
+        }
+    }
+}
+#[cfg(debug_assertions)]
+fn execute_debug_action(action: DebugAction, state: &mut Termi) -> Action {
+    match action {
+        DebugAction::TogglePanel => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.toggle();
             }
             Action::None
         }
-        #[cfg(debug_assertions)]
-        Action::DebugNextTab => {
+        DebugAction::NextTab => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.next_tab();
             }
             Action::None
         }
-        #[cfg(debug_assertions)]
-        Action::DebugPrevTab => {
+        DebugAction::PrevTab => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.prev_tab();
             }
             Action::None
         }
-        #[cfg(debug_assertions)]
-        Action::DebugScrollUp => {
+        DebugAction::ScrollUp => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.scroll_up();
             }
             Action::None
         }
-        #[cfg(debug_assertions)]
-        Action::DebugScrollDown => {
+        DebugAction::ScrollDown => {
             if let Some(debug) = state.debug.as_mut() {
                 let max_lines = match debug.current_tab {
                     0 => 3,
@@ -533,13 +467,11 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             }
             Action::None
         }
-        #[cfg(debug_assertions)]
-        Action::DebugToggleAutoScroll => {
+        DebugAction::ToggleAutoScroll => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.toggle_auto_scroll();
             }
             Action::None
         }
-        Action::None => Action::None,
     }
 }
