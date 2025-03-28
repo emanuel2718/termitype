@@ -16,14 +16,20 @@ use crate::constants::{MENU_HEIGHT, MENU_WIDTH, WINDOW_HEIGHT_PERCENT, WINDOW_WI
 
 /// Main workhorse. This basically draws the whole ui
 pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
+    termi.clickable_regions.clear(); // NOTE: we must always clear clickable regions before rendering
+
+    if !termi.menu.is_open() && termi.preview_theme.is_some() {
+        termi.preview_theme = None;
+    }
+
     let theme = termi.get_current_theme();
 
     let container = Block::default().style(Style::default().bg(theme.background()));
     f.render_widget(container, f.area());
 
     let window_area = centered_rect(WINDOW_WIDTH_PERCENT, WINDOW_HEIGHT_PERCENT, f.area());
-
     let layout = create_main_layout(window_area);
+
     match termi.tracker.status {
         Status::Typing => {
             let typing_chunks = Layout::default()
@@ -34,19 +40,23 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
                     Constraint::Min(1),
                 ])
                 .split(layout[2]);
+
             progress_info(f, termi, typing_chunks[0]);
             typing_area(f, termi, typing_chunks[2]);
         }
         Status::Completed => {
             let results_height = 8;
+
             let vertical_layout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Percentage(50 - ((results_height * 100) / (f.area().height * 2))),
+                    Constraint::Percentage(
+                        50 - ((results_height * 100) / (window_area.height * 2)),
+                    ),
                     Constraint::Length(results_height),
                     Constraint::Min(0),
                 ])
-                .split(f.area());
+                .split(window_area);
 
             let horizontal_layout = Layout::default()
                 .direction(Direction::Horizontal)
@@ -62,7 +72,7 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
         _ => {
             title(f, termi, layout[0]);
             top_bar(f, termi, layout[1]);
-            // NOTE: hack to keep the typing area from shifting when we enter `Typing` mode
+
             let typing_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
@@ -71,12 +81,14 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
                     Constraint::Min(1),
                 ])
                 .split(layout[2]);
+
             progress_info(f, termi, typing_chunks[0]);
             typing_area(f, termi, typing_chunks[2]);
             command_bar(f, termi, layout[3]);
             footer(f, termi, layout[4]);
         }
     }
+
     if termi.menu.is_open() {
         draw_menu(f, termi, f.area());
     }
@@ -217,7 +229,7 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                 let style = Style::default()
                     .fg(if item.is_toggleable {
                         if item.is_active {
-                            theme.success()
+                            theme.highlight()
                         } else {
                             theme.muted()
                         }
@@ -290,7 +302,7 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
                 .end_symbol(None)
                 .track_symbol(Some("│"))
                 .thumb_symbol("█")
-                .style(Style::default().fg(theme.border()));
+                .style(Style::default().fg(theme.accent()));
 
             f.render_stateful_widget(
                 scrollbar,

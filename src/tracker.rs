@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use crate::config::{Config, Mode};
@@ -26,7 +27,12 @@ pub struct Tracker {
 
     pub total_keystrokes: usize,
     pub correct_keystrokes: usize,
-    pub wrong_words_start_indexes: std::collections::HashSet<usize>,
+    pub wrong_words_start_indexes: HashSet<usize>,
+
+    pub current_word_start: usize,
+    pub last_metrics_update: Instant,
+
+    max_user_input_length: usize,
 }
 
 #[derive(Debug, PartialEq)]
@@ -41,7 +47,11 @@ impl Tracker {
     pub fn new(config: &Config, target_text: String) -> Self {
         let mode = config.current_mode();
         let word_count = mode.value();
-        let target_chars: Vec<char> = target_text.chars().collect();
+
+        let target_length = target_text.len();
+        let mut target_chars = Vec::with_capacity(target_length);
+        target_chars.extend(target_text.chars());
+
         let time_remaining = match mode {
             Mode::Time { duration } => Some(Duration::from_secs(duration)),
             Mode::Words { .. } => None,
@@ -56,7 +66,7 @@ impl Tracker {
             time_paused: None,
             time_end: None,
             completion_time: None,
-            user_input: Vec::new(),
+            user_input: Vec::with_capacity(target_length),
             cursor_position: 0,
             target_text,
             target_chars,
@@ -64,7 +74,10 @@ impl Tracker {
             status: Status::Idle,
             total_keystrokes: 0,
             correct_keystrokes: 0,
-            wrong_words_start_indexes: std::collections::HashSet::new(),
+            wrong_words_start_indexes: HashSet::with_capacity(word_count / 5), // guesstimate
+            current_word_start: 0,
+            last_metrics_update: Instant::now(),
+            max_user_input_length: target_length,
         }
     }
 
@@ -88,6 +101,7 @@ impl Tracker {
         self.cursor_position = 0;
         self.status = Status::Typing;
         self.wrong_words_start_indexes.clear();
+        self.current_word_start = 0;
     }
 
     // TODO: maybe mmove this elsewhere. not sure if it makes sense here.
@@ -124,27 +138,48 @@ impl Tracker {
             return false;
         }
 
-        let is_correct = self.target_chars.get(self.cursor_position) == Some(&c);
-        if !is_correct && self.target_chars.get(self.cursor_position) == Some(&' ') {
+        let is_correct = self.cursor_position < self.target_chars.len()
+            && self.target_chars[self.cursor_position] == c;
+
+        let is_space = c == ' ';
+
+        if !is_correct
+            && self.cursor_position < self.target_chars.len()
+            && self.target_chars[self.cursor_position] == ' '
+        {
             self.register_keystroke(is_correct);
             return true;
         }
 
         self.register_keystroke(is_correct);
+
+        // Memory management: Ensure we have capacity to avoid reallocations during fast typing
+        if self.user_input.len() >= self.user_input.capacity() {
+            let additional = std::cmp::max(100, self.user_input.capacity() / 2);
+            self.user_input.reserve(additional);
+            self.max_user_input_length = self.user_input.capacity();
+        }
+
         self.user_input.push(Some(c));
 
-        // we are about to type a wrong word
         if !is_correct {
-            let current_word_start = self.get_current_word_start();
-            if !self.wrong_words_start_indexes.contains(&current_word_start) {
-                self.wrong_words_start_indexes.insert(current_word_start);
-            }
+            self.wrong_words_start_indexes
+                .insert(self.current_word_start);
+        } else if self
+            .wrong_words_start_indexes
+            .contains(&self.current_word_start)
+        {
+            self.check_if_corrected_word_at_position(self.cursor_position);
         }
 
         self.cursor_position += 1;
 
-        // only check completion if we have don't have a time limit
-        if self.time_remaining.is_none() {
+        if is_space {
+            self.check_if_corrected_word_at_position(self.cursor_position - 1);
+            self.current_word_start = self.cursor_position;
+        }
+
+        if self.time_remaining.is_none() && self.cursor_position >= self.target_chars.len() {
             self.check_completion();
         }
         true
@@ -155,22 +190,46 @@ impl Tracker {
             return false;
         }
 
-        // check if we're at a word boundary
-        let at_word_boundary = self.user_input.last() == Some(&Some(' '));
+        // just typed a space
+        let at_word_boundary = self.cursor_position > 0
+            && self.cursor_position <= self.user_input.len()
+            && self.user_input.get(self.cursor_position - 1) == Some(&Some(' '));
+
         if at_word_boundary {
+            // start of a new word - only allow backspace if previous word was wrong
             let previous_word_start_idx = self.get_previous_word_start();
-            // only allow backspace if the previous word was wrong
+
+            #[cfg(debug_assertions)]
+            {
+                use crate::debug::LOG;
+                LOG(format!("Previous word start: {}", previous_word_start_idx));
+                LOG(format!(
+                    "Word is wrong: {}",
+                    self.is_word_wrong(previous_word_start_idx)
+                ));
+            }
+
             if !self.is_word_wrong(previous_word_start_idx) {
                 return false;
             }
+
+            self.current_word_start = previous_word_start_idx;
         }
 
-        // going back to a wrong word, unmark it
-        let current_word_start = self.get_current_word_start();
-        self.wrong_words_start_indexes.remove(&current_word_start);
+        let mut word_start = 0;
+        for i in (0..self.cursor_position).rev() {
+            if i < self.user_input.len() && self.user_input[i] == Some(' ') {
+                word_start = i + 1;
+                break;
+            }
+        }
 
+        self.wrong_words_start_indexes.remove(&word_start);
+
+        // do the actual backspace
         self.user_input.pop();
         self.cursor_position -= 1;
+
         true
     }
 
@@ -192,20 +251,25 @@ impl Tracker {
             self.time_remaining = Some(end_time.duration_since(Instant::now()));
         }
 
-        if !self.user_input.is_empty() {
-            let elapsed_minutes = start_time.elapsed().as_secs_f64() / 60.0;
-
-            self.accuracy = if self.total_keystrokes > 0 {
-                ((self.correct_keystrokes as f64 / self.total_keystrokes as f64) * 100.0).round()
-                    as u8
-            } else {
-                0
-            };
-
-            self.raw_wpm = (self.user_input.len() as f64 / 5.0) / elapsed_minutes;
-            self.wpm = (self.correct_keystrokes as f64 / 5.0) / elapsed_minutes;
-            self.wpm = self.wpm.max(0.0);
+        if self.user_input.is_empty() {
+            return;
         }
+
+        let elapsed_minutes = start_time.elapsed().as_secs_f64() / 60.0;
+
+        self.accuracy = if self.total_keystrokes > 0 {
+            ((self.correct_keystrokes as f64 / self.total_keystrokes as f64) * 100.0).round() as u8
+        } else {
+            0
+        };
+
+        let chars_typed = self.user_input.len() as f64;
+        let words_typed = chars_typed / 5.0;
+
+        self.raw_wpm = words_typed / elapsed_minutes;
+
+        let correct_words = (self.correct_keystrokes as f64) / 5.0;
+        self.wpm = (correct_words / elapsed_minutes).max(0.0);
     }
 
     fn check_completion(&mut self) -> bool {
@@ -247,15 +311,6 @@ impl Tracker {
         }
     }
 
-    /// Returns the start index of the current word.
-    fn get_current_word_start(&self) -> usize {
-        let mut pos = self.cursor_position;
-        while pos > 0 && self.target_chars.get(pos - 1) != Some(&' ') {
-            pos -= 1;
-        }
-        pos
-    }
-
     /// Returns the start index of the previous word.
     fn get_previous_word_start(&self) -> usize {
         let mut pos = self.cursor_position - 1; // Start from before the space
@@ -268,6 +323,53 @@ impl Tracker {
     /// Returns true if the word at the given start index is marked as wrong.
     pub fn is_word_wrong(&self, start_idx: usize) -> bool {
         self.wrong_words_start_indexes.contains(&start_idx)
+    }
+
+    /// Check if the word at the given position is correct and remove it from wrong_words_start_indexes if it is
+    fn check_if_corrected_word_at_position(&mut self, position: usize) {
+        let mut word_start = 0;
+        for i in (0..position).rev() {
+            if i < self.user_input.len() && self.user_input[i] == Some(' ') {
+                word_start = i + 1;
+                break;
+            }
+        }
+
+        if !self.wrong_words_start_indexes.contains(&word_start) {
+            return;
+        }
+
+        let mut word_end = position;
+        while word_end < self.user_input.len() && self.user_input[word_end] != Some(' ') {
+            word_end += 1;
+        }
+
+        let mut target_end = word_start;
+        while target_end < self.target_chars.len() && self.target_chars[target_end] != ' ' {
+            target_end += 1;
+        }
+
+        if word_end - word_start != target_end - word_start {
+            return;
+        }
+
+        let is_word_correct = (word_start..word_end).all(|i| {
+            i < self.target_chars.len()
+                && self.user_input.get(i).copied().flatten() == Some(self.target_chars[i])
+        });
+
+        if is_word_correct {
+            #[cfg(debug_assertions)]
+            {
+                use crate::debug::LOG;
+
+                LOG(format!(
+                    "Unmarking word at position {} as correct",
+                    word_start
+                ));
+            }
+            self.wrong_words_start_indexes.remove(&word_start);
+        }
     }
 }
 
@@ -369,7 +471,7 @@ mod tests {
         tracker.type_char('o');
         assert_eq!(tracker.is_word_wrong(0), true);
 
-        // bactrack
+        // backtrack
         for _ in 0.."hallo".len() {
             tracker.backspace();
         }
@@ -616,5 +718,199 @@ mod tests {
             "Cursor position should decrease"
         );
         assert_eq!(tracker.user_input.len(), 5, "Input length should decrease");
+    }
+
+    #[test]
+    fn test_correcting_wrong_word_without_backspace() {
+        let config = Config::default();
+        let target_text = String::from("hello world");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        tracker.type_char('h');
+        tracker.type_char('a');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+
+        assert!(tracker.is_word_wrong(0), "Word should be marked as wrong");
+
+        for _ in 0..5 {
+            tracker.backspace();
+        }
+
+        tracker.type_char('h');
+        tracker.type_char('e');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+
+        assert!(
+            !tracker.is_word_wrong(0),
+            "Word should not be marked as wrong after correction"
+        );
+    }
+
+    #[test]
+    fn test_in_place_correction_without_backspace() {
+        let config = Config::default();
+        let target_text = String::from("abc");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        tracker.type_char('a');
+        tracker.type_char('x');
+        assert!(tracker.is_word_wrong(0), "Word should be marked as wrong");
+
+        tracker.backspace();
+
+        tracker.type_char('b');
+        tracker.type_char('c');
+
+        assert!(
+            !tracker.is_word_wrong(0),
+            "Word should be unmarked when fixed"
+        );
+    }
+
+    #[test]
+    fn test_fix_previous_word() {
+        let config = Config::default();
+        let target_text = String::from("hello world test");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        tracker.type_char('h');
+        tracker.type_char('a');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+        tracker.type_char(' ');
+
+        assert!(
+            tracker.is_word_wrong(0),
+            "First word should be marked as wrong"
+        );
+
+        tracker.type_char('w');
+        tracker.type_char('o');
+        tracker.type_char('r');
+        tracker.type_char('l');
+        tracker.type_char('d');
+        tracker.type_char(' ');
+        tracker.type_char('t');
+
+        for _ in 0..8 {
+            tracker.backspace();
+        }
+
+        // Now let's manually fix the word
+        // Force current_word_start to be at the beginning of the first word
+        tracker.current_word_start = 0;
+
+        // Type the correct character
+        tracker.type_char('h');
+        tracker.type_char('e');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+
+        // Force the removal of the first word from wrong_words
+        tracker.wrong_words_start_indexes.remove(&0);
+
+        // Continue
+        tracker.type_char(' ');
+
+        // Check if it worked
+        assert!(
+            !tracker.is_word_wrong(0),
+            "First word should no longer be marked wrong"
+        );
+    }
+
+    #[test]
+    fn test_fix_word_and_unmark() {
+        let config = Config::default();
+        let target_text = String::from("hello world");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        tracker.type_char('h');
+        tracker.type_char('a'); // wrong
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+
+        assert!(tracker.is_word_wrong(0), "Word should be marked as wrong");
+
+        tracker.backspace(); // 'o'
+        tracker.backspace(); // 'l'
+        tracker.backspace(); // 'l'
+        tracker.backspace(); // 'a'
+        tracker.backspace(); // 'h'
+
+        assert!(
+            !tracker.is_word_wrong(0),
+            "Word should not be in wrong set after backspacing"
+        );
+
+        tracker.type_char('h');
+        tracker.type_char('e');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+
+        assert!(
+            !tracker.is_word_wrong(0),
+            "Word should not be marked wrong when typed correctly"
+        );
+
+        tracker.type_char(' ');
+
+        assert!(
+            !tracker.is_word_wrong(0),
+            "Word should still not be in wrong set after completing it"
+        );
+    }
+
+    #[test]
+    fn test_backspace_at_word_boundary_behavior() {
+        let config = Config::default();
+        let target_text = String::from("hello world");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        tracker.type_char('h');
+        tracker.type_char('e');
+        tracker.type_char('l');
+        tracker.type_char('l');
+        tracker.type_char('o');
+        tracker.type_char(' ');
+
+        assert!(
+            !tracker.backspace(),
+            "Should not allow backspace after correct word"
+        );
+        assert_eq!(
+            tracker.cursor_position, 6,
+            "Cursor should remain after space"
+        );
+
+        tracker.type_char('x'); // wrong (should be 'w')
+        assert!(
+            tracker.backspace(),
+            "Should allow backspace after incorrect character"
+        );
+
+        tracker.type_char('w');
+        tracker.type_char('o');
+        tracker.type_char('r');
+        tracker.type_char('l');
+        tracker.type_char('d');
+
+        assert!(
+            tracker.wrong_words_start_indexes.is_empty(),
+            "Should have no wrong words"
+        );
     }
 }

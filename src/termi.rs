@@ -90,7 +90,7 @@ impl Termi {
             builder,
             words,
             menu,
-            clickable_regions: Vec::new(),
+            clickable_regions: Vec::with_capacity(10),
             about_open: false,
             #[cfg(debug_assertions)]
             debug,
@@ -166,7 +166,10 @@ impl Termi {
             self.config.reset_words_flag();
         }
 
-        *self = Termi::new(&self.config);
+        // no memory leak on my wathc!
+        let old_termi = std::mem::replace(self, Termi::new(&self.config));
+        drop(old_termi);
+
         self.menu = menu;
         self.preview_theme = preview_theme;
         self.preview_cursor = preview_cursor;
@@ -182,7 +185,15 @@ impl Termi {
 
     pub fn update_preview_theme(&mut self) {
         if let Some(theme_name) = self.menu.get_preview_theme() {
-            self.preview_theme = Some(Theme::from_name(theme_name));
+            let needs_update = match &self.preview_theme {
+                None => true,
+                Some(current_theme) => current_theme.identifier != *theme_name,
+            };
+
+            if needs_update {
+                self.preview_theme = None;
+                self.preview_theme = Some(Theme::from_name(theme_name));
+            }
         } else {
             self.preview_theme = None;
         }
@@ -210,12 +221,37 @@ impl Termi {
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
     let mut termi = Termi::new(config);
-    let tick_rate = Duration::from_millis(250);
+
+    let tick_rate = Duration::from_millis(8); // ~120+ FPS
     let mut last_tick = Instant::now();
+    let mut last_render = Instant::now();
+    let mut last_metrics_update = Instant::now();
     let mut input_handler = InputHandler::new();
 
+    let mut needs_redraw = true;
+
+    let mut typing_burst_active = false;
+    let mut last_keystroke = Instant::now();
+    let typing_burst_threshold = Duration::from_millis(25);
+    let mut keystrokes_since_render = 0;
+    let max_keystrokes_before_render = 3; // force render after N keystrokes
+
     loop {
-        terminal.draw(|f| draw_ui(f, &mut termi))?;
+        let now = Instant::now();
+        let since_last_render = now.duration_since(last_render);
+
+        if needs_redraw
+            && ((!typing_burst_active && since_last_render.as_millis() > 16)
+                || (typing_burst_active
+                    && (since_last_render.as_millis() > 32
+                        || keystrokes_since_render >= max_keystrokes_before_render)))
+        {
+            terminal.draw(|f| draw_ui(f, &mut termi))?;
+            last_render = now;
+            needs_redraw = false;
+            keystrokes_since_render = 0;
+        }
+
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
@@ -232,6 +268,14 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                         break;
                     }
 
+                    let time_since_last_keystroke = now.duration_since(last_keystroke);
+                    typing_burst_active = time_since_last_keystroke < typing_burst_threshold;
+                    last_keystroke = now;
+
+                    if matches!(action, Action::TypeCharacter(_) | Action::Backspace) {
+                        keystrokes_since_render += 1;
+                    }
+
                     #[cfg(debug_assertions)]
                     if termi.debug.is_some() {
                         LOG(format!(
@@ -244,6 +288,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                     }
 
                     let action = process_action(action, &mut termi);
+
+                    needs_redraw = true;
+
                     if action == Action::Quit {
                         break;
                     }
@@ -255,19 +302,26 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                     ..
                 }) => {
                     termi.handle_click(column, row);
+                    typing_burst_active = false;
+                    needs_redraw = true;
                 }
                 _ => {}
             }
         }
 
-        if last_tick.elapsed() >= tick_rate {
+        if now.duration_since(last_metrics_update) >= Duration::from_millis(250) {
             termi.tracker.update_metrics();
+
             #[cfg(debug_assertions)]
             if let Some(debug) = termi.debug.as_mut() {
                 debug.sync_with_global();
             }
-            last_tick = Instant::now()
+            last_metrics_update = now;
+
+            needs_redraw = true;
         }
+
+        last_tick = Instant::now();
     }
 
     Ok(())

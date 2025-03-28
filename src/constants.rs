@@ -1,7 +1,7 @@
 pub const APPNAME: &str = "termitype";
 pub const DEFAULT_LANGUAGE: &str = "english";
 pub const DEFAULT_CURSOR_STYLE: &str = "beam";
-pub const DEFAULT_THEME: &str = "tokyonight";
+pub const DEFAULT_THEME: &str = "Serika Dark";
 
 pub const DEBUG_KEY: char = 'd';
 pub const BACKSPACE: char = '\x08';
