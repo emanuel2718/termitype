@@ -365,21 +365,24 @@ pub fn draw_about(f: &mut Frame, termi: &Termi, area: Rect) {
             Span::raw("\n"),
             Span::styled("\"name\"", Style::default().fg(theme.highlight())),
             Span::styled(": ", Style::default().fg(theme.muted())),
-            Span::styled("\"termitype\"", Style::default().fg(theme.success())),
+            Span::styled("\"termitype\"", Style::default().fg(theme.foreground())),
             Span::styled(",", Style::default().fg(theme.muted())),
         ]),
         Line::from(vec![
             Span::raw("  "),
             Span::styled("\"description\"", Style::default().fg(theme.highlight())),
             Span::styled(": ", Style::default().fg(theme.muted())),
-            Span::styled("\"TUI typing game\"", Style::default().fg(theme.success())),
+            Span::styled(
+                "\"TUI typing game\"",
+                Style::default().fg(theme.foreground()),
+            ),
             Span::styled(",", Style::default().fg(theme.muted())),
         ]),
         Line::from(vec![
             Span::raw("  "),
             Span::styled("\"license\"", Style::default().fg(theme.highlight())),
             Span::styled(": ", Style::default().fg(theme.muted())),
-            Span::styled("\"MIT\"", Style::default().fg(theme.success())),
+            Span::styled("\"MIT\"", Style::default().fg(theme.foreground())),
             Span::styled(",", Style::default().fg(theme.muted())),
         ]),
         Line::from(vec![
@@ -388,7 +391,7 @@ pub fn draw_about(f: &mut Frame, termi: &Termi, area: Rect) {
             Span::styled(": ", Style::default().fg(theme.muted())),
             Span::styled(
                 "\"Emanuel Ramirez <eramirez2718@gmail.com>\"",
-                Style::default().fg(theme.success()),
+                Style::default().fg(theme.foreground()),
             ),
             Span::styled(",", Style::default().fg(theme.muted())),
         ]),
@@ -398,7 +401,7 @@ pub fn draw_about(f: &mut Frame, termi: &Termi, area: Rect) {
             Span::styled(": ", Style::default().fg(theme.muted())),
             Span::styled(
                 "\"http://github.com/emanuel2718/termitype\"",
-                Style::default().fg(theme.success()),
+                Style::default().fg(theme.foreground()),
             ),
         ]),
         Line::from(vec![Span::styled("}", Style::default().fg(theme.muted()))]),

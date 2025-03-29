@@ -77,16 +77,15 @@ pub fn title(f: &mut Frame, termi: &Termi, area: Rect) {
     let title = Paragraph::new(APPNAME)
         .style(Style::default().fg(theme.highlight()))
         .add_modifier(Modifier::BOLD)
-        .alignment(Alignment::Center);
+        .alignment(Alignment::Left);
     f.render_widget(title, area);
 }
 
 pub fn progress_info(f: &mut Frame, termi: &mut Termi, area: Rect) {
     if termi.tracker.status == crate::tracker::Status::Idle {
-        let language = termi.config.language.as_str();
-        let language_text = format!("語 {}", language);
+        let language = termi.config.language.as_str().to_string();
 
-        let element = UIElement::new(language_text, false, Some(ClickAction::OpenLanguagePicker));
+        let element = UIElement::new(language, false, Some(ClickAction::OpenLanguagePicker));
 
         let start_x = area.x + (area.width.saturating_sub(element.width)) / 2;
 

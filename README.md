@@ -11,8 +11,7 @@
   </p>
 </p>
 
-![image](https://github.com/user-attachments/assets/71d74ce0-dc5c-4306-b1c0-1401df8b669b)
-
+![image](https://github.com/user-attachments/assets/526b6908-4ced-4bfb-bd60-b5ea4bcd8772)
 
 
 ## Development
@@ -48,7 +47,7 @@ mv iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/ghostty/* asset
 ## Installation
 
 ```sh
-cargo install termitype@0.0.1-alpha.1
+cargo install termitype@0.0.1-alpha.14
 ```
 
 ### TODO
@@ -57,13 +56,13 @@ cargo install termitype@0.0.1-alpha.1
 - [ ] User defined config in `$XDG_CONFIG_HOME/termitype/config`. Takes precedence over default config and persitent config state in db
 - [ ] Settings persistance
 - [ ] Results (locally) tracking with sqlite (can be opted-out with `termitype --no-track`)
-- [ ] Add click actions everywhere it makes sense
-- [ ] Improve the Footer with icons if possible
-- [ ] Use [tui-big-text](https://docs.rs/tui-big-text/latest/tui_big_text/) for the title
 - [ ] Layout cleanup pass
-- [ ] Performance optimization pass before release (cargo flamegraph --root)
-- [ ] Add LICENSE
-- [ ] Release on crates.io, Homebrew, AUR, nixpkgs, etc
+- [ ] Release on:
+    - [x] crates.io
+    - [ ] Homebrew
+    - [ ] AUR
+    - [ ] nixpkgs
+
 
 ### Done
 - [x] Build Github CI
@@ -80,6 +79,7 @@ cargo install termitype@0.0.1-alpha.1
 - [x] Change mode/value with the menu
 - [x] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
 - [x] Don't include `debug` flag in release
+- [x] Add LICENSE
 
 
 
