@@ -5,9 +5,9 @@
   <p align="center">
     Just another rusty TUI typing game
     <br />
-    <a href="#todo">TODO</a>
+    <a href="#development">Development</a>
     ·
-    <a href="#notes">Notes</a>
+    <a href="#Installation">Installation</a>
   </p>
 </p>
 
@@ -24,7 +24,13 @@ git clone https://github.com/emanuel2718/termitype.git
 cd termitype
 ```
 
-2. Build and run:
+2. Optional: Install theme Pack
+```sh
+# NOTE: This is only required for local development. In production, this is handled automatically by the build process.
+./scripts/install-themes.sh
+```
+
+3. Build and run:
 ```sh
 # Normal run
 cargo run
@@ -33,16 +39,7 @@ cargo run
 cargo run -- --debug
 ```
 
-3. Optional: Install theme Pack
-```sh
-# Download the theme pack
-wget -qO- https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz | tar -xvzf -
 
-# Move the themes to the assets folder
-mv iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/ghostty/* assets/themes/ && rm -rf iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/
-```
-
-- NOTE: The build process will automatically download and embed the theme pack during the first build. The themes are stored in `assets/themes` and will be included in the final release binary.
 
 ## Installation
 
@@ -80,13 +77,3 @@ cargo install termitype@0.0.1-alpha.14
 - [x] Fetch themes at build time from [iterm2Themes url](https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz)
 - [x] Don't include `debug` flag in release
 - [x] Add LICENSE
-
-
-
-### Notes
-- how to fetch themes
-```sh
-# hash: 12204fc99743d8232e691ac22e058519bfc6ea92de4a11c6dba59b117531c847cd6a
-wget -qO- https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz | tar -xvzf -
-mv iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/ghostty/* assets/themes/ && rm -rf iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/
-```
