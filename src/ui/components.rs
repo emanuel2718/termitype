@@ -430,7 +430,7 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let mut spans = Vec::new();
 
     for element in &elements {
-        spans.push(element.to_span(&termi.theme));
+        spans.push(element.to_span(&termi.get_current_theme()));
 
         if let Some(action) = &element.action {
             termi.clickable_regions.push(ClickableRegion {
@@ -547,7 +547,7 @@ pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let spans: Vec<Span> = elements
         .iter()
         .map(|element| {
-            let span = element.to_span(&termi.theme);
+            let span = element.to_span(&termi.get_current_theme());
 
             if let Some(action) = &element.action {
                 termi.clickable_regions.push(ClickableRegion {
