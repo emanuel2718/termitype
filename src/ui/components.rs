@@ -632,12 +632,12 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
 
     let stats = vec![
         ("OS", format!("termitype {}", VERSION)),
-        ("Lang", language.to_string()),
         ("Mode", format!("{} ({})", mode_type, mode_display)),
+        ("Lang", language.to_string()),
         ("WPM", format!("{} wpm", wpm)),
         ("Raw", format!("{} wpm", raw_wpm)),
-        ("Accuracy", format!("{}%", accuracy)),
         ("Time", format!("{}m {}s", minutes, seconds)),
+        ("Accuracy", format!("{}%", accuracy)),
         ("Keystrokes", format!("{} ({}%)", total_chars, accuracy)),
         ("Correct", format!("{} chars", correct_chars)),
         ("Errors", format!("{} chars", wrong_chars)),
