@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     config::{Mode, ModeType},
-    constants::{APPNAME, APP_LOGO},
+    constants::{APPNAME, APP_LOGO, FULL_LOGO_MIN_WIDTH},
     termi::Termi,
     theme::Theme,
     tracker::Status,
@@ -451,10 +451,9 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
     f.render_widget(paragraph, area);
 }
 
-// TODO: this could be simplified I think
 pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     let theme = termi.get_current_theme();
-    fn styled_span<'a>(content: &'a str, is_key: bool, theme: &Theme) -> Span<'a> {
+    fn styled_span(content: String, is_key: bool, theme: &Theme) -> Span<'static> {
         if is_key {
             return Span::styled(
                 content,
@@ -472,7 +471,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     }
 
     let command_groups = [
-        vec![vec![("", false)]], // spacing
+        vec![vec![("", false)]],
         vec![
             vec![
                 ("tab", true),
@@ -482,7 +481,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
             ],
             vec![("esc", true), (" - menu", false)],
         ],
-        vec![vec![("", false)]], // spacing
+        vec![vec![("", false)]],
         vec![vec![
             ("ctrl", true),
             (" + ", false),
@@ -495,31 +494,40 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
         ]],
     ];
 
-    let lines: Vec<Line> = command_groups
+    let lines: Vec<Line<'static>> = command_groups
         .iter()
         .map(|line_groups| {
-            let spans: Vec<Span> = line_groups
+            let total_width: usize = line_groups
                 .iter()
                 .enumerate()
-                .flat_map(|(i, group)| {
-                    let mut group_spans: Vec<Span> = group
-                        .iter()
-                        .map(|&(text, is_key)| styled_span(text, is_key, theme))
-                        .collect();
-
-                    if i < line_groups.len() - 1 {
-                        group_spans.push(styled_span("   ", false, theme));
-                    }
-
-                    group_spans
+                .map(|(i, group)| {
+                    let group_width: usize = group.iter().map(|(text, _)| text.len()).sum();
+                    group_width + if i < line_groups.len() - 1 { 3 } else { 0 }
                 })
-                .collect();
+                .sum();
+
+            let left_padding = (area.width as usize).saturating_sub(total_width) / 2;
+
+            let mut spans = Vec::new();
+            spans.push(styled_span(" ".repeat(left_padding), false, theme));
+
+            for (i, group) in line_groups.iter().enumerate() {
+                let group_spans: Vec<Span<'static>> = group
+                    .iter()
+                    .map(|&(text, is_key)| styled_span(text.to_string(), is_key, theme))
+                    .collect();
+                spans.extend(group_spans);
+
+                if i < line_groups.len() - 1 {
+                    spans.push(styled_span("   ".to_string(), false, theme));
+                }
+            }
 
             Line::from(spans)
         })
         .collect();
 
-    f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
+    f.render_widget(Paragraph::new(lines), area);
 }
 
 pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
@@ -576,7 +584,7 @@ pub fn results_screen(f: &mut Frame, termi: &mut Termi, area: Rect) {
     f.render_widget(create_results_widget(termi, area), area);
 }
 
-fn create_results_widget(termi: &Termi, _area: Rect) -> Paragraph<'static> {
+fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
     let theme = termi.get_current_theme();
 
     let mode_display = match termi.config.current_mode() {
@@ -603,7 +611,11 @@ fn create_results_widget(termi: &Termi, _area: Rect) -> Paragraph<'static> {
 
     let mut content_lines: Vec<Line<'static>> = Vec::new();
 
-    let stats_offset = 35
+    let stats_offset = if area.width >= FULL_LOGO_MIN_WIDTH {
+        35
+    } else {
+        15
+    };
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
     let hostname = "termitype";
     let header = format!("{}@{}", username, hostname);
@@ -635,12 +647,18 @@ fn create_results_widget(termi: &Termi, _area: Rect) -> Paragraph<'static> {
         ),
     ];
 
+    let logo = if area.width >= FULL_LOGO_MIN_WIDTH {
+        APP_LOGO
+    } else {
+        &[]
+    };
+
     for (i, (label, value)) in stats.iter().enumerate() {
         let mut line = Vec::new();
 
-        if i < APP_LOGO.len() {
+        if i < logo.len() {
             line.push(Span::styled(
-                format!("{:width$}", APP_LOGO[i], width = stats_start),
+                format!("{:width$}", logo[i], width = stats_offset),
                 Style::default().fg(theme.highlight()),
             ));
         } else {
@@ -689,20 +707,20 @@ fn create_results_widget(termi: &Termi, _area: Rect) -> Paragraph<'static> {
             ("enter", true),
             (" restart test", false),
         ],
-        vec![("esc", true), (" menu", false)],
         vec![
             ("ctrl", true),
             (" + ", false),
             ("c", true),
             (" quit", false),
         ],
+        vec![("esc", true), (" menu", false)],
     ];
 
     for hint_group in &bottom_hints {
         let mut spans = Vec::new();
 
         let total_length: usize = hint_group.iter().map(|(text, _)| text.len()).sum();
-        let center_position = (_area.width.saturating_sub(total_length as u16)) / 2;
+        let center_position = (area.width.saturating_sub(total_length as u16)) / 2;
 
         spans.push(Span::raw(" ".repeat(center_position as usize)));
 

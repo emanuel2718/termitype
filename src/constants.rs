@@ -29,7 +29,8 @@ pub const MIN_TYPING_HEIGHT: u16 = 3;
 pub const TYPING_AREA_WIDTH_PERCENT: u16 = 80;
 
 pub const APP_LOGO: &[&str] = &[
-    "                                   ",
+    "      └──┐                        ",
+    "         └─────┐                  ",
     "╭───────────────────────────╮",
     "│ ┌───┐┌───┐┌───┐┌───┐┌───┐ │",
     "│ │ T ││ E ││ R ││ M ││ I │ │",
@@ -40,3 +41,5 @@ pub const APP_LOGO: &[&str] = &[
     "╰───────────────────────────╯",
     "                                   ",
 ];
+
+pub const FULL_LOGO_MIN_WIDTH: u16 = 65;
