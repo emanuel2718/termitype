@@ -9,6 +9,8 @@ pub struct Tracker {
     pub wpm: f64,
     pub raw_wpm: f64,
     pub accuracy: u8,
+    pub wpm_samples: Vec<u32>,
+    pub last_sample_time: Instant,
 
     // time
     pub time_started: Option<Instant>,
@@ -62,6 +64,8 @@ impl Tracker {
             wpm: 0.0,
             raw_wpm: 0.0,
             accuracy: 0,
+            wpm_samples: Vec::with_capacity(100), // Pre-allocate space for samples
+            last_sample_time: Instant::now(),
             time_remaining,
             time_started: None,
             time_paused: None,
@@ -86,6 +90,8 @@ impl Tracker {
     pub fn start_typing(&mut self) {
         let now = Instant::now();
         self.time_started = Some(now);
+        self.last_sample_time = now;
+        self.wpm_samples.clear();
 
         if let Some(duration) = self.time_remaining {
             let seconds = duration.as_secs();
@@ -263,6 +269,29 @@ impl Tracker {
 
         let correct_words = (self.correct_keystrokes as f64) / 5.0;
         self.wpm = (correct_words / elapsed_minutes).max(0.0);
+
+        let now = Instant::now();
+        if now.duration_since(self.last_sample_time) >= Duration::from_secs(1) {
+            self.wpm_samples.push(self.wpm.round() as u32);
+            self.last_sample_time = now;
+        }
+    }
+
+    /// Calculate typing consistency as a percentage.
+    pub fn calculate_consistency(&self) -> f64 {
+        if self.wpm_samples.len() < 2 {
+            return 100.0;
+        }
+
+        let samples: Vec<f64> = self.wpm_samples.iter().map(|&x| x as f64).collect();
+        let mean = samples.iter().sum::<f64>() / samples.len() as f64;
+
+        // shotout school
+        let variance =
+            samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (samples.len() - 1) as f64;
+        let std_dev = variance.sqrt();
+
+        (1.0 - (std_dev / mean)).clamp(0.0, 1.0) * 100.0
     }
 
     fn check_completion(&mut self) -> bool {
@@ -479,13 +508,13 @@ mod tests {
         tracker.type_char('l');
         tracker.type_char('l');
         tracker.type_char('o');
-        assert_eq!(tracker.is_word_wrong(0), true);
+        assert!(tracker.is_word_wrong(0));
 
         // backtrack
         for _ in 0.."hallo".len() {
             tracker.backspace();
         }
-        assert_eq!(tracker.is_word_wrong(0), false);
+        assert!(!tracker.is_word_wrong(0));
 
         // Type "hello" correctly
         tracker.type_char('h');
@@ -493,7 +522,7 @@ mod tests {
         tracker.type_char('l');
         tracker.type_char('l');
         tracker.type_char('o');
-        assert_eq!(tracker.is_word_wrong(0), false);
+        assert!(!tracker.is_word_wrong(0));
     }
 
     #[test]
@@ -524,11 +553,11 @@ mod tests {
         tracker.type_char('p');
         tracker.type_char('a');
 
-        assert_eq!(tracker.is_word_wrong(6), false);
-        assert_eq!(tracker.is_word_wrong(12), true);
+        assert!(!tracker.is_word_wrong(6));
+        assert!(tracker.is_word_wrong(12));
 
         // is first word still marked as wrong? should be
-        assert_eq!(tracker.is_word_wrong(0), true);
+        assert!(tracker.is_word_wrong(0));
     }
 
     #[test]
@@ -921,6 +950,96 @@ mod tests {
         assert!(
             tracker.wrong_words_start_indexes.is_empty(),
             "Should have no wrong words"
+        );
+    }
+
+    #[test]
+    fn test_consistency_calculation() {
+        let mut tracker = create_tracker();
+
+        assert_eq!(tracker.calculate_consistency(), 100.0);
+
+        tracker.wpm_samples = vec![50];
+        assert_eq!(tracker.calculate_consistency(), 100.0);
+
+        tracker.wpm_samples = vec![50, 50, 50];
+        assert_eq!(tracker.calculate_consistency(), 100.0);
+
+        // mean=50, std_dev=5 => variation would be 10% ==> consistentcy is 90%
+        tracker.wpm_samples = vec![45, 50, 55];
+        let consistency = tracker.calculate_consistency();
+        assert!(
+            (89.0..91.0).contains(&consistency),
+            "Expected consistency around 90% for 10% variation, got {}%",
+            consistency
+        );
+
+        // mean=50, std_dev=25 => variation would be 50% ==> consistentcy is 50%
+        tracker.wpm_samples = vec![25, 50, 75];
+        let consistency = tracker.calculate_consistency();
+        assert!(
+            (49.0..51.0).contains(&consistency),
+            "Expected consistency around 50% for 50% variation, got {}%",
+            consistency
+        );
+    }
+
+    #[test]
+    fn test_wpm_sample_collection_during_typing() {
+        let mut tracker = create_tracker();
+        tracker.start_typing();
+
+        for c in "hello".chars() {
+            tracker.type_char(c);
+        }
+
+        assert!(tracker.wpm_samples.is_empty());
+
+        tracker.last_sample_time -= Duration::from_secs(1);
+        tracker.update_metrics();
+        assert_eq!(tracker.wpm_samples.len(), 1);
+
+        for c in " world".chars() {
+            tracker.type_char(c);
+        }
+        tracker.last_sample_time -= Duration::from_secs(1);
+        tracker.update_metrics();
+        assert_eq!(tracker.wpm_samples.len(), 2);
+
+        assert!(tracker.wpm_samples[0] != tracker.wpm_samples[1]);
+    }
+
+    #[test]
+    fn test_wpm_sample_collection() {
+        let mut tracker = create_tracker();
+        tracker.start_typing();
+
+        for c in "hello world".chars() {
+            tracker.type_char(c);
+        }
+        tracker.last_sample_time = Instant::now() - Duration::from_secs(1);
+
+        tracker.update_metrics();
+        assert_eq!(
+            tracker.wpm_samples.len(),
+            1,
+            "Should have collected first sample"
+        );
+
+        tracker.update_metrics();
+        assert_eq!(
+            tracker.wpm_samples.len(),
+            1,
+            "Should not collect sample within interval"
+        );
+
+        tracker.last_sample_time = Instant::now() - Duration::from_secs(2);
+
+        tracker.update_metrics();
+        assert_eq!(
+            tracker.wpm_samples.len(),
+            2,
+            "Should collect new sample after interval"
         );
     }
 }

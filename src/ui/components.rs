@@ -605,6 +605,10 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
     let accuracy = termi.tracker.accuracy;
     let backspace_count = termi.tracker.backspace_count;
     let language = termi.config.language.as_str();
+    let consistency = termi.tracker.calculate_consistency();
+    let min_wpm = termi.tracker.wpm_samples.iter().min().unwrap_or(&0);
+
+    let max_wpm = termi.tracker.wpm_samples.iter().max().unwrap_or(&0);
 
     let elapsed_seconds = termi.tracker.completion_time.unwrap_or(0.0).round() as u32;
     let minutes = elapsed_seconds / 60;
@@ -642,17 +646,15 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
         ("Mode", format!("{} ({})", mode_type, mode_display)),
         ("Lang", language.to_string()),
         ("WPM", format!("{} wpm", wpm)),
-        ("Raw", format!("{} wpm", raw_wpm)),
         ("Time", format!("{}m {}s", minutes, seconds)),
         ("Accuracy", format!("{}%", accuracy)),
         ("Keystrokes", format!("{} ({}%)", total_chars, accuracy)),
         ("Correct", format!("{} chars", correct_chars)),
         ("Errors", format!("{} chars", wrong_chars)),
         ("Backspaces", format!("{} ", backspace_count)),
-        (
-            "Consistency",
-            format!("{:.1}%", (raw_wpm as f64 / wpm as f64 * 100.0).min(100.0)),
-        ),
+        ("Consistency", format!("{:.1}%", consistency)),
+        ("Raw WPM", format!("{} wpm", raw_wpm)),
+        ("WPM Range", format!("{}-{} wpm", min_wpm, max_wpm)),
     ];
 
     let logo = if area.width >= SMALL_SCREEN_WIDTH {
