@@ -42,4 +42,4 @@ pub const APP_LOGO: &[&str] = &[
     "                                   ",
 ];
 
-pub const FULL_LOGO_MIN_WIDTH: u16 = 65;
+pub const SMALL_SCREEN_WIDTH: u16 = 65;

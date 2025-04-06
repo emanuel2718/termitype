@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     config::{Mode, ModeType},
-    constants::{APPNAME, APP_LOGO, FULL_LOGO_MIN_WIDTH},
+    constants::{APPNAME, APP_LOGO, SMALL_SCREEN_WIDTH},
     termi::Termi,
     theme::Theme,
     tracker::Status,
@@ -611,10 +611,10 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
 
     let mut content_lines: Vec<Line<'static>> = Vec::new();
 
-    let stats_offset = if area.width >= FULL_LOGO_MIN_WIDTH {
+    let stats_offset = if area.width >= SMALL_SCREEN_WIDTH {
         35
     } else {
-        15
+        10
     };
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
     let hostname = "termitype";
@@ -630,8 +630,14 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
         Span::styled(separator, Style::default().fg(theme.highlight())),
     ]));
 
+    let os_str = if area.width >= SMALL_SCREEN_WIDTH {
+        format!("termitype {}", VERSION)
+    } else {
+        "termitype".to_string()
+    };
+
     let stats = vec![
-        ("OS", format!("termitype {}", VERSION)),
+        ("OS", os_str),
         ("Mode", format!("{} ({})", mode_type, mode_display)),
         ("Lang", language.to_string()),
         ("WPM", format!("{} wpm", wpm)),
@@ -647,7 +653,7 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
         ),
     ];
 
-    let logo = if area.width >= FULL_LOGO_MIN_WIDTH {
+    let logo = if area.width >= SMALL_SCREEN_WIDTH {
         APP_LOGO
     } else {
         &[]
