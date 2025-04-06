@@ -49,7 +49,6 @@ cargo install termitype@0.0.1-alpha.15
 
 ### TODO
 
-- [ ] Proper Results screen
 - [ ] User defined config in `$XDG_CONFIG_HOME/termitype/config`. Takes precedence over default config and persitent config state in db
 - [ ] Settings persistance
 - [ ] Results (locally) tracking with sqlite (can be opted-out with `termitype --no-track`)
@@ -62,6 +61,7 @@ cargo install termitype@0.0.1-alpha.15
 
 
 ### Done
+- [x] Proper Results screen
 - [x] Build Github CI
 - [x] Theme swap at runtime (Menu -> Themes -> <list of themes>)
 - [x] Theme preview in menu

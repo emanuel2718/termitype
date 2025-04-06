@@ -45,29 +45,39 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
             typing_area(f, termi, typing_chunks[2]);
         }
         Status::Completed => {
-            let results_height = 8;
-
             let vertical_layout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Percentage(
-                        50 - ((results_height * 100) / (window_area.height * 2)),
-                    ),
-                    Constraint::Length(results_height),
-                    Constraint::Min(0),
+                    Constraint::Percentage(10), // Top margin
+                    Constraint::Percentage(80), // Results area
+                    Constraint::Percentage(10), // Bottom margin
                 ])
-                .split(window_area);
+                .split(f.area());
 
             let horizontal_layout = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([
-                    Constraint::Percentage(25),
-                    Constraint::Percentage(50),
-                    Constraint::Percentage(25),
+                    Constraint::Percentage(10), // Left margin
+                    Constraint::Percentage(80), // Results area
+                    Constraint::Percentage(10), // Right margin
                 ])
                 .split(vertical_layout[1]);
 
-            results_screen(f, termi, horizontal_layout[1]);
+            // Calculate the content width based on the logo width + stats width
+            let content_width = 80u16; // Reasonable default width that works well
+            let content_height = 20u16; // Reasonable default height that works well
+
+            // Create a centered rect for our content
+            let centered_rect = Rect {
+                x: horizontal_layout[1].x
+                    + (horizontal_layout[1].width.saturating_sub(content_width)) / 2,
+                y: horizontal_layout[1].y
+                    + (horizontal_layout[1].height.saturating_sub(content_height)) / 2,
+                width: content_width.min(horizontal_layout[1].width),
+                height: content_height.min(horizontal_layout[1].height),
+            };
+
+            results_screen(f, termi, centered_rect);
         }
         _ => {
             title(f, termi, layout[0]);

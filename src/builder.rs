@@ -189,8 +189,7 @@ mod tests {
     use crate::config::Config;
 
     fn create_builder() -> Builder {
-        let builder = Builder::new();
-        builder
+        Builder::new()
     }
 
     #[test]

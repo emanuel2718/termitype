@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     config::{Mode, ModeType},
-    constants::APPNAME,
+    constants::{APPNAME, APP_LOGO, SMALL_SCREEN_WIDTH},
     termi::Termi,
     theme::Theme,
     tracker::Status,
@@ -451,10 +451,9 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
     f.render_widget(paragraph, area);
 }
 
-// TODO: this could be simplified I think
 pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     let theme = termi.get_current_theme();
-    fn styled_span<'a>(content: &'a str, is_key: bool, theme: &Theme) -> Span<'a> {
+    fn styled_span(content: String, is_key: bool, theme: &Theme) -> Span<'static> {
         if is_key {
             return Span::styled(
                 content,
@@ -472,7 +471,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
     }
 
     let command_groups = [
-        vec![vec![("", false)]], // spacing
+        vec![vec![("", false)]],
         vec![
             vec![
                 ("tab", true),
@@ -482,7 +481,7 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
             ],
             vec![("esc", true), (" - menu", false)],
         ],
-        vec![vec![("", false)]], // spacing
+        vec![vec![("", false)]],
         vec![vec![
             ("ctrl", true),
             (" + ", false),
@@ -495,31 +494,40 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
         ]],
     ];
 
-    let lines: Vec<Line> = command_groups
+    let lines: Vec<Line<'static>> = command_groups
         .iter()
         .map(|line_groups| {
-            let spans: Vec<Span> = line_groups
+            let total_width: usize = line_groups
                 .iter()
                 .enumerate()
-                .flat_map(|(i, group)| {
-                    let mut group_spans: Vec<Span> = group
-                        .iter()
-                        .map(|&(text, is_key)| styled_span(text, is_key, theme))
-                        .collect();
-
-                    if i < line_groups.len() - 1 {
-                        group_spans.push(styled_span("   ", false, theme));
-                    }
-
-                    group_spans
+                .map(|(i, group)| {
+                    let group_width: usize = group.iter().map(|(text, _)| text.len()).sum();
+                    group_width + if i < line_groups.len() - 1 { 3 } else { 0 }
                 })
-                .collect();
+                .sum();
+
+            let left_padding = (area.width as usize).saturating_sub(total_width) / 2;
+
+            let mut spans = Vec::new();
+            spans.push(styled_span(" ".repeat(left_padding), false, theme));
+
+            for (i, group) in line_groups.iter().enumerate() {
+                let group_spans: Vec<Span<'static>> = group
+                    .iter()
+                    .map(|&(text, is_key)| styled_span(text.to_string(), is_key, theme))
+                    .collect();
+                spans.extend(group_spans);
+
+                if i < line_groups.len() - 1 {
+                    spans.push(styled_span("   ".to_string(), false, theme));
+                }
+            }
 
             Line::from(spans)
         })
         .collect();
 
-    f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
+    f.render_widget(Paragraph::new(lines), area);
 }
 
 pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
@@ -579,104 +587,178 @@ pub fn results_screen(f: &mut Frame, termi: &mut Termi, area: Rect) {
 fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
     let theme = termi.get_current_theme();
 
-    let test_type = match termi.config.current_mode() {
-        Mode::Time { duration } => format!("{}s {}", duration, termi.config.language),
-        Mode::Words { count } => format!("{} words {}", count, termi.config.language),
+    let mode_display = match termi.config.current_mode() {
+        Mode::Time { duration } => format!("{} seconds", duration),
+        Mode::Words { count } => format!("{} words", count),
+    };
+
+    let mode_type = match termi.config.current_mode() {
+        Mode::Time { .. } => "Time",
+        Mode::Words { .. } => "Words",
     };
 
     let total_chars = termi.tracker.total_keystrokes;
     let correct_chars = termi.tracker.correct_keystrokes;
     let wrong_chars = total_chars.saturating_sub(correct_chars);
+    let wpm = termi.tracker.wpm.round() as u32;
+    let raw_wpm = termi.tracker.raw_wpm.round() as u32;
+    let accuracy = termi.tracker.accuracy;
+    let backspace_count = termi.tracker.backspace_count;
+    let language = termi.config.language.as_str();
+    let consistency = termi.tracker.calculate_consistency();
+    let min_wpm = termi.tracker.wpm_samples.iter().min().unwrap_or(&0);
 
-    let wpm = format!("{}", termi.tracker.wpm.round() as u32);
-    let raw_wpm = format!("{}", termi.tracker.raw_wpm.round() as u32);
-    let accuracy = format!("{}%", termi.tracker.accuracy);
+    let max_wpm = termi.tracker.wpm_samples.iter().max().unwrap_or(&0);
 
-    let mut content_lines = Vec::new();
+    let elapsed_seconds = termi.tracker.completion_time.unwrap_or(0.0).round() as u32;
+    let minutes = elapsed_seconds / 60;
+    let seconds = elapsed_seconds % 60;
 
-    // we are running out of space
-    if area.height <= 3 {
-        content_lines.push(Line::from(vec![
-            Span::styled(wpm, Style::default().fg(theme.highlight())),
-            Span::styled(" wpm", Style::default().fg(theme.muted())),
-        ]));
-    }
-    // compact mode (4-6 lines)
-    else if area.height <= 6 {
-        content_lines.push(Line::from(vec![
-            Span::styled(wpm, Style::default().fg(theme.highlight())),
-            Span::styled(" wpm", Style::default().fg(theme.muted())),
-        ]));
-        content_lines.push(Line::from(vec![Span::styled(
-            test_type,
-            Style::default().fg(theme.foreground()),
-        )]));
-        content_lines.push(Line::from(vec![
-            Span::styled(accuracy, Style::default().fg(theme.info())),
-            Span::styled(" accuracy", Style::default().fg(theme.muted())),
-        ]));
-    }
-    // full results
-    else {
-        content_lines.push(Line::default());
-        content_lines.push(Line::from(vec![
-            Span::styled(
-                wpm,
-                Style::default()
-                    .fg(theme.highlight())
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(" wpm", Style::default().fg(theme.muted())),
-        ]));
-        content_lines.push(Line::default());
+    let mut content_lines: Vec<Line<'static>> = Vec::new();
 
-        content_lines.push(Line::from(vec![Span::styled(
-            test_type,
-            Style::default().fg(theme.foreground()),
-        )]));
-        content_lines.push(Line::default());
+    let stats_offset = if area.width >= SMALL_SCREEN_WIDTH {
+        35
+    } else {
+        10
+    };
+    let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
+    let hostname = "termitype";
+    let header = format!("{}@{}", username, hostname);
+    let separator = "─".repeat(header.chars().count());
 
-        content_lines.push(Line::from(vec![
-            Span::styled(raw_wpm, Style::default().fg(theme.foreground())),
-            Span::styled(" raw", Style::default().fg(theme.muted())),
-            Span::raw("  "),
-            Span::styled(accuracy, Style::default().fg(theme.info())),
-            Span::styled(" accuracy", Style::default().fg(theme.muted())),
-        ]));
+    content_lines.push(Line::from(vec![
+        Span::raw(" ".repeat(stats_offset)),
+        Span::styled(header, Style::default().fg(theme.highlight())),
+    ]));
+    content_lines.push(Line::from(vec![
+        Span::raw(" ".repeat(stats_offset)),
+        Span::styled(separator, Style::default().fg(theme.highlight())),
+    ]));
 
-        content_lines.push(Line::from(vec![
-            Span::styled(
-                format!("{}", correct_chars),
-                Style::default().fg(theme.success()),
-            ),
-            Span::styled(" correct", Style::default().fg(theme.muted())),
-            Span::raw("  "),
-            Span::styled(
-                format!("{}", wrong_chars),
-                Style::default().fg(theme.error()),
-            ),
-            Span::styled(" errors", Style::default().fg(theme.muted())),
-        ]));
+    let os_str = if area.width >= SMALL_SCREEN_WIDTH {
+        format!("termitype {}", VERSION)
+    } else {
+        "termitype".to_string()
+    };
 
-        if area.height > 8 {
-            content_lines.push(Line::default());
-            content_lines.push(Line::from(vec![
-                Span::styled("tab", Style::default().fg(theme.highlight())),
-                Span::styled(" + ", Style::default().fg(theme.muted())),
-                Span::styled("enter", Style::default().fg(theme.highlight())),
-                Span::styled(" restart", Style::default().fg(theme.muted())),
-                Span::raw("  "),
-                Span::styled("ctrl", Style::default().fg(theme.highlight())),
-                Span::styled(" + ", Style::default().fg(theme.muted())),
-                Span::styled("q", Style::default().fg(theme.highlight())),
-                Span::styled(" menu", Style::default().fg(theme.muted())),
-            ]));
+    let stats = vec![
+        ("OS", os_str),
+        ("Mode", format!("{} ({})", mode_type, mode_display)),
+        ("Lang", language.to_string()),
+        ("WPM", format!("{} wpm", wpm)),
+        ("Time", format!("{}m {}s", minutes, seconds)),
+        ("Accuracy", format!("{}%", accuracy)),
+        ("Keystrokes", format!("{} ({}%)", total_chars, accuracy)),
+        ("Correct", format!("{} chars", correct_chars)),
+        ("Errors", format!("{} chars", wrong_chars)),
+        ("Backspaces", format!("{} ", backspace_count)),
+        ("Consistency", format!("{:.1}%", consistency)),
+        ("Raw WPM", format!("{} wpm", raw_wpm)),
+        ("WPM Range", format!("{}-{} wpm", min_wpm, max_wpm)),
+    ];
+
+    let logo = if area.width >= SMALL_SCREEN_WIDTH {
+        APP_LOGO
+    } else {
+        &[]
+    };
+
+    for (i, (label, value)) in stats.iter().enumerate() {
+        let mut line = Vec::new();
+
+        if i < logo.len() {
+            line.push(Span::styled(
+                format!("{:width$}", logo[i], width = stats_offset),
+                Style::default().fg(theme.highlight()),
+            ));
+        } else {
+            line.push(Span::raw(" ".repeat(stats_offset)));
         }
+
+        line.push(Span::styled(
+            format!("{}: ", label),
+            Style::default().fg(theme.highlight()),
+        ));
+        line.push(Span::styled(
+            value.clone(),
+            Style::default().fg(theme.muted()),
+        ));
+
+        content_lines.push(Line::from(line));
+    }
+
+    content_lines.push(Line::default());
+
+    let mut color_blocks = Vec::new();
+    color_blocks.push(Span::raw(" ".repeat(stats_offset)));
+
+    for color in [
+        theme.accent(),
+        theme.error(),
+        theme.success(),
+        theme.warning(),
+        theme.info(),
+        theme.highlight(),
+        theme.muted(),
+    ] {
+        color_blocks.push(Span::styled("██", Style::default().fg(color)));
+    }
+
+    content_lines.push(Line::from(color_blocks));
+
+    content_lines.push(Line::default());
+    content_lines.push(Line::default());
+
+    // TODO: reuse `command_bar`
+    let bottom_hints = vec![
+        vec![
+            ("tab", true),
+            (" + ", false),
+            ("enter", true),
+            (" restart test", false),
+        ],
+        vec![
+            ("ctrl", true),
+            (" + ", false),
+            ("c", true),
+            (" quit", false),
+        ],
+        vec![("esc", true), (" menu", false)],
+    ];
+
+    for hint_group in &bottom_hints {
+        let mut spans = Vec::new();
+
+        let total_length: usize = hint_group.iter().map(|(text, _)| text.len()).sum();
+        let center_position = (area.width.saturating_sub(total_length as u16)) / 2;
+
+        spans.push(Span::raw(" ".repeat(center_position as usize)));
+
+        for &(text, is_key) in hint_group {
+            let span = if is_key {
+                Span::styled(
+                    text.to_string(),
+                    Style::default()
+                        .fg(theme.highlight())
+                        .add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::styled(
+                    text.to_string(),
+                    Style::default()
+                        .fg(theme.muted())
+                        .add_modifier(Modifier::DIM),
+                )
+            };
+            spans.push(span);
+        }
+
+        content_lines.push(Line::from(spans));
     }
 
     Paragraph::new(content_lines)
-        .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true })
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: false })
 }
 
 #[cfg(test)]
