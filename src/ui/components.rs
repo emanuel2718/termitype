@@ -603,6 +603,7 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
     let wpm = termi.tracker.wpm.round() as u32;
     let raw_wpm = termi.tracker.raw_wpm.round() as u32;
     let accuracy = termi.tracker.accuracy;
+    let backspace_count = termi.tracker.backspace_count;
     let language = termi.config.language.as_str();
 
     let elapsed_seconds = termi.tracker.completion_time.unwrap_or(0.0).round() as u32;
@@ -647,6 +648,7 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
         ("Keystrokes", format!("{} ({}%)", total_chars, accuracy)),
         ("Correct", format!("{} chars", correct_chars)),
         ("Errors", format!("{} chars", wrong_chars)),
+        ("Backspaces", format!("{} ", backspace_count)),
         (
             "Consistency",
             format!("{:.1}%", (raw_wpm as f64 / wpm as f64 * 100.0).min(100.0)),

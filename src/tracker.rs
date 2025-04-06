@@ -27,6 +27,7 @@ pub struct Tracker {
 
     pub total_keystrokes: usize,
     pub correct_keystrokes: usize,
+    pub backspace_count: usize,
     pub wrong_words_start_indexes: HashSet<usize>,
 
     pub current_word_start: usize,
@@ -73,6 +74,7 @@ impl Tracker {
             word_count,
             status: Status::Idle,
             total_keystrokes: 0,
+            backspace_count: 0,
             correct_keystrokes: 0,
             wrong_words_start_indexes: HashSet::with_capacity(word_count / 5), // guesstimate
             current_word_start: 0,
@@ -189,6 +191,7 @@ impl Tracker {
         if self.cursor_position == 0 {
             return false;
         }
+        self.backspace_count += 1;
 
         // just typed a space
         let at_word_boundary = self.cursor_position > 0
@@ -198,16 +201,6 @@ impl Tracker {
         if at_word_boundary {
             // start of a new word - only allow backspace if previous word was wrong
             let previous_word_start_idx = self.get_previous_word_start();
-
-            #[cfg(debug_assertions)]
-            {
-                use crate::debug::LOG;
-                LOG(format!("Previous word start: {}", previous_word_start_idx));
-                LOG(format!(
-                    "Word is wrong: {}",
-                    self.is_word_wrong(previous_word_start_idx)
-                ));
-            }
 
             if !self.is_word_wrong(previous_word_start_idx) {
                 return false;
@@ -393,6 +386,23 @@ mod tests {
         assert_eq!(tracker.cursor_position, 0);
         assert!(tracker.time_started.is_none());
         assert!(tracker.completion_time.is_none());
+    }
+
+    #[test]
+    fn test_backscpace_count_tracking() {
+        let mut tracker = create_tracker();
+        tracker.backspace();
+        assert_eq!(tracker.backspace_count, 0);
+
+        tracker.start_typing();
+        tracker.backspace();
+        assert_eq!(tracker.backspace_count, 0);
+
+        for i in 0..10 {
+            tracker.type_char(char::from(i));
+            tracker.backspace();
+        }
+        assert_eq!(tracker.backspace_count, 10);
     }
 
     #[test]
