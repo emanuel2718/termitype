@@ -1,8 +1,14 @@
-use std::{collections::HashMap, str::FromStr, sync::OnceLock};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{OnceLock, RwLock},
+};
 
 use ratatui::style::Color;
 
 use crate::{assets, config::Config, constants::DEFAULT_THEME};
+
+static THEME_LOADER: OnceLock<RwLock<ThemeLoader>> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct ThemeLoader {
@@ -70,13 +76,18 @@ impl Theme {
         if !color_support.supports_themes() {
             return Self::fallback_theme_with_support(color_support);
         }
-        let mut loader = ThemeLoader::init();
-        let theme_name = config.theme.as_str();
-        let mut theme = loader.get_theme(theme_name).unwrap_or_else(|_| {
-            loader
-                .get_theme(DEFAULT_THEME)
-                .expect("Default theme must exist")
-        });
+        let loader = ThemeLoader::init();
+        let mut theme = loader
+            .write()
+            .unwrap()
+            .get_theme(config.theme.as_str())
+            .unwrap_or_else(|_| {
+                loader
+                    .write()
+                    .unwrap()
+                    .get_theme(DEFAULT_THEME)
+                    .expect("Default theme must exist")
+            });
         theme.color_support = color_support;
         theme
     }
@@ -126,11 +137,13 @@ impl Theme {
         theme
     }
 
-    #[allow(clippy::field_reassign_with_default)]
     pub fn from_name(name: &str) -> Self {
-        let mut config = Config::default();
-        config.theme = name.to_string();
-        Self::new(&config)
+        let loader = ThemeLoader::init();
+        loader
+            .write()
+            .unwrap()
+            .get_theme(name)
+            .unwrap_or_else(|_| Self::fallback_theme())
     }
 
     // ************** COLORS_FN **************
@@ -188,15 +201,6 @@ impl Theme {
     pub fn muted(&self) -> Color {
         self.colors[ColorIndex::Muted as usize]
     }
-
-    // ***************************************
-
-    pub fn new_from_name(name: &str) -> Self {
-        let mut loader = ThemeLoader::init();
-        loader
-            .get_theme(name)
-            .unwrap_or_else(|_| Self::fallback_theme())
-    }
 }
 
 impl std::str::FromStr for ColorSupport {
@@ -213,16 +217,15 @@ impl std::str::FromStr for ColorSupport {
 }
 
 impl ThemeLoader {
-    fn init() -> Self {
-        let mut loader = Self {
-            themes: HashMap::new(),
-        };
-        if loader.load_theme(DEFAULT_THEME).is_err() {
-            loader
-                .themes
-                .insert(DEFAULT_THEME.to_string(), Theme::fallback_theme());
-        }
-        loader
+    fn init() -> &'static RwLock<ThemeLoader> {
+        THEME_LOADER.get_or_init(|| {
+            let mut loader = Self {
+                themes: HashMap::new(),
+            };
+            // pre-load default theme
+            loader.load_theme(DEFAULT_THEME).ok();
+            RwLock::new(loader)
+        })
     }
 
     /// Checks if the given theme is available
@@ -233,7 +236,7 @@ impl ThemeLoader {
     /// Loads a theme from assets
     fn load_theme(&mut self, theme_name: &str) -> Result<(), Box<dyn std::error::Error>> {
         if !Self::has_theme(theme_name) {
-            return Err(format!("Theme '{theme_name}' is not available.").into());
+            return Err(format!("[ERROR] Theme '{theme_name}' is not available.").into());
         }
 
         if self.themes.contains_key(theme_name) {
@@ -250,10 +253,15 @@ impl ThemeLoader {
 
     /// Get a theme by name, loading it if necessary
     pub fn get_theme(&mut self, theme_name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
-        if !self.themes.contains_key(theme_name) && self.load_theme(theme_name).is_err() {
+        let is_cached = self.themes.contains_key(theme_name);
+
+        if !is_cached && self.load_theme(theme_name).is_err() {
             return Ok(Theme::fallback_theme());
         }
-        Ok(self.themes.get(theme_name).unwrap().clone())
+
+        let theme = self.themes.get(theme_name).unwrap().clone();
+
+        Ok(theme)
     }
 
     fn parse_theme_file(content: &str, name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
@@ -494,7 +502,10 @@ mod tests {
 
     #[test]
     fn test_color_mode_from_config() {
-        let mut config = Config::default();
+        let mut config = Config {
+            color_mode: Some("basic".to_string()),
+            ..Default::default()
+        };
 
         config.color_mode = Some("basic".to_string());
         assert_eq!(Theme::new(&config).color_support, ColorSupport::Basic);

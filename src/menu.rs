@@ -190,13 +190,19 @@ impl Menu {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct MenuState {
     menu_stack: Vec<Menu>,
     preview_theme: Option<String>,
     preview_cursor: Option<String>,
     search_query: String,
     is_searching: bool,
+}
+
+impl Default for MenuState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MenuState {
@@ -572,6 +578,7 @@ impl MenuState {
         if let Some(menu) = self.current_menu() {
             if let Some(index) = self.find_best_match(menu, &self.search_query) {
                 self.select(index);
+                // self.preview_selected();
             }
         }
     }

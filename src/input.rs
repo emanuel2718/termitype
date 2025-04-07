@@ -68,7 +68,7 @@ impl InputHandler {
         }
     }
 
-    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, is_debug: bool) -> Action {
+    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, _is_debug: bool) -> Action {
         let last_key_cache = self.last_key;
         self.last_key = Some(key.code);
 
@@ -81,7 +81,7 @@ impl InputHandler {
         }
 
         #[cfg(debug_assertions)]
-        if is_debug {
+        if _is_debug {
             if let Some(action) = self.handle_debug_keys(&key) {
                 return action;
             }
@@ -416,6 +416,22 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
             } else {
                 let query = format!("{}{}", state.menu.search_query(), c);
                 state.menu.update_search(&query);
+            }
+            if let Some(menu) = state.menu.current_menu() {
+                if let Some(item) = menu.selected_item() {
+                    // TODO: eventually update other stuff like cursor style and language
+                    match &item.action {
+                        MenuAction::ChangeTheme(_) => {
+                            state.menu.preview_selected();
+                            state.update_preview_theme();
+                        }
+                        MenuAction::ChangeCursorStyle(_) => {
+                            state.menu.preview_selected();
+                            state.update_preview_cursor();
+                        }
+                        _ => {}
+                    }
+                }
             }
             Action::None
         }

@@ -1,8 +1,8 @@
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
+use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
-    Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
-    ScrollbarState,
+    Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
 };
 use ratatui::{style::Style, widgets::Block, Frame};
 
@@ -12,7 +12,7 @@ use crate::theme::Theme;
 use crate::tracker::Status;
 
 use super::{components::*, layout::*};
-use crate::constants::{MENU_HEIGHT, MENU_WIDTH, WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT};
+use crate::constants::{MENU_HEIGHT, WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT};
 
 /// Main workhorse. This basically draws the whole ui
 pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
@@ -22,7 +22,7 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
         termi.preview_theme = None;
     }
 
-    let theme = termi.get_current_theme();
+    let theme = termi.get_current_theme().clone();
 
     let container = Block::default().style(Style::default().bg(theme.background()));
     f.render_widget(container, f.area());
@@ -63,11 +63,9 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
                 ])
                 .split(vertical_layout[1]);
 
-            // Calculate the content width based on the logo width + stats width
-            let content_width = 80u16; // Reasonable default width that works well
-            let content_height = 20u16; // Reasonable default height that works well
+            let content_width = 80u16;
+            let content_height = 20u16;
 
-            // Create a centered rect for our content
             let centered_rect = Rect {
                 x: horizontal_layout[1].x
                     + (horizontal_layout[1].width.saturating_sub(content_width)) / 2,
@@ -99,9 +97,7 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
         }
     }
 
-    if termi.menu.is_open() {
-        draw_menu(f, termi, f.area());
-    }
+    draw_menu(f, termi, f.area());
 
     if termi.about_open {
         draw_about(f, termi, f.area());
@@ -121,88 +117,32 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
     }
 }
 
-pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
-    let menu = &termi.menu;
-    let theme = termi.get_current_theme();
+pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
+    let theme = termi.get_current_theme().clone();
+
+    let menu = &mut termi.menu;
     if !menu.is_open() {
         return;
     }
 
     let menu_area = Rect {
-        x: area.x + (area.width.saturating_sub(MENU_WIDTH)) / 2,
-        y: area.y + (area.height.saturating_sub(MENU_HEIGHT)) / 2,
-        width: MENU_WIDTH.min(area.width),
+        x: area.x,
+        y: area.y,
+        width: area.width,
         height: MENU_HEIGHT.min(area.height),
     };
 
-    f.render_widget(Clear, menu_area); // clear behind the menu
+    f.render_widget(Clear, menu_area);
 
     let menu_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
-            Constraint::Length(4), // title + search + separator
-            Constraint::Min(1),    // items
-            Constraint::Length(2), // footer
+            Constraint::Min(1),    // content area
+            Constraint::Length(3), // footer (3 units: 1 for content + 2 for borders)
         ])
         .split(menu_area);
 
-    let menu_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border()))
-        .style(Style::default().bg(theme.background()));
-    f.render_widget(menu_block, menu_area);
-
-    let title_area = menu_layout[0];
-    let title_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Length(1), // title
-            Constraint::Length(1), // search bar
-            Constraint::Length(1), // serpartor
-        ])
-        .split(title_area);
-
-    // TODO: figure out how to make the title be the acutal title of the submenu (i.e 'Themes' instead of '<Submenu>')
-    let title = if menu.menu_depth() > 1 {
-        "<SubMenu>"
-    } else {
-        "Menu"
-    };
-
-    let title_widget = Paragraph::new(Line::from(title)).alignment(Alignment::Center);
-    f.render_widget(title_widget, title_layout[0]);
-
-    let search_text = if menu.is_searching() {
-        Line::from(vec![
-            Span::styled("  /", Style::default().fg(theme.highlight())),
-            Span::styled(" ", Style::default()),
-            Span::styled(
-                menu.search_query(),
-                Style::default().fg(theme.selection_fg()),
-            ),
-        ])
-    } else {
-        Line::from(vec![
-            Span::styled("  ", Style::default()),
-            Span::styled("Search...", Style::default().fg(theme.muted())),
-        ])
-    };
-
-    let search_bar =
-        Paragraph::new(search_text).style(Style::default().bg(if menu.is_searching() {
-            theme.selection_bg()
-        } else {
-            theme.background()
-        }));
-    f.render_widget(search_bar, title_layout[1]);
-
-    let separator = Paragraph::new("─".repeat(MENU_WIDTH as usize - 2))
-        .style(Style::default().fg(theme.border()));
-    f.render_widget(separator, title_layout[2]);
-
-    // current menu items
-    let mut scrollbar_state = ScrollbarState::default();
-    let items: Vec<ListItem> = if let Some(current_menu) = menu.current_menu() {
+    if let Some(current_menu) = menu.current_menu() {
         let menu_items = current_menu.items();
         let filtered_items: Vec<_> = if menu.is_searching() {
             current_menu.filtered_items(menu.search_query())
@@ -211,119 +151,151 @@ pub fn draw_menu(f: &mut Frame, termi: &Termi, area: Rect) {
         };
 
         let total_items = filtered_items.len();
-        let max_visible = menu_layout[1].height as usize;
+        let max_visible = menu_layout[0].height.saturating_sub(2) as usize;
 
-        let scroll_offset = if total_items <= max_visible {
-            0
-        } else {
-            let halfway = max_visible / 2;
-            if current_menu.selected_index() < halfway {
-                0
-            } else if current_menu.selected_index() >= total_items.saturating_sub(halfway) {
-                total_items.saturating_sub(max_visible)
-            } else {
-                current_menu.selected_index().saturating_sub(halfway)
-            }
-        };
+        let content_block = Block::default()
+            .title(" Menu ")
+            .title_alignment(Alignment::Left)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(theme.border()));
 
-        scrollbar_state = scrollbar_state
-            .content_length(total_items)
-            .position(scroll_offset);
-
-        filtered_items
-            .iter()
-            .skip(scroll_offset)
-            .take(max_visible)
-            .map(|&(i, item)| {
-                let is_selected = i == current_menu.selected_index();
-                let style = Style::default()
-                    .fg(if item.is_toggleable {
-                        if item.is_active {
-                            theme.highlight()
-                        } else {
-                            theme.muted()
-                        }
-                    } else if is_selected {
-                        theme.selection_fg()
-                    } else {
-                        theme.foreground()
-                    })
-                    .bg(if is_selected {
-                        theme.selection_bg()
-                    } else {
-                        theme.background()
-                    });
-
+        if total_items == 0 {
+            let no_matches = vec![
+                ListItem::new(""),
                 ListItem::new(Line::from(vec![
-                    Span::raw(" "), // this helps with annoying border cutoff (?)
+                    Span::styled("  ", Style::default()),
                     Span::styled(
-                        if is_selected { ">" } else { " " },
-                        Style::default().fg(theme.highlight()),
+                        "grep: pattern not found",
+                        Style::default().fg(theme.muted()),
                     ),
-                    Span::raw(" "),
-                    Span::styled(&item.label, style),
-                ]))
-            })
-            .collect()
-    } else {
-        vec![]
-    };
+                ])),
+            ];
+            let menu_widget = List::new(no_matches)
+                .style(Style::default().bg(theme.background()))
+                .block(content_block);
+            f.render_widget(menu_widget, menu_layout[0]);
+        } else {
+            let scroll_offset = if total_items <= max_visible {
+                0
+            } else {
+                let halfway = max_visible / 2;
+                if current_menu.selected_index() < halfway {
+                    0
+                } else if current_menu.selected_index() >= total_items.saturating_sub(halfway) {
+                    total_items.saturating_sub(max_visible)
+                } else {
+                    current_menu.selected_index().saturating_sub(halfway)
+                }
+            };
 
-    // prevent border cutoff
-    let items_block = Block::default()
-        .style(Style::default().bg(theme.background()))
-        .padding(Padding::new(1, 0, 0, 0));
+            let items: Vec<ListItem> = std::iter::once(ListItem::new(""))
+                .chain(
+                    filtered_items
+                        .iter()
+                        .skip(scroll_offset)
+                        .take(max_visible)
+                        .map(|&(i, item)| {
+                            let is_selected = i == current_menu.selected_index();
+                            let style = Style::default()
+                                .fg(if item.is_toggleable {
+                                    if item.is_active {
+                                        theme.highlight()
+                                    } else {
+                                        theme.muted()
+                                    }
+                                } else if is_selected {
+                                    theme.selection_fg()
+                                } else {
+                                    theme.foreground()
+                                })
+                                .bg(if is_selected {
+                                    theme.selection_bg()
+                                } else {
+                                    theme.background()
+                                });
 
-    let menu_widget = List::new(items)
-        .style(Style::default().bg(theme.background()))
-        .block(items_block);
+                            ListItem::new(Line::from(vec![
+                                Span::styled("  ", Style::default()),
+                                Span::styled(
+                                    if is_selected { "❯ " } else { "  " },
+                                    Style::default().fg(theme.accent()),
+                                ),
+                                Span::styled(&item.label, style),
+                                if item.has_submenu {
+                                    Span::styled(" →", Style::default().fg(theme.accent()))
+                                } else {
+                                    Span::raw("")
+                                },
+                            ]))
+                        }),
+                )
+                .collect();
 
-    f.render_widget(menu_widget, menu_layout[1]);
+            let menu_widget = List::new(items)
+                .style(Style::default().bg(theme.background()))
+                .block(content_block);
 
-    let footer_text = vec![
-        Line::from(vec![
-            Span::styled("↑/k", Style::default().fg(theme.highlight())),
-            Span::styled(" up   ", Style::default().fg(theme.muted())),
-            Span::styled("↓/j", Style::default().fg(theme.highlight())),
-            Span::styled(" down   ", Style::default().fg(theme.muted())),
-            Span::styled("/", Style::default().fg(theme.highlight())),
-            Span::styled(" search", Style::default().fg(theme.muted())),
-        ]),
-        Line::from(vec![
-            Span::styled("enter", Style::default().fg(theme.highlight())),
-            Span::styled(" select   ", Style::default().fg(theme.muted())),
-            Span::styled("esc", Style::default().fg(theme.highlight())),
-            Span::styled(" close", Style::default().fg(theme.muted())),
-        ]),
-    ];
+            f.render_widget(menu_widget, menu_layout[0]);
 
-    let footer = Paragraph::new(footer_text).alignment(Alignment::Center);
-    f.render_widget(footer, menu_layout[2]);
+            // scrollbar
+            if total_items > max_visible {
+                let scrollbar = Scrollbar::default()
+                    .orientation(ScrollbarOrientation::VerticalRight)
+                    .begin_symbol(None)
+                    .end_symbol(None)
+                    .track_symbol(Some("│"))
+                    .thumb_symbol("┃")
+                    .style(Style::default().fg(theme.accent()));
 
-    // scrollbar
-    if let Some(current_menu) = menu.current_menu() {
-        let total_items = current_menu.items().len();
-        let max_visible = menu_layout[1].height as usize;
-
-        if total_items > max_visible {
-            let scrollbar = Scrollbar::default()
-                .orientation(ScrollbarOrientation::VerticalRight)
-                .begin_symbol(None)
-                .end_symbol(None)
-                .track_symbol(Some("│"))
-                .thumb_symbol("█")
-                .style(Style::default().fg(theme.accent()));
-
-            f.render_stateful_widget(
-                scrollbar,
-                menu_layout[1].inner(Margin {
-                    vertical: 0,
-                    horizontal: 1,
-                }),
-                &mut scrollbar_state,
-            );
+                f.render_stateful_widget(
+                    scrollbar,
+                    menu_layout[0].inner(Margin {
+                        vertical: 1,
+                        horizontal: 1,
+                    }),
+                    &mut ScrollbarState::default()
+                        .content_length(total_items)
+                        .position(scroll_offset),
+                );
+            }
         }
     }
+
+    let footer_text = if menu.is_searching() {
+        Line::from(vec![
+            Span::styled("Filter: ", Style::default().fg(theme.accent())),
+            Span::styled(menu.search_query(), Style::default().fg(theme.foreground())),
+            Span::styled(
+                "█",
+                Style::default()
+                    .fg(theme.cursor())
+                    .add_modifier(Modifier::SLOW_BLINK),
+            ),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled("[↑/k]", Style::default().fg(theme.highlight())),
+            Span::styled(" up", Style::default().fg(theme.muted())),
+            Span::styled(" [↓/j]", Style::default().fg(theme.highlight())),
+            Span::styled(" down", Style::default().fg(theme.muted())),
+            Span::styled(" [/]", Style::default().fg(theme.highlight())),
+            Span::styled(" search", Style::default().fg(theme.muted())),
+            Span::styled(" [enter]", Style::default().fg(theme.highlight())),
+            Span::styled(" select", Style::default().fg(theme.muted())),
+            Span::styled(" [esc]", Style::default().fg(theme.highlight())),
+            Span::styled(" close", Style::default().fg(theme.muted())),
+        ])
+    };
+
+    let footer = Paragraph::new(footer_text)
+        .style(Style::default().bg(theme.background()))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(theme.border())),
+        )
+        .alignment(Alignment::Left);
+    f.render_widget(footer, menu_layout[1]);
 }
 
 /// Reusable helper for drawing floating boxes
