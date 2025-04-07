@@ -298,6 +298,7 @@ mod tests {
 
         assert_eq!(config.use_symbols, false);
         assert_eq!(config.use_punctuation, false);
+        #[cfg(debug_assertions)]
         assert_eq!(config.debug, false);
     }
 
