@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use crate::config::{Config, Mode};
-use crate::debug::LOG;
 
 #[derive(Debug)]
 pub struct Tracker {
@@ -152,7 +151,8 @@ impl Tracker {
 
         let is_space = c == ' ';
         let current_char = self.target_chars[self.cursor_position];
-        LOG(format!("Current char: {current_char}"));
+        #[cfg(debug_assertions)]
+        crate::debug::LOG(format!("Current char: {current_char}"));
 
         if !is_correct
             && self.cursor_position < self.target_chars.len()
@@ -386,9 +386,7 @@ impl Tracker {
         if is_word_correct {
             #[cfg(debug_assertions)]
             {
-                use crate::debug::LOG;
-
-                LOG(format!(
+                crate::debug::LOG(format!(
                     "Unmarking word at position {} as correct",
                     word_start
                 ));

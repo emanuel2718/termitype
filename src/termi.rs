@@ -34,7 +34,6 @@ pub struct Termi {
     pub words: String,
     pub menu: MenuState,
     pub clickable_regions: Vec<ClickableRegion>,
-    pub about_open: bool,
     #[cfg(debug_assertions)]
     pub debug: Option<Debug>,
 }
@@ -44,7 +43,6 @@ impl std::fmt::Debug for Termi {
         let mut debug_struct = f.debug_struct("Termi");
         debug_struct
             .field("config", &self.config)
-            .field("tracker", &self.tracker)
             .field("theme", &self.theme)
             .field("preview_theme", &self.preview_theme)
             .field(
@@ -56,11 +54,12 @@ impl std::fmt::Debug for Termi {
             .field("builder", &self.builder)
             .field("words", &self.words)
             .field("menu", &self.menu)
-            .field("clickable_regions", &self.clickable_regions)
-            .field("about_open", &self.about_open);
+            .field("clickable_regions", &self.clickable_regions);
 
         #[cfg(debug_assertions)]
-        debug_struct.field("debug", &self.debug);
+        if let Some(debug) = &self.debug {
+            debug_struct.field("debug", debug);
+        }
 
         debug_struct.finish()
     }
@@ -91,7 +90,6 @@ impl Termi {
             words,
             menu,
             clickable_regions: Vec::with_capacity(10),
-            about_open: false,
             #[cfg(debug_assertions)]
             debug,
         }
@@ -130,21 +128,20 @@ impl Termi {
                             self.menu.close();
                             self.preview_theme = None;
                         } else {
-                            self.menu.toggle(&self.config);
                             self.menu
-                                .execute(MenuAction::ToggleThemePicker, &self.config);
+                                .toggle_from_footer(&self.config, MenuAction::ToggleThemePicker);
                             self.menu.preview_selected();
                             self.update_preview_theme();
                         }
                     }
                     ClickAction::OpenLanguagePicker => {
-                        self.menu.toggle(&self.config);
                         self.menu
-                            .execute(MenuAction::OpenLanguagePicker, &self.config);
+                            .toggle_from_footer(&self.config, MenuAction::OpenLanguagePicker);
                         self.menu.preview_selected();
                     }
                     ClickAction::ToggleAbout => {
-                        self.about_open = !self.about_open;
+                        self.menu
+                            .toggle_from_footer(&self.config, MenuAction::OpenAbout);
                     }
                 }
                 break;
@@ -212,10 +209,6 @@ impl Termi {
             )
             .ok();
         }
-    }
-
-    pub fn has_floating_box_open(&self) -> bool {
-        self.menu.is_open() || self.about_open
     }
 }
 
