@@ -341,10 +341,7 @@ pub fn typing_area(f: &mut Frame, termi: &mut Termi, area: Rect) {
     f.render_widget(typing_area, content_area);
 
     // only show cursor while IDLE or TYPING
-    if (termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing)
-        && !termi.has_floating_box_open()
-    {
-        // adjust for accounting scroll offset
+    if termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing {
         let offset = termi.tracker.cursor_position - current_word_pos.start_index;
         let x = content_area.x + (current_word_pos.col + offset) as u16;
         let y = content_area.y + (current_word_pos.line.saturating_sub(scroll_offset)) as u16;
