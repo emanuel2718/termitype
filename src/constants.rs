@@ -1,6 +1,6 @@
 pub const APPNAME: &str = "termitype";
 pub const DEFAULT_LANGUAGE: &str = "english";
-pub const DEFAULT_CURSOR_STYLE: &str = "beam";
+pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
 // pub const DEFAULT_THEME: &str = "Serika Dark";
 // pub const DEFAULT_THEME: &str = "tokyonight";
 pub const DEFAULT_THEME: &str = "termitype-dark";
