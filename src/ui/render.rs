@@ -124,7 +124,7 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
         x: area.x,
         y: area.y,
         width: area.width,
-        height: MENU_HEIGHT.min(area.height),
+        height: MENU_HEIGHT.min(area.height.saturating_sub(2)),
     };
 
     f.render_widget(Clear, menu_area);
@@ -146,7 +146,7 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
         };
 
         let total_items = filtered_items.len();
-        let max_visible = menu_layout[0].height.saturating_sub(2) as usize;
+        let max_visible = menu_layout[0].height.saturating_sub(4) as usize;
 
         let content_block = Block::default()
             .title(" Menu ")

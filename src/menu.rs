@@ -97,7 +97,7 @@ impl Menu {
     }
 
     pub fn next_item(&mut self) {
-        if self.selected_index < self.items.len() - 1 {
+        if self.selected_index < self.items.len().saturating_sub(1) {
             self.selected_index += 1;
         }
     }
@@ -539,39 +539,23 @@ impl MenuState {
         }
     }
 
-    pub fn next_item(&mut self) {
-        let is_searching = self.is_searching();
-        let query = if is_searching {
-            self.search_query.clone()
-        } else {
-            String::new()
-        };
-
+    pub fn next_item(&mut self) -> bool {
         if let Some(menu) = self.current_menu_mut() {
-            if is_searching {
-                menu.next_filtered_item(&query);
-            } else {
-                menu.next_item();
-            }
+            menu.next_item();
             self.preview_selected();
+            true
+        } else {
+            false
         }
     }
 
-    pub fn prev_item(&mut self) {
-        let is_searching = self.is_searching();
-        let query = if is_searching {
-            self.search_query.clone()
-        } else {
-            String::new()
-        };
-
+    pub fn prev_item(&mut self) -> bool {
         if let Some(menu) = self.current_menu_mut() {
-            if is_searching {
-                menu.prev_filtered_item(&query);
-            } else {
-                menu.prev_item();
-            }
+            menu.prev_item();
             self.preview_selected();
+            true
+        } else {
+            false
         }
     }
 
@@ -666,11 +650,11 @@ mod tests {
         menu.toggle(&Config::default());
         assert!(menu.is_open());
 
-        menu.next_item();
-        menu.next_item();
+        assert!(menu.next_item());
+        assert!(menu.next_item());
         assert_eq!(menu.current_menu().unwrap().selected_index(), 2);
 
-        menu.prev_item();
+        assert!(menu.prev_item());
         assert_eq!(menu.current_menu().unwrap().selected_index(), 1);
 
         menu.select(5);

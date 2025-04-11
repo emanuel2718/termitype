@@ -293,27 +293,29 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
 fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
     match action {
         MenuInputAction::Up => {
-            state.menu.prev_item();
-            if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
-                if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
-                    state.menu.preview_selected();
-                    state.update_preview_theme();
-                } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
-                    state.menu.preview_selected();
-                    state.update_preview_cursor();
+            if state.menu.prev_item() {
+                if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
+                    if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
+                        state.menu.preview_selected();
+                        state.update_preview_theme();
+                    } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
+                        state.menu.preview_selected();
+                        state.update_preview_cursor();
+                    }
                 }
             }
             Action::None
         }
         MenuInputAction::Down => {
-            state.menu.next_item();
-            if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
-                if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
-                    state.menu.preview_selected();
-                    state.update_preview_theme();
-                } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
-                    state.menu.preview_selected();
-                    state.update_preview_cursor();
+            if state.menu.next_item() {
+                if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
+                    if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
+                        state.menu.preview_selected();
+                        state.update_preview_theme();
+                    } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
+                        state.menu.preview_selected();
+                        state.update_preview_cursor();
+                    }
                 }
             }
             Action::None
