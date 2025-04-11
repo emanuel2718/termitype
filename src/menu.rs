@@ -152,7 +152,18 @@ impl Menu {
                 self.selected_index = filtered[pos + 1].0;
             }
         } else {
-            self.selected_index = filtered[0].0;
+            // extreme edge case that _in theory_ should never trigger.
+            let next_item = filtered
+                .iter()
+                .find(|(i, _)| *i > self.selected_index)
+                .or_else(|| filtered.first())
+                .map(|(i, _)| *i);
+            #[cfg(debug_assertions)]
+            crate::debug::LOG(format!("next_item: {:?}", next_item));
+
+            if let Some(index) = next_item {
+                self.selected_index = index;
+            }
         }
     }
 
@@ -168,7 +179,17 @@ impl Menu {
                 self.selected_index = filtered[pos - 1].0;
             }
         } else {
-            self.selected_index = filtered[0].0;
+            // extreme edge case that _in theory_ should never trigger.
+            let prev_item = filtered
+                .iter()
+                .rev()
+                .find(|(i, _)| *i < self.selected_index)
+                .or_else(|| filtered.last())
+                .map(|(i, _)| *i);
+
+            if let Some(index) = prev_item {
+                self.selected_index = index;
+            }
         }
     }
 
@@ -540,8 +561,19 @@ impl MenuState {
     }
 
     pub fn next_item(&mut self) -> bool {
+        let is_searching = self.is_searching();
+        let query = if is_searching {
+            Some(self.search_query.clone())
+        } else {
+            None
+        };
+
         if let Some(menu) = self.current_menu_mut() {
-            menu.next_item();
+            if let Some(q) = query {
+                menu.next_filtered_item(&q);
+            } else {
+                menu.next_item();
+            }
             self.preview_selected();
             true
         } else {
@@ -550,8 +582,19 @@ impl MenuState {
     }
 
     pub fn prev_item(&mut self) -> bool {
+        let is_searching = self.is_searching();
+        let query = if is_searching {
+            Some(self.search_query.clone())
+        } else {
+            None
+        };
+
         if let Some(menu) = self.current_menu_mut() {
-            menu.prev_item();
+            if let Some(q) = query {
+                menu.prev_filtered_item(&q);
+            } else {
+                menu.prev_item();
+            }
             self.preview_selected();
             true
         } else {

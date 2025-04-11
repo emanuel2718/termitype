@@ -174,7 +174,22 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
                 0
             } else {
                 let halfway = max_visible / 2;
-                if current_menu.selected_index() < halfway {
+
+                if menu.is_searching() {
+                    let selected_index = current_menu.selected_index();
+                    let filtered_position = filtered_items
+                        .iter()
+                        .position(|(idx, _)| *idx == selected_index)
+                        .unwrap_or(0);
+
+                    if filtered_position < halfway {
+                        0
+                    } else if filtered_position >= total_items.saturating_sub(halfway) {
+                        total_items.saturating_sub(max_visible)
+                    } else {
+                        filtered_position.saturating_sub(halfway)
+                    }
+                } else if current_menu.selected_index() < halfway {
                     0
                 } else if current_menu.selected_index() >= total_items.saturating_sub(halfway) {
                     total_items.saturating_sub(max_visible)
