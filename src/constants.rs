@@ -1,4 +1,4 @@
-pub const APPNAME: &str = "termitype";
+pub const APPNAME: &str = env!("CARGO_PKG_NAME");
 pub const DEFAULT_LANGUAGE: &str = "english";
 pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
 // pub const DEFAULT_THEME: &str = "Serika Dark";
@@ -43,3 +43,9 @@ pub const APP_LOGO: &[&str] = &[
 ];
 
 pub const SMALL_SCREEN_WIDTH: u16 = 65;
+
+pub const SECS_PER_MIN: u64 = 60;
+pub const SECS_PER_HOUR: u64 = 3_600;
+pub const SECS_PER_DAY: u64 = 86_400;
+pub const DAYS_PER_YEAR: u64 = 365;
+pub const DAYS_PER_MONTH: u64 = 30;

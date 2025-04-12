@@ -151,8 +151,6 @@ impl Tracker {
 
         let is_space = c == ' ';
         let current_char = self.target_chars[self.cursor_position];
-        #[cfg(debug_assertions)]
-        crate::debug::LOG(format!("Current char: {current_char}"));
 
         if !is_correct
             && self.cursor_position < self.target_chars.len()
@@ -372,26 +370,6 @@ impl Tracker {
         let mut target_end = word_start;
         while target_end < self.target_chars.len() && self.target_chars[target_end] != ' ' {
             target_end += 1;
-        }
-
-        if word_end - word_start != target_end - word_start {
-            return;
-        }
-
-        let is_word_correct = (word_start..word_end).all(|i| {
-            i < self.target_chars.len()
-                && self.user_input.get(i).copied().flatten() == Some(self.target_chars[i])
-        });
-
-        if is_word_correct {
-            #[cfg(debug_assertions)]
-            {
-                crate::debug::LOG(format!(
-                    "Unmarking word at position {} as correct",
-                    word_start
-                ));
-            }
-            self.wrong_words_start_indexes.remove(&word_start);
         }
     }
 }

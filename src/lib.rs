@@ -11,6 +11,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{prelude::CrosstermBackend, Terminal};
+use utils::get_config_dir;
 use version::VERSION;
 
 pub mod assets;
@@ -18,17 +19,28 @@ pub mod builder;
 pub mod config;
 pub mod constants;
 pub mod debug;
+pub mod error;
 pub mod input;
+pub mod log;
 pub mod menu;
 pub mod termi;
 pub mod theme;
 pub mod tracker;
 #[path = "ui/ui.rs"]
 pub mod ui;
+pub mod utils;
 pub mod version;
 
 pub fn run() -> Result<()> {
     let config = Config::try_parse()?;
+
+    // init logger
+    if let Ok(log_dir) = get_config_dir() {
+        let log_file = log_dir.join("debug.log"); // could be calle termitype.log
+        if let Err(e) = log::init(log_file) {
+            eprintln!("Failed to init termitype logger: {}", e);
+        }
+    }
 
     // NOTE: there should be a better way to do this
     if should_print_to_console(&config) {

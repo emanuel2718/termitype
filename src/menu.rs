@@ -158,8 +158,6 @@ impl Menu {
                 .find(|(i, _)| *i > self.selected_index)
                 .or_else(|| filtered.first())
                 .map(|(i, _)| *i);
-            #[cfg(debug_assertions)]
-            crate::debug::LOG(format!("next_item: {:?}", next_item));
 
             if let Some(index) = next_item {
                 self.selected_index = index;

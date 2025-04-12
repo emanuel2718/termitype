@@ -222,15 +222,6 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
 
         let is_wrong_word = !is_current_word && termi.tracker.is_word_wrong(word_start);
 
-        // #[cfg(debug_assertions)]
-        // if is_wrong_word {
-        //     use crate::debug::LOG;
-        //     LOG(format!(
-        //         "Word at {} is wrong and is not current word (cursor at {})",
-        //         word_start, termi.tracker.cursor_position
-        //     ));
-        // }
-
         let mut chars = Vec::with_capacity(word_len);
 
         for (i, c) in word.chars().enumerate() {

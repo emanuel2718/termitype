@@ -22,7 +22,7 @@ use crate::{
 };
 
 #[cfg(debug_assertions)]
-use crate::debug::{Debug, LOG};
+use crate::debug::Debug;
 
 pub struct Termi {
     pub config: Config,
@@ -271,17 +271,6 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
 
                         if matches!(action, Action::TypeCharacter(_) | Action::Backspace) {
                             keystrokes_since_render += 1;
-                        }
-
-                        #[cfg(debug_assertions)]
-                        if termi.debug.is_some() {
-                            LOG(format!(
-                            "Key Event - code: {:?}, modifiers: {:?}, action: {:?}, menu_open: {}",
-                            key.code,
-                            key.modifiers,
-                            action,
-                            termi.menu.is_open()
-                        ));
                         }
 
                         let action = process_action(action, &mut termi);
