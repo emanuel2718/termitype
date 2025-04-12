@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use crossterm::{
     cursor::SetCursorStyle,
-    event::{self, Event, MouseButton, MouseEvent, MouseEventKind},
+    event::{self, Event, KeyEventKind, MouseButton, MouseEvent, MouseEventKind},
     execute,
 };
 use ratatui::{prelude::Backend, Terminal};
@@ -252,40 +252,45 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
         if crossterm::event::poll(timeout)? {
             match event::read()? {
                 Event::Key(key) => {
-                    #[cfg(debug_assertions)]
-                    let action = input_handler.handle_input(key, &termi.menu, termi.config.debug);
-                    #[cfg(not(debug_assertions))]
-                    let action = input_handler.handle_input(key, &termi.menu, false);
+                    // NOTE: this is to avoid duplicate key firing event on windows
+                    // https://ratatui.rs/faq/
+                    if key.kind == KeyEventKind::Press {
+                        #[cfg(debug_assertions)]
+                        let action =
+                            input_handler.handle_input(key, &termi.menu, termi.config.debug);
+                        #[cfg(not(debug_assertions))]
+                        let action = input_handler.handle_input(key, &termi.menu, false);
 
-                    if action == Action::Quit {
-                        break;
-                    }
+                        if action == Action::Quit {
+                            break;
+                        }
 
-                    let time_since_last_keystroke = now.duration_since(last_keystroke);
-                    typing_burst_active = time_since_last_keystroke < typing_burst_threshold;
-                    last_keystroke = now;
+                        let time_since_last_keystroke = now.duration_since(last_keystroke);
+                        typing_burst_active = time_since_last_keystroke < typing_burst_threshold;
+                        last_keystroke = now;
 
-                    if matches!(action, Action::TypeCharacter(_) | Action::Backspace) {
-                        keystrokes_since_render += 1;
-                    }
+                        if matches!(action, Action::TypeCharacter(_) | Action::Backspace) {
+                            keystrokes_since_render += 1;
+                        }
 
-                    #[cfg(debug_assertions)]
-                    if termi.debug.is_some() {
-                        LOG(format!(
+                        #[cfg(debug_assertions)]
+                        if termi.debug.is_some() {
+                            LOG(format!(
                             "Key Event - code: {:?}, modifiers: {:?}, action: {:?}, menu_open: {}",
                             key.code,
                             key.modifiers,
                             action,
                             termi.menu.is_open()
                         ));
-                    }
+                        }
 
-                    let action = process_action(action, &mut termi);
+                        let action = process_action(action, &mut termi);
 
-                    needs_redraw = true;
+                        needs_redraw = true;
 
-                    if action == Action::Quit {
-                        break;
+                        if action == Action::Quit {
+                            break;
+                        }
                     }
                 }
                 Event::Mouse(MouseEvent {
