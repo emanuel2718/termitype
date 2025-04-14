@@ -5,6 +5,7 @@ use std::io;
 pub enum TError {
     Io(io::Error),
     ConfigDirNotFound,
+    InvalidConfigData(String),
 }
 
 impl std::fmt::Display for TError {
@@ -12,6 +13,7 @@ impl std::fmt::Display for TError {
         match self {
             Self::Io(err) => write!(f, "IO error: {}", err),
             Self::ConfigDirNotFound => write!(f, "Could not find termitype config directory"),
+            Self::InvalidConfigData(msg) => write!(f, "Invalid configuration data: {}", msg),
         }
     }
 }

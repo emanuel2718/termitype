@@ -3,7 +3,7 @@ use std::io;
 use anyhow::Result;
 use clap::Parser;
 use config::Config;
-use constants::APPNAME;
+use constants::{APPNAME, LOG_FILE};
 use crossterm::{
     cursor::SetCursorStyle,
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -23,6 +23,7 @@ pub mod error;
 pub mod input;
 pub mod log;
 pub mod menu;
+pub mod persistence;
 pub mod termi;
 pub mod theme;
 pub mod tracker;
@@ -36,7 +37,7 @@ pub fn run() -> Result<()> {
 
     // init logger
     if let Ok(log_dir) = get_config_dir() {
-        let log_file = log_dir.join("debug.log"); // could be calle termitype.log
+        let log_file = log_dir.join(LOG_FILE); // could be calle termitype.log
         if let Err(e) = log::init(log_file) {
             eprintln!("Failed to init termitype logger: {}", e);
         }

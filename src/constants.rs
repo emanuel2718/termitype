@@ -5,6 +5,9 @@ pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
 // pub const DEFAULT_THEME: &str = "tokyonight";
 pub const DEFAULT_THEME: &str = "termitype-dark";
 
+pub const STATE_FILE: &str = ".state";
+pub const LOG_FILE: &str = "debug.log";
+
 pub const DEBUG_KEY: char = 'd';
 pub const BACKSPACE: char = '\x08';
 
