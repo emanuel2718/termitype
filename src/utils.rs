@@ -1,3 +1,4 @@
+use std::fs::{File, OpenOptions};
 use std::{
     env,
     path::PathBuf,
@@ -34,6 +35,23 @@ pub fn get_config_dir() -> TResult<PathBuf> {
     };
 
     config_dir.ok_or(TError::ConfigDirNotFound)
+}
+
+#[cfg(unix)]
+pub fn create_file(path: &PathBuf) -> TResult<File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)
+        .map_err(TError::from)
+}
+
+#[cfg(windows)]
+pub fn create_file(path: &PathBuf) -> TResult<File> {
+    File::create(path).map_err(TError::from)
 }
 
 /// Formats the give time in y-m-dThh-mm-ss.mmm
