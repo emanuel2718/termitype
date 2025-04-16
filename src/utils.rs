@@ -49,9 +49,19 @@ pub fn create_file(path: &PathBuf) -> TResult<File> {
         .map_err(TError::from)
 }
 
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 pub fn create_file(path: &PathBuf) -> TResult<File> {
-    File::create(path).map_err(TError::from)
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    OpenOptions::new()
+        .write(true)
+        .read(true)
+        .create(true)
+        .truncate(true)
+        .open(path)
+        .map_err(TError::from)
 }
 
 /// Formats the give time in y-m-dThh-mm-ss.mmm
