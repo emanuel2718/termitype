@@ -12,6 +12,7 @@ use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
+    log,
     menu::{MenuAction, MenuState},
     theme::Theme,
     tracker::Tracker,
@@ -80,6 +81,7 @@ impl Termi {
             None
         };
 
+        log::info(&format!("Termi::new() -> {:?}", &config));
         Self {
             config: config.clone(),
             tracker,

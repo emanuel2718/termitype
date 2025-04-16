@@ -1,4 +1,5 @@
 use crate::config::{Config, ModeType};
+use crate::constants::DEFAULT_THEME;
 use crate::version::VERSION;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -301,7 +302,10 @@ impl MenuState {
             }
             MenuAction::ToggleThemePicker => {
                 let mut menu = Menu::new(Self::build_theme_picker());
-                if let Some(index) = Self::get_label_index(menu.items(), config.theme.as_str()) {
+                if let Some(index) = Self::get_label_index(
+                    menu.items(),
+                    config.theme.as_deref().unwrap_or(DEFAULT_THEME),
+                ) {
                     menu.select(index);
                 }
                 self.menu_stack.push(menu);

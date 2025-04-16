@@ -1,8 +1,10 @@
 use clap::{ArgGroup, Parser};
 use crossterm::cursor::SetCursorStyle;
 
-use crate::constants::{
-    AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME,
+use crate::{
+    constants::{AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE},
+    persistence::Persistence,
+    theme::ThemeLoader,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -31,8 +33,8 @@ pub struct Config {
     pub word_count: Option<usize>,
 
     /// Sets the theme if a valid theme is given, ignored otherwise
-    #[arg(short = 'T', long = "theme", default_value = DEFAULT_THEME)]
-    pub theme: String,
+    #[arg(short = 'T', long = "theme")]
+    pub theme: Option<String>,
 
     /// Lists the available themes
     #[arg(long = "list-themes")]
@@ -84,6 +86,9 @@ pub struct Config {
     #[cfg(debug_assertions)]
     #[arg(short = 'd', long = "debug")]
     pub debug: bool,
+
+    #[arg(skip)]
+    persistent: Option<Persistence>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -117,7 +122,7 @@ impl Default for Config {
             use_symbols: false,
             use_numbers: false,
             use_punctuation: false,
-            theme: DEFAULT_THEME.to_string(),
+            theme: None,
             language: DEFAULT_LANGUAGE.to_string(),
             cursor_style: DEFAULT_CURSOR_STYLE.to_string(),
             visible_lines: AMOUNT_OF_VISIBLE_LINES,
@@ -127,6 +132,7 @@ impl Default for Config {
             version: false,
             #[cfg(debug_assertions)]
             debug: false,
+            persistent: None,
         }
     }
 }
@@ -134,7 +140,26 @@ impl Default for Config {
 impl Config {
     /// Returns a new instance of the Config struct with default values.
     pub fn new() -> Self {
-        Self::default()
+        let mut config = Self::default();
+        Self::override_with_persistence(&mut config);
+        config
+    }
+
+    fn override_with_persistence(config: &mut Config) {
+        if let Ok(persistence) = Persistence::new() {
+            // Theme
+            if let Some(theme) = persistence.get("theme") {
+                if ThemeLoader::has_theme(theme) {
+                    config.theme = Some(theme.to_string());
+                }
+            }
+            config.persistent = Some(persistence);
+        }
+    }
+
+    pub fn try_parse() -> Result<Self, clap::Error> {
+        <Self as Parser>::try_parse()?;
+        Ok(Self::new())
     }
 
     /// Resolves the mode based onf the provided arguments
@@ -178,7 +203,10 @@ impl Config {
 
     /// Chages the current theme of the game.
     pub fn change_theme(&mut self, theme_name: &str) {
-        self.theme = theme_name.to_string()
+        self.theme = Some(theme_name.to_string());
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("theme", theme_name);
+        }
     }
 
     /// Chages the number of visible lines in the test.
@@ -293,7 +321,7 @@ mod tests {
         assert!(config.word_count.is_none());
 
         assert_eq!(config.language, DEFAULT_LANGUAGE.to_string());
-        assert_eq!(config.theme, DEFAULT_THEME.to_string());
+        assert_eq!(config.theme, None);
         assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
 
         assert_eq!(config.use_symbols, false);
@@ -327,7 +355,7 @@ mod tests {
         let mut config = create_config();
         let theme_name = "Monokai Classic";
         config.change_theme(theme_name);
-        assert_eq!(config.theme, theme_name.to_string());
+        assert_eq!(config.theme, None);
     }
 
     #[test]

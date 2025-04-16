@@ -1,7 +1,6 @@
 use std::io;
 
 use anyhow::Result;
-use clap::Parser;
 use config::Config;
 use constants::{APPNAME, LOG_FILE};
 use crossterm::{
@@ -33,8 +32,6 @@ pub mod utils;
 pub mod version;
 
 pub fn run() -> Result<()> {
-    let config = Config::try_parse()?;
-
     // init logger
     if let Ok(log_dir) = get_config_dir() {
         let log_file = log_dir.join(LOG_FILE); // could be calle termitype.log
@@ -42,6 +39,8 @@ pub fn run() -> Result<()> {
             eprintln!("Failed to init termitype logger: {}", e);
         }
     }
+
+    let config = Config::try_parse()?;
 
     // NOTE: there should be a better way to do this
     if should_print_to_console(&config) {

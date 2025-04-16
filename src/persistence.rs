@@ -22,6 +22,17 @@ pub struct Persistence {
     has_pending_changes: AtomicBool,
 }
 
+impl Clone for Persistence {
+    fn clone(&self) -> Self {
+        Self {
+            path: self.path.clone(),
+            values: self.values.clone(),
+            last_save: self.last_save,
+            has_pending_changes: AtomicBool::new(self.has_pending_changes.load(Ordering::Relaxed)),
+        }
+    }
+}
+
 impl Drop for Persistence {
     fn drop(&mut self) {
         if self.has_pending_changes.load(Ordering::Relaxed) {

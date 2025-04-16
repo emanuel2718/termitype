@@ -77,17 +77,16 @@ impl Theme {
             return Self::fallback_theme_with_support(color_support);
         }
         let loader = ThemeLoader::init();
-        let mut theme = loader
-            .write()
-            .unwrap()
-            .get_theme(config.theme.as_str())
-            .unwrap_or_else(|_| {
-                loader
-                    .write()
-                    .unwrap()
-                    .get_theme(DEFAULT_THEME)
-                    .expect("Default theme must exist")
-            });
+        let theme_name = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
+
+        let mut theme = match loader.write().unwrap().get_theme(theme_name) {
+            Ok(theme) => theme,
+            Err(_e) => loader
+                .write()
+                .unwrap()
+                .get_theme(DEFAULT_THEME)
+                .expect("Default theme must exist"),
+        };
         theme.color_support = color_support;
         theme
     }
@@ -502,11 +501,8 @@ mod tests {
 
     #[test]
     fn test_color_mode_from_config() {
-        let mut config = Config {
-            color_mode: Some("basic".to_string()),
-            ..Default::default()
-        };
-
+        let mut config = Config::default();
+        config.color_mode = Some("basic".to_string());
         config.color_mode = Some("basic".to_string());
         assert_eq!(Theme::new(&config).color_support, ColorSupport::Basic);
 
