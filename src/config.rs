@@ -158,8 +158,9 @@ impl Config {
     }
 
     pub fn try_parse() -> Result<Self, clap::Error> {
-        <Self as Parser>::try_parse()?;
-        Ok(Self::new())
+        let mut config = <Self as Parser>::try_parse()?;
+        Self::override_with_persistence(&mut config);
+        Ok(config)
     }
 
     /// Resolves the mode based onf the provided arguments
