@@ -17,10 +17,11 @@ pub mod assets;
 pub mod builder;
 pub mod config;
 pub mod constants;
-pub mod debug;
+pub mod debug_panel;
 pub mod error;
 pub mod input;
 pub mod log;
+pub mod macros;
 pub mod menu;
 pub mod persistence;
 pub mod termi;
@@ -32,15 +33,23 @@ pub mod utils;
 pub mod version;
 
 pub fn run() -> Result<()> {
+    let config = Config::try_parse()?;
+
     // init logger
     if let Ok(log_dir) = get_config_dir() {
-        let log_file = log_dir.join(LOG_FILE); // could be calle termitype.log
-        if let Err(e) = log::init(log_file) {
+        let log_file = log_dir.join(LOG_FILE);
+        #[cfg(debug_assertions)]
+        if let Err(e) = log::init(log_file, config.debug) {
+            eprintln!("Failed to init termitype logger: {}", e);
+        }
+        #[cfg(not(debug_assertions))]
+        if let Err(e) = log::init(log_file, false) {
             eprintln!("Failed to init termitype logger: {}", e);
         }
     }
 
-    let config = Config::try_parse()?;
+    debug!("Debug logging enabled");
+    info!("Starting termitype...");
 
     // NOTE: there should be a better way to do this
     if should_print_to_console(&config) {

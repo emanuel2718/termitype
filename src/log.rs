@@ -13,13 +13,14 @@ use once_cell::sync::OnceCell;
 use crate::utils::format_timestamp;
 
 static LOGGER: OnceCell<Mutex<Logger>> = OnceCell::new();
+static LOG_LEVEL: OnceCell<Mutex<Level>> = OnceCell::new();
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
-    Debug,
-    Info,
-    Warn,
-    Error,
+    Debug = 0,
+    Info = 1,
+    Warn = 2,
+    Error = 3,
 }
 
 impl Level {
@@ -47,6 +48,14 @@ impl Logger {
     }
 
     fn write(&self, level: Level, msg: &str) {
+        if let Some(level_lock) = LOG_LEVEL.get() {
+            if let Ok(min_level) = level_lock.lock() {
+                if level < *min_level {
+                    return;
+                }
+            }
+        }
+
         let now = SystemTime::now();
 
         let timestamp = format_timestamp(now);
@@ -98,21 +107,34 @@ impl Logger {
     }
 }
 
-/// Initialize the logger iwth the given file path
-pub fn init(log_file: PathBuf) -> io::Result<()> {
-    let logger = Logger::new(log_file)?;
-    logger.write_startup_banner();
+/// Initialize the logger
+pub fn init(log_file: PathBuf, is_debug: bool) -> io::Result<()> {
+    let initial_level = if is_debug { Level::Debug } else { Level::Info };
 
-    match LOGGER.get() {
-        Some(_) => Ok(()), // we already have a logger
-        None => LOGGER
-            .set(Mutex::new(logger))
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "Failed to initialize logger.")),
+    let init_result = LOGGER.get_or_try_init(|| -> io::Result<Mutex<Logger>> {
+        LOG_LEVEL.get_or_init(|| Mutex::new(initial_level));
+        let logger = Logger::new(log_file)?;
+        logger.write_startup_banner();
+        Ok(Mutex::new(logger))
+    });
+
+    match init_result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
+/// Set the minimum log level. Messages below this level will be ignored.
+pub fn set_level(level: Level) {
+    if let Some(level_lock) = LOG_LEVEL.get() {
+        if let Ok(mut current_level) = level_lock.lock() {
+            *current_level = level;
+        }
     }
 }
 
 /// Internal `write` call
-fn write(level: Level, msg: &str) {
+pub fn write(level: Level, msg: &str) {
     if let Some(logger) = LOGGER.get() {
         if let Ok(logger) = logger.lock() {
             logger.write(level, msg);
@@ -120,55 +142,89 @@ fn write(level: Level, msg: &str) {
     }
 }
 
-#[cfg(debug_assertions)]
-/// Log a debug message, only available on debug mode
-pub fn debug(msg: &str) {
-    write(Level::Debug, msg);
-}
-
-/// Logs a info message
-pub fn info(msg: &str) {
-    write(Level::Info, msg);
-}
-
-/// Logs a warn message
-pub fn warn(msg: &str) {
-    write(Level::Warn, msg);
-}
-
-/// Logs a error message
-pub fn error(msg: &str) {
-    write(Level::Error, msg);
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use tempfile::TempDir;
+    use std::fs;
+    use std::path::PathBuf;
+    use tempfile::NamedTempFile;
 
-    struct Temp {
-        path: PathBuf,
-    }
+    fn setup(log_path: PathBuf) {
+        let dummy_path = PathBuf::from("target/.init_dummy.log");
+        if let Some(p) = dummy_path.parent() {
+            fs::create_dir_all(p).ok();
+        }
+        let _ = LOGGER.get_or_try_init(|| -> io::Result<Mutex<Logger>> {
+            LOG_LEVEL.get_or_init(|| Mutex::new(Level::Debug));
+            let logger = Logger::new(dummy_path)?;
+            Ok(Mutex::new(logger))
+        });
 
-    impl Default for Temp {
-        fn default() -> Self {
-            let temp_dir = TempDir::new().unwrap();
-            let temp_path = temp_dir.path().join("logs").join("test.log");
-            Self { path: temp_path }
+        if let Some(logger_mutex) = LOGGER.get() {
+            let mut logger_guard = logger_mutex.lock().expect("Failed to lock logger mutex");
+            let test_specific_logger = Logger::new(log_path).expect("Failed to create test logger");
+            *logger_guard = test_specific_logger;
+        } else {
+            panic!("Logger failed to initialize");
         }
     }
 
     #[test]
     fn test_logger_init() {
-        let temp = Temp::default();
+        let temp_file = NamedTempFile::new().expect("Failed to create temp log file");
+        let log_path = temp_file.path().to_path_buf();
 
-        assert!(init(temp.path.clone()).is_ok());
-        assert!(init(temp.path.clone()).is_ok()); // double initialization
+        setup(log_path.clone());
 
-        write(Level::Info, "Test");
+        fs::write(&log_path, "").expect("Failed to clear log file for test write");
 
-        let content = fs::read_to_string(&temp.path).unwrap();
-        assert!(content.contains("Test"));
-        assert!(content.contains("termitype"));
+        let test_msg = "Log message in specific test file";
+        write(Level::Info, test_msg);
+
+        let content = fs::read_to_string(&log_path).expect("Failed to read temp log file");
+        assert!(
+            content.contains(test_msg),
+            "Log file should contain the test message. Content: {}",
+            content
+        );
+    }
+
+    #[test]
+    fn test_log_levels() {
+        let temp_file = NamedTempFile::new().expect("Failed to create temp log file");
+        let log_path = temp_file.path().to_path_buf();
+
+        setup(log_path.clone());
+
+        set_level(Level::Info);
+
+        fs::write(&log_path, "").expect("Failed to clear log file");
+
+        write(Level::Debug, "Debug message");
+        write(Level::Info, "Info message");
+        write(Level::Warn, "Warn message");
+        write(Level::Error, "Error message");
+
+        let content = fs::read_to_string(&log_path).expect("Failed to read temp log file");
+        assert!(
+            !content.contains("Debug message"),
+            "Content should not contain Debug: {}",
+            content
+        );
+        assert!(
+            content.contains("Info message"),
+            "Content should contain Info: {}",
+            content
+        );
+        assert!(
+            content.contains("Warn message"),
+            "Content should contain Warn: {}",
+            content
+        );
+        assert!(
+            content.contains("Error message"),
+            "Content should contain Error: {}",
+            content
+        );
     }
 }

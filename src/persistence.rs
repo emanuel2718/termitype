@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{constants::STATE_FILE, error::TResult, log, utils::get_config_dir};
+use crate::{constants::STATE_FILE, error, error::TResult, info, utils::get_config_dir};
 use crate::{error::TError, utils::create_file};
 
 // TOOD: Evaluate when done with the settings to ensure we set a sane default here
@@ -36,8 +36,8 @@ impl Clone for Persistence {
 impl Drop for Persistence {
     fn drop(&mut self) {
         if self.has_pending_changes.load(Ordering::Relaxed) {
-            if let Err(e) = self.save() {
-                log::error(&format!("Failed to save state on drop: {}", e))
+            if let Err(_e) = self.save() {
+                error!("Failed to save state on drop: {}", _e)
             }
         }
     }
@@ -62,9 +62,9 @@ impl Persistence {
 
         if path.exists() {
             if let Err(e) = persistence.load() {
-                log::error(&format!("Failed to load state file: {}", e));
+                error!("Failed to load state file: {}", e);
             } else {
-                log::info("Successfully loaded state file");
+                info!("Successfully loaded state file");
             }
         }
 
@@ -119,11 +119,11 @@ impl Persistence {
                 loaded_count += 1;
             } else {
                 let err = format!("Invalid format at line {}: {}", idx + 1, line);
-                log::error(&err);
+                error!("{}", err);
                 return Err(TError::InvalidConfigData(err));
             }
         }
-        log::info(&format!("Successfully loaded {} settings", loaded_count));
+        info!("Successfully loaded {} settings", loaded_count);
         self.values = values;
         self.has_pending_changes.store(false, Ordering::Relaxed);
 
