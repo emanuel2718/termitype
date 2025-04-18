@@ -2,6 +2,7 @@ use clap::{ArgGroup, Parser};
 use crossterm::cursor::SetCursorStyle;
 
 use crate::{
+    builder::Builder,
     constants::{AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE},
     log,
     persistence::Persistence,
@@ -168,7 +169,13 @@ impl Config {
                 }
             }
 
-            // TODO: language
+            // Language
+            if let Some(lang) = persistence.get("language") {
+                if Builder::has_language(lang) {
+                    config.language = lang.to_string();
+                }
+            }
+
             // TODO: mode value (time, word_count)
 
             // symbols
@@ -397,6 +404,19 @@ impl Config {
         self.use_symbols = val;
         self.set_symbols(val);
     }
+
+    /// Changes the language if available.
+    pub fn change_language(&mut self, lang: &str) -> bool {
+        if Builder::has_language(lang) {
+            self.language = lang.to_string();
+            if let Some(persistence) = &mut self.persistent {
+                let _ = persistence.set("language", lang);
+            }
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[cfg(test)]
@@ -404,8 +424,7 @@ mod tests {
     use super::*;
 
     fn create_config() -> Config {
-        let config = Config::default();
-        config
+        Config::default()
     }
 
     #[test]

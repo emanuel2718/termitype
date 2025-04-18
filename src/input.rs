@@ -398,7 +398,7 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                         .ok();
                     }
                     MenuAction::ChangeLanguage(lang) => {
-                        state.config.language = lang;
+                        state.config.change_language(&lang);
                         state.start();
                     }
                     MenuAction::Quit => return Action::Quit,
