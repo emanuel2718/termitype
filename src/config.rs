@@ -3,6 +3,7 @@ use crossterm::cursor::SetCursorStyle;
 
 use crate::{
     constants::{AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE},
+    log,
     persistence::Persistence,
     theme::ThemeLoader,
 };
@@ -93,8 +94,8 @@ pub struct Config {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ModeType {
-    Time,
-    Words,
+    Time = 0,
+    Words = 1,
 }
 
 /// Represents the operationlal mode of the game>
@@ -153,6 +154,53 @@ impl Config {
                     config.theme = Some(theme.to_string());
                 }
             }
+
+            // Cursor
+            if let Some(cursor) = persistence.get("cursor") {
+                Self::change_cursor_style(config, cursor);
+            }
+
+            // Mode
+            if let Some(mode) = persistence.get("mode") {
+                if let Some(mode_type) = Self::resolve_mode_from_str(config, mode) {
+                    log::info("Chaning mode");
+                    Self::change_mode(config, mode_type, None);
+                }
+            }
+
+            // TODO: language
+            // TODO: mode value (time, word_count)
+
+            // symbols
+            if let Some(use_symbols) = persistence.get("use_symbols") {
+                let val = match use_symbols {
+                    "false" => false,
+                    "true" => true,
+                    _ => false,
+                };
+                Self::set_symbols(config, val);
+            }
+
+            // numbers
+            if let Some(use_numbers) = persistence.get("use_numbers") {
+                let val = match use_numbers {
+                    "false" => false,
+                    "true" => true,
+                    _ => false,
+                };
+                Self::set_numbers(config, val);
+            }
+
+            // punctuation
+            if let Some(use_punctuation) = persistence.get("use_punctuation") {
+                let val = match use_punctuation {
+                    "false" => false,
+                    "true" => true,
+                    _ => false,
+                };
+                Self::set_punctuation(config, val);
+            }
+
             config.persistent = Some(persistence);
         }
     }
@@ -194,10 +242,16 @@ impl Config {
             ModeType::Time => {
                 self.word_count = None;
                 self.time = Some(value.unwrap_or(30) as u64);
+                if let Some(persistence) = &mut self.persistent {
+                    let _ = persistence.set("mode", "Time");
+                }
             }
             ModeType::Words => {
                 self.time = None;
                 self.word_count = Some(value.unwrap_or(25));
+                if let Some(persistence) = &mut self.persistent {
+                    let _ = persistence.set("mode", "Words");
+                }
             }
         }
     }
@@ -217,7 +271,11 @@ impl Config {
 
     /// Chages the current style of the cursor.
     pub fn change_cursor_style(&mut self, style: &str) {
-        self.cursor_style = style.to_string()
+        self.cursor_style = style.to_string();
+        // TODO: there must be a better way to do this
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("cursor", style);
+        }
     }
 
     /// Resets the words flag after a test has been run with it.
@@ -230,6 +288,14 @@ impl Config {
         match self.current_mode() {
             Mode::Time { .. } => self.time = Some(value as u64),
             Mode::Words { .. } => self.word_count = Some(value),
+        }
+    }
+
+    fn resolve_mode_from_str(&self, mode: &str) -> Option<ModeType> {
+        match mode {
+            "Time" => Some(ModeType::Time),
+            "Words" => Some(ModeType::Words),
+            _ => None,
         }
     }
 
@@ -290,19 +356,46 @@ impl Config {
         }
     }
 
+    fn set_numbers(&mut self, val: bool) {
+        self.use_numbers = val;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("use_numbers", val.to_string().as_str());
+        }
+    }
+
+    fn set_symbols(&mut self, val: bool) {
+        self.use_symbols = val;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("use_symbols", val.to_string().as_str());
+        }
+    }
+
+    fn set_punctuation(&mut self, val: bool) {
+        self.use_punctuation = val;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("use_punctuation", val.to_string().as_str());
+        }
+    }
+
     /// Toggles the presence of numbers in the test word pool.
     pub fn toggle_numbers(&mut self) {
-        self.use_numbers = !self.use_numbers;
+        let val = !self.use_numbers;
+        self.use_numbers = val;
+        self.set_numbers(val);
     }
 
     /// Toggles the presence of punctuation in the test word pool.
     pub fn toggle_punctuation(&mut self) {
-        self.use_punctuation = !self.use_punctuation;
+        let val = !self.use_punctuation;
+        self.use_punctuation = val;
+        self.set_punctuation(val);
     }
 
     /// Toggles the presence of symbols in the test word pool.
     pub fn toggle_symbols(&mut self) {
-        self.use_symbols = !self.use_symbols;
+        let val = !self.use_symbols;
+        self.use_symbols = val;
+        self.set_symbols(val);
     }
 }
 
