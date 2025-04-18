@@ -46,13 +46,10 @@ impl Drop for Persistence {
 impl Persistence {
     /// Creates new persistence instnace
     pub fn new() -> TResult<Self> {
-        log::debug("initializing persistance system");
-
         let config_dir = get_config_dir()?;
         let path = config_dir.join(STATE_FILE);
 
         if !config_dir.exists() {
-            log::debug(&format!("Creating config directory at: {:?}", config_dir));
             fs::create_dir_all(config_dir)?;
         }
 
@@ -101,7 +98,6 @@ impl Persistence {
 
     /// Loads state form disk
     fn load(&mut self) -> TResult<()> {
-        log::debug(&format!("Loading state from: {:?}", self.path));
         let file = File::open(&self.path)?;
         let reader = io::BufReader::new(file);
         let mut values = HashMap::with_capacity(DEFAULT_CAPACITY);
@@ -136,15 +132,12 @@ impl Persistence {
 
     /// Saves current state to disk
     fn save(&mut self) -> TResult<()> {
-        log::debug(&format!("Saving state to: {:?}", self.path));
-
         let temp_path = self.path.with_extension("tmp");
         let file = create_file(&temp_path)?;
         let mut writer = BufWriter::new(file);
 
         for (k, v) in &self.values {
             writeln!(writer, "{} = {}", k, v)?;
-            log::debug(&format!("Saving setting: {} = {}", k, v));
         }
 
         writer.flush()?;

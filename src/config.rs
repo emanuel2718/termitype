@@ -4,7 +4,6 @@ use crossterm::cursor::SetCursorStyle;
 use crate::{
     builder::Builder,
     constants::{AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE},
-    log,
     persistence::Persistence,
     theme::ThemeLoader,
 };
@@ -161,12 +160,16 @@ impl Config {
                 Self::change_cursor_style(config, cursor);
             }
 
-            // Mode
-            if let Some(mode) = persistence.get("mode") {
-                if let Some(mode_type) = Self::resolve_mode_from_str(config, mode) {
-                    log::info("Chaning mode");
-                    Self::change_mode(config, mode_type, None);
-                }
+            // Mode and its value
+            let mode_type = persistence
+                .get("mode")
+                .and_then(|mode| Self::resolve_mode_from_str(config, mode));
+            let mode_value = persistence
+                .get("mode_value")
+                .and_then(|val| val.parse::<usize>().ok());
+
+            if let Some(mode_type) = mode_type {
+                Self::change_mode(config, mode_type, mode_value);
             }
 
             // Language
@@ -175,8 +178,6 @@ impl Config {
                     config.language = lang.to_string();
                 }
             }
-
-            // TODO: mode value (time, word_count)
 
             // symbols
             if let Some(use_symbols) = persistence.get("use_symbols") {
@@ -251,6 +252,7 @@ impl Config {
                 self.time = Some(value.unwrap_or(30) as u64);
                 if let Some(persistence) = &mut self.persistent {
                     let _ = persistence.set("mode", "Time");
+                    let _ = persistence.set("mode_value", &value.unwrap_or(30).to_string());
                 }
             }
             ModeType::Words => {
@@ -258,6 +260,7 @@ impl Config {
                 self.word_count = Some(value.unwrap_or(25));
                 if let Some(persistence) = &mut self.persistent {
                     let _ = persistence.set("mode", "Words");
+                    let _ = persistence.set("mode_value", &value.unwrap_or(25).to_string());
                 }
             }
         }
@@ -268,6 +271,19 @@ impl Config {
         self.theme = Some(theme_name.to_string());
         if let Some(persistence) = &mut self.persistent {
             let _ = persistence.set("theme", theme_name);
+        }
+    }
+
+    /// Changes the language if available.
+    pub fn change_language(&mut self, lang: &str) -> bool {
+        if Builder::has_language(lang) {
+            self.language = lang.to_string();
+            if let Some(persistence) = &mut self.persistent {
+                let _ = persistence.set("language", lang);
+            }
+            true
+        } else {
+            false
         }
     }
 
@@ -295,6 +311,9 @@ impl Config {
         match self.current_mode() {
             Mode::Time { .. } => self.time = Some(value as u64),
             Mode::Words { .. } => self.word_count = Some(value),
+        }
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("mode_value", &value.to_string());
         }
     }
 
@@ -404,19 +423,6 @@ impl Config {
         self.use_symbols = val;
         self.set_symbols(val);
     }
-
-    /// Changes the language if available.
-    pub fn change_language(&mut self, lang: &str) -> bool {
-        if Builder::has_language(lang) {
-            self.language = lang.to_string();
-            if let Some(persistence) = &mut self.persistent {
-                let _ = persistence.set("language", lang);
-            }
-            true
-        } else {
-            false
-        }
-    }
 }
 
 #[cfg(test)]
@@ -437,10 +443,10 @@ mod tests {
         assert_eq!(config.theme, None);
         assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
 
-        assert_eq!(config.use_symbols, false);
-        assert_eq!(config.use_punctuation, false);
+        assert!(!config.use_symbols);
+        assert!(!config.use_punctuation);
         #[cfg(debug_assertions)]
-        assert_eq!(config.debug, false);
+        assert!(!config.debug);
     }
 
     fn assert_mode(config: &Config, expected_mode: ModeType, expected_value: usize) {
