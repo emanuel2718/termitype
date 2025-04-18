@@ -1,6 +1,6 @@
 {
-  "name": "code_rust",
-  "words": [
+  "title": "rust",
+  "pool": [
     "as",
     "async",
     "await",
@@ -51,7 +51,7 @@
     "where",
     "while",
     "panic!()",
-    "println!(\"{}\", T)",
+    "println!()",
     "(T, E)",
     "u8",
     "u16",

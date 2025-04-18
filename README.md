@@ -49,10 +49,7 @@ cargo install termitype@0.0.1-alpha.18
 
 ### TODO
 
-- [ ] User defined config in `$XDG_CONFIG_HOME/termitype/config`. Takes precedence over default config and persitent config state in db
-  - do some simple ini file like [ghostty config file](https://github.com/ghostty-org/ghostty/blob/main/src/config/config-template)
-- [ ] Settings persistance
-- [ ] Results (locally) tracking with sqlite (can be opted-out with `termitype --no-track`)
+- [ ] Locally track stats (results) with sqlite (can be opted-out with `termitype --no-track`)
 - [ ] Layout cleanup pass
 - [ ] Release on:
   - [x] crates.io
@@ -62,6 +59,7 @@ cargo install termitype@0.0.1-alpha.18
 
 ### Done
 
+- [x] Settings persistance
 - [x] Proper Results screen
 - [x] Build Github CI
 - [x] Theme swap at runtime (Menu -> Themes -> <list of themes>)

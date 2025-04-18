@@ -19,8 +19,8 @@ const NUMBER_PROBABILITY: f64 = 0.15;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Language {
-    name: String,
-    words: Vec<String>,
+    title: String,
+    pool: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -149,7 +149,7 @@ impl Builder {
             assets::get_language(lang).ok_or_else(|| format!("Language '{}' not found", lang))?;
 
         let language: Language = serde_json::from_str(&content)?;
-        self.languages.insert(language.name, language.words);
+        self.languages.insert(language.title, language.pool);
         Ok(())
     }
 }
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn test_default_bulder_state() {
         let builder = create_builder();
-        assert_eq!(builder.languages.is_empty(), false);
+        assert!(!builder.languages.is_empty());
         assert!(builder.languages.contains_key(DEFAULT_LANGUAGE));
     }
 

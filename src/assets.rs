@@ -51,7 +51,6 @@ pub fn list_languages() -> Vec<String> {
                         .and_then(|n| n.to_str())
                         .map(String::from)
                 })
-                .filter(|name| name != "_list")
                 .collect()
         })
         .unwrap_or_default()
