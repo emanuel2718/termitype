@@ -12,7 +12,6 @@ use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
-    log,
     menu::{MenuAction, MenuState},
     theme::Theme,
     tracker::Tracker,
@@ -23,7 +22,7 @@ use crate::{
 };
 
 #[cfg(debug_assertions)]
-use crate::debug::Debug;
+use crate::debug_panel::DebugPanel;
 
 pub struct Termi {
     pub config: Config,
@@ -36,7 +35,7 @@ pub struct Termi {
     pub menu: MenuState,
     pub clickable_regions: Vec<ClickableRegion>,
     #[cfg(debug_assertions)]
-    pub debug: Option<Debug>,
+    pub debug: Option<DebugPanel>,
 }
 
 impl std::fmt::Debug for Termi {
@@ -76,12 +75,11 @@ impl Termi {
 
         #[cfg(debug_assertions)]
         let debug = if config.debug {
-            Some(Debug::new())
+            Some(DebugPanel::new())
         } else {
             None
         };
 
-        log::info(&format!("Termi::new() -> {:?}", &config));
         Self {
             config: config.clone(),
             tracker,
@@ -300,13 +298,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
 
         if now.duration_since(last_metrics_update) >= Duration::from_millis(250) {
             termi.tracker.update_metrics();
-
-            #[cfg(debug_assertions)]
-            if let Some(debug) = termi.debug.as_mut() {
-                debug.sync_with_global();
-            }
             last_metrics_update = now;
-
             needs_redraw = true;
         }
 

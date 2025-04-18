@@ -50,11 +50,6 @@ pub enum ToggleAction {
 #[derive(Debug, Clone, PartialEq)]
 pub enum DebugAction {
     TogglePanel,
-    NextTab,
-    PrevTab,
-    ScrollUp,
-    ScrollDown,
-    ToggleAutoScroll,
 }
 
 #[derive(Default)]
@@ -192,13 +187,6 @@ impl InputHandler {
         match (key.code, key.modifiers) {
             (KeyCode::Char(DEBUG_KEY), KeyModifiers::CONTROL) => {
                 Some(Action::Debug(DebugAction::TogglePanel))
-            }
-            (KeyCode::Left, KeyModifiers::NONE) => Some(Action::Debug(DebugAction::PrevTab)),
-            (KeyCode::Right, KeyModifiers::NONE) => Some(Action::Debug(DebugAction::NextTab)),
-            (KeyCode::Up, KeyModifiers::NONE) => Some(Action::Debug(DebugAction::ScrollUp)),
-            (KeyCode::Down, KeyModifiers::NONE) => Some(Action::Debug(DebugAction::ScrollDown)),
-            (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
-                Some(Action::Debug(DebugAction::ToggleAutoScroll))
             }
             _ => None,
         }
@@ -452,47 +440,13 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
         }
     }
 }
+
 #[cfg(debug_assertions)]
 fn execute_debug_action(action: DebugAction, state: &mut Termi) -> Action {
     match action {
         DebugAction::TogglePanel => {
             if let Some(debug) = state.debug.as_mut() {
                 debug.toggle();
-            }
-            Action::None
-        }
-        DebugAction::NextTab => {
-            if let Some(debug) = state.debug.as_mut() {
-                debug.next_tab();
-            }
-            Action::None
-        }
-        DebugAction::PrevTab => {
-            if let Some(debug) = state.debug.as_mut() {
-                debug.prev_tab();
-            }
-            Action::None
-        }
-        DebugAction::ScrollUp => {
-            if let Some(debug) = state.debug.as_mut() {
-                debug.scroll_up();
-            }
-            Action::None
-        }
-        DebugAction::ScrollDown => {
-            if let Some(debug) = state.debug.as_mut() {
-                let max_lines = match debug.current_tab {
-                    0 => 3,
-                    1 => debug.logs.len(),
-                    _ => unreachable!(),
-                };
-                debug.scroll_down(max_lines);
-            }
-            Action::None
-        }
-        DebugAction::ToggleAutoScroll => {
-            if let Some(debug) = state.debug.as_mut() {
-                debug.toggle_auto_scroll();
             }
             Action::None
         }

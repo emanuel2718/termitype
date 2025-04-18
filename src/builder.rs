@@ -56,7 +56,7 @@ impl Builder {
             return words.clone();
         }
 
-        let lang = config.language.as_str();
+        let lang = config.language.as_ref().unwrap().as_str();
 
         if !self.languages.contains_key(lang) {
             let _ = self.load_language(lang);

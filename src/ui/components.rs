@@ -83,7 +83,7 @@ pub fn title(f: &mut Frame, termi: &Termi, area: Rect) {
 
 pub fn progress_info(f: &mut Frame, termi: &mut Termi, area: Rect) {
     if termi.tracker.status == crate::tracker::Status::Idle {
-        let language = termi.config.language.as_str().to_string();
+        let language = termi.config.language.as_ref().unwrap();
 
         let element = UIElement::new(language, false, Some(ClickAction::OpenLanguagePicker));
 
@@ -596,7 +596,7 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
     let raw_wpm = termi.tracker.raw_wpm.round() as u32;
     let accuracy = termi.tracker.accuracy;
     let backspace_count = termi.tracker.backspace_count;
-    let language = termi.config.language.as_str();
+    let language = termi.config.language.as_ref().unwrap().as_str();
     let consistency = termi.tracker.calculate_consistency();
     let min_wpm = termi.tracker.wpm_samples.iter().min().unwrap_or(&0);
 

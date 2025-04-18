@@ -18,8 +18,8 @@ use crate::{
 ))]
 pub struct Config {
     /// The language dictionary used for the test. Defaults to English.
-    #[arg(short, long, default_value = DEFAULT_LANGUAGE, value_name = "LANG")]
-    pub language: String,
+    #[arg(short, long, value_name = "LANG")]
+    pub language: Option<String>,
 
     /// Duration of the test in seconds (only valid in Time mode).
     #[arg(short = 't', long = "time", group = "mode")]
@@ -70,10 +70,9 @@ pub struct Config {
     #[arg(
         long = "cursor-style",
         value_name = "CURSOR",
-        default_value = DEFAULT_CURSOR_STYLE,
         help = "Sets the cursor style: 'beam', 'block', 'underline', 'blinking-beam', 'blinking-block', 'blinking-underline'"
     )]
-    pub cursor_style: String,
+    pub cursor_style: Option<String>,
 
     /// Number of visible lines in the test.
     #[arg(long = "lines", default_value_t = AMOUNT_OF_VISIBLE_LINES)]
@@ -124,8 +123,8 @@ impl Default for Config {
             use_numbers: false,
             use_punctuation: false,
             theme: None,
-            language: DEFAULT_LANGUAGE.to_string(),
-            cursor_style: DEFAULT_CURSOR_STYLE.to_string(),
+            language: Some(DEFAULT_LANGUAGE.to_string()),
+            cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
             visible_lines: AMOUNT_OF_VISIBLE_LINES,
             color_mode: None,
             list_themes: false,
@@ -146,70 +145,84 @@ impl Config {
         config
     }
 
-    fn override_with_persistence(config: &mut Config) {
+    fn override_with_persistence(&mut self) {
         if let Ok(persistence) = Persistence::new() {
             // Theme
-            if let Some(theme) = persistence.get("theme") {
-                if ThemeLoader::has_theme(theme) {
-                    config.theme = Some(theme.to_string());
+            if self.theme.is_none() {
+                if let Some(theme) = persistence.get("theme") {
+                    if self.theme.is_none() && ThemeLoader::has_theme(theme) {
+                        self.theme = Some(theme.to_string());
+                    }
                 }
             }
 
             // Cursor
-            if let Some(cursor) = persistence.get("cursor") {
-                Self::change_cursor_style(config, cursor);
+            if self.cursor_style.is_none() {
+                if let Some(cursor) = persistence.get("cursor") {
+                    self.change_cursor_style(cursor);
+                }
             }
 
-            // Mode and its value
-            let mode_type = persistence
-                .get("mode")
-                .and_then(|mode| Self::resolve_mode_from_str(config, mode));
-            let mode_value = persistence
-                .get("mode_value")
-                .and_then(|val| val.parse::<usize>().ok());
+            if self.time.is_none() && self.words.is_none() {
+                // Mode and its value
+                let mode_type = persistence
+                    .get("mode")
+                    .and_then(|mode| self.resolve_mode_from_str(mode));
+                let mode_value = persistence
+                    .get("mode_value")
+                    .and_then(|val| val.parse::<usize>().ok());
 
-            if let Some(mode_type) = mode_type {
-                Self::change_mode(config, mode_type, mode_value);
+                if let Some(mode_type) = mode_type {
+                    self.change_mode(mode_type, mode_value);
+                }
             }
 
             // Language
-            if let Some(lang) = persistence.get("language") {
-                if Builder::has_language(lang) {
-                    config.language = lang.to_string();
+            if self.language.is_none() {
+                if let Some(lang) = persistence.get("language") {
+                    if Builder::has_language(lang) {
+                        self.language = Some(lang.to_string());
+                    }
                 }
             }
 
             // symbols
-            if let Some(use_symbols) = persistence.get("use_symbols") {
-                let val = match use_symbols {
-                    "false" => false,
-                    "true" => true,
-                    _ => false,
-                };
-                Self::set_symbols(config, val);
+            if !self.use_symbols {
+                if let Some(use_symbols) = persistence.get("use_symbols") {
+                    let val = match use_symbols {
+                        "false" => false,
+                        "true" => true,
+                        _ => false,
+                    };
+                    self.set_symbols(val);
+                }
             }
 
             // numbers
-            if let Some(use_numbers) = persistence.get("use_numbers") {
-                let val = match use_numbers {
-                    "false" => false,
-                    "true" => true,
-                    _ => false,
-                };
-                Self::set_numbers(config, val);
+            if !self.use_numbers {
+                if let Some(use_numbers) = persistence.get("use_numbers") {
+                    let val = match use_numbers {
+                        "false" => false,
+                        "true" => true,
+                        _ => false,
+                    };
+                    self.set_numbers(val);
+                }
             }
 
             // punctuation
-            if let Some(use_punctuation) = persistence.get("use_punctuation") {
-                let val = match use_punctuation {
-                    "false" => false,
-                    "true" => true,
-                    _ => false,
-                };
-                Self::set_punctuation(config, val);
+            if !self.use_punctuation {
+                if let Some(use_punctuation) = persistence.get("use_punctuation") {
+                    let val = match use_punctuation {
+                        "false" => false,
+                        "true" => true,
+                        _ => false,
+                    };
+                    self.set_punctuation(val);
+                }
             }
 
-            config.persistent = Some(persistence);
+            self.persistent = Some(persistence);
         }
     }
 
@@ -277,7 +290,7 @@ impl Config {
     /// Changes the language if available.
     pub fn change_language(&mut self, lang: &str) -> bool {
         if Builder::has_language(lang) {
-            self.language = lang.to_string();
+            self.language = Some(lang.to_string());
             if let Some(persistence) = &mut self.persistent {
                 let _ = persistence.set("language", lang);
             }
@@ -294,7 +307,7 @@ impl Config {
 
     /// Chages the current style of the cursor.
     pub fn change_cursor_style(&mut self, style: &str) {
-        self.cursor_style = style.to_string();
+        self.cursor_style = Some(style.to_string());
         // TODO: there must be a better way to do this
         if let Some(persistence) = &mut self.persistent {
             let _ = persistence.set("cursor", style);
@@ -343,14 +356,18 @@ impl Config {
 
     /// Resolves the cursor style based on current configuration.
     pub fn resolve_current_cursor_style(&self) -> SetCursorStyle {
-        match self.cursor_style.as_str() {
-            "beam" => SetCursorStyle::SteadyBar,
-            "block" => SetCursorStyle::DefaultUserShape,
-            "underline" => SetCursorStyle::SteadyUnderScore,
-            "blinking-beam" => SetCursorStyle::BlinkingBar,
-            "blinking-block" => SetCursorStyle::BlinkingBlock,
-            "blinking-underline" => SetCursorStyle::BlinkingUnderScore,
-            _ => SetCursorStyle::BlinkingBar, // default to beam style
+        if let Some(style) = &self.cursor_style {
+            match style.as_str() {
+                "beam" => SetCursorStyle::SteadyBar,
+                "block" => SetCursorStyle::DefaultUserShape,
+                "underline" => SetCursorStyle::SteadyUnderScore,
+                "blinking-beam" => SetCursorStyle::BlinkingBar,
+                "blinking-block" => SetCursorStyle::BlinkingBlock,
+                "blinking-underline" => SetCursorStyle::BlinkingUnderScore,
+                _ => SetCursorStyle::BlinkingBar, // default to beam style
+            }
+        } else {
+            SetCursorStyle::BlinkingBar
         }
     }
 
@@ -439,7 +456,7 @@ mod tests {
         assert!(config.time.is_some());
         assert!(config.word_count.is_none());
 
-        assert_eq!(config.language, DEFAULT_LANGUAGE.to_string());
+        assert_eq!(config.language, Some(DEFAULT_LANGUAGE.to_string()));
         assert_eq!(config.theme, None);
         assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
 
@@ -512,37 +529,37 @@ mod tests {
             SetCursorStyle::BlinkingBar
         );
 
-        config.cursor_style = "beam".to_string();
+        config.cursor_style = Some("beam".to_string());
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::SteadyBar
         );
 
-        config.cursor_style = "block".to_string();
+        config.cursor_style = Some("block".to_string());
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::DefaultUserShape
         );
 
-        config.cursor_style = "underline".to_string();
+        config.cursor_style = Some("underline".to_string());
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::SteadyUnderScore
         );
 
-        config.cursor_style = "blinking-beam".to_string();
+        config.cursor_style = Some("blinking-beam".to_string());
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::BlinkingBar
         );
 
-        config.cursor_style = "blinking-block".to_string();
+        config.cursor_style = Some("blinking-block".to_string());
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::BlinkingBlock
         );
 
-        config.cursor_style = "blinking-underline".to_string();
+        config.cursor_style = Some("blinking-underline".to_string());
         matches!(
             config.resolve_current_cursor_style(),
             SetCursorStyle::BlinkingUnderScore
