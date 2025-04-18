@@ -474,7 +474,7 @@ mod tests {
         let mut config = create_config();
         let theme_name = "Monokai Classic";
         config.change_theme(theme_name);
-        assert_eq!(config.theme, None);
+        assert_eq!(config.theme, Some("Monokai Classic".to_string()));
     }
 
     #[test]
