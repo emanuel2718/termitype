@@ -156,16 +156,13 @@ impl Termi {
         #[cfg(debug_assertions)]
         let debug = self.debug.clone();
 
-        // hmm, if the use passed the words flag, should we reset it?
-        // maybe the user wants to pracitice those sepecific words over and over again?
-        // reset words flag for now...
         if self.config.words.is_some() {
             self.config.reset_words_flag();
         }
 
-        // no memory leak on my wathc!
-        let old_termi = std::mem::replace(self, Termi::new(&self.config));
-        drop(old_termi);
+        self.words = self.builder.generate_test(&self.config);
+
+        self.tracker = Tracker::new(&self.config, self.words.clone());
 
         self.menu = menu;
         self.preview_theme = preview_theme;
@@ -215,45 +212,38 @@ impl Termi {
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
     let mut termi = Termi::new(config);
 
-    let tick_rate = Duration::from_millis(8); // ~120+ FPS
+    let frame_time = Duration::from_micros(6944); // ~144 FPS (1000000/144)
+    let idle_frame_time = Duration::from_millis(100); // slower refresh when IDLE
+
     let mut last_tick = Instant::now();
     let mut last_render = Instant::now();
     let mut last_metrics_update = Instant::now();
-    let mut input_handler = InputHandler::new();
-
-    let mut needs_redraw = true;
-
-    let mut typing_burst_active = false;
     let mut last_keystroke = Instant::now();
-    let typing_burst_threshold = Duration::from_millis(25);
-    let mut keystrokes_since_render = 0;
-    let max_keystrokes_before_render = 3; // force render after N keystrokes
+    let mut input_handler = InputHandler::new();
+    let mut needs_redraw = true;
 
     loop {
         let now = Instant::now();
-        let since_last_render = now.duration_since(last_render);
 
-        if needs_redraw
-            && ((!typing_burst_active && since_last_render.as_millis() > 16)
-                || (typing_burst_active
-                    && (since_last_render.as_millis() > 32
-                        || keystrokes_since_render >= max_keystrokes_before_render)))
-        {
+        let current_frame_time = if now.duration_since(last_keystroke) < Duration::from_secs(1) {
+            frame_time
+        } else {
+            idle_frame_time
+        };
+
+        if needs_redraw && now.duration_since(last_render) >= current_frame_time {
             terminal.draw(|f| draw_ui(f, &mut termi))?;
             last_render = now;
             needs_redraw = false;
-            keystrokes_since_render = 0;
         }
 
-        let timeout = tick_rate
+        let timeout = current_frame_time
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
 
         if crossterm::event::poll(timeout)? {
             match event::read()? {
                 Event::Key(key) => {
-                    // NOTE: this is to avoid duplicate key firing event on windows
-                    // https://ratatui.rs/faq/
                     if key.kind == KeyEventKind::Press {
                         #[cfg(debug_assertions)]
                         let action =
@@ -265,16 +255,8 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                             break;
                         }
 
-                        let time_since_last_keystroke = now.duration_since(last_keystroke);
-                        typing_burst_active = time_since_last_keystroke < typing_burst_threshold;
                         last_keystroke = now;
-
-                        if matches!(action, Action::TypeCharacter(_) | Action::Backspace) {
-                            keystrokes_since_render += 1;
-                        }
-
                         let action = process_action(action, &mut termi);
-
                         needs_redraw = true;
 
                         if action == Action::Quit {
@@ -289,14 +271,16 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                     ..
                 }) => {
                     termi.handle_click(column, row);
-                    typing_burst_active = false;
+                    needs_redraw = true;
+                }
+                Event::Resize(_width, _height) => {
                     needs_redraw = true;
                 }
                 _ => {}
             }
         }
 
-        if now.duration_since(last_metrics_update) >= Duration::from_millis(250) {
+        if now.duration_since(last_metrics_update) >= Duration::from_millis(500) {
             termi.tracker.update_metrics();
             last_metrics_update = now;
             needs_redraw = true;
