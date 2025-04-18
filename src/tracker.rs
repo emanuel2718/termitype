@@ -150,6 +150,7 @@ impl Tracker {
             && self.target_chars[self.cursor_position] == c;
 
         let is_space = c == ' ';
+        let current_char = self.target_chars[self.cursor_position];
 
         if !is_correct
             && self.cursor_position < self.target_chars.len()
@@ -182,7 +183,7 @@ impl Tracker {
 
         self.cursor_position += 1;
 
-        if is_space {
+        if is_space && current_char == ' ' {
             self.check_if_corrected_word_at_position(self.cursor_position - 1);
             self.current_word_start = self.cursor_position;
         }
@@ -370,28 +371,6 @@ impl Tracker {
         while target_end < self.target_chars.len() && self.target_chars[target_end] != ' ' {
             target_end += 1;
         }
-
-        if word_end - word_start != target_end - word_start {
-            return;
-        }
-
-        let is_word_correct = (word_start..word_end).all(|i| {
-            i < self.target_chars.len()
-                && self.user_input.get(i).copied().flatten() == Some(self.target_chars[i])
-        });
-
-        if is_word_correct {
-            #[cfg(debug_assertions)]
-            {
-                use crate::debug::LOG;
-
-                LOG(format!(
-                    "Unmarking word at position {} as correct",
-                    word_start
-                ));
-            }
-            self.wrong_words_start_indexes.remove(&word_start);
-        }
     }
 }
 
@@ -558,6 +537,24 @@ mod tests {
 
         // is first word still marked as wrong? should be
         assert!(tracker.is_word_wrong(0));
+    }
+
+    #[test]
+    fn test_only_add_to_wrong_words_when_jumping_to_next_word() {
+        let config = Config::default();
+        let target_text = String::from("hello world pog");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        tracker.type_char('h');
+        assert!(tracker.wrong_words_start_indexes.is_empty());
+        tracker.type_char(' ');
+        assert!(tracker.is_word_wrong(0));
+        assert_eq!(tracker.wrong_words_start_indexes.len(), 1);
+        tracker.type_char(' ');
+        // NOTE: before, it would keep adding to `wrong_words_start_indexes` on every <space>
+        //       if the wrong char was typed
+        assert_eq!(tracker.wrong_words_start_indexes.len(), 1);
     }
 
     #[test]

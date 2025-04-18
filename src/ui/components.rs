@@ -222,15 +222,6 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
 
         let is_wrong_word = !is_current_word && termi.tracker.is_word_wrong(word_start);
 
-        #[cfg(debug_assertions)]
-        if is_wrong_word {
-            use crate::debug::LOG;
-            LOG(format!(
-                "Word at {} is wrong and is not current word (cursor at {})",
-                word_start, termi.tracker.cursor_position
-            ));
-        }
-
         let mut chars = Vec::with_capacity(word_len);
 
         for (i, c) in word.chars().enumerate() {
@@ -341,10 +332,7 @@ pub fn typing_area(f: &mut Frame, termi: &mut Termi, area: Rect) {
     f.render_widget(typing_area, content_area);
 
     // only show cursor while IDLE or TYPING
-    if (termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing)
-        && !termi.has_floating_box_open()
-    {
-        // adjust for accounting scroll offset
+    if termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing {
         let offset = termi.tracker.cursor_position - current_word_pos.start_index;
         let x = content_area.x + (current_word_pos.col + offset) as u16;
         let y = content_area.y + (current_word_pos.line.saturating_sub(scroll_offset)) as u16;
@@ -533,7 +521,11 @@ pub fn command_bar(f: &mut Frame, termi: &Termi, area: Rect) {
 pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let elements = vec![
         UIElement::new(" ", false, None),
-        UIElement::new("ⓘ about", termi.about_open, Some(ClickAction::ToggleAbout)),
+        UIElement::new(
+            "ⓘ about",
+            termi.menu.is_about_menu(),
+            Some(ClickAction::ToggleAbout),
+        ),
         UIElement::new(" ", false, None),
         UIElement::new(line::DOUBLE_VERTICAL_LEFT, false, None),
         UIElement::new(" ", false, None),

@@ -1,8 +1,11 @@
 use clap::{ArgGroup, Parser};
 use crossterm::cursor::SetCursorStyle;
 
-use crate::constants::{
-    AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME,
+use crate::{
+    builder::Builder,
+    constants::{AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE},
+    persistence::Persistence,
+    theme::ThemeLoader,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -31,8 +34,8 @@ pub struct Config {
     pub word_count: Option<usize>,
 
     /// Sets the theme if a valid theme is given, ignored otherwise
-    #[arg(short = 'T', long = "theme", default_value = DEFAULT_THEME)]
-    pub theme: String,
+    #[arg(short = 'T', long = "theme")]
+    pub theme: Option<String>,
 
     /// Lists the available themes
     #[arg(long = "list-themes")]
@@ -84,12 +87,15 @@ pub struct Config {
     #[cfg(debug_assertions)]
     #[arg(short = 'd', long = "debug")]
     pub debug: bool,
+
+    #[arg(skip)]
+    persistent: Option<Persistence>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ModeType {
-    Time,
-    Words,
+    Time = 0,
+    Words = 1,
 }
 
 /// Represents the operationlal mode of the game>
@@ -117,7 +123,7 @@ impl Default for Config {
             use_symbols: false,
             use_numbers: false,
             use_punctuation: false,
-            theme: DEFAULT_THEME.to_string(),
+            theme: None,
             language: DEFAULT_LANGUAGE.to_string(),
             cursor_style: DEFAULT_CURSOR_STYLE.to_string(),
             visible_lines: AMOUNT_OF_VISIBLE_LINES,
@@ -127,6 +133,7 @@ impl Default for Config {
             version: false,
             #[cfg(debug_assertions)]
             debug: false,
+            persistent: None,
         }
     }
 }
@@ -134,7 +141,82 @@ impl Default for Config {
 impl Config {
     /// Returns a new instance of the Config struct with default values.
     pub fn new() -> Self {
-        Self::default()
+        let mut config = Self::default();
+        Self::override_with_persistence(&mut config);
+        config
+    }
+
+    fn override_with_persistence(config: &mut Config) {
+        if let Ok(persistence) = Persistence::new() {
+            // Theme
+            if let Some(theme) = persistence.get("theme") {
+                if ThemeLoader::has_theme(theme) {
+                    config.theme = Some(theme.to_string());
+                }
+            }
+
+            // Cursor
+            if let Some(cursor) = persistence.get("cursor") {
+                Self::change_cursor_style(config, cursor);
+            }
+
+            // Mode and its value
+            let mode_type = persistence
+                .get("mode")
+                .and_then(|mode| Self::resolve_mode_from_str(config, mode));
+            let mode_value = persistence
+                .get("mode_value")
+                .and_then(|val| val.parse::<usize>().ok());
+
+            if let Some(mode_type) = mode_type {
+                Self::change_mode(config, mode_type, mode_value);
+            }
+
+            // Language
+            if let Some(lang) = persistence.get("language") {
+                if Builder::has_language(lang) {
+                    config.language = lang.to_string();
+                }
+            }
+
+            // symbols
+            if let Some(use_symbols) = persistence.get("use_symbols") {
+                let val = match use_symbols {
+                    "false" => false,
+                    "true" => true,
+                    _ => false,
+                };
+                Self::set_symbols(config, val);
+            }
+
+            // numbers
+            if let Some(use_numbers) = persistence.get("use_numbers") {
+                let val = match use_numbers {
+                    "false" => false,
+                    "true" => true,
+                    _ => false,
+                };
+                Self::set_numbers(config, val);
+            }
+
+            // punctuation
+            if let Some(use_punctuation) = persistence.get("use_punctuation") {
+                let val = match use_punctuation {
+                    "false" => false,
+                    "true" => true,
+                    _ => false,
+                };
+                Self::set_punctuation(config, val);
+            }
+
+            config.persistent = Some(persistence);
+        }
+    }
+
+    pub fn try_parse() -> Result<Self, clap::Error> {
+        let mut config = <Self as Parser>::try_parse()?;
+        Self::override_with_persistence(&mut config);
+        Ok(config)
     }
 
     /// Resolves the mode based onf the provided arguments
@@ -168,17 +250,41 @@ impl Config {
             ModeType::Time => {
                 self.word_count = None;
                 self.time = Some(value.unwrap_or(30) as u64);
+                if let Some(persistence) = &mut self.persistent {
+                    let _ = persistence.set("mode", "Time");
+                    let _ = persistence.set("mode_value", &value.unwrap_or(30).to_string());
+                }
             }
             ModeType::Words => {
                 self.time = None;
                 self.word_count = Some(value.unwrap_or(25));
+                if let Some(persistence) = &mut self.persistent {
+                    let _ = persistence.set("mode", "Words");
+                    let _ = persistence.set("mode_value", &value.unwrap_or(25).to_string());
+                }
             }
         }
     }
 
     /// Chages the current theme of the game.
     pub fn change_theme(&mut self, theme_name: &str) {
-        self.theme = theme_name.to_string()
+        self.theme = Some(theme_name.to_string());
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("theme", theme_name);
+        }
+    }
+
+    /// Changes the language if available.
+    pub fn change_language(&mut self, lang: &str) -> bool {
+        if Builder::has_language(lang) {
+            self.language = lang.to_string();
+            if let Some(persistence) = &mut self.persistent {
+                let _ = persistence.set("language", lang);
+            }
+            true
+        } else {
+            false
+        }
     }
 
     /// Chages the number of visible lines in the test.
@@ -188,7 +294,11 @@ impl Config {
 
     /// Chages the current style of the cursor.
     pub fn change_cursor_style(&mut self, style: &str) {
-        self.cursor_style = style.to_string()
+        self.cursor_style = style.to_string();
+        // TODO: there must be a better way to do this
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("cursor", style);
+        }
     }
 
     /// Resets the words flag after a test has been run with it.
@@ -201,6 +311,17 @@ impl Config {
         match self.current_mode() {
             Mode::Time { .. } => self.time = Some(value as u64),
             Mode::Words { .. } => self.word_count = Some(value),
+        }
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("mode_value", &value.to_string());
+        }
+    }
+
+    fn resolve_mode_from_str(&self, mode: &str) -> Option<ModeType> {
+        match mode {
+            "Time" => Some(ModeType::Time),
+            "Words" => Some(ModeType::Words),
+            _ => None,
         }
     }
 
@@ -261,19 +382,46 @@ impl Config {
         }
     }
 
+    fn set_numbers(&mut self, val: bool) {
+        self.use_numbers = val;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("use_numbers", val.to_string().as_str());
+        }
+    }
+
+    fn set_symbols(&mut self, val: bool) {
+        self.use_symbols = val;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("use_symbols", val.to_string().as_str());
+        }
+    }
+
+    fn set_punctuation(&mut self, val: bool) {
+        self.use_punctuation = val;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("use_punctuation", val.to_string().as_str());
+        }
+    }
+
     /// Toggles the presence of numbers in the test word pool.
     pub fn toggle_numbers(&mut self) {
-        self.use_numbers = !self.use_numbers;
+        let val = !self.use_numbers;
+        self.use_numbers = val;
+        self.set_numbers(val);
     }
 
     /// Toggles the presence of punctuation in the test word pool.
     pub fn toggle_punctuation(&mut self) {
-        self.use_punctuation = !self.use_punctuation;
+        let val = !self.use_punctuation;
+        self.use_punctuation = val;
+        self.set_punctuation(val);
     }
 
     /// Toggles the presence of symbols in the test word pool.
     pub fn toggle_symbols(&mut self) {
-        self.use_symbols = !self.use_symbols;
+        let val = !self.use_symbols;
+        self.use_symbols = val;
+        self.set_symbols(val);
     }
 }
 
@@ -282,8 +430,7 @@ mod tests {
     use super::*;
 
     fn create_config() -> Config {
-        let config = Config::default();
-        config
+        Config::default()
     }
 
     #[test]
@@ -293,13 +440,13 @@ mod tests {
         assert!(config.word_count.is_none());
 
         assert_eq!(config.language, DEFAULT_LANGUAGE.to_string());
-        assert_eq!(config.theme, DEFAULT_THEME.to_string());
+        assert_eq!(config.theme, None);
         assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
 
-        assert_eq!(config.use_symbols, false);
-        assert_eq!(config.use_punctuation, false);
+        assert!(!config.use_symbols);
+        assert!(!config.use_punctuation);
         #[cfg(debug_assertions)]
-        assert_eq!(config.debug, false);
+        assert!(!config.debug);
     }
 
     fn assert_mode(config: &Config, expected_mode: ModeType, expected_value: usize) {
@@ -327,7 +474,7 @@ mod tests {
         let mut config = create_config();
         let theme_name = "Monokai Classic";
         config.change_theme(theme_name);
-        assert_eq!(config.theme, theme_name.to_string());
+        assert_eq!(config.theme, Some("Monokai Classic".to_string()));
     }
 
     #[test]

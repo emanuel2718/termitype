@@ -35,12 +35,15 @@ pub enum MenuInputAction {
     UpdateSearch(char),
     FinishSearch,
     CancelSearch,
+    Close,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToggleAction {
-    ToggleAbout,
+    #[cfg(debug_assertions)]
     ToggleDebugPanel,
+    #[cfg(not(debug_assertions))]
+    _Placeholder, // Need at least one variant
 }
 
 #[cfg(debug_assertions)]
@@ -88,7 +91,7 @@ impl InputHandler {
         }
 
         if menu.is_open() {
-            return self.handle_menu_input(menu, key);
+            return self.handle_menu_input(key, menu);
         }
         self.handle_type_input(key)
     }
@@ -96,8 +99,9 @@ impl InputHandler {
     fn handle_type_input(&mut self, key: KeyEvent) -> Action {
         match (key.code, key.modifiers) {
             (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
+            #[cfg(debug_assertions)]
             (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
-                Action::Toggle(ToggleAction::ToggleAbout)
+                Action::Toggle(ToggleAction::ToggleDebugPanel)
             }
             (KeyCode::Backspace, KeyModifiers::NONE) => {
                 self.pending_accent = None;
@@ -126,7 +130,7 @@ impl InputHandler {
         }
     }
 
-    fn handle_menu_input(&self, menu: &MenuState, key: KeyEvent) -> Action {
+    fn handle_menu_input(&self, key: KeyEvent, menu: &MenuState) -> Action {
         if menu.is_searching() {
             return match (key.code, key.modifiers) {
                 (KeyCode::Esc, _) => Action::Menu(MenuInputAction::CancelSearch),
@@ -168,13 +172,15 @@ impl InputHandler {
                 }
                 Action::None
             }
-            KeyCode::Char('h') => {
-                if menu.menu_depth() == 1 {
-                    return Action::None;
+            KeyCode::Char('h') | KeyCode::Esc => {
+                if menu.should_close_completely() {
+                    Action::Menu(MenuInputAction::Close)
+                } else if menu.menu_depth() > 1 {
+                    Action::Menu(MenuInputAction::Back)
+                } else {
+                    Action::Menu(MenuInputAction::Close)
                 }
-                Action::Menu(MenuInputAction::Back)
             }
-            KeyCode::Esc => Action::Menu(MenuInputAction::Back),
             _ => Action::None,
         }
     }
@@ -225,7 +231,7 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
     match action {
         Action::None => Action::None,
         Action::TypeCharacter(char) => {
-            if state.has_floating_box_open() {
+            if state.menu.is_open() {
                 return Action::None;
             }
 
@@ -238,7 +244,7 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             Action::None
         }
         Action::Backspace => {
-            if state.has_floating_box_open() {
+            if state.menu.is_open() {
                 return Action::None;
             }
 
@@ -256,10 +262,6 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             Action::None
         }
         Action::Pause => {
-            if state.about_open {
-                state.about_open = false;
-                return Action::None;
-            }
             if state.menu.is_open() {
                 state.menu.toggle(&state.config);
                 state.tracker.resume();
@@ -270,12 +272,19 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             Action::None
         }
         Action::Quit => Action::Quit,
-        Action::Toggle(_) => {
-            // TODO: handling this here might not be the right approach
-            if state.menu.is_open() {
-                state.menu.toggle(&state.config);
+        Action::Toggle(toggle_action) => {
+            #[cfg(debug_assertions)]
+            match toggle_action {
+                ToggleAction::ToggleDebugPanel => {
+                    if let Some(debug) = &mut state.debug {
+                        debug.visible = !debug.visible;
+                    }
+                }
             }
-            state.about_open = !state.about_open;
+            #[cfg(not(debug_assertions))]
+            match toggle_action {
+                ToggleAction::_Placeholder => {}
+            }
             Action::None
         }
     }
@@ -284,36 +293,34 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
 fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
     match action {
         MenuInputAction::Up => {
-            state.menu.prev_item();
-            if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
-                if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
-                    state.menu.preview_selected();
-                    state.update_preview_theme();
-                } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
-                    state.menu.preview_selected();
-                    state.update_preview_cursor();
+            if state.menu.prev_item() {
+                if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
+                    if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
+                        state.menu.preview_selected();
+                        state.update_preview_theme();
+                    } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
+                        state.menu.preview_selected();
+                        state.update_preview_cursor();
+                    }
                 }
             }
             Action::None
         }
         MenuInputAction::Down => {
-            state.menu.next_item();
-            if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
-                if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
-                    state.menu.preview_selected();
-                    state.update_preview_theme();
-                } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
-                    state.menu.preview_selected();
-                    state.update_preview_cursor();
+            if state.menu.next_item() {
+                if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
+                    if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
+                        state.menu.preview_selected();
+                        state.update_preview_theme();
+                    } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
+                        state.menu.preview_selected();
+                        state.update_preview_cursor();
+                    }
                 }
             }
             Action::None
         }
         MenuInputAction::Back => {
-            if state.about_open {
-                state.about_open = false;
-                return Action::None;
-            }
             if state.menu.is_searching() {
                 state.menu.cancel_search();
                 return Action::None;
@@ -391,12 +398,8 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                         .ok();
                     }
                     MenuAction::ChangeLanguage(lang) => {
-                        state.config.language = lang;
+                        state.config.change_language(&lang);
                         state.start();
-                    }
-                    MenuAction::OpenAbout => {
-                        state.about_open = true;
-                        state.menu.toggle(&state.config);
                     }
                     MenuAction::Quit => return Action::Quit,
                     _ => {}
@@ -441,6 +444,10 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
         }
         MenuInputAction::CancelSearch => {
             state.menu.cancel_search();
+            Action::None
+        }
+        MenuInputAction::Close => {
+            state.menu.close();
             Action::None
         }
     }

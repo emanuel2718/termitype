@@ -1,4 +1,6 @@
 use crate::config::{Config, ModeType};
+use crate::constants::DEFAULT_THEME;
+use crate::version::VERSION;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
@@ -13,6 +15,7 @@ pub enum MenuAction {
     OpenAbout,
     Back,
     Close,
+    None,
 
     ToggleFeature(String),
     ChangeMode(ModeType),
@@ -95,7 +98,7 @@ impl Menu {
     }
 
     pub fn next_item(&mut self) {
-        if self.selected_index < self.items.len() - 1 {
+        if self.selected_index < self.items.len().saturating_sub(1) {
             self.selected_index += 1;
         }
     }
@@ -150,7 +153,16 @@ impl Menu {
                 self.selected_index = filtered[pos + 1].0;
             }
         } else {
-            self.selected_index = filtered[0].0;
+            // extreme edge case that _in theory_ should never trigger.
+            let next_item = filtered
+                .iter()
+                .find(|(i, _)| *i > self.selected_index)
+                .or_else(|| filtered.first())
+                .map(|(i, _)| *i);
+
+            if let Some(index) = next_item {
+                self.selected_index = index;
+            }
         }
     }
 
@@ -166,7 +178,17 @@ impl Menu {
                 self.selected_index = filtered[pos - 1].0;
             }
         } else {
-            self.selected_index = filtered[0].0;
+            // extreme edge case that _in theory_ should never trigger.
+            let prev_item = filtered
+                .iter()
+                .rev()
+                .find(|(i, _)| *i < self.selected_index)
+                .or_else(|| filtered.last())
+                .map(|(i, _)| *i);
+
+            if let Some(index) = prev_item {
+                self.selected_index = index;
+            }
         }
     }
 
@@ -197,6 +219,7 @@ pub struct MenuState {
     preview_cursor: Option<String>,
     search_query: String,
     is_searching: bool,
+    opened_from_footer: bool,
 }
 
 impl Default for MenuState {
@@ -213,6 +236,7 @@ impl MenuState {
             preview_cursor: None,
             search_query: String::new(),
             is_searching: false,
+            opened_from_footer: false,
         }
     }
 
@@ -236,16 +260,23 @@ impl MenuState {
         if self.is_open() {
             self.menu_stack.clear();
             self.clear_previews();
+            self.opened_from_footer = false;
         } else {
             self.execute(MenuAction::OpenMainMenu, config);
+            self.opened_from_footer = false;
         }
     }
 
     pub fn back(&mut self) {
-        if self.menu_depth() > 1 {
+        if self.should_close_completely() {
+            self.menu_stack.clear();
+            self.clear_previews();
+            self.opened_from_footer = false;
+        } else if self.menu_depth() > 1 {
             self.menu_stack.pop();
         } else {
             self.menu_stack.clear();
+            self.opened_from_footer = false;
         }
         self.clear_previews();
     }
@@ -253,6 +284,7 @@ impl MenuState {
     pub fn close(&mut self) {
         self.menu_stack.clear();
         self.clear_previews();
+        self.opened_from_footer = false;
     }
 
     fn get_label_index(items: &[MenuItem], label: &str) -> Option<usize> {
@@ -270,7 +302,10 @@ impl MenuState {
             }
             MenuAction::ToggleThemePicker => {
                 let mut menu = Menu::new(Self::build_theme_picker());
-                if let Some(index) = Self::get_label_index(menu.items(), config.theme.as_str()) {
+                if let Some(index) = Self::get_label_index(
+                    menu.items(),
+                    config.theme.as_deref().unwrap_or(DEFAULT_THEME),
+                ) {
                     menu.select(index);
                 }
                 self.menu_stack.push(menu);
@@ -314,7 +349,11 @@ impl MenuState {
                 self.menu_stack.push(menu);
                 None
             }
-            MenuAction::OpenAbout => Some(MenuAction::OpenAbout),
+            MenuAction::OpenAbout => {
+                let menu = Menu::new(Self::build_about_menu());
+                self.menu_stack.push(menu);
+                None
+            }
             MenuAction::Back => {
                 self.back();
                 None
@@ -324,6 +363,7 @@ impl MenuState {
                 self.clear_previews();
                 None
             }
+            MenuAction::None => None,
             // return the other actions to be handled by the caller
             action => {
                 // clear menu stack for non-toggle actions
@@ -368,7 +408,6 @@ impl MenuState {
 
     fn build_main_menu(config: &Config) -> Vec<MenuItem> {
         vec![
-            MenuItem::new("Restart", MenuAction::Restart),
             MenuItem::new(
                 "Toggle Punctuation",
                 MenuAction::ToggleFeature("punctuation".into()),
@@ -391,8 +430,21 @@ impl MenuState {
             MenuItem::new("Theme...", MenuAction::ToggleThemePicker).submenufy(),
             MenuItem::new("Cursor...", MenuAction::OpenCursorPicker).submenufy(),
             MenuItem::new("Visible Lines...", MenuAction::OpenVisibleLines).submenufy(),
-            MenuItem::new("About", MenuAction::OpenAbout),
+            MenuItem::new("About...", MenuAction::OpenAbout).submenufy(),
             MenuItem::new("Exit", MenuAction::Quit),
+        ]
+    }
+
+    fn build_about_menu() -> Vec<MenuItem> {
+        vec![
+            MenuItem::new("name: termitype", MenuAction::None),
+            MenuItem::new(format!("version: {}", VERSION), MenuAction::None),
+            MenuItem::new("description: TUI typing game", MenuAction::None),
+            MenuItem::new("license: MIT", MenuAction::None),
+            MenuItem::new(
+                "source: http://github.com/emanuel2718/termitype",
+                MenuAction::None,
+            ),
         ]
     }
 
@@ -510,39 +562,45 @@ impl MenuState {
         }
     }
 
-    pub fn next_item(&mut self) {
+    pub fn next_item(&mut self) -> bool {
         let is_searching = self.is_searching();
         let query = if is_searching {
-            self.search_query.clone()
+            Some(self.search_query.clone())
         } else {
-            String::new()
+            None
         };
 
         if let Some(menu) = self.current_menu_mut() {
-            if is_searching {
-                menu.next_filtered_item(&query);
+            if let Some(q) = query {
+                menu.next_filtered_item(&q);
             } else {
                 menu.next_item();
             }
             self.preview_selected();
+            true
+        } else {
+            false
         }
     }
 
-    pub fn prev_item(&mut self) {
+    pub fn prev_item(&mut self) -> bool {
         let is_searching = self.is_searching();
         let query = if is_searching {
-            self.search_query.clone()
+            Some(self.search_query.clone())
         } else {
-            String::new()
+            None
         };
 
         if let Some(menu) = self.current_menu_mut() {
-            if is_searching {
-                menu.prev_filtered_item(&query);
+            if let Some(q) = query {
+                menu.prev_filtered_item(&q);
             } else {
                 menu.prev_item();
             }
             self.preview_selected();
+            true
+        } else {
+            false
         }
     }
 
@@ -578,7 +636,6 @@ impl MenuState {
         if let Some(menu) = self.current_menu() {
             if let Some(index) = self.find_best_match(menu, &self.search_query) {
                 self.select(index);
-                // self.preview_selected();
             }
         }
     }
@@ -594,6 +651,33 @@ impl MenuState {
         } else {
             Some(filtered[0].0)
         }
+    }
+
+    pub fn toggle_from_footer(&mut self, config: &Config, action: MenuAction) {
+        if self.is_open() {
+            self.menu_stack.clear();
+            self.clear_previews();
+        } else {
+            self.execute(action, config);
+            self.opened_from_footer = true;
+        }
+    }
+
+    pub fn should_close_completely(&self) -> bool {
+        self.opened_from_footer && self.menu_depth() == 1
+    }
+
+    // TODO: this is hacky until we have more fine grained control of the exact menu item we are (current and parent item)
+    // FIXME: improve menu state to get rid of this mess
+    pub fn is_about_menu(&self) -> bool {
+        self.current_menu()
+            .map(|menu| {
+                menu.items().iter().any(|item| {
+                    matches!(item.action, MenuAction::None)
+                        && item.label.starts_with("name: termitype")
+                })
+            })
+            .unwrap_or(false)
     }
 }
 
@@ -611,11 +695,11 @@ mod tests {
         menu.toggle(&Config::default());
         assert!(menu.is_open());
 
-        menu.next_item();
-        menu.next_item();
+        assert!(menu.next_item());
+        assert!(menu.next_item());
         assert_eq!(menu.current_menu().unwrap().selected_index(), 2);
 
-        menu.prev_item();
+        assert!(menu.prev_item());
         assert_eq!(menu.current_menu().unwrap().selected_index(), 1);
 
         menu.select(5);

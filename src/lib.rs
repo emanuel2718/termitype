@@ -1,9 +1,8 @@
 use std::io;
 
 use anyhow::Result;
-use clap::Parser;
 use config::Config;
-use constants::APPNAME;
+use constants::{APPNAME, LOG_FILE};
 use crossterm::{
     cursor::SetCursorStyle,
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -11,6 +10,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{prelude::CrosstermBackend, Terminal};
+use utils::get_config_dir;
 use version::VERSION;
 
 pub mod assets;
@@ -18,16 +18,28 @@ pub mod builder;
 pub mod config;
 pub mod constants;
 pub mod debug;
+pub mod error;
 pub mod input;
+pub mod log;
 pub mod menu;
+pub mod persistence;
 pub mod termi;
 pub mod theme;
 pub mod tracker;
 #[path = "ui/ui.rs"]
 pub mod ui;
+pub mod utils;
 pub mod version;
 
 pub fn run() -> Result<()> {
+    // init logger
+    if let Ok(log_dir) = get_config_dir() {
+        let log_file = log_dir.join(LOG_FILE); // could be calle termitype.log
+        if let Err(e) = log::init(log_file) {
+            eprintln!("Failed to init termitype logger: {}", e);
+        }
+    }
+
     let config = Config::try_parse()?;
 
     // NOTE: there should be a better way to do this

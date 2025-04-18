@@ -13,24 +13,26 @@
 
 <img align="center" alt="image" src="https://github.com/user-attachments/assets/747ecfd1-c664-4962-8049-6fa7433783a2" alt="Termitype Image" />
 
-
 ## Development
 
 ### Getting Started
 
 1. Clone the repository:
+
 ```sh
 git clone https://github.com/emanuel2718/termitype.git
 cd termitype
 ```
 
 2. Optional: Install theme Pack
+
 ```sh
 # NOTE: This is only required for local development. In production, this is handled automatically by the build process.
 ./scripts/install-themes.sh
 ```
 
 3. Build and run:
+
 ```sh
 # Normal run
 cargo run
@@ -38,8 +40,6 @@ cargo run
 # Debug mode
 cargo run -- --debug
 ```
-
-
 
 ## Installation
 
@@ -50,17 +50,18 @@ cargo install termitype@0.0.1-alpha.18
 ### TODO
 
 - [ ] User defined config in `$XDG_CONFIG_HOME/termitype/config`. Takes precedence over default config and persitent config state in db
+  - do some simple ini file like [ghostty config file](https://github.com/ghostty-org/ghostty/blob/main/src/config/config-template)
 - [ ] Settings persistance
 - [ ] Results (locally) tracking with sqlite (can be opted-out with `termitype --no-track`)
 - [ ] Layout cleanup pass
 - [ ] Release on:
-    - [x] crates.io
-    - [ ] Homebrew
-    - [ ] AUR
-    - [ ] nixpkgs
-
+  - [x] crates.io
+  - [ ] Homebrew
+  - [ ] AUR
+  - [ ] nixpkgs
 
 ### Done
+
 - [x] Proper Results screen
 - [x] Build Github CI
 - [x] Theme swap at runtime (Menu -> Themes -> <list of themes>)
