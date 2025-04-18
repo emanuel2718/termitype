@@ -56,17 +56,24 @@ impl Builder {
             return words.clone();
         }
 
-        let lang = config.language.as_ref().unwrap().as_str();
+        let lang = config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
 
         if !self.languages.contains_key(lang) {
             let _ = self.load_language(lang);
+        }
+
+        if !self.languages.contains_key(DEFAULT_LANGUAGE) {
+            self.languages.insert(
+                DEFAULT_LANGUAGE.to_string(),
+                DEFAULT_WORDS.iter().map(|&s| s.to_string()).collect(),
+            );
         }
 
         let base_words = self
             .languages
             .get(lang)
             .or_else(|| self.languages.get(DEFAULT_LANGUAGE))
-            .unwrap_or_else(|| &self.languages[DEFAULT_LANGUAGE]);
+            .unwrap();
 
         let word_count = config.resolve_word_count();
 

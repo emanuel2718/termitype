@@ -1,7 +1,7 @@
 use crate::{
     config::ModeType,
     constants::{AMOUNT_OF_VISIBLE_LINES, BACKSPACE},
-    menu::{MenuAction, MenuState},
+    menu::{self, MenuAction, MenuState},
     termi::Termi,
     theme::Theme,
     tracker::Status,
@@ -282,13 +282,15 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
     match action {
         MenuInputAction::Up => {
             if state.menu.prev_item() {
-                if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
-                    if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
-                        state.menu.preview_selected();
-                        state.update_preview_theme();
-                    } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
-                        state.menu.preview_selected();
-                        state.update_preview_cursor();
+                if let Some(menu) = state.menu.current_menu() {
+                    if let Some(item) = menu.selected_item() {
+                        if let menu::MenuAction::ChangeTheme(_) = &item.action {
+                            state.menu.preview_selected();
+                            state.update_preview_theme();
+                        } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
+                            state.menu.preview_selected();
+                            state.update_preview_cursor();
+                        }
                     }
                 }
             }
@@ -296,13 +298,15 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
         }
         MenuInputAction::Down => {
             if state.menu.next_item() {
-                if let Some(item) = state.menu.current_menu().unwrap().selected_item() {
-                    if let crate::menu::MenuAction::ChangeTheme(_) = &item.action {
-                        state.menu.preview_selected();
-                        state.update_preview_theme();
-                    } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
-                        state.menu.preview_selected();
-                        state.update_preview_cursor();
+                if let Some(menu) = state.menu.current_menu() {
+                    if let Some(item) = menu.selected_item() {
+                        if let menu::MenuAction::ChangeTheme(_) = &item.action {
+                            state.menu.preview_selected();
+                            state.update_preview_theme();
+                        } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
+                            state.menu.preview_selected();
+                            state.update_preview_cursor();
+                        }
                     }
                 }
             }

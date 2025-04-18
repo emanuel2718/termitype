@@ -313,21 +313,20 @@ impl MenuState {
             }
             MenuAction::OpenLanguagePicker => {
                 let mut menu = Menu::new(Self::build_language_picker());
-                if let Some(index) =
-                    Self::get_label_index(menu.items(), config.language.as_ref().unwrap().as_str())
-                {
-                    menu.select(index);
+                if let Some(lang) = config.language.as_ref() {
+                    if let Some(index) = Self::get_label_index(menu.items(), lang.as_str()) {
+                        menu.select(index);
+                    }
                 }
                 self.menu_stack.push(menu);
                 None
             }
             MenuAction::OpenCursorPicker => {
                 let mut menu = Menu::new(Self::build_cursor_picker());
-                if let Some(index) = Self::get_label_index(
-                    menu.items(),
-                    config.cursor_style.clone().unwrap().as_str(),
-                ) {
-                    menu.select(index);
+                if let Some(style) = &config.cursor_style {
+                    if let Some(index) = Self::get_label_index(menu.items(), style.as_str()) {
+                        menu.select(index);
+                    }
                 }
                 self.menu_stack.push(menu);
                 None

@@ -3,7 +3,7 @@ use crossterm::cursor::SetCursorStyle;
 
 use crate::{
     builder::Builder,
-    constants::{AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE},
+    constants::{AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME},
     persistence::Persistence,
     theme::ThemeLoader,
 };
@@ -153,6 +153,8 @@ impl Config {
                     if self.theme.is_none() && ThemeLoader::has_theme(theme) {
                         self.theme = Some(theme.to_string());
                     }
+                } else {
+                    self.theme = Some(DEFAULT_THEME.to_string())
                 }
             }
 
@@ -160,6 +162,8 @@ impl Config {
             if self.cursor_style.is_none() {
                 if let Some(cursor) = persistence.get("cursor") {
                     self.change_cursor_style(cursor);
+                } else {
+                    self.cursor_style = Some(DEFAULT_CURSOR_STYLE.to_string())
                 }
             }
 
@@ -183,6 +187,8 @@ impl Config {
                     if Builder::has_language(lang) {
                         self.language = Some(lang.to_string());
                     }
+                } else {
+                    self.language = Some(DEFAULT_LANGUAGE.to_string())
                 }
             }
 
