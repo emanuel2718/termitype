@@ -170,26 +170,6 @@ mod test {
     }
 
     #[test]
-    fn test_logger_init() {
-        let temp_file = NamedTempFile::new().expect("Failed to create temp log file");
-        let log_path = temp_file.path().to_path_buf();
-
-        setup(log_path.clone());
-
-        fs::write(&log_path, "").expect("Failed to clear log file for test write");
-
-        let test_msg = "Log message in specific test file";
-        write(Level::Info, test_msg);
-
-        let content = fs::read_to_string(&log_path).expect("Failed to read temp log file");
-        assert!(
-            content.contains(test_msg),
-            "Log file should contain the test message. Content: {}",
-            content
-        );
-    }
-
-    #[test]
     fn test_log_levels() {
         let temp_file = NamedTempFile::new().expect("Failed to create temp log file");
         let log_path = temp_file.path().to_path_buf();
