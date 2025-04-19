@@ -11,22 +11,78 @@ use crate::termi::Termi;
 use crate::tracker::Status;
 
 use super::{components::*, layout::*};
-use crate::constants::{MENU_HEIGHT, WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT};
+use crate::constants::{
+    MENU_HEIGHT, MIN_HEIGHT, MIN_WIDTH, WINDOW_HEIGHT_PERCENT, WINDOW_WIDTH_PERCENT,
+};
 
 /// Main workhorse. This basically draws the whole ui
 pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
     termi.clickable_regions.clear(); // NOTE: we must always clear clickable regions before rendering
 
+    let theme = termi.get_current_theme().clone();
+    let buffer_area = f.area();
+
+    let container = Block::default().style(Style::default().bg(theme.background()));
+    f.render_widget(container, buffer_area);
+
+    // is our window too small question mark
+    if buffer_area.width < MIN_WIDTH || buffer_area.height < MIN_HEIGHT {
+        // must have at least 1x1 of space
+        if buffer_area.width == 0 || buffer_area.height == 0 {
+            return;
+        }
+
+        let mut warning_lines = Vec::new();
+
+        if buffer_area.height >= 1 {
+            warning_lines.push(Line::from(vec![Span::styled(
+                if buffer_area.width < 14 {
+                    "!"
+                } else {
+                    "Window too small!"
+                },
+                Style::default().fg(theme.error()),
+            )]));
+        }
+
+        if buffer_area.height >= 2 {
+            warning_lines.push(Line::from(vec![Span::styled(
+                format!("{}x{}", MIN_WIDTH, MIN_HEIGHT),
+                Style::default().fg(theme.muted()),
+            )]));
+        }
+
+        if buffer_area.height >= 3 {
+            warning_lines.push(Line::from(vec![Span::styled(
+                format!("{}x{}", buffer_area.width, buffer_area.height),
+                Style::default().fg(theme.muted()),
+            )]));
+        }
+
+        let available_height = buffer_area.height;
+        let content_height = warning_lines.len() as u16;
+        let v_pad = (available_height.saturating_sub(content_height)) / 2;
+
+        let warning_area = Rect {
+            x: 0,
+            y: v_pad,
+            width: buffer_area.width,
+            height: content_height.min(available_height),
+        };
+
+        let warning_block = Paragraph::new(warning_lines)
+            .style(Style::default())
+            .alignment(Alignment::Center);
+        f.render_widget(warning_block, warning_area);
+        return;
+    }
+
     if !termi.menu.is_open() && termi.preview_theme.is_some() {
         termi.preview_theme = None;
     }
 
-    let theme = termi.get_current_theme().clone();
-
-    let container = Block::default().style(Style::default().bg(theme.background()));
-    f.render_widget(container, f.area());
-
-    let window_area = centered_rect(WINDOW_WIDTH_PERCENT, WINDOW_HEIGHT_PERCENT, f.area());
+    let window_area = centered_rect(WINDOW_WIDTH_PERCENT, WINDOW_HEIGHT_PERCENT, buffer_area)
+        .intersection(buffer_area); // window area must fit within the buffer
     let layout = create_main_layout(window_area);
 
     match termi.tracker.status {
@@ -38,7 +94,7 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
                     Constraint::Length(1),
                     Constraint::Min(1),
                 ])
-                .split(layout[2]);
+                .split(layout[2].intersection(buffer_area));
 
             progress_info(f, termi, typing_chunks[0]);
             typing_area(f, termi, typing_chunks[2]);
@@ -51,7 +107,7 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
                     Constraint::Percentage(80), // Results area
                     Constraint::Percentage(10), // Bottom margin
                 ])
-                .split(f.area());
+                .split(buffer_area);
 
             let horizontal_layout = Layout::default()
                 .direction(Direction::Horizontal)
@@ -74,11 +130,12 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
                 height: content_height.min(horizontal_layout[1].height),
             };
 
+            let centered_rect = centered_rect.intersection(buffer_area);
             results_screen(f, termi, centered_rect);
         }
         _ => {
-            title(f, termi, layout[0]);
-            top_bar(f, termi, layout[1]);
+            title(f, termi, layout[0].intersection(buffer_area));
+            top_bar(f, termi, layout[1].intersection(buffer_area));
 
             let typing_chunks = Layout::default()
                 .direction(Direction::Vertical)
@@ -87,16 +144,16 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
                     Constraint::Length(1),
                     Constraint::Min(1),
                 ])
-                .split(layout[2]);
+                .split(layout[2].intersection(buffer_area));
 
             progress_info(f, termi, typing_chunks[0]);
             typing_area(f, termi, typing_chunks[2]);
-            command_bar(f, termi, layout[3]);
-            footer(f, termi, layout[4]);
+            command_bar(f, termi, layout[3].intersection(buffer_area));
+            footer(f, termi, layout[4].intersection(buffer_area));
         }
     }
 
-    draw_menu(f, termi, f.area());
+    draw_menu(f, termi, buffer_area);
 
     #[cfg(debug_assertions)]
     if let Some(debug) = &termi.debug {
@@ -104,8 +161,9 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
             let debug_area = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
-                .split(f.area())[1];
+                .split(buffer_area)[1];
 
+            let debug_area = debug_area.intersection(buffer_area);
             f.render_widget(Clear, debug_area);
             debug.draw(f, termi, debug_area);
         }
@@ -126,6 +184,7 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
         width: area.width,
         height: MENU_HEIGHT.min(area.height.saturating_sub(2)),
     };
+    let menu_area = menu_area.intersection(area);
 
     f.render_widget(Clear, menu_area);
 
@@ -168,7 +227,7 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
             let menu_widget = List::new(no_matches)
                 .style(Style::default().bg(theme.background()))
                 .block(content_block);
-            f.render_widget(menu_widget, menu_layout[0]);
+            f.render_widget(menu_widget, menu_layout[0].intersection(area));
         } else {
             let scroll_offset = if total_items <= max_visible {
                 0
@@ -245,7 +304,8 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
                 .style(Style::default().bg(theme.background()))
                 .block(content_block);
 
-            f.render_widget(menu_widget, menu_layout[0]);
+            let content_area = menu_layout[0].intersection(area);
+            f.render_widget(menu_widget, content_area);
 
             // scrollbar
             if total_items > max_visible {
@@ -254,19 +314,20 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
                     .begin_symbol(None)
                     .end_symbol(None)
                     .track_symbol(Some("│"))
-                    .thumb_symbol("┃")
+                    .thumb_symbol("█")
                     .style(Style::default().fg(theme.accent()));
 
-                f.render_stateful_widget(
-                    scrollbar,
-                    menu_layout[0].inner(Margin {
-                        vertical: 1,
-                        horizontal: 1,
-                    }),
-                    &mut ScrollbarState::default()
-                        .content_length(total_items)
-                        .position(scroll_offset),
-                );
+                let scrollbar_area = content_area.inner(Margin {
+                    vertical: 1,
+                    horizontal: 1,
+                });
+                let scrollbar_area = scrollbar_area.intersection(area);
+
+                let mut scrollbar_state = ScrollbarState::default()
+                    .content_length(total_items)
+                    .position(scroll_offset);
+
+                f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
             }
         }
     }
@@ -307,5 +368,5 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
                 .border_style(Style::default().fg(theme.border())),
         )
         .alignment(Alignment::Left);
-    f.render_widget(footer, menu_layout[1]);
+    f.render_widget(footer, menu_layout[1].intersection(area));
 }

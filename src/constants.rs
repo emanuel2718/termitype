@@ -17,7 +17,7 @@ pub const AMOUNT_OF_VISIBLE_LINES: u8 = 3;
 pub const WINDOW_WIDTH_PERCENT: u16 = 80;
 pub const WINDOW_HEIGHT_PERCENT: u16 = 90;
 
-pub const MIN_WIDTH: u16 = 40;
+pub const MIN_WIDTH: u16 = 20;
 pub const MIN_HEIGHT: u16 = 10;
 
 pub const MENU_WIDTH: u16 = 45;

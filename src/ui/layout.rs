@@ -7,11 +7,19 @@ use crate::constants::{
 };
 
 pub fn centered_rect(px: u16, py: u16, r: Rect) -> Rect {
+    // use entire buffer if our "buffer.dimension" < "minimum.dimensions"
+    if r.width < MIN_WIDTH || r.height < MIN_HEIGHT {
+        return r;
+    }
+
     let width = r.width.saturating_mul(px) / 100;
     let height = r.height.saturating_mul(py) / 100;
 
     let width = width.max(MIN_WIDTH);
     let height = height.max(MIN_HEIGHT);
+
+    let width = width.min(r.width);
+    let height = height.min(r.height);
 
     let x = r.x + r.width.saturating_sub(width) / 2;
     let y = r.y + r.height.saturating_sub(height) / 2;
@@ -19,8 +27,8 @@ pub fn centered_rect(px: u16, py: u16, r: Rect) -> Rect {
     Rect {
         x,
         y,
-        width: width.min(r.width),
-        height: height.min(r.height),
+        width,
+        height,
     }
 }
 

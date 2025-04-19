@@ -292,6 +292,7 @@ pub fn typing_area(f: &mut Frame, termi: &mut Termi, area: Rect) {
         .split(area);
 
     let content_area = layout[1];
+    let content_area = content_area.intersection(area);
     let available_width = content_area.width as usize;
 
     let word_positions = calculate_word_positions(&termi.words, available_width);
@@ -337,7 +338,10 @@ pub fn typing_area(f: &mut Frame, termi: &mut Termi, area: Rect) {
         let x = content_area.x + (current_word_pos.col + offset) as u16;
         let y = content_area.y + (current_word_pos.line.saturating_sub(scroll_offset)) as u16;
 
-        f.set_cursor_position(Position::new(x, y));
+        // set cursor pos only if it lies withing the content area
+        if x < content_area.x + content_area.width && y < content_area.y + content_area.height {
+            f.set_cursor_position(Position::new(x, y));
+        }
     }
 }
 
