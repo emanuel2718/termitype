@@ -223,6 +223,14 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
                 return Action::None;
             }
 
+            // if the first input char is <space> then do nothing
+            // rationale: the first character of any given test will NEVER be <space>
+            let first_test_char =
+                state.tracker.cursor_position == 0 && state.tracker.user_input.is_empty();
+            if char == ' ' && (state.tracker.status == Status::Idle || first_test_char) {
+                return Action::None;
+            }
+
             match state.tracker.status {
                 Status::Paused => state.tracker.resume(),
                 Status::Idle => state.tracker.start_typing(),

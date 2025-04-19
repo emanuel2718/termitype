@@ -137,6 +137,13 @@ impl Tracker {
     }
 
     pub fn type_char(&mut self, c: char) -> bool {
+        // compatibility with that monkey famous game we are simulating...
+        // first char is <space> and we are at the start of a word? Do nothing
+        let is_space = c == ' ';
+        if is_space && self.cursor_position == self.current_word_start {
+            return false;
+        }
+
         if self.cursor_position >= self.target_chars.len() {
             return false;
         }
@@ -149,7 +156,6 @@ impl Tracker {
         let is_correct = self.cursor_position < self.target_chars.len()
             && self.target_chars[self.cursor_position] == c;
 
-        let is_space = c == ' ';
         let current_char = self.target_chars[self.cursor_position];
 
         if !is_correct
@@ -1038,5 +1044,46 @@ mod tests {
             2,
             "Should collect new sample after interval"
         );
+    }
+
+    #[test]
+    fn test_space_at_start_of_test() {
+        let config = Config::default();
+        let target_text = String::from("hello termitype");
+        let mut tracker = Tracker::new(&config, target_text);
+
+        assert!(!tracker.type_char(' '));
+        assert_eq!(tracker.status, Status::Idle);
+        assert_eq!(tracker.cursor_position, 0);
+        assert!(tracker.user_input.is_empty());
+
+        assert!(tracker.type_char('h'));
+        assert_eq!(tracker.cursor_position, 1);
+        assert_eq!(tracker.user_input.len(), 1);
+    }
+
+    #[test]
+    fn test_space_at_beginning_of_word() {
+        let config = Config::default();
+        let target_text = String::from("hello termitype");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        assert!(tracker.type_char('h'));
+        assert!(tracker.type_char('e'));
+        assert!(tracker.type_char('l'));
+        assert!(tracker.type_char('l'));
+        assert!(tracker.type_char('o'));
+        assert!(tracker.type_char(' '));
+
+        assert_eq!(tracker.current_word_start, 6);
+
+        assert!(!tracker.type_char(' '));
+        assert_eq!(tracker.cursor_position, 6);
+        assert_eq!(tracker.user_input.len(), 6);
+
+        assert!(tracker.type_char('t'));
+        assert_eq!(tracker.cursor_position, 7);
+        assert_eq!(tracker.user_input.len(), 7);
     }
 }
