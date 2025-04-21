@@ -229,7 +229,8 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
             let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
                 Some(input) if input == c => {
                     let mut style = Style::default().fg(theme.success());
-                    if is_wrong_word {
+                    // NOTE: terminals with poor color support (i.e terminal.app) show wonky behavior with underlines
+                    if is_wrong_word && theme.color_support.supports_themes() {
                         style = style
                             .add_modifier(Modifier::UNDERLINED)
                             .underline_color(theme.error());
@@ -238,7 +239,7 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
                 }
                 Some(_) => {
                     let mut style = Style::default().fg(theme.error());
-                    if !is_current_word {
+                    if !is_current_word && theme.color_support.supports_themes() {
                         style = style
                             .add_modifier(Modifier::UNDERLINED)
                             .underline_color(theme.error());
