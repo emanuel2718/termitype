@@ -1,9 +1,8 @@
 pub const APPNAME: &str = env!("CARGO_PKG_NAME");
 pub const DEFAULT_LANGUAGE: &str = "english";
 pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
-// pub const DEFAULT_THEME: &str = "Serika Dark";
-// pub const DEFAULT_THEME: &str = "tokyonight";
-pub const DEFAULT_THEME: &str = "termitype-dark";
+pub const DEFAULT_THEME: &str = "tokyonight";
+// pub const DEFAULT_THEME: &str = "termitype-dark";
 
 pub const STATE_FILE: &str = ".state";
 pub const LOG_FILE: &str = "debug.log";
