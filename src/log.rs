@@ -1,4 +1,5 @@
 use std::io::{self, Write};
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::sync::Mutex;
 use std::{
@@ -69,14 +70,24 @@ impl Logger {
             }
         }
 
-        // TODO: Windows file
         let result = (|| -> io::Result<()> {
-            #[cfg(unix)]
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .mode(0o600)
-                .open(&self.log_file)?;
+            let mut file = {
+                #[cfg(unix)]
+                {
+                    OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .mode(0o600)
+                        .open(&self.log_file)?
+                }
+                #[cfg(windows)]
+                {
+                    OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(&self.log_file)?
+                }
+            };
 
             writeln!(
                 file,
