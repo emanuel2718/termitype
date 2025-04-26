@@ -48,8 +48,8 @@ pub fn run() -> Result<()> {
         }
     }
 
-    debug!("Debug logging enabled");
-    info!("Starting termitype...");
+    log_debug!("Debug logging enabled");
+    log_info!("Starting termitype...");
 
     // NOTE: there should be a better way to do this
     if should_print_to_console(&config) {

@@ -3,15 +3,15 @@
 /// # Examples
 ///
 /// ```
-/// use termitype::debug;
+/// use termitype::log_debug;
 /// let item = "example_item";
 /// let status = "running";
-/// debug!("Termitype artifact {}", item);
-/// debug!("Status: {status}");
+/// log_debug!("Termitype artifact {}", item);
+/// log_debug!("Status: {status}");
 /// ```
 #[cfg(debug_assertions)]
 #[macro_export]
-macro_rules! debug {
+macro_rules! log_debug {
     ($($arg:tt)*) => {{
         $crate::log::write(
             $crate::log::Level::Debug,
@@ -22,7 +22,7 @@ macro_rules! debug {
 
 #[cfg(not(debug_assertions))]
 #[macro_export]
-macro_rules! debug {
+macro_rules! log_debug {
     ($($arg:tt)*) => {{}};
 }
 
@@ -31,13 +31,13 @@ macro_rules! debug {
 /// # Examples
 ///
 /// ```
-/// use termitype::info;
+/// use termitype::log_info;
 /// let duration = 123;
-/// info!("Termitype started");
-/// info!("Test took {}ms", duration);
+/// log_info!("Termitype started");
+/// log_info!("Test took {}ms", duration);
 /// ```
 #[macro_export]
-macro_rules! info {
+macro_rules! log_info {
     ($($arg:tt)*) => {{
         $crate::log::write(
             $crate::log::Level::Info,
@@ -51,14 +51,14 @@ macro_rules! info {
 /// # Examples
 ///
 /// ```
-/// use termitype::warn;
+/// use termitype::log_warn;
 /// let id = 456;
 /// let reason = "timeout";
-/// warn!("Failed to process item {}, retrying...", id);
-/// warn!("Performance degraded: {reason}");
+/// log_warn!("Failed to process item {}, retrying...", id);
+/// log_warn!("Performance degraded: {reason}");
 /// ```
 #[macro_export]
-macro_rules! warn {
+macro_rules! log_warn {
     ($($arg:tt)*) => {{
         $crate::log::write(
             $crate::log::Level::Warn,
@@ -72,14 +72,14 @@ macro_rules! warn {
 /// # Examples
 ///
 /// ```
-/// use termitype::error;
+/// use termitype::log_error;
 /// let err = "permission denied";
 /// let msg = "Failed to open resource";
-/// error!("Failed to save file: {}", err);
-/// error!("Critical error occurred: {msg}");
+/// log_error!("Failed to save file: {}", err);
+/// log_error!("Critical error occurred: {msg}");
 /// ```
 #[macro_export]
-macro_rules! error {
+macro_rules! log_error {
     ($($arg:tt)*) => {{
         $crate::log::write(
             $crate::log::Level::Error,

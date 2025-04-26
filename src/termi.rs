@@ -181,7 +181,7 @@ impl Termi {
         if let Some(theme_name) = self.menu.get_preview_theme() {
             let needs_update = match &self.preview_theme {
                 None => true,
-                Some(current_theme) => current_theme.identifier != *theme_name,
+                Some(current_theme) => current_theme.id != *theme_name,
             };
 
             if needs_update {
