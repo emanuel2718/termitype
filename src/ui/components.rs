@@ -131,7 +131,7 @@ pub fn progress_info(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let wpm_text = format!(" {:>3.0} wpm", termi.tracker.wpm);
 
     let spans = vec![
-        Span::styled(progress_text, Style::default().fg(theme.info())),
+        Span::styled(progress_text, Style::default().fg(theme.highlight())),
         Span::styled(
             wpm_text,
             Style::default()
@@ -246,9 +246,7 @@ fn typing_text<'a>(termi: &'a Termi, word_positions: &[WordPosition]) -> Text<'a
                     }
                     style
                 }
-                None => Style::default()
-                    .fg(theme.foreground())
-                    .add_modifier(Modifier::DIM),
+                None => Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
             };
 
             chars.push(Span::styled(c.to_string(), style));
@@ -535,7 +533,7 @@ pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
         UIElement::new(line::DOUBLE_VERTICAL_LEFT, false, None),
         UIElement::new(" ", false, None),
         UIElement::new(
-            termi.theme.identifier.clone(),
+            termi.theme.id.clone(),
             termi.menu.get_preview_theme().is_some(),
             Some(ClickAction::ToggleThemePicker),
         ),
@@ -694,7 +692,7 @@ fn create_results_widget(termi: &Termi, area: Rect) -> Paragraph<'static> {
         theme.error(),
         theme.success(),
         theme.warning(),
-        theme.info(),
+        theme.accent(),
         theme.highlight(),
         theme.muted(),
     ] {

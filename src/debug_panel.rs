@@ -65,7 +65,7 @@ impl DebugPanel {
 
         let block = Block::default()
             .borders(Borders::ALL)
-            .style(Style::default().bg(theme.background()).fg(theme.border()))
+            .style(Style::default().bg(theme.bg()).fg(theme.border()))
             .title(" Debug Panel ");
         f.render_widget(block, area);
 
@@ -135,7 +135,7 @@ impl DebugPanel {
             .min(state_text.len().saturating_sub(content_height));
 
         let state_widget = Paragraph::new(state_text.clone())
-            .style(Style::default().fg(theme.foreground()))
+            .style(Style::default().fg(theme.fg()))
             .block(Block::default().padding(ratatui::widgets::Padding::new(1, 1, 1, 1)))
             .scroll((scroll_offset as u16, 0));
 

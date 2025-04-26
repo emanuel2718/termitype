@@ -10,6 +10,8 @@ use crate::{assets, config::Config, constants::DEFAULT_THEME};
 
 static THEME_LOADER: OnceLock<RwLock<ThemeLoader>> = OnceLock::new();
 
+const NUM_COLORS: usize = 13;
+
 #[derive(Debug)]
 pub struct ThemeLoader {
     themes: HashMap<String, Theme>,
@@ -17,28 +19,27 @@ pub struct ThemeLoader {
 
 #[derive(Debug, Clone)]
 pub struct Theme {
-    pub identifier: String,
-    colors: [Color; 14],
+    pub id: String,
+    colors: [Color; NUM_COLORS],
     pub color_support: ColorSupport,
 }
 
 #[derive(Debug, Clone, Copy)]
 #[repr(usize)]
-pub enum ColorIndex {
-    Background = 0,
-    Foreground,
-    Cursor,
-    CursorText,
-    SelectionBg,
-    SelectionFg,
-    Border,
-    Error,
-    Success,
-    Warning,
-    Info,
-    Accent,
-    Highlight,
-    Muted,
+pub enum ThemeColor {
+    Background = 0, // Main Backround
+    Foreground,     // Default Text
+    Muted,          // Dimmed Text
+    Accent,         // Carets and Arrows
+    Highlight,      // Selected items
+    Success,        // Correct Words
+    Error,          // Wrong Words
+    Warning,        // Warning messages
+    Border,         // UI Borders
+    Cursor,         // Cursor Color
+    CursorText,     // Text under Cursor
+    SelectionBg,    // Text Selection Background
+    SelectionFg,    // Text Selection Foreground
 }
 
 /// Represents the terminal's color support capabilities
@@ -109,22 +110,21 @@ impl Theme {
         //     return Self::default();
         // }
         Self {
-            identifier: "Default".to_string(),
+            id: "Fallback".to_string(),
             colors: [
-                Color::Black,    // Background
-                Color::White,    // Foreground
-                Color::Yellow,   // Cursor
-                Color::Black,    // CursorText
-                Color::DarkGray, // SelectionBg
-                Color::White,    // SelectionFg
-                Color::DarkGray, // Border
-                Color::LightRed, // Error
-                Color::White,    // Success
-                Color::Yellow,   // Warning
-                Color::DarkGray, // Info
-                Color::Yellow,   // Accent
-                Color::Yellow,   // Highlight
-                Color::Gray,     // Muted
+                Color::Black,       // Background
+                Color::White,       // Foreground
+                Color::DarkGray,    // Muted
+                Color::Yellow,      // Accent
+                Color::Cyan,        // Highlight
+                Color::LightGreen,  // Success
+                Color::Red,         // Error
+                Color::LightYellow, // Warning
+                Color::DarkGray,    // Border
+                Color::LightBlue,   // Cursor
+                Color::Black,       // CursorText
+                Color::DarkGray,    // SelectionBg
+                Color::White,       // SelectionFg
             ],
             color_support: ColorSupport::Basic,
         }
@@ -146,59 +146,56 @@ impl Theme {
     }
 
     // ************** COLORS_FN **************
-    pub fn background(&self) -> Color {
-        self.colors[ColorIndex::Background as usize]
+    pub fn bg(&self) -> Color {
+        self.colors[ThemeColor::Background as usize]
     }
 
-    pub fn foreground(&self) -> Color {
-        self.colors[ColorIndex::Foreground as usize]
-    }
-
-    pub fn cursor(&self) -> Color {
-        self.colors[ColorIndex::Cursor as usize]
-    }
-
-    pub fn cursor_text(&self) -> Color {
-        self.colors[ColorIndex::CursorText as usize]
-    }
-
-    pub fn selection_bg(&self) -> Color {
-        self.colors[ColorIndex::SelectionBg as usize]
-    }
-
-    pub fn selection_fg(&self) -> Color {
-        self.colors[ColorIndex::SelectionFg as usize]
-    }
-
-    pub fn border(&self) -> Color {
-        self.colors[ColorIndex::Border as usize]
-    }
-
-    pub fn error(&self) -> Color {
-        self.colors[ColorIndex::Error as usize]
-    }
-
-    pub fn success(&self) -> Color {
-        self.colors[ColorIndex::Success as usize]
-    }
-
-    pub fn warning(&self) -> Color {
-        self.colors[ColorIndex::Warning as usize]
-    }
-    pub fn info(&self) -> Color {
-        self.colors[ColorIndex::Info as usize]
-    }
-
-    pub fn accent(&self) -> Color {
-        self.colors[ColorIndex::Accent as usize]
-    }
-
-    pub fn highlight(&self) -> Color {
-        self.colors[ColorIndex::Highlight as usize]
+    pub fn fg(&self) -> Color {
+        self.colors[ThemeColor::Foreground as usize]
     }
 
     pub fn muted(&self) -> Color {
-        self.colors[ColorIndex::Muted as usize]
+        self.colors[ThemeColor::Muted as usize]
+    }
+
+    pub fn accent(&self) -> Color {
+        self.colors[ThemeColor::Accent as usize]
+    }
+
+    pub fn highlight(&self) -> Color {
+        self.colors[ThemeColor::Highlight as usize]
+    }
+
+    pub fn success(&self) -> Color {
+        self.colors[ThemeColor::Success as usize]
+    }
+
+    pub fn error(&self) -> Color {
+        self.colors[ThemeColor::Error as usize]
+    }
+
+    pub fn warning(&self) -> Color {
+        self.colors[ThemeColor::Warning as usize]
+    }
+
+    pub fn border(&self) -> Color {
+        self.colors[ThemeColor::Border as usize]
+    }
+
+    pub fn cursor(&self) -> Color {
+        self.colors[ThemeColor::Cursor as usize]
+    }
+
+    pub fn cursor_text(&self) -> Color {
+        self.colors[ThemeColor::CursorText as usize]
+    }
+
+    pub fn selection_bg(&self) -> Color {
+        self.colors[ThemeColor::SelectionBg as usize]
+    }
+
+    pub fn selection_fg(&self) -> Color {
+        self.colors[ThemeColor::SelectionFg as usize]
     }
 }
 
@@ -287,26 +284,21 @@ impl ThemeLoader {
                 .map_err(|e| format!("Invalid color for {}: {}", key, e).into())
         };
 
-        let mut colors = [Color::Black; 14];
-        colors[ColorIndex::Background as usize] = parse_color("background")?;
-        colors[ColorIndex::Foreground as usize] = parse_color("foreground")?;
-        colors[ColorIndex::Cursor as usize] = parse_color("cursor-color")?;
-        colors[ColorIndex::CursorText as usize] = parse_color("cursor-text")?;
-        colors[ColorIndex::SelectionBg as usize] = parse_color("selection-background")?;
-        colors[ColorIndex::SelectionFg as usize] = parse_color("selection-foreground")?;
-
-        // Standard color mappings for all themes
-        colors[ColorIndex::Border as usize] = parse_color("palette8")?;
-        colors[ColorIndex::Error as usize] = parse_color("palette1")?;
-        colors[ColorIndex::Success as usize] = parse_color("palette2")?;
-        colors[ColorIndex::Warning as usize] = parse_color("palette3")?;
-        colors[ColorIndex::Info as usize] = parse_color("palette4")?;
-        colors[ColorIndex::Accent as usize] = parse_color("palette5")?;
-        colors[ColorIndex::Highlight as usize] = parse_color("palette6")?;
-        colors[ColorIndex::Muted as usize] = parse_color("palette8")?;
+        let mut colors = [Color::Black; NUM_COLORS];
+        colors[ThemeColor::Background as usize] = parse_color("background")?;
+        colors[ThemeColor::Foreground as usize] = parse_color("foreground")?;
+        colors[ThemeColor::Muted as usize] = parse_color("palette7")?;
+        colors[ThemeColor::Accent as usize] = parse_color("palette14")?;
+        colors[ThemeColor::Highlight as usize] = parse_color("palette6")?;
+        colors[ThemeColor::Success as usize] = parse_color("palette2")?;
+        colors[ThemeColor::Error as usize] = parse_color("palette1")?;
+        colors[ThemeColor::Cursor as usize] = parse_color("cursor-color")?;
+        colors[ThemeColor::CursorText as usize] = parse_color("cursor-text")?;
+        colors[ThemeColor::SelectionBg as usize] = parse_color("selection-background")?;
+        colors[ThemeColor::SelectionFg as usize] = parse_color("selection-foreground")?;
 
         Ok(Theme {
-            identifier: name.to_string(),
+            id: name.to_string(),
             colors,
             color_support: ColorSupport::Extended,
         })
@@ -377,12 +369,13 @@ mod tests {
             palette6 = #00ffff
             palette7 = #888888
             palette8 = #008888
+            palette14 = #00ffff
         "#;
 
         let theme = ThemeLoader::parse_theme_file(content, "test").unwrap();
 
-        assert_eq!(theme.background(), Color::Rgb(0, 0, 0));
-        assert_eq!(theme.foreground(), Color::Rgb(255, 255, 255));
+        assert_eq!(theme.bg(), Color::Rgb(0, 0, 0));
+        assert_eq!(theme.fg(), Color::Rgb(255, 255, 255));
         assert_eq!(theme.error(), Color::Rgb(255, 0, 0));
         assert_eq!(theme.success(), Color::Rgb(0, 255, 0));
     }
@@ -396,6 +389,7 @@ mod tests {
             cursor-color = #cccccc
             cursor-text = #000000
             selection-background = #333333
+            selection-foreground = #ffffff
             palette1 = #ff0000
             palette2 = #00ff00
             palette3 = #ffff00
@@ -494,9 +488,9 @@ mod tests {
     fn test_fallback_theme() {
         let theme = Theme::fallback_theme();
         assert_eq!(theme.color_support, ColorSupport::Basic);
-        assert_eq!(theme.background(), Color::Black);
-        assert_eq!(theme.foreground(), Color::White);
-        assert_eq!(theme.identifier, "Default".to_string());
+        assert_eq!(theme.bg(), Color::Black);
+        assert_eq!(theme.fg(), Color::White);
+        assert_eq!(theme.id, "Fallback".to_string());
     }
 
     #[test]

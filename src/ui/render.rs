@@ -22,7 +22,7 @@ pub fn draw_ui(f: &mut Frame, termi: &mut Termi) {
     let theme = termi.get_current_theme().clone();
     let buffer_area = f.area();
 
-    let container = Block::default().style(Style::default().bg(theme.background()));
+    let container = Block::default().style(Style::default().bg(theme.bg()));
     f.render_widget(container, buffer_area);
 
     // is our window too small question mark
@@ -225,7 +225,7 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
                 ])),
             ];
             let menu_widget = List::new(no_matches)
-                .style(Style::default().bg(theme.background()))
+                .style(Style::default().bg(theme.bg()))
                 .block(content_block);
             f.render_widget(menu_widget, menu_layout[0].intersection(area));
         } else {
@@ -275,12 +275,12 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
                                 } else if is_selected {
                                     theme.selection_fg()
                                 } else {
-                                    theme.foreground()
+                                    theme.fg()
                                 })
                                 .bg(if is_selected {
                                     theme.selection_bg()
                                 } else {
-                                    theme.background()
+                                    theme.bg()
                                 });
 
                             ListItem::new(Line::from(vec![
@@ -301,7 +301,7 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
                 .collect();
 
             let menu_widget = List::new(items)
-                .style(Style::default().bg(theme.background()))
+                .style(Style::default().bg(theme.bg()))
                 .block(content_block);
 
             let content_area = menu_layout[0].intersection(area);
@@ -335,7 +335,7 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
     let footer_text = if menu.is_searching() {
         Line::from(vec![
             Span::styled("Filter: ", Style::default().fg(theme.accent())),
-            Span::styled(menu.search_query(), Style::default().fg(theme.foreground())),
+            Span::styled(menu.search_query(), Style::default().fg(theme.fg())),
             Span::styled(
                 "█",
                 Style::default()
@@ -361,7 +361,7 @@ pub fn draw_menu(f: &mut Frame, termi: &mut Termi, area: Rect) {
     };
 
     let footer = Paragraph::new(footer_text)
-        .style(Style::default().bg(theme.background()))
+        .style(Style::default().bg(theme.bg()))
         .block(
             Block::default()
                 .borders(Borders::ALL)
