@@ -37,21 +37,13 @@ pub enum ClickAction {
 #[derive(Debug)]
 struct UIElement {
     content: String,
-    width: u16,
     is_active: bool,
-    action: Option<ClickAction>,
 }
 
 impl UIElement {
-    fn new(content: impl Into<String>, is_active: bool, action: Option<ClickAction>) -> Self {
+    fn new(content: impl Into<String>, is_active: bool, _action: Option<ClickAction>) -> Self {
         let content = content.into();
-        let width = content.chars().count() as u16;
-        Self {
-            content,
-            width,
-            is_active,
-            action,
-        }
+        Self { content, is_active }
     }
 
     fn to_span(&self, theme: &Theme) -> Span<'_> {
@@ -87,18 +79,18 @@ pub fn progress_info(f: &mut Frame, termi: &mut Termi, area: Rect) {
 
         let element = UIElement::new(language, false, Some(ClickAction::OpenLanguagePicker));
 
-        let start_x = area.x + (area.width.saturating_sub(element.width)) / 2;
+        // let start_x = area.x + (area.width.saturating_sub(element.width)) / 2;
 
-        termi.clickable_regions.push(ClickableRegion {
-            area: Rect {
-                x: start_x,
-                y: area.y,
-                width: element.width,
-                height: 1,
-            },
-            action: ClickAction::OpenLanguagePicker,
-        });
-
+        // termi.clickable_regions.push(ClickableRegion {
+        //     area: Rect {
+        //         x: start_x,
+        //         y: area.y,
+        //         width: element.width,
+        //         height: 1,
+        //     },
+        //     action: ClickAction::OpenLanguagePicker,
+        // });
+        //
         let theme = termi.get_current_theme();
 
         let paragraph =
@@ -414,28 +406,28 @@ pub fn top_bar(f: &mut Frame, termi: &mut Termi, area: Rect) {
         ),
     ];
 
-    let total_width: u16 = elements.iter().map(|e| e.width).sum();
-    let start_x = area.x + (area.width.saturating_sub(total_width)) / 2;
+    // let total_width: u16 = elements.iter().map(|e| e.width).sum();
+    // let start_x = area.x + (area.width.saturating_sub(total_width)) / 2;
 
-    let mut current_x = start_x;
+    // let mut current_x = start_x;
     let mut spans = Vec::new();
 
     for element in &elements {
         spans.push(element.to_span(termi.get_current_theme()));
 
-        if let Some(action) = &element.action {
-            termi.clickable_regions.push(ClickableRegion {
-                area: Rect {
-                    x: current_x,
-                    y: area.y,
-                    width: element.width,
-                    height: 1,
-                },
-                action: action.clone(),
-            });
-        }
+        // if let Some(action) = &element.action {
+        //     termi.clickable_regions.push(ClickableRegion {
+        //         area: Rect {
+        //             x: current_x,
+        //             y: area.y,
+        //             width: element.width,
+        //             height: 1,
+        //         },
+        //         action: action.clone(),
+        //     });
+        // }
 
-        current_x += element.width;
+        // current_x += element.width;
     }
 
     let paragraph = Paragraph::new(Line::from(spans)).alignment(Alignment::Center);
@@ -543,28 +535,28 @@ pub fn footer(f: &mut Frame, termi: &mut Termi, area: Rect) {
         UIElement::new(VERSION.to_string(), false, None),
     ];
 
-    let total_width: u16 = elements.iter().map(|e| e.width).sum();
-    let start_x = area.x + (area.width.saturating_sub(total_width)) / 2;
-    let mut current_x = start_x;
+    // let total_width: u16 = elements.iter().map(|e| e.width).sum();
+    // let start_x = area.x + (area.width.saturating_sub(total_width)) / 2;
+    // let mut current_x = start_x;
 
     let spans: Vec<Span> = elements
         .iter()
         .map(|element| {
             let span = element.to_span(termi.get_current_theme());
 
-            if let Some(action) = &element.action {
-                termi.clickable_regions.push(ClickableRegion {
-                    area: Rect {
-                        x: current_x,
-                        y: area.y,
-                        width: element.width,
-                        height: 1,
-                    },
-                    action: action.clone(),
-                });
-            }
-
-            current_x += element.width;
+            // if let Some(action) = &element.action {
+            //     termi.clickable_regions.push(ClickableRegion {
+            //         area: Rect {
+            //             x: current_x,
+            //             y: area.y,
+            //             width: element.width,
+            //             height: 1,
+            //         },
+            //         action: action.clone(),
+            //     });
+            // }
+            //
+            // current_x += element.width;
             span
         })
         .collect();

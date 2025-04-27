@@ -3,7 +3,6 @@ use crate::{
         MIN_TERM_HEIGHT, MIN_TERM_WIDTH, SMALL_SCREEN_HEIGHT, SMALL_SCREEN_WIDTH,
         TYPING_AREA_WIDTH_PERCENT,
     },
-    log_debug,
     termi::Termi,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -41,12 +40,6 @@ impl TermiLayout {
 
     // TODO: divide better h_small and w_small or something
     pub fn is_small(&self) -> bool {
-        log_debug!(
-            "({}, {}) vs MIN: {}",
-            self.area.width,
-            self.area.height,
-            SMALL_SCREEN_WIDTH
-        );
         self.area.width < SMALL_SCREEN_WIDTH || self.area.height < SMALL_SCREEN_HEIGHT
     }
 }
@@ -110,7 +103,6 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         ])
         .split(mid_area)[1];
 
-    log_debug!("Visible lines: {}", termi.config.visible_lines);
     let mid_chunk = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
