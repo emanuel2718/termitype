@@ -71,33 +71,33 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
     let command_bar = create_command_bar(termi);
     let footer = create_footer(termi);
 
-    let termi_render =
-        |f: &mut Frame, cr: &mut TermiClickableRegions, element: TermiElement, rect: Rect| {
-            f.render_widget(element.widget, rect);
-            if let Some(action) = element.action {
-                cr.add(rect, action);
-            }
-        };
     match termi.tracker.status {
         Status::Typing => {
-            termi_render(frame, &mut regions, header, layout.section.header);
-            termi_render(frame, &mut regions, mode_bar, layout.section.mode_bar);
-            termi_render(frame, &mut regions, typing_area, layout.section.typing_area);
+            render(frame, &mut regions, header, layout.section.header);
+            render(frame, &mut regions, mode_bar, layout.section.mode_bar);
+            render(frame, &mut regions, typing_area, layout.section.typing_area);
         }
         Status::Idle | Status::Paused => {
-            termi_render(frame, &mut regions, header, layout.section.header);
-            termi_render(frame, &mut regions, typing_area, layout.section.typing_area);
+            render(frame, &mut regions, header, layout.section.header);
+            render(frame, &mut regions, typing_area, layout.section.typing_area);
 
             if !layout.is_small() {
-                termi_render(frame, &mut regions, menu_action, layout.section.action_bar);
-                termi_render(frame, &mut regions, mode_bar, layout.section.mode_bar);
-                termi_render(frame, &mut regions, action_bar, layout.section.action_bar);
-                termi_render(frame, &mut regions, command_bar, layout.section.command_bar);
-                termi_render(frame, &mut regions, footer, layout.section.footer);
+                render(frame, &mut regions, menu_action, layout.section.action_bar);
+                render(frame, &mut regions, mode_bar, layout.section.mode_bar);
+                render(frame, &mut regions, action_bar, layout.section.action_bar);
+                render(frame, &mut regions, command_bar, layout.section.command_bar);
+                render(frame, &mut regions, footer, layout.section.footer);
             }
         }
         Status::Completed => {}
     }
 
     regions
+}
+
+fn render(f: &mut Frame, cr: &mut TermiClickableRegions, element: TermiElement, rect: Rect) {
+    f.render_widget(element.widget, rect);
+    if let Some(action) = element.action {
+        cr.add(rect, action);
+    }
 }
