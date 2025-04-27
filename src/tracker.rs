@@ -38,7 +38,7 @@ pub struct Tracker {
     max_user_input_length: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Status {
     Idle,
     Typing,
