@@ -44,7 +44,7 @@ pub const APP_LOGO: &[&str] = &[
     "                                   ",
 ];
 
-pub const SMALL_SCREEN_WIDTH: u16 = 65;
+pub const SMALL_SCREEN_WIDTH: u16 = 85;
 pub const SMALL_SCREEN_HEIGHT: u16 = 20;
 
 pub const SECS_PER_MIN: u64 = 60;

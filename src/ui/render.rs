@@ -15,8 +15,8 @@ use super::{
     actions::TermiClickAction,
     elements::{
         create_action_bar, create_command_bar, create_footer, create_header,
-        create_menu_footer_text, create_minimal_size_warning, create_mode_bar, create_typing_area,
-        prepare_menu_list_items, TermiElement,
+        create_menu_footer_text, create_minimal_size_warning, create_mode_bar,
+        create_show_menu_button, create_typing_area, prepare_menu_list_items, TermiElement,
     },
     layout::create_layout,
     utils::{calculate_word_positions, WordPosition},
@@ -79,13 +79,19 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
         }
         Status::Idle | Status::Paused => {
             let mode_bar = create_mode_bar(termi);
-            let action_bar = create_action_bar(termi);
             let command_bar = create_command_bar(termi);
             let footer = create_footer(termi);
             render(frame, &mut regions, mode_bar, layout.section.mode_bar);
             render(frame, &mut regions, header, layout.section.header);
             render_typing_area(frame, termi, layout.section.typing_area);
-            if !layout.is_small() {
+            // small width big enough height
+            if layout.w_small() && !layout.h_small() {
+                let menu_button = create_show_menu_button(termi);
+                render(frame, &mut regions, menu_button, layout.section.action_bar);
+                render(frame, &mut regions, command_bar, layout.section.command_bar);
+                render(frame, &mut regions, footer, layout.section.footer);
+            } else if !layout.is_small() {
+                let action_bar = create_action_bar(termi);
                 render(frame, &mut regions, action_bar, layout.section.action_bar);
                 render(frame, &mut regions, command_bar, layout.section.command_bar);
                 render(frame, &mut regions, footer, layout.section.footer);

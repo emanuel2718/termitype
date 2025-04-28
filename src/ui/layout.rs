@@ -44,6 +44,14 @@ impl TermiLayout {
     pub fn is_small(&self) -> bool {
         self.area.width < SMALL_SCREEN_WIDTH || self.area.height < SMALL_SCREEN_HEIGHT
     }
+
+    pub fn w_small(&self) -> bool {
+        self.area.width < SMALL_SCREEN_WIDTH
+    }
+
+    pub fn h_small(&self) -> bool {
+        self.area.height < SMALL_SCREEN_HEIGHT
+    }
 }
 
 fn _is_minimal(area: Rect) -> bool {
