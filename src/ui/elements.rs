@@ -1,5 +1,5 @@
 use crate::{
-    config::Mode,
+    config::{Mode, ModeType},
     constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH},
     termi::Termi,
     theme::Theme,
@@ -71,8 +71,78 @@ pub fn create_header(termi: &Termi) -> Vec<TermiElement> {
 
 pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
     let theme = termi.get_current_theme().clone();
-    let text = Text::raw("TODO: add action bar logic").alignment(Alignment::Center);
-    vec![TermiElement::new(text, false, None).to_styled(&theme)]
+    let is_time_mode = matches!(termi.config.current_mode(), Mode::Time { .. });
+
+    let elements = vec![
+        TermiElement::new(
+            "@ punctuation ",
+            termi.config.use_punctuation,
+            Some(TermiClickAction::TogglePunctuation),
+        ),
+        TermiElement::new(
+            "# numbers ",
+            termi.config.use_numbers,
+            Some(TermiClickAction::ToggleNumbers),
+        ),
+        TermiElement::new(
+            "@ symbols ",
+            termi.config.use_symbols,
+            Some(TermiClickAction::ToggleSymbols),
+        ),
+        TermiElement::new("│ ", false, None),
+        TermiElement::new(
+            "⏱ time ",
+            is_time_mode,
+            Some(TermiClickAction::SwitchMode(ModeType::Time)),
+        ),
+        TermiElement::new(
+            "A words ",
+            !is_time_mode,
+            Some(TermiClickAction::SwitchMode(ModeType::Words)),
+        ),
+        TermiElement::new("│ ", false, None),
+        TermiElement::new(
+            format!("{} ", if is_time_mode { 15 } else { 10 }),
+            termi.config.current_mode().value() == if is_time_mode { 15 } else { 10 },
+            Some(TermiClickAction::SetModeValue(if is_time_mode {
+                15
+            } else {
+                10
+            })),
+        ),
+        TermiElement::new(
+            format!("{} ", if is_time_mode { 30 } else { 25 }),
+            termi.config.current_mode().value() == if is_time_mode { 30 } else { 25 },
+            Some(TermiClickAction::SetModeValue(if is_time_mode {
+                30
+            } else {
+                25
+            })),
+        ),
+        TermiElement::new(
+            format!("{} ", if is_time_mode { 60 } else { 50 }),
+            termi.config.current_mode().value() == if is_time_mode { 60 } else { 50 },
+            Some(TermiClickAction::SetModeValue(if is_time_mode {
+                60
+            } else {
+                50
+            })),
+        ),
+        TermiElement::new(
+            format!("{} ", if is_time_mode { 120 } else { 100 }),
+            termi.config.current_mode().value() == if is_time_mode { 120 } else { 100 },
+            Some(TermiClickAction::SetModeValue(if is_time_mode {
+                120
+            } else {
+                100
+            })),
+        ),
+    ];
+
+    elements
+        .into_iter()
+        .map(|element| element.to_styled(&theme))
+        .collect()
 }
 
 pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
@@ -135,9 +205,66 @@ pub fn create_typing_area(termi: &Termi) -> Vec<TermiElement> {
 }
 
 pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme().clone();
-    let text = Text::raw("TODO: add command bar logic").alignment(Alignment::Center);
-    vec![TermiElement::new(text, false, None).to_styled(&theme)]
+    let theme = termi.get_current_theme();
+
+    fn styled_span(content: String, is_key: bool, theme: &Theme) -> Span<'static> {
+        let style = if is_key {
+            Style::default()
+                .fg(theme.highlight())
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM)
+        };
+        Span::styled(content, style)
+    }
+
+    let command_groups = [
+        vec![
+            vec![
+                ("tab", true),
+                (" + ", false),
+                ("enter", true),
+                (" - restart test", false),
+            ],
+            vec![("esc", true), (" - menu", false)],
+        ],
+        vec![vec![
+            ("ctrl", true),
+            (" + ", false),
+            ("c", true),
+            (" or ", false),
+            ("ctrl", true),
+            (" + ", false),
+            ("z", true),
+            (" - to quit", false),
+        ]],
+    ];
+
+    let mut lines = Vec::new();
+    for (row_idx, line_groups) in command_groups.iter().enumerate() {
+        let mut spans = Vec::new();
+        for (i, group) in line_groups.iter().enumerate() {
+            let group_spans: Vec<Span<'static>> = group
+                .iter()
+                .map(|&(text, is_key)| styled_span(text.to_string(), is_key, theme))
+                .collect();
+            spans.extend(group_spans);
+
+            if i < line_groups.len() - 1 {
+                spans.push(styled_span("   ".to_string(), false, theme));
+            }
+        }
+        lines.push(Line::from(spans).alignment(Alignment::Center));
+
+        if row_idx == 0 {
+            lines.push(Line::raw("").alignment(Alignment::Center));
+        }
+    }
+
+    let text = Text::from(lines).alignment(Alignment::Center);
+    vec![TermiElement::new(text, false, None)]
 }
 
 pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {

@@ -8,13 +8,13 @@ use crate::{
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 // TODO: move to constats
-const HEADER_HEIGHT: u16 = 3;
+const HEADER_HEIGHT: u16 = 4;
 const ACTION_BAR_HEIGHT: u16 = 1;
 const TOP_AREA_HEIGHT: u16 = HEADER_HEIGHT + ACTION_BAR_HEIGHT;
 
 const MODE_BAR_HEIGHT: u16 = 2;
 
-const COMMAND_BAR_HEIGHT: u16 = 1;
+const COMMAND_BAR_HEIGHT: u16 = 3;
 const FOOTER_HEIGHT: u16 = 1;
 const BOTTOM_PADDING: u16 = 1;
 const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + BOTTOM_PADDING + FOOTER_HEIGHT;
