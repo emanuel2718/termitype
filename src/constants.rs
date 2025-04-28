@@ -53,5 +53,5 @@ pub const SECS_PER_DAY: u64 = 86_400;
 pub const DAYS_PER_YEAR: u64 = 365;
 pub const DAYS_PER_MONTH: u64 = 30;
 
-pub const MIN_TERM_HEIGHT: u16 = 8;
+pub const MIN_TERM_HEIGHT: u16 = 15;
 pub const MIN_TERM_WIDTH: u16 = 10;

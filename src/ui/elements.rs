@@ -195,12 +195,37 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
     vec![element]
 }
 
+fn create_styled_typing_text<'a>(termi: &'a Termi, theme: &Theme) -> Text<'a> {
+    let mut spans = Vec::with_capacity(termi.words.len());
+    let mut current_char_index = 0;
+
+    for word in termi.words.split_inclusive(' ') {
+        for (i, c) in word.chars().enumerate() {
+            let char_idx = current_char_index + i;
+            let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
+                Some(input) if input == c => Style::default().fg(theme.success()),
+                Some(_) => Style::default().fg(theme.error()),
+                None => {
+                    if c == ' ' {
+                        Style::default()
+                            .fg(theme.muted())
+                            .add_modifier(Modifier::DIM)
+                    } else {
+                        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+                    }
+                }
+            };
+            spans.push(Span::styled(c.to_string(), style));
+        }
+        current_char_index += word.chars().count();
+    }
+
+    Text::from(Line::from(spans))
+}
+
 pub fn create_typing_area(termi: &Termi) -> Vec<TermiElement> {
     let theme = termi.get_current_theme().clone();
-    let words_text = termi.words.clone();
-    let text = Text::from(words_text)
-        .style(Style::default().fg(theme.fg()))
-        .patch_style(Style::default().add_modifier(Modifier::DIM));
+    let text = create_styled_typing_text(termi, &theme);
     vec![TermiElement::new(text, false, None)]
 }
 
