@@ -26,6 +26,7 @@ pub struct Tracker {
     pub target_chars: Vec<char>,
     pub word_count: usize,
     pub status: Status,
+    pub prev_status: Option<Status>,
 
     pub total_keystrokes: usize,
     pub correct_keystrokes: usize,
@@ -77,6 +78,7 @@ impl Tracker {
             target_chars,
             word_count,
             status: Status::Idle,
+            prev_status: None,
             total_keystrokes: 0,
             backspace_count: 0,
             correct_keystrokes: 0,
@@ -114,25 +116,34 @@ impl Tracker {
 
     // TODO: maybe mmove this elsewhere. not sure if it makes sense here.
     pub fn pause(&mut self) {
-        if self.status == Status::Typing {
-            self.status = Status::Paused;
-            self.time_paused = Some(Instant::now());
-        }
+        self.prev_status = Some(self.status.clone());
+        self.status = Status::Paused;
+        self.time_paused = Some(Instant::now());
     }
 
     // TODO: maybe mmove this elsewhere. not sure if it makes sense here.
     pub fn resume(&mut self) {
-        if self.status == Status::Paused {
-            if let (Some(pause_start), Some(time_started)) = (self.time_paused, self.time_started) {
-                let pause_duration = pause_start.elapsed();
-                self.time_started = Some(time_started + pause_duration);
+        if let Some(prev) = self.prev_status.clone() {
+            match prev {
+                Status::Typing => {
+                    if let (Some(pause_start), Some(time_started)) =
+                        (self.time_paused, self.time_started)
+                    {
+                        let pause_duration = pause_start.elapsed();
+                        self.time_started = Some(time_started + pause_duration);
 
-                if let Some(end_time) = self.time_end {
-                    self.time_end = Some(end_time + pause_duration);
+                        if let Some(end_time) = self.time_end {
+                            self.time_end = Some(end_time + pause_duration);
+                        }
+                    }
+                    self.status = Status::Typing;
+                    self.time_paused = None;
+                }
+                _ => {
+                    self.prev_status = Some(Status::Paused);
+                    self.status = prev;
                 }
             }
-            self.status = Status::Typing;
-            self.time_paused = None;
         }
     }
 

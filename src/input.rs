@@ -15,7 +15,7 @@ use crossterm::{
 pub enum Action {
     None,
     Start,
-    Pause,
+    TogglePause,
     Quit,
     TypeCharacter(char),
     Backspace,
@@ -104,7 +104,7 @@ impl InputHandler {
             }
             (KeyCode::Esc, KeyModifiers::NONE) => {
                 self.pending_accent = None;
-                Action::Pause
+                Action::TogglePause
             }
             (KeyCode::Char(c), KeyModifiers::ALT) => {
                 self.pending_accent = Some(c);
@@ -257,14 +257,14 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             state.start();
             Action::None
         }
-        Action::Pause => {
-            if state.menu.is_open() {
-                state.menu.toggle(&state.config);
+        Action::TogglePause => {
+            if state.tracker.status == Status::Paused {
                 state.tracker.resume();
             } else {
                 state.tracker.pause();
-                state.menu.toggle(&state.config);
             }
+            state.menu.toggle(&state.config);
+
             Action::None
         }
         Action::Quit => Action::Quit,
@@ -447,6 +447,7 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
             Action::None
         }
         MenuInputAction::Close => {
+            state.tracker.resume();
             state.menu.close();
             Action::None
         }

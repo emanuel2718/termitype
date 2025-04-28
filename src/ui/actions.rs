@@ -1,6 +1,6 @@
 use crate::config::ModeType;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TermiClickAction {
     SwitchMode(ModeType),
     SetModeValue(usize),

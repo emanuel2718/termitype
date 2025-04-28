@@ -9,13 +9,15 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 // TODO: move to constats
 const HEADER_HEIGHT: u16 = 3;
-const MODE_BAR_HEIGHT: u16 = 1;
-const TOP_AREA_HEIGHT: u16 = HEADER_HEIGHT + COMMAND_BAR_HEIGHT;
+const ACTION_BAR_HEIGHT: u16 = 1;
+const TOP_AREA_HEIGHT: u16 = HEADER_HEIGHT + ACTION_BAR_HEIGHT;
+
+const MODE_BAR_HEIGHT: u16 = 2;
 
 const COMMAND_BAR_HEIGHT: u16 = 1;
-
 const FOOTER_HEIGHT: u16 = 1;
-const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + FOOTER_HEIGHT;
+const BOTTOM_PADDING: u16 = 1;
+const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + BOTTOM_PADDING + FOOTER_HEIGHT;
 
 #[derive(Debug, Clone)]
 pub struct TermiSection {
@@ -73,7 +75,7 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         .constraints([
             Constraint::Length(TOP_AREA_HEIGHT),    // Top
             Constraint::Min(0),                     // Middle
-            Constraint::Length(BOTTOM_AREA_HEIGHT), // Bottom
+            Constraint::Length(BOTTOM_AREA_HEIGHT), // Bottom (height increased)
         ])
         .split(area);
 
@@ -86,7 +88,7 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(HEADER_HEIGHT),
-            Constraint::Length(COMMAND_BAR_HEIGHT),
+            Constraint::Length(ACTION_BAR_HEIGHT),
         ])
         .split(top_area);
 
@@ -106,7 +108,7 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
     let mid_chunk = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(COMMAND_BAR_HEIGHT),
+            Constraint::Length(MODE_BAR_HEIGHT),
             Constraint::Length(termi.config.visible_lines as u16),
         ])
         .split(mid_outer_chunk);
@@ -119,12 +121,13 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(COMMAND_BAR_HEIGHT),
+            Constraint::Length(BOTTOM_PADDING),
             Constraint::Length(FOOTER_HEIGHT),
         ])
         .split(bot_area);
 
     let command_bar_section = apply_horizontal_centering(bot_chunks[0], TYPING_AREA_WIDTH_PERCENT);
-    let footer_section = apply_horizontal_centering(bot_chunks[1], TYPING_AREA_WIDTH_PERCENT);
+    let footer_section = apply_horizontal_centering(bot_chunks[2], TYPING_AREA_WIDTH_PERCENT);
 
     let section = TermiSection {
         header: header_section,
@@ -143,7 +146,7 @@ fn apply_horizontal_centering(area: Rect, width_percent: u16) -> Rect {
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(padding * 2),
+            Constraint::Percentage(padding),
             Constraint::Percentage(width_percent),
             Constraint::Percentage(padding),
         ])

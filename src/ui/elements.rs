@@ -2,66 +2,90 @@ use crate::{
     config::Mode,
     constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH},
     termi::Termi,
+    theme::Theme,
     tracker::Status,
+    version::VERSION,
 };
 use ratatui::{
     layout::Alignment,
     style::{Modifier, Style, Stylize},
-    text::{Line, Span},
-    widgets::{Block, Padding, Paragraph},
+    symbols::line::DOUBLE_VERTICAL_LEFT,
+    text::{Line, Span, Text},
+    widgets::ListItem,
 };
 
 use super::actions::TermiClickAction;
 
+#[derive(Debug)]
 pub struct TermiElement<'a> {
-    pub widget: Paragraph<'a>,
-    pub is_active: bool,
+    pub content: Text<'a>,
     pub action: Option<TermiClickAction>,
+    pub is_active: bool,
 }
 
-impl<'a> From<Paragraph<'a>> for TermiElement<'a> {
-    fn from(widget: Paragraph<'a>) -> Self {
+impl<'a> TermiElement<'a> {
+    pub fn new(
+        content: impl Into<Text<'a>>,
+        is_active: bool,
+        action: Option<TermiClickAction>,
+    ) -> Self {
         Self {
-            widget,
-            is_active: false,
-            action: None,
+            content: content.into(),
+            is_active,
+            action,
         }
+    }
+
+    pub fn to_styled(mut self, theme: &Theme) -> Self {
+        let style_to_apply = if self.is_active {
+            Style::default()
+                .fg(theme.highlight())
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM)
+        };
+
+        for line in self.content.lines.iter_mut() {
+            for span in line.spans.iter_mut() {
+                span.style = span.style.patch(style_to_apply);
+            }
+        }
+        self
     }
 }
 
-pub fn create_header(termi: &Termi) -> TermiElement {
+pub fn create_header(termi: &Termi) -> Vec<TermiElement> {
     let theme = termi.get_current_theme();
-    Paragraph::new(APPNAME)
-        .style(Style::default().fg(theme.highlight()))
-        .add_modifier(if termi.tracker.status == Status::Typing {
-            Modifier::DIM
-        } else {
-            Modifier::empty()
-        })
+    let text = Text::from(APPNAME)
         .alignment(Alignment::Left)
-        .into()
+        .style(Style::default().fg(theme.highlight()))
+        .patch_style(if termi.tracker.status == Status::Typing {
+            Style::default().add_modifier(Modifier::DIM)
+        } else {
+            Style::default()
+        });
+    vec![TermiElement::new(text, false, None)]
 }
 
-pub fn create_action_bar(_termi: &Termi) -> TermiElement {
-    Paragraph::new("TODO: add action bar logic")
-        .alignment(Alignment::Center)
-        .into()
+pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
+    let theme = termi.get_current_theme().clone();
+    let text = Text::raw("TODO: add action bar logic").alignment(Alignment::Center);
+    vec![TermiElement::new(text, false, None).to_styled(&theme)]
 }
 
-pub fn create_mode_bar(termi: &Termi) -> TermiElement {
+pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
     let status = termi.tracker.status.clone();
     let theme = termi.get_current_theme().clone();
-    match status {
+    let element = match status {
         Status::Idle | Status::Paused => {
             let current_language = termi.config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
-            let widget = Paragraph::new(current_language)
-                .centered()
-                .style(Style::new().fg(theme.muted()));
-            TermiElement {
-                widget,
-                is_active: false,
-                action: Some(TermiClickAction::ToggleLanguagePicker),
-            }
+            let text = Text::from(current_language)
+                .style(Style::new().fg(theme.muted()))
+                .add_modifier(Modifier::DIM)
+                .alignment(Alignment::Center);
+            TermiElement::new(text, false, Some(TermiClickAction::ToggleLanguagePicker))
         }
         Status::Typing => {
             let info = match termi.config.current_mode() {
@@ -73,7 +97,6 @@ pub fn create_mode_bar(termi: &Termi) -> TermiElement {
                     }
                 }
                 Mode::Words { count } => {
-                    // TODO: could have a nice helper for this to not have to do this here. or better yet track this better
                     let completed = termi
                         .tracker
                         .user_input
@@ -93,32 +116,61 @@ pub fn create_mode_bar(termi: &Termi) -> TermiElement {
                         .add_modifier(Modifier::DIM),
                 ),
             ];
-            Paragraph::new(Line::from(spans)).into()
+            let line = Line::from(spans);
+            let text = Text::from(line);
+            TermiElement::new(text, false, None)
         }
-        _ => Paragraph::new("").into(),
-    }
+        _ => TermiElement::new(Text::raw(""), false, None),
+    };
+    vec![element]
 }
 
-pub fn create_typing_area(termi: &Termi) -> TermiElement {
-    let words_text = termi.words.clone();
-    Paragraph::new(words_text).into()
-}
-
-pub fn create_command_bar(_termi: &Termi) -> TermiElement {
-    Paragraph::new("TODO: add command bar logic")
-        .alignment(Alignment::Center)
-        .into()
-}
-
-pub fn create_footer(_termi: &Termi) -> TermiElement {
-    Paragraph::new("TODO: add footer logic")
-        .alignment(Alignment::Center)
-        .into()
-}
-
-pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> TermiElement {
+pub fn create_typing_area(termi: &Termi) -> Vec<TermiElement> {
     let theme = termi.get_current_theme().clone();
-    let warning = vec![
+    let words_text = termi.words.clone();
+    let text = Text::from(words_text)
+        .style(Style::default().fg(theme.fg()))
+        .patch_style(Style::default().add_modifier(Modifier::DIM));
+    vec![TermiElement::new(text, false, None)]
+}
+
+pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
+    let theme = termi.get_current_theme().clone();
+    let text = Text::raw("TODO: add command bar logic").alignment(Alignment::Center);
+    vec![TermiElement::new(text, false, None).to_styled(&theme)]
+}
+
+pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
+    let theme = termi.get_current_theme().clone();
+    let elements = vec![
+        TermiElement::new(
+            "ⓘ about",
+            termi.menu.is_about_menu(),
+            Some(TermiClickAction::ToggleAbout),
+        ),
+        TermiElement::new(" ", false, None),
+        TermiElement::new(DOUBLE_VERTICAL_LEFT, false, None),
+        TermiElement::new(" ", false, None),
+        TermiElement::new(
+            termi.theme.id.clone(),
+            termi.preview_theme.is_some(),
+            Some(TermiClickAction::ToggleThemePicker),
+        ),
+        TermiElement::new(" ", false, None),
+        TermiElement::new(DOUBLE_VERTICAL_LEFT, false, None),
+        TermiElement::new(" ", false, None),
+        TermiElement::new(VERSION, false, None),
+    ];
+
+    elements
+        .into_iter()
+        .map(|element| element.to_styled(&theme))
+        .collect()
+}
+
+pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Vec<TermiElement> {
+    let theme = termi.get_current_theme().clone();
+    let warning_lines = vec![
         Line::from(Span::styled(
             "! too small",
             Style::default().fg(theme.error()),
@@ -132,14 +184,122 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Te
             Style::default().fg(theme.muted()),
         )),
     ];
-    Paragraph::new(warning)
-        .alignment(Alignment::Center)
-        .block(Block::new().padding(Padding::new(0, 0, (height / 2).saturating_sub(1), 0)))
-        .into()
+    let text = Text::from(warning_lines).alignment(Alignment::Center);
+    vec![TermiElement::new(text, false, None)]
 }
 
-pub fn create_show_menu_button(_termi: &Termi) -> TermiElement {
-    Paragraph::new("TODO: <icon> Show Menu")
-        .alignment(Alignment::Center)
-        .into()
+pub fn create_show_menu_button(_termi: &Termi) -> Vec<TermiElement> {
+    let text = Text::raw("TODO: <icon> Show Menu").alignment(Alignment::Center);
+    vec![TermiElement::new(text, false, None)]
+}
+
+pub fn create_menu_footer_text(termi: &Termi) -> Line {
+    let theme = termi.get_current_theme();
+    let menu_state = &termi.menu;
+
+    if menu_state.is_searching() {
+        Line::from(vec![
+            Span::styled("Filter: ", Style::default().fg(theme.accent())),
+            Span::styled(menu_state.search_query(), Style::default().fg(theme.fg())),
+            Span::styled(
+                "█",
+                Style::default()
+                    .fg(theme.cursor())
+                    .add_modifier(Modifier::RAPID_BLINK),
+            ),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled("[↑/k]", Style::default().fg(theme.highlight())),
+            Span::styled(" up ", Style::default().fg(theme.muted())),
+            Span::styled("[↓/j]", Style::default().fg(theme.highlight())),
+            Span::styled(" down ", Style::default().fg(theme.muted())),
+            Span::styled("[/]", Style::default().fg(theme.highlight())),
+            Span::styled(" search ", Style::default().fg(theme.muted())),
+            Span::styled("[ent]", Style::default().fg(theme.highlight())),
+            Span::styled(" sel ", Style::default().fg(theme.muted())),
+            Span::styled("[space]", Style::default().fg(theme.highlight())),
+            Span::styled(" toggle ", Style::default().fg(theme.muted())),
+            Span::styled("[esc]", Style::default().fg(theme.highlight())),
+            Span::styled(" close", Style::default().fg(theme.muted())),
+        ])
+    }
+}
+
+pub fn prepare_menu_list_items(
+    termi: &Termi,
+    scroll_offset: usize,
+    max_visible: usize,
+) -> (Vec<ListItem>, usize) {
+    let theme = termi.get_current_theme();
+
+    if let Some(menu) = &termi.menu.current_menu() {
+        let filtered_items: Vec<_> = if termi.menu.is_searching() {
+            menu.filtered_items(termi.menu.search_query())
+        } else {
+            menu.items().iter().enumerate().collect()
+        };
+
+        let total_items = filtered_items.len();
+
+        if total_items == 0 {
+            let no_matches = vec![
+                ListItem::new(""),
+                ListItem::new(Line::from(vec![
+                    Span::styled("  ", Style::default()),
+                    Span::styled(
+                        "grep: pattern not found",
+                        Style::default().fg(theme.muted()),
+                    ),
+                ])),
+            ];
+            (no_matches, 0)
+        } else {
+            let items: Vec<ListItem> = std::iter::once(ListItem::new(""))
+                .chain(
+                    filtered_items
+                        .iter()
+                        .skip(scroll_offset)
+                        .take(max_visible)
+                        .map(|&(i, item)| {
+                            let is_selected = i == menu.selected_index();
+                            let item_style = Style::default()
+                                .fg(if item.is_toggleable {
+                                    if item.is_active {
+                                        theme.highlight()
+                                    } else {
+                                        theme.muted()
+                                    }
+                                } else if is_selected {
+                                    theme.selection_fg()
+                                } else {
+                                    theme.fg()
+                                })
+                                .bg(if is_selected {
+                                    theme.selection_bg()
+                                } else {
+                                    theme.bg()
+                                });
+
+                            ListItem::new(Line::from(vec![
+                                Span::styled("  ", Style::default()),
+                                Span::styled(
+                                    if is_selected { "❯ " } else { "  " },
+                                    Style::default().fg(theme.accent()),
+                                ),
+                                Span::styled(&item.label, item_style),
+                                if item.has_submenu {
+                                    Span::styled(" →", Style::default().fg(theme.accent()))
+                                } else {
+                                    Span::raw("")
+                                },
+                            ]))
+                        }),
+                )
+                .collect();
+            (items, total_items)
+        }
+    } else {
+        (vec![ListItem::new("  No menu content")], 0)
+    }
 }

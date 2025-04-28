@@ -94,7 +94,7 @@ impl Termi {
         let mut clicked_action: Option<TermiClickAction> = None;
         for (rect, action) in reg.regions.iter().rev() {
             if rect.contains(Position { x, y }) {
-                clicked_action = Some(action.clone());
+                clicked_action = Some(*action);
                 break;
             }
         }
@@ -134,11 +134,17 @@ impl Termi {
                 }
                 TermiClickAction::ToggleLanguagePicker => {
                     log_debug!("toggling language picker");
+                    if !self.menu.is_open() {
+                        self.tracker.pause();
+                    }
                     self.menu
                         .toggle_from_footer(&self.config, MenuAction::OpenLanguagePicker);
                     self.menu.preview_selected();
                 }
                 TermiClickAction::ToggleAbout => {
+                    if !self.menu.is_open() {
+                        self.tracker.pause();
+                    }
                     self.menu
                         .toggle_from_footer(&self.config, MenuAction::OpenAbout);
                 }
@@ -270,6 +276,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                     row,
                     ..
                 }) => {
+                    log_debug!("Status: {:?}", termi.tracker.status);
                     termi.handle_click(&clickable_regions, column, row);
                     needs_redraw = true;
                 }
