@@ -379,12 +379,30 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
             "! too small",
             Style::default().fg(theme.error()),
         )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Current: (", Style::default().fg(theme.muted())),
+            Span::styled(
+                format!("{}", width),
+                Style::default().fg(if width < MIN_TERM_WIDTH {
+                    theme.error()
+                } else {
+                    theme.success()
+                }),
+            ),
+            Span::styled("x", Style::default().fg(theme.muted())),
+            Span::styled(
+                format!("{}", height),
+                Style::default().fg(if height < MIN_TERM_HEIGHT {
+                    theme.error()
+                } else {
+                    theme.success()
+                }),
+            ),
+            Span::styled(")", Style::default().fg(theme.muted())),
+        ]),
         Line::from(Span::styled(
-            format!("Current: ({}x{})", width, height),
-            Style::default().fg(theme.muted()),
-        )),
-        Line::from(Span::styled(
-            format!("Minimum: ({}x{})", MIN_TERM_WIDTH, MIN_TERM_HEIGHT),
+            format!("Needed: ({}x{})", MIN_TERM_WIDTH, MIN_TERM_HEIGHT),
             Style::default().fg(theme.muted()),
         )),
     ];
