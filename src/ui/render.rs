@@ -47,6 +47,8 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
             .style(Style::default().bg(theme.bg()))
             .padding(if dummy_layout.is_minimal() {
                 Padding::ZERO
+            } else if dummy_layout.w_small() {
+                Padding::uniform(2)
             } else {
                 Padding::symmetric(8, 2)
             });
