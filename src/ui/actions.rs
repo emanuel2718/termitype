@@ -4,6 +4,7 @@ use crate::config::ModeType;
 pub enum TermiClickAction {
     SwitchMode(ModeType),
     SetModeValue(usize),
+    ToggleMenu,
     TogglePunctuation,
     ToggleSymbols,
     ToggleNumbers,

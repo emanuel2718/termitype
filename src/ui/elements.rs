@@ -410,9 +410,15 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
     vec![TermiElement::new(text, false, None)]
 }
 
-pub fn create_show_menu_button(_termi: &Termi) -> Vec<TermiElement> {
-    let text = Text::raw("TODO: <icon> Show Menu").alignment(Alignment::Center);
-    vec![TermiElement::new(text, false, None)]
+pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement> {
+    let theme = termi.get_current_theme().clone();
+    let text = Text::from("≡ Show Menu").alignment(Alignment::Center);
+    vec![TermiElement::new(
+        text,
+        termi.menu.is_open(),
+        Some(TermiClickAction::ToggleMenu),
+    )
+    .to_styled(&theme)]
 }
 
 pub fn create_menu_footer_text(termi: &Termi) -> Line {

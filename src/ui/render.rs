@@ -9,7 +9,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::{constants::MENU_HEIGHT, termi::Termi, tracker::Status};
+use crate::{constants::MENU_HEIGHT, log_debug, termi::Termi, tracker::Status};
 
 use super::{
     actions::TermiClickAction,
@@ -223,8 +223,22 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         .scroll((scroll_offset as u16, 0));
 
     frame.render_widget(paragraph, area);
-    let show_cursor =
-        termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing;
+
+    let menu_height = MENU_HEIGHT.min(frame.area().height);
+    let estimated_menu_area = Rect {
+        x: frame.area().x,
+        y: frame.area().y,
+        width: frame.area().width,
+        height: menu_height,
+    };
+
+    // show cursor if:
+    //     - typing/idle
+    //     - menu is closed OR menu do not overlap typing area
+    //          * this is to be able to preview the cursor if we can see the typing area
+    let show_cursor = (termi.tracker.status == Status::Idle
+        || termi.tracker.status == Status::Typing)
+        && (!termi.menu.is_open() || !estimated_menu_area.intersects(area));
 
     if show_cursor {
         let offset = cursor_idx.saturating_sub(current_word_pos.start_index);
