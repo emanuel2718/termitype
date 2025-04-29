@@ -6,9 +6,10 @@ pub struct WordPosition {
 }
 
 pub fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosition> {
-    if available_width == 0 {
+    if text.is_empty() || available_width == 0 {
         return vec![];
     }
+
     let word_count = text.split_whitespace().count();
     let mut positions = Vec::with_capacity(word_count);
     let mut current_line = 0;
@@ -18,16 +19,15 @@ pub fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordP
     for word in text.split_whitespace() {
         let word_len = word.chars().count();
 
-        let word_fits_on_line = word_len < available_width;
-
+        // does this word exceeds `available_width` and this is not the start of the line?
         if current_col > 0
-            && (current_col + word_len >= available_width
-                || (word_fits_on_line && current_col + 1 >= available_width))
+            && (current_col + word_len >= available_width || current_col + 1 >= available_width)
         {
             current_line += 1;
             current_col = 0;
         }
 
+        // words longer than `available_width`
         if word_len >= available_width && current_col > 0 {
             current_line += 1;
             current_col = 0;
@@ -39,15 +39,13 @@ pub fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordP
             col: current_col,
         });
 
-        let next_col = current_col + word_len + 1;
+        current_index += word_len + 1; // word + <space>
+        current_col += word_len + 1;
 
-        current_index += word_len + 1;
-
-        if next_col >= available_width {
+        // force the wrapping after long words
+        if current_col >= available_width {
             current_line += 1;
             current_col = 0;
-        } else {
-            current_col = next_col;
         }
     }
 

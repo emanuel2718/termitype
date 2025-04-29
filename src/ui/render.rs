@@ -1,7 +1,7 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
     style::Style,
-    text::{Line, Text},
+    text::Line,
     widgets::{
         Block, Clear, List, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
         Wrap,
@@ -16,7 +16,7 @@ use super::{
     elements::{
         create_action_bar, create_command_bar, create_footer, create_header,
         create_menu_footer_text, create_minimal_size_warning, create_mode_bar,
-        create_show_menu_button, create_typing_area, prepare_menu_list_items, TermiElement,
+        create_show_menu_button, create_styled_typing_text, prepare_menu_list_items, TermiElement,
     },
     layout::create_layout,
     utils::{calculate_word_positions, WordPosition},
@@ -179,20 +179,17 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
 }
 
 fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
-    let typing_elements = create_typing_area(termi);
-    let styled_text = if let Some(element) = typing_elements.first() {
-        element.content.clone()
-    } else {
-        Text::raw("")
-    };
-
     let available_width = area.width as usize;
+    let theme = termi.get_current_theme();
+
+    let styled_text = create_styled_typing_text(termi, theme, Some(available_width));
     let word_positions = calculate_word_positions(&termi.words, available_width);
 
-    let cursor_char_index = termi.tracker.cursor_position;
+    let cursor_idx = termi.tracker.cursor_position;
+
     let current_word_pos = word_positions
         .iter()
-        .filter(|pos| cursor_char_index >= pos.start_index)
+        .filter(|pos| cursor_idx >= pos.start_index)
         .last()
         .unwrap_or_else(|| {
             word_positions.first().unwrap_or(&WordPosition {
@@ -203,12 +200,19 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         });
 
     let current_line = current_word_pos.line;
-    let config_visible_lines = termi.config.visible_lines as usize;
+    let line_count = termi.config.visible_lines as usize;
 
-    let scroll_offset = if config_visible_lines <= 1 {
+    let scroll_offset = if line_count <= 1 {
         current_line
     } else {
-        current_line.saturating_sub(config_visible_lines / 2)
+        let half_visible = line_count / 2;
+        if current_line < half_visible {
+            0
+        } else if current_line >= half_visible {
+            current_line.saturating_sub(half_visible)
+        } else {
+            current_line
+        }
     };
 
     let paragraph = Paragraph::new(styled_text)
@@ -216,10 +220,12 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         .scroll((scroll_offset as u16, 0));
 
     frame.render_widget(paragraph, area);
+    let show_cursor =
+        termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing;
 
-    if termi.tracker.status == Status::Idle || termi.tracker.status == Status::Typing {
-        let char_offset_in_word = cursor_char_index.saturating_sub(current_word_pos.start_index);
-        let cursor_x = area.x + (current_word_pos.col + char_offset_in_word) as u16;
+    if show_cursor {
+        let offset = cursor_idx.saturating_sub(current_word_pos.start_index);
+        let cursor_x = area.x + (current_word_pos.col + offset) as u16;
         let cursor_y = area.y + (current_line.saturating_sub(scroll_offset)) as u16;
 
         if cursor_x >= area.left()

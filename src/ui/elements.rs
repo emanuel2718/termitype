@@ -4,6 +4,7 @@ use crate::{
     termi::Termi,
     theme::Theme,
     tracker::Status,
+    ui::utils::calculate_word_positions,
     version::VERSION,
 };
 use ratatui::{
@@ -195,37 +196,80 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
     vec![element]
 }
 
-fn create_styled_typing_text<'a>(termi: &'a Termi, theme: &Theme) -> Text<'a> {
-    let mut spans = Vec::with_capacity(termi.words.len());
-    let mut current_char_index = 0;
+pub fn create_styled_typing_text<'a>(
+    termi: &'a Termi,
+    theme: &Theme,
+    width: Option<usize>,
+) -> Text<'a> {
+    let width = width.unwrap_or(100);
+    let word_positions = calculate_word_positions(&termi.words, width);
 
-    for word in termi.words.split_inclusive(' ') {
-        for (i, c) in word.chars().enumerate() {
-            let char_idx = current_char_index + i;
-            let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
-                Some(input) if input == c => Style::default().fg(theme.success()),
-                Some(_) => Style::default().fg(theme.error()),
-                None => {
-                    if c == ' ' {
-                        Style::default()
-                            .fg(theme.muted())
-                            .add_modifier(Modifier::DIM)
-                    } else {
-                        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
-                    }
-                }
-            };
-            spans.push(Span::styled(c.to_string(), style));
+    let words: Vec<&str> = termi.words.split_whitespace().collect();
+    let mut lines: Vec<Line> =
+        Vec::with_capacity(word_positions.last().map(|p| p.line + 1).unwrap_or(1));
+    let mut curr_line = 0;
+    let mut curr_line_spans = Vec::new();
+
+    for (i, pos) in word_positions.iter().enumerate() {
+        if pos.line > curr_line {
+            lines.push(Line::from(std::mem::take(&mut curr_line_spans)));
+            curr_line = pos.line;
         }
-        current_char_index += word.chars().count();
+
+        let word = words.get(i).unwrap_or(&"");
+        let word_start = pos.start_index;
+        let word_len = word.chars().count();
+
+        let is_current_word = termi.tracker.cursor_position >= word_start
+            && termi.tracker.cursor_position <= word_start + word_len;
+
+        let is_wrong_word = !is_current_word && termi.tracker.is_word_wrong(word_start);
+
+        let mut chars = Vec::with_capacity(word_len);
+
+        for (i, c) in word.chars().enumerate() {
+            let char_idx = word_start + i;
+            let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
+                Some(input) if input == c => {
+                    let mut style = Style::default().fg(theme.success());
+                    // underline wrong words just like that other typing game...
+                    if is_wrong_word {
+                        style = style
+                            .add_modifier(Modifier::UNDERLINED)
+                            .underline_color(theme.error());
+                    }
+                    style
+                }
+                // wrong char
+                Some(_) => Style::default().fg(theme.error()),
+                // otehr
+                None => Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
+            };
+            chars.push(Span::styled(c.to_string(), style));
+        }
+
+        curr_line_spans.extend(chars);
+
+        if i < words.len() - 1 {
+            curr_line_spans.push(Span::styled(
+                " ",
+                Style::default()
+                    .fg(theme.muted())
+                    .add_modifier(Modifier::DIM),
+            ));
+        }
     }
 
-    Text::from(Line::from(spans))
+    if !curr_line_spans.is_empty() {
+        lines.push(Line::from(curr_line_spans));
+    }
+
+    Text::from(lines)
 }
 
 pub fn create_typing_area(termi: &Termi) -> Vec<TermiElement> {
     let theme = termi.get_current_theme().clone();
-    let text = create_styled_typing_text(termi, &theme);
+    let text = create_styled_typing_text(termi, &theme, None);
     vec![TermiElement::new(text, false, None)]
 }
 
