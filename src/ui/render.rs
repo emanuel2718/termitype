@@ -72,6 +72,7 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
 
     let header = create_header(termi);
 
+    log_debug!("Area: {}", area);
     match termi.tracker.status {
         Status::Typing => {
             let mode_bar = create_mode_bar(termi);
@@ -93,13 +94,19 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
             if layout.w_small() && !layout.h_small() {
                 let menu_button = create_show_menu_button(termi);
                 render(frame, &mut regions, menu_button, layout.section.action_bar);
-                render(frame, &mut regions, command_bar, layout.section.command_bar);
-                render(frame, &mut regions, footer, layout.section.footer);
+                // TODO: there has to be a better way
+                if layout.show_footer() {
+                    render(frame, &mut regions, command_bar, layout.section.command_bar);
+                    render(frame, &mut regions, footer, layout.section.footer);
+                }
             } else if !layout.is_small() {
                 let action_bar = create_action_bar(termi);
                 render(frame, &mut regions, action_bar, layout.section.action_bar);
-                render(frame, &mut regions, command_bar, layout.section.command_bar);
-                render(frame, &mut regions, footer, layout.section.footer);
+                // TODO: there has to be a better way
+                if layout.show_footer() {
+                    render(frame, &mut regions, command_bar, layout.section.command_bar);
+                    render(frame, &mut regions, footer, layout.section.footer);
+                }
             }
         }
     }

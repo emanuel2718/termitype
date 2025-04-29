@@ -1,7 +1,7 @@
 use crate::{
     constants::{
-        MIN_TERM_HEIGHT, MIN_TERM_WIDTH, SMALL_SCREEN_HEIGHT, SMALL_SCREEN_WIDTH,
-        TYPING_AREA_WIDTH_PERCENT,
+        MIN_TERM_HEIGHT, MIN_TERM_WIDTH, MIN_WIDTH_TO_SHOW_FOOTER, SMALL_SCREEN_HEIGHT,
+        SMALL_SCREEN_WIDTH, TYPING_AREA_WIDTH_PERCENT,
     },
     termi::Termi,
 };
@@ -51,6 +51,10 @@ impl TermiLayout {
 
     pub fn h_small(&self) -> bool {
         self.area.height < SMALL_SCREEN_HEIGHT
+    }
+
+    pub fn show_footer(&self) -> bool {
+        self.area.width >= MIN_WIDTH_TO_SHOW_FOOTER
     }
 }
 

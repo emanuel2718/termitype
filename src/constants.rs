@@ -44,14 +44,15 @@ pub const APP_LOGO: &[&str] = &[
     "                                   ",
 ];
 
-pub const SMALL_SCREEN_WIDTH: u16 = 85;
-pub const SMALL_SCREEN_HEIGHT: u16 = 20;
-
 pub const SECS_PER_MIN: u64 = 60;
 pub const SECS_PER_HOUR: u64 = 3_600;
 pub const SECS_PER_DAY: u64 = 86_400;
 pub const DAYS_PER_YEAR: u64 = 365;
 pub const DAYS_PER_MONTH: u64 = 30;
 
+// TODO: dont be lazy and improve the naming of this constants
+pub const SMALL_SCREEN_WIDTH: u16 = 85;
+pub const SMALL_SCREEN_HEIGHT: u16 = 20;
+pub const MIN_WIDTH_TO_SHOW_FOOTER: u16 = 55;
 pub const MIN_TERM_HEIGHT: u16 = 15;
 pub const MIN_TERM_WIDTH: u16 = 15;
