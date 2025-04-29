@@ -233,7 +233,7 @@ pub fn create_styled_typing_text<'a>(
                 Some(input) if input == c => {
                     let mut style = Style::default().fg(theme.success());
                     // underline wrong words just like that other typing game...
-                    if is_wrong_word {
+                    if is_wrong_word && theme.color_support.supports_themes() {
                         style = style
                             .add_modifier(Modifier::UNDERLINED)
                             .underline_color(theme.error());
@@ -241,7 +241,15 @@ pub fn create_styled_typing_text<'a>(
                     style
                 }
                 // wrong char
-                Some(_) => Style::default().fg(theme.error()),
+                Some(_) => {
+                    let mut style = Style::default().fg(theme.error());
+                    if !is_current_word && theme.color_support.supports_themes() {
+                        style = style
+                            .add_modifier(Modifier::UNDERLINED)
+                            .underline_color(theme.error());
+                    }
+                    style
+                }
                 // otehr
                 None => Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
             };
