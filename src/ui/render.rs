@@ -79,7 +79,10 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
             render(frame, &mut regions, mode_bar, layout.section.mode_bar);
             render_typing_area(frame, termi, layout.section.typing_area);
         }
-        Status::Idle | Status::Paused => {
+        Status::Completed => {
+            render_results_screen(frame, termi, area, layout.is_small());
+        }
+        _ => {
             let mode_bar = create_mode_bar(termi);
             let command_bar = create_command_bar(termi);
             let footer = create_footer(termi);
@@ -98,13 +101,11 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
                 render(frame, &mut regions, command_bar, layout.section.command_bar);
                 render(frame, &mut regions, footer, layout.section.footer);
             }
-            if termi.menu.is_open() {
-                render_menu(frame, termi, area);
-            }
         }
-        Status::Completed => {
-            // TODO: show results
-        }
+    }
+
+    if termi.menu.is_open() {
+        render_menu(frame, termi, area);
     }
 
     regions
@@ -353,6 +354,18 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
     frame.render_widget(footer_widget, footer_area);
 }
 
+pub fn render_results_screen(frame: &mut Frame, _termi: &mut Termi, area: Rect, is_small: bool) {
+    let stats_widget = Paragraph::new("> results")
+        .alignment(if is_small {
+            Alignment::Center
+        } else {
+            Alignment::Left
+        })
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(stats_widget, area);
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -360,18 +373,18 @@ mod tests {
 
     #[test]
     fn test_word_position_basic() {
-        let text = "hello world";
+        let text = "hello world ";
         let available_width = 20;
         let positions = calculate_word_positions(text, available_width);
 
-        assert_eq!(positions.len(), 2, "Should have positions for two words");
+        assert_eq!(positions.len(), 2, "Should have positions for two words ");
         assert_eq!(positions[0].start_index, 0, "First word starts at 0");
         assert_eq!(positions[0].line, 0, "First word on line 0");
         assert_eq!(positions[0].col, 0, "First word at column 0");
 
         assert_eq!(
             positions[1].start_index, 6,
-            "Second word starts after 'hello '"
+            "Second word starts after \"hello \""
         );
         assert_eq!(positions[1].line, 0, "Second word on line 0");
         assert_eq!(positions[1].col, 6, "Second word after first word + space");

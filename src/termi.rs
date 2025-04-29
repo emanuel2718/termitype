@@ -133,18 +133,11 @@ impl Termi {
                     }
                 }
                 TermiClickAction::ToggleLanguagePicker => {
-                    log_debug!("toggling language picker");
-                    if !self.menu.is_open() {
-                        self.tracker.pause();
-                    }
                     self.menu
                         .toggle_from_footer(&self.config, MenuAction::OpenLanguagePicker);
                     self.menu.preview_selected();
                 }
                 TermiClickAction::ToggleAbout => {
-                    if !self.menu.is_open() {
-                        self.tracker.pause();
-                    }
                     self.menu
                         .toggle_from_footer(&self.config, MenuAction::OpenAbout);
                 }
