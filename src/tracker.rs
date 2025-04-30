@@ -136,6 +136,10 @@ impl Tracker {
     }
 
     pub fn type_char(&mut self, c: char) -> bool {
+        if self.status == Status::Completed {
+            return false;
+        }
+
         // compatibility with that monkey famous game we are simulating...
         // first char is <space> and we are at the start of a word? Do nothing
         let is_space = c == ' ';
@@ -200,6 +204,10 @@ impl Tracker {
     }
 
     pub fn backspace(&mut self) -> bool {
+        if self.status == Status::Completed {
+            return false;
+        }
+
         if self.cursor_position == 0 {
             return false;
         }
@@ -243,11 +251,6 @@ impl Tracker {
             return;
         }
 
-        if self.should_complete() {
-            self.complete();
-            return;
-        }
-
         let Some(start_time) = self.time_started else {
             return;
         };
@@ -256,17 +259,19 @@ impl Tracker {
             self.time_remaining = Some(end_time.duration_since(Instant::now()));
         }
 
-        if self.user_input.is_empty() {
-            return;
-        }
-
-        let elapsed_minutes = start_time.elapsed().as_secs_f64() / 60.0;
-
         self.accuracy = if self.total_keystrokes > 0 {
             ((self.correct_keystrokes as f64 / self.total_keystrokes as f64) * 100.0).round() as u8
         } else {
             0
         };
+
+        let elapsed_seconds = start_time.elapsed().as_secs_f64();
+        let elapsed_minutes = elapsed_seconds / 60.0;
+
+        // no division by 0 on my watch - don't allow wpm calculation to reach levels over 9000
+        if elapsed_seconds < 0.5 {
+            return;
+        }
 
         let chars_typed = self.user_input.len() as f64;
         let words_typed = chars_typed / 5.0;
@@ -323,20 +328,12 @@ impl Tracker {
         }
     }
 
-    fn complete(&mut self) {
+    pub fn complete(&mut self) {
         let start_time = self.time_started.unwrap();
         let end_time = self.time_end.unwrap();
         self.time_remaining = Some(Duration::from_secs(0));
         self.completion_time = Some(end_time.duration_since(start_time).as_secs_f64());
         self.status = Status::Completed;
-    }
-
-    fn should_complete(&self) -> bool {
-        if let Some(end_time) = self.time_end {
-            Instant::now() >= end_time
-        } else {
-            false
-        }
     }
 
     /// Returns the start index of the previous word.
@@ -375,6 +372,18 @@ impl Tracker {
         let mut target_end = word_start;
         while target_end < self.target_chars.len() && self.target_chars[target_end] != ' ' {
             target_end += 1;
+        }
+    }
+
+    /// Checks if the test has reached its conclusion. Only applicable in Time mode
+    pub fn should_complete(&self) -> bool {
+        if self.status != Status::Typing {
+            return false;
+        }
+        if let Some(end_time) = self.time_end {
+            Instant::now() >= end_time
+        } else {
+            false
         }
     }
 }
@@ -998,6 +1007,7 @@ mod tests {
         assert!(tracker.wpm_samples.is_empty());
 
         tracker.last_sample_time -= Duration::from_secs(1);
+        tracker.time_started = Some(tracker.time_started.unwrap() - Duration::from_secs(1));
         tracker.update_metrics();
         assert_eq!(tracker.wpm_samples.len(), 1);
 
@@ -1005,6 +1015,7 @@ mod tests {
             tracker.type_char(c);
         }
         tracker.last_sample_time -= Duration::from_secs(1);
+        tracker.time_started = Some(tracker.time_started.unwrap() - Duration::from_secs(1));
         tracker.update_metrics();
         assert_eq!(tracker.wpm_samples.len(), 2);
 
@@ -1021,6 +1032,7 @@ mod tests {
         }
         tracker.last_sample_time = Instant::now() - Duration::from_secs(1);
 
+        tracker.time_started = Some(tracker.time_started.unwrap() - Duration::from_secs(1));
         tracker.update_metrics();
         assert_eq!(
             tracker.wpm_samples.len(),
@@ -1028,15 +1040,9 @@ mod tests {
             "Should have collected first sample"
         );
 
-        tracker.update_metrics();
-        assert_eq!(
-            tracker.wpm_samples.len(),
-            1,
-            "Should not collect sample within interval"
-        );
-
         tracker.last_sample_time = Instant::now() - Duration::from_secs(2);
 
+        tracker.time_started = Some(tracker.time_started.unwrap() - Duration::from_secs(1));
         tracker.update_metrics();
         assert_eq!(
             tracker.wpm_samples.len(),

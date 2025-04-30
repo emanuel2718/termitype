@@ -254,6 +254,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
             }
         }
 
+        if termi.tracker.should_complete() {
+            termi.tracker.complete();
+            needs_redraw = true;
+        }
+
         if now.duration_since(last_metrics_update) >= Duration::from_millis(500) {
             termi.tracker.update_metrics();
             last_metrics_update = now;
