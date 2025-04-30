@@ -2,7 +2,7 @@
 name = "termitype"
 build = "build.rs"
 description = "Terminal-based typing test inspired by a certain typing test you might know."
-version = "0.0.1"
+version = "0.0.1-alpha.25"
 license = "MIT"
 categories = ["command-line-utilities", "games"]
 keywords = ["tui", "cli", "typing", "game"]
