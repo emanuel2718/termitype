@@ -20,9 +20,6 @@ pub enum Action {
     TypeCharacter(char),
     Backspace,
     Menu(MenuInputAction),
-    Toggle(ToggleAction),
-    #[cfg(debug_assertions)]
-    Debug(DebugAction),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,14 +33,6 @@ pub enum MenuInputAction {
     FinishSearch,
     CancelSearch,
     Close,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ToggleAction {
-    #[cfg(debug_assertions)]
-    ToggleDebugPanel,
-    #[cfg(not(debug_assertions))]
-    _Placeholder, // Need at least one variant
 }
 
 #[cfg(debug_assertions)]
@@ -78,13 +67,6 @@ impl InputHandler {
             return Action::Start;
         }
 
-        #[cfg(debug_assertions)]
-        if _is_debug {
-            if let Some(action) = self.handle_debug_keys(&key) {
-                return action;
-            }
-        }
-
         if menu.is_open() {
             return self.handle_menu_input(key, menu);
         }
@@ -94,10 +76,6 @@ impl InputHandler {
     fn handle_type_input(&mut self, key: KeyEvent) -> Action {
         match (key.code, key.modifiers) {
             (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
-            #[cfg(debug_assertions)]
-            (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
-                Action::Toggle(ToggleAction::ToggleDebugPanel)
-            }
             (KeyCode::Backspace, KeyModifiers::NONE) => {
                 self.pending_accent = None;
                 Action::Backspace
@@ -180,18 +158,6 @@ impl InputHandler {
         }
     }
 
-    #[cfg(debug_assertions)]
-    fn handle_debug_keys(&self, key: &KeyEvent) -> Option<Action> {
-        use crate::constants::DEBUG_KEY;
-
-        match (key.code, key.modifiers) {
-            (KeyCode::Char(DEBUG_KEY), KeyModifiers::CONTROL) => {
-                Some(Action::Debug(DebugAction::TogglePanel))
-            }
-            _ => None,
-        }
-    }
-
     fn is_quit_sequence(&self, key: &KeyEvent) -> bool {
         matches!(key.code, KeyCode::Char('c' | 'z'))
             && key.modifiers.contains(KeyModifiers::CONTROL)
@@ -251,8 +217,6 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             Action::None
         }
         Action::Menu(menu_action) => execute_menu_action(menu_action, state),
-        #[cfg(debug_assertions)]
-        Action::Debug(debug_action) => execute_debug_action(debug_action, state),
         Action::Start => {
             state.start();
             Action::None
@@ -268,21 +232,6 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             Action::None
         }
         Action::Quit => Action::Quit,
-        Action::Toggle(toggle_action) => {
-            #[cfg(debug_assertions)]
-            match toggle_action {
-                ToggleAction::ToggleDebugPanel => {
-                    if let Some(debug) = &mut state.debug {
-                        debug.visible = !debug.visible;
-                    }
-                }
-            }
-            #[cfg(not(debug_assertions))]
-            match toggle_action {
-                ToggleAction::_Placeholder => {}
-            }
-            Action::None
-        }
     }
 }
 
@@ -449,18 +398,6 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
         MenuInputAction::Close => {
             state.tracker.resume();
             state.menu.close();
-            Action::None
-        }
-    }
-}
-
-#[cfg(debug_assertions)]
-fn execute_debug_action(action: DebugAction, state: &mut Termi) -> Action {
-    match action {
-        DebugAction::TogglePanel => {
-            if let Some(debug) = state.debug.as_mut() {
-                debug.toggle();
-            }
             Action::None
         }
     }
