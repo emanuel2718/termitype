@@ -21,9 +21,9 @@ use crate::{
 use super::{
     actions::TermiClickAction,
     elements::{
-        create_action_bar, create_command_bar, create_footer, create_header,
+        build_menu_items, create_action_bar, create_command_bar, create_footer, create_header,
         create_menu_footer_text, create_minimal_size_warning, create_mode_bar,
-        create_show_menu_button, create_styled_typing_text, prepare_menu_list_items, TermiElement,
+        create_show_menu_button, create_styled_typing_text, TermiElement,
     },
     layout::create_layout,
     utils::{calculate_word_positions, WordPosition},
@@ -333,7 +333,7 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
             }
         };
 
-        let (list_items, total_items) = prepare_menu_list_items(termi, scroll_offset, max_visible);
+        let (list_items, total_items) = build_menu_items(termi, scroll_offset, max_visible);
 
         let content_block = Block::default()
             .title(" Menu ")
@@ -395,15 +395,9 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     // TODO: improve the coloring of this to match fastfetch. They have the @ in a different color.
     let mut stats_lines = vec![
         Line::from(vec![
-            Span::styled(
-                format!("{}", username),
-                Style::default().fg(theme.highlight()),
-            ),
+            Span::styled(username, Style::default().fg(theme.highlight())),
             Span::styled("@", Style::default().fg(theme.highlight())),
-            Span::styled(
-                format!("{}", hostname),
-                Style::default().fg(theme.highlight()),
-            ),
+            Span::styled(hostname, Style::default().fg(theme.highlight())),
         ]),
         Line::from(Span::styled(
             separator,

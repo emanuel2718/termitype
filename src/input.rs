@@ -1,6 +1,6 @@
 use crate::{
     config::ModeType,
-    constants::{AMOUNT_OF_VISIBLE_LINES, BACKSPACE},
+    constants::{BACKSPACE_CHAR, DEFAULT_LINE_COUNT},
     menu::{self, MenuAction, MenuState},
     termi::Termi,
     theme::Theme,
@@ -117,7 +117,9 @@ impl InputHandler {
                 (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                     Action::Menu(MenuInputAction::UpdateSearch(c))
                 }
-                (KeyCode::Backspace, _) => Action::Menu(MenuInputAction::UpdateSearch(BACKSPACE)),
+                (KeyCode::Backspace, _) => {
+                    Action::Menu(MenuInputAction::UpdateSearch(BACKSPACE_CHAR))
+                }
                 (KeyCode::Up, _) => Action::Menu(MenuInputAction::Up),
                 (KeyCode::Down, _) => Action::Menu(MenuInputAction::Down),
                 _ => Action::None,
@@ -330,9 +332,9 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                         state.config.change_mode(ModeType::Words, Some(count));
                     }
                     MenuAction::ChangeVisibleLineCount(count) => {
-                        state.config.change_visible_lines(
-                            count.try_into().unwrap_or(AMOUNT_OF_VISIBLE_LINES),
-                        );
+                        state
+                            .config
+                            .change_visible_lines(count.try_into().unwrap_or(DEFAULT_LINE_COUNT));
                     }
                     MenuAction::ChangeTheme(theme_name) => {
                         state.config.change_theme(&theme_name);
@@ -361,7 +363,7 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
             Action::None
         }
         MenuInputAction::UpdateSearch(c) => {
-            if c == BACKSPACE {
+            if c == BACKSPACE_CHAR {
                 let mut query = state.menu.search_query().to_string();
                 query.pop();
                 state.menu.update_search(&query);

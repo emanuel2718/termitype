@@ -1,10 +1,10 @@
+// TODO: maybe having this file is not entirely needed question mark
 #[derive(Debug, Clone, Copy)]
 pub struct WordPosition {
     pub start_index: usize,
     pub line: usize,
     pub col: usize,
 }
-
 pub fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosition> {
     if text.is_empty() || available_width == 0 {
         return vec![];

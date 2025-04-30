@@ -461,7 +461,7 @@ pub fn create_menu_footer_text(termi: &Termi) -> Line {
     }
 }
 
-pub fn prepare_menu_list_items(
+pub fn build_menu_items(
     termi: &Termi,
     scroll_offset: usize,
     max_visible: usize,

@@ -1,23 +1,12 @@
 use crate::{
     constants::{
-        MIN_TERM_HEIGHT, MIN_TERM_WIDTH, MIN_WIDTH_TO_SHOW_FOOTER, SMALL_SCREEN_HEIGHT,
-        SMALL_SCREEN_WIDTH, TYPING_AREA_WIDTH_PERCENT,
+        ACTION_BAR_HEIGHT, BOTTOM_AREA_HEIGHT, BOTTOM_PADDING, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT,
+        HEADER_HEIGHT, MIN_FOOTER_WIDTH, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, MODE_BAR_HEIGHT,
+        SMALL_TERM_HEIGHT, SMALL_TERM_WIDTH, TOP_AREA_HEIGHT, TYPING_AREA_WIDTH_PERCENT,
     },
     termi::Termi,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-
-// TODO: move to constats
-const HEADER_HEIGHT: u16 = 4;
-const ACTION_BAR_HEIGHT: u16 = 1;
-const TOP_AREA_HEIGHT: u16 = HEADER_HEIGHT + ACTION_BAR_HEIGHT;
-
-const MODE_BAR_HEIGHT: u16 = 2;
-
-const COMMAND_BAR_HEIGHT: u16 = 3;
-const FOOTER_HEIGHT: u16 = 1;
-const BOTTOM_PADDING: u16 = 1;
-const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + BOTTOM_PADDING + FOOTER_HEIGHT;
 
 #[derive(Debug, Clone)]
 pub struct TermiSection {
@@ -40,21 +29,20 @@ impl TermiLayout {
         _is_minimal(self.area)
     }
 
-    // TODO: divide better h_small and w_small or something
     pub fn is_small(&self) -> bool {
-        self.area.width < SMALL_SCREEN_WIDTH || self.area.height < SMALL_SCREEN_HEIGHT
+        self.area.width < SMALL_TERM_WIDTH || self.area.height < SMALL_TERM_HEIGHT
     }
 
     pub fn w_small(&self) -> bool {
-        self.area.width < SMALL_SCREEN_WIDTH
+        self.area.width < SMALL_TERM_WIDTH
     }
 
     pub fn h_small(&self) -> bool {
-        self.area.height < SMALL_SCREEN_HEIGHT
+        self.area.height < SMALL_TERM_HEIGHT
     }
 
     pub fn show_footer(&self) -> bool {
-        self.area.width >= MIN_WIDTH_TO_SHOW_FOOTER
+        self.area.width >= MIN_FOOTER_WIDTH
     }
 }
 
@@ -87,7 +75,7 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         .constraints([
             Constraint::Length(TOP_AREA_HEIGHT),    // Top
             Constraint::Min(0),                     // Middle
-            Constraint::Length(BOTTOM_AREA_HEIGHT), // Bottom (height increased)
+            Constraint::Length(BOTTOM_AREA_HEIGHT), // Bottom
         ])
         .split(area);
 
@@ -112,7 +100,7 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Min(0), // top padding
-            Constraint::Length(MODE_BAR_HEIGHT + termi.config.visible_lines as u16), // Typing area
+            Constraint::Length(MODE_BAR_HEIGHT + termi.config.visible_lines as u16), // typing area
             Constraint::Min(0), // bottom padding
         ])
         .split(mid_area)[1];
