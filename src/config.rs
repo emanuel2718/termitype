@@ -3,7 +3,7 @@ use crossterm::cursor::SetCursorStyle;
 
 use crate::{
     builder::Builder,
-    constants::{AMOUNT_OF_VISIBLE_LINES, DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_THEME},
+    constants::{DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME},
     persistence::Persistence,
     theme::ThemeLoader,
 };
@@ -75,7 +75,7 @@ pub struct Config {
     pub cursor_style: Option<String>,
 
     /// Number of visible lines in the test.
-    #[arg(long = "lines", default_value_t = AMOUNT_OF_VISIBLE_LINES)]
+    #[arg(long = "lines", default_value_t = DEFAULT_LINE_COUNT)]
     pub visible_lines: u8,
 
     /// Prints termitype version
@@ -125,7 +125,7 @@ impl Default for Config {
             theme: None,
             language: Some(DEFAULT_LANGUAGE.to_string()),
             cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
-            visible_lines: AMOUNT_OF_VISIBLE_LINES,
+            visible_lines: DEFAULT_LINE_COUNT,
             color_mode: None,
             list_themes: false,
             list_languages: false,
@@ -464,7 +464,7 @@ mod tests {
 
         assert_eq!(config.language, Some(DEFAULT_LANGUAGE.to_string()));
         assert_eq!(config.theme, None);
-        assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
+        assert_eq!(config.visible_lines, DEFAULT_LINE_COUNT);
 
         assert!(!config.use_symbols);
         assert!(!config.use_punctuation);
@@ -503,7 +503,7 @@ mod tests {
     #[test]
     fn test_config_change_visible_lines() {
         let mut config = create_config();
-        assert_eq!(config.visible_lines, AMOUNT_OF_VISIBLE_LINES);
+        assert_eq!(config.visible_lines, DEFAULT_LINE_COUNT);
         config.change_visible_lines(10);
         assert_eq!(config.visible_lines, 10);
     }

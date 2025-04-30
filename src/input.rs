@@ -1,6 +1,6 @@
 use crate::{
     config::ModeType,
-    constants::{AMOUNT_OF_VISIBLE_LINES, BACKSPACE},
+    constants::{BACKSPACE_CHAR, DEFAULT_LINE_COUNT},
     menu::{self, MenuAction, MenuState},
     termi::Termi,
     theme::Theme,
@@ -15,14 +15,11 @@ use crossterm::{
 pub enum Action {
     None,
     Start,
-    Pause,
+    TogglePause,
     Quit,
     TypeCharacter(char),
     Backspace,
     Menu(MenuInputAction),
-    Toggle(ToggleAction),
-    #[cfg(debug_assertions)]
-    Debug(DebugAction),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,14 +33,6 @@ pub enum MenuInputAction {
     FinishSearch,
     CancelSearch,
     Close,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ToggleAction {
-    #[cfg(debug_assertions)]
-    ToggleDebugPanel,
-    #[cfg(not(debug_assertions))]
-    _Placeholder, // Need at least one variant
 }
 
 #[cfg(debug_assertions)]
@@ -78,13 +67,6 @@ impl InputHandler {
             return Action::Start;
         }
 
-        #[cfg(debug_assertions)]
-        if _is_debug {
-            if let Some(action) = self.handle_debug_keys(&key) {
-                return action;
-            }
-        }
-
         if menu.is_open() {
             return self.handle_menu_input(key, menu);
         }
@@ -94,17 +76,13 @@ impl InputHandler {
     fn handle_type_input(&mut self, key: KeyEvent) -> Action {
         match (key.code, key.modifiers) {
             (KeyCode::Char('c' | 'z'), KeyModifiers::CONTROL) => Action::Quit,
-            #[cfg(debug_assertions)]
-            (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
-                Action::Toggle(ToggleAction::ToggleDebugPanel)
-            }
             (KeyCode::Backspace, KeyModifiers::NONE) => {
                 self.pending_accent = None;
                 Action::Backspace
             }
             (KeyCode::Esc, KeyModifiers::NONE) => {
                 self.pending_accent = None;
-                Action::Pause
+                Action::TogglePause
             }
             (KeyCode::Char(c), KeyModifiers::ALT) => {
                 self.pending_accent = Some(c);
@@ -139,7 +117,9 @@ impl InputHandler {
                 (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                     Action::Menu(MenuInputAction::UpdateSearch(c))
                 }
-                (KeyCode::Backspace, _) => Action::Menu(MenuInputAction::UpdateSearch(BACKSPACE)),
+                (KeyCode::Backspace, _) => {
+                    Action::Menu(MenuInputAction::UpdateSearch(BACKSPACE_CHAR))
+                }
                 (KeyCode::Up, _) => Action::Menu(MenuInputAction::Up),
                 (KeyCode::Down, _) => Action::Menu(MenuInputAction::Down),
                 _ => Action::None,
@@ -177,18 +157,6 @@ impl InputHandler {
                 }
             }
             _ => Action::None,
-        }
-    }
-
-    #[cfg(debug_assertions)]
-    fn handle_debug_keys(&self, key: &KeyEvent) -> Option<Action> {
-        use crate::constants::DEBUG_KEY;
-
-        match (key.code, key.modifiers) {
-            (KeyCode::Char(DEBUG_KEY), KeyModifiers::CONTROL) => {
-                Some(Action::Debug(DebugAction::TogglePanel))
-            }
-            _ => None,
         }
     }
 
@@ -251,38 +219,21 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             Action::None
         }
         Action::Menu(menu_action) => execute_menu_action(menu_action, state),
-        #[cfg(debug_assertions)]
-        Action::Debug(debug_action) => execute_debug_action(debug_action, state),
         Action::Start => {
             state.start();
             Action::None
         }
-        Action::Pause => {
-            if state.menu.is_open() {
-                state.menu.toggle(&state.config);
+        Action::TogglePause => {
+            if state.tracker.status == Status::Paused {
                 state.tracker.resume();
             } else {
                 state.tracker.pause();
-                state.menu.toggle(&state.config);
             }
+            state.menu.toggle(&state.config);
+
             Action::None
         }
         Action::Quit => Action::Quit,
-        Action::Toggle(toggle_action) => {
-            #[cfg(debug_assertions)]
-            match toggle_action {
-                ToggleAction::ToggleDebugPanel => {
-                    if let Some(debug) = &mut state.debug {
-                        debug.visible = !debug.visible;
-                    }
-                }
-            }
-            #[cfg(not(debug_assertions))]
-            match toggle_action {
-                ToggleAction::_Placeholder => {}
-            }
-            Action::None
-        }
     }
 }
 
@@ -381,9 +332,9 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                         state.config.change_mode(ModeType::Words, Some(count));
                     }
                     MenuAction::ChangeVisibleLineCount(count) => {
-                        state.config.change_visible_lines(
-                            count.try_into().unwrap_or(AMOUNT_OF_VISIBLE_LINES),
-                        );
+                        state
+                            .config
+                            .change_visible_lines(count.try_into().unwrap_or(DEFAULT_LINE_COUNT));
                     }
                     MenuAction::ChangeTheme(theme_name) => {
                         state.config.change_theme(&theme_name);
@@ -412,7 +363,7 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
             Action::None
         }
         MenuInputAction::UpdateSearch(c) => {
-            if c == BACKSPACE {
+            if c == BACKSPACE_CHAR {
                 let mut query = state.menu.search_query().to_string();
                 query.pop();
                 state.menu.update_search(&query);
@@ -447,19 +398,8 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
             Action::None
         }
         MenuInputAction::Close => {
+            state.tracker.resume();
             state.menu.close();
-            Action::None
-        }
-    }
-}
-
-#[cfg(debug_assertions)]
-fn execute_debug_action(action: DebugAction, state: &mut Termi) -> Action {
-    match action {
-        DebugAction::TogglePanel => {
-            if let Some(debug) = state.debug.as_mut() {
-                debug.toggle();
-            }
             Action::None
         }
     }

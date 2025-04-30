@@ -1,5 +1,6 @@
 use crate::config::{Config, ModeType};
 use crate::constants::DEFAULT_THEME;
+use crate::utils::fuzzy_match;
 use crate::version::VERSION;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -136,7 +137,7 @@ impl Menu {
             .filter(|(_, item)| {
                 let label = item.label.to_lowercase();
                 // most simple fuzzy search on the market
-                Self::fuzzy_match(&label, &query)
+                fuzzy_match(&label, &query)
             })
             .collect()
     }
@@ -190,25 +191,6 @@ impl Menu {
                 self.selected_index = index;
             }
         }
-    }
-
-    // TODO: improve this
-    // TODO: move this to utils file
-    fn fuzzy_match(text: &str, pattern: &str) -> bool {
-        let text = text.chars().collect::<Vec<_>>();
-        let pattern = pattern.chars().collect::<Vec<_>>();
-
-        let mut text_idx = 0;
-        let mut pattern_idx = 0;
-
-        while text_idx < text.len() && pattern_idx < pattern.len() {
-            if text[text_idx] == pattern[pattern_idx] {
-                pattern_idx += 1;
-            }
-            text_idx += 1;
-        }
-
-        pattern_idx == pattern.len()
     }
 }
 

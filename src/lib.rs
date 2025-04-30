@@ -17,7 +17,6 @@ pub mod assets;
 pub mod builder;
 pub mod config;
 pub mod constants;
-pub mod debug_panel;
 pub mod error;
 pub mod input;
 pub mod log;

@@ -26,7 +26,6 @@ pub struct Tracker {
     pub target_chars: Vec<char>,
     pub word_count: usize,
     pub status: Status,
-
     pub total_keystrokes: usize,
     pub correct_keystrokes: usize,
     pub backspace_count: usize,
@@ -38,7 +37,7 @@ pub struct Tracker {
     max_user_input_length: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Status {
     Idle,
     Typing,

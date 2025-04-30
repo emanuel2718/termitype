@@ -6,23 +6,18 @@ use crossterm::{
     event::{self, Event, KeyEventKind, MouseButton, MouseEvent, MouseEventKind},
     execute,
 };
-use ratatui::{prelude::Backend, Terminal};
+use ratatui::{layout::Position, prelude::Backend, Terminal};
 
 use crate::{
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
+    log_debug,
     menu::{MenuAction, MenuState},
     theme::Theme,
     tracker::Tracker,
-    ui::{
-        components::{ClickAction, ClickableRegion},
-        draw_ui,
-    },
+    ui::{actions::TermiClickAction, draw_ui, render::TermiClickableRegions},
 };
-
-#[cfg(debug_assertions)]
-use crate::debug_panel::DebugPanel;
 
 pub struct Termi {
     pub config: Config,
@@ -33,9 +28,6 @@ pub struct Termi {
     pub builder: Builder,
     pub words: String,
     pub menu: MenuState,
-    pub clickable_regions: Vec<ClickableRegion>,
-    #[cfg(debug_assertions)]
-    pub debug: Option<DebugPanel>,
 }
 
 impl std::fmt::Debug for Termi {
@@ -53,13 +45,7 @@ impl std::fmt::Debug for Termi {
             )
             .field("builder", &self.builder)
             .field("words", &self.words)
-            .field("menu", &self.menu)
-            .field("clickable_regions", &self.clickable_regions);
-
-        #[cfg(debug_assertions)]
-        if let Some(debug) = &self.debug {
-            debug_struct.field("debug", debug);
-        }
+            .field("menu", &self.menu);
 
         debug_struct.finish()
     }
@@ -73,13 +59,6 @@ impl Termi {
         let tracker = Tracker::new(config, words.clone());
         let menu = MenuState::new();
 
-        #[cfg(debug_assertions)]
-        let debug = if config.debug {
-            Some(DebugPanel::new())
-        } else {
-            None
-        };
-
         Self {
             config: config.clone(),
             tracker,
@@ -89,62 +68,63 @@ impl Termi {
             builder,
             words,
             menu,
-            clickable_regions: Vec::with_capacity(10),
-            #[cfg(debug_assertions)]
-            debug,
         }
     }
 
-    pub fn handle_click(&mut self, x: u16, y: u16) {
-        for region in &self.clickable_regions {
-            if x >= region.area.x
-                && x < region.area.x + region.area.width
-                && y >= region.area.y
-                && y < region.area.y + region.area.height
-            {
-                match region.action {
-                    ClickAction::TogglePunctuation => {
-                        self.config.toggle_punctuation();
-                        self.start();
-                    }
-                    ClickAction::ToggleSymbols => {
-                        self.config.toggle_symbols();
-                        self.start();
-                    }
-                    ClickAction::ToggleNumbers => {
-                        self.config.toggle_numbers();
-                        self.start();
-                    }
-                    ClickAction::SwitchMode(mode) => {
-                        self.config.change_mode(mode, None);
-                        self.start();
-                    }
-                    ClickAction::SetModeValue(value) => {
-                        self.config.change_mode_value(value);
-                        self.start();
-                    }
-                    ClickAction::ToggleThemePicker => {
-                        if self.menu.get_preview_theme().is_some() {
-                            self.menu.close();
-                            self.preview_theme = None;
-                        } else {
-                            self.menu
-                                .toggle_from_footer(&self.config, MenuAction::ToggleThemePicker);
-                            self.menu.preview_selected();
-                            self.update_preview_theme();
-                        }
-                    }
-                    ClickAction::OpenLanguagePicker => {
+    pub fn handle_click(&mut self, reg: &TermiClickableRegions, x: u16, y: u16) {
+        let mut clicked_action: Option<TermiClickAction> = None;
+        for (rect, action) in reg.regions.iter().rev() {
+            if rect.contains(Position { x, y }) {
+                clicked_action = Some(*action);
+                break;
+            }
+        }
+
+        if let Some(action) = clicked_action {
+            match action {
+                TermiClickAction::SwitchMode(mode) => {
+                    self.config.change_mode(mode, None);
+                    self.start();
+                }
+                TermiClickAction::SetModeValue(value) => {
+                    self.config.change_mode_value(value);
+                    self.start();
+                }
+                TermiClickAction::TogglePunctuation => {
+                    self.config.toggle_punctuation();
+                    self.start();
+                }
+                TermiClickAction::ToggleSymbols => {
+                    self.config.toggle_symbols();
+                    self.start();
+                }
+                TermiClickAction::ToggleNumbers => {
+                    self.config.toggle_numbers();
+                    self.start();
+                }
+                TermiClickAction::ToggleThemePicker => {
+                    if self.menu.get_preview_theme().is_some() {
+                        self.menu.close();
+                        self.preview_theme = None;
+                    } else {
                         self.menu
-                            .toggle_from_footer(&self.config, MenuAction::OpenLanguagePicker);
+                            .toggle_from_footer(&self.config, MenuAction::ToggleThemePicker);
                         self.menu.preview_selected();
-                    }
-                    ClickAction::ToggleAbout => {
-                        self.menu
-                            .toggle_from_footer(&self.config, MenuAction::OpenAbout);
+                        self.update_preview_theme();
                     }
                 }
-                break;
+                TermiClickAction::ToggleLanguagePicker => {
+                    self.menu
+                        .toggle_from_footer(&self.config, MenuAction::OpenLanguagePicker);
+                    self.menu.preview_selected();
+                }
+                TermiClickAction::ToggleAbout => {
+                    self.menu
+                        .toggle_from_footer(&self.config, MenuAction::OpenAbout);
+                }
+                TermiClickAction::ToggleMenu => {
+                    self.menu.toggle(&self.config);
+                }
             }
         }
     }
@@ -153,8 +133,6 @@ impl Termi {
         let menu = self.menu.clone();
         let preview_theme = self.preview_theme.clone();
         let preview_cursor = self.preview_cursor;
-        #[cfg(debug_assertions)]
-        let debug = self.debug.clone();
 
         if self.config.words.is_some() {
             self.config.reset_words_flag();
@@ -167,10 +145,6 @@ impl Termi {
         self.menu = menu;
         self.preview_theme = preview_theme;
         self.preview_cursor = preview_cursor;
-        #[cfg(debug_assertions)]
-        {
-            self.debug = debug;
-        }
     }
 
     pub fn get_current_theme(&self) -> &Theme {
@@ -221,6 +195,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
     let mut last_keystroke = Instant::now();
     let mut input_handler = InputHandler::new();
     let mut needs_redraw = true;
+    let mut clickable_regions = TermiClickableRegions::default();
 
     loop {
         let now = Instant::now();
@@ -232,7 +207,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
         };
 
         if needs_redraw && now.duration_since(last_render) >= current_frame_time {
-            terminal.draw(|f| draw_ui(f, &mut termi))?;
+            terminal.draw(|frame| {
+                clickable_regions = draw_ui(frame, &mut termi);
+            })?;
             last_render = now;
             needs_redraw = false;
         }
@@ -245,10 +222,6 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind == KeyEventKind::Press {
-                        #[cfg(debug_assertions)]
-                        let action =
-                            input_handler.handle_input(key, &termi.menu, termi.config.debug);
-                        #[cfg(not(debug_assertions))]
                         let action = input_handler.handle_input(key, &termi.menu, false);
 
                         if action == Action::Quit {
@@ -270,7 +243,8 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                     row,
                     ..
                 }) => {
-                    termi.handle_click(column, row);
+                    log_debug!("Status: {:?}", termi.tracker.status);
+                    termi.handle_click(&clickable_regions, column, row);
                     needs_redraw = true;
                 }
                 Event::Resize(_width, _height) => {

@@ -26,7 +26,7 @@ pub fn get_config_dir() -> TResult<PathBuf> {
         // Windows: %APPDATA%\termitype (who knows)
         env::var_os("APPDATA").map(|appdata| PathBuf::from(appdata).join(APPNAME))
     } else {
-        // Linux/Unix: XDG Base Directory Spec
+        // Linux/Unix: $XDG_CONFIG_HOME/termitype
         env::var_os("XDG_CONFIG_HOME")
             .map(|xdg| PathBuf::from(xdg).join(APPNAME))
             .or_else(|| {
@@ -87,4 +87,22 @@ pub fn format_timestamp(time: SystemTime) -> String {
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}",
         year, month, day, hour, min, sec, ms
     )
+}
+
+// TODO: maybe we can improve this to be more performant. Using the most basic fuzzy search possible for now
+pub fn fuzzy_match(text: &str, pattern: &str) -> bool {
+    let text = text.chars().collect::<Vec<_>>();
+    let pattern = pattern.chars().collect::<Vec<_>>();
+
+    let mut text_idx = 0;
+    let mut pattern_idx = 0;
+
+    while text_idx < text.len() && pattern_idx < pattern.len() {
+        if text[text_idx] == pattern[pattern_idx] {
+            pattern_idx += 1;
+        }
+        text_idx += 1;
+    }
+
+    pattern_idx == pattern.len()
 }

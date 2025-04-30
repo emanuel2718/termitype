@@ -1,89 +1,154 @@
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use std::rc::Rc;
-
-use crate::constants::{
-    COMMAND_BAR_HEIGHT, FOOTER_HEIGHT, MIN_HEIGHT, MIN_TYPING_HEIGHT, MIN_WIDTH, MODE_BAR_OFFSET,
-    TOP_BAR_HEIGHT, TYPING_AREA_WIDTH_PERCENT,
+use crate::{
+    constants::{
+        ACTION_BAR_HEIGHT, BOTTOM_AREA_HEIGHT, BOTTOM_PADDING, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT,
+        HEADER_HEIGHT, MIN_FOOTER_WIDTH, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, MODE_BAR_HEIGHT,
+        SMALL_TERM_HEIGHT, SMALL_TERM_WIDTH, TOP_AREA_HEIGHT, TYPING_AREA_WIDTH_PERCENT,
+    },
+    termi::Termi,
 };
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
-pub fn centered_rect(px: u16, py: u16, r: Rect) -> Rect {
-    // use entire buffer if our "buffer.dimension" < "minimum.dimensions"
-    if r.width < MIN_WIDTH || r.height < MIN_HEIGHT {
-        return r;
+#[derive(Debug, Clone)]
+pub struct TermiSection {
+    pub header: Rect,
+    pub action_bar: Rect,
+    pub mode_bar: Rect,
+    pub typing_area: Rect,
+    pub command_bar: Rect,
+    pub footer: Rect,
+}
+
+#[derive(Debug, Clone)]
+pub struct TermiLayout {
+    pub area: Rect,
+    pub section: TermiSection,
+}
+
+impl TermiLayout {
+    pub fn is_minimal(&self) -> bool {
+        _is_minimal(self.area)
     }
 
-    let width = r.width.saturating_mul(px) / 100;
-    let height = r.height.saturating_mul(py) / 100;
+    pub fn is_small(&self) -> bool {
+        self.area.width < SMALL_TERM_WIDTH || self.area.height < SMALL_TERM_HEIGHT
+    }
 
-    let width = width.max(MIN_WIDTH);
-    let height = height.max(MIN_HEIGHT);
+    pub fn w_small(&self) -> bool {
+        self.area.width < SMALL_TERM_WIDTH
+    }
 
-    let width = width.min(r.width);
-    let height = height.min(r.height);
+    pub fn h_small(&self) -> bool {
+        self.area.height < SMALL_TERM_HEIGHT
+    }
 
-    let x = r.x + r.width.saturating_sub(width) / 2;
-    let y = r.y + r.height.saturating_sub(height) / 2;
-
-    Rect {
-        x,
-        y,
-        width,
-        height,
+    pub fn show_footer(&self) -> bool {
+        self.area.width >= MIN_FOOTER_WIDTH
     }
 }
 
-/// Main layout
-pub fn create_main_layout(area: Rect) -> Rc<[Rect]> {
-    let vertical_layout = Layout::default()
+fn _is_minimal(area: Rect) -> bool {
+    area.height < MIN_TERM_HEIGHT || area.width < MIN_TERM_WIDTH
+}
+
+fn _build_minimal_section(x: u16, y: u16) -> TermiSection {
+    let rect = Rect::new(x, y, 0, 0);
+    TermiSection {
+        header: rect,
+        action_bar: rect,
+        mode_bar: rect,
+        typing_area: rect,
+        command_bar: rect,
+        footer: rect,
+    }
+}
+
+pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
+    if _is_minimal(area) {
+        return TermiLayout {
+            area,
+            section: _build_minimal_section(area.x, area.y),
+        };
+    }
+
+    let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(TOP_BAR_HEIGHT), // [0] Top section (title + top bar + offset)
-            Constraint::Min(0),                 // [1] space
-            Constraint::Min(MIN_TYPING_HEIGHT), // [2] Typing area
-            Constraint::Min(6),                 // [3] space
-            Constraint::Length(COMMAND_BAR_HEIGHT), // [4] Command bar
-            Constraint::Length(2),              // [5] space
-            Constraint::Length(FOOTER_HEIGHT),  // [6] Footer
+            Constraint::Length(TOP_AREA_HEIGHT),    // Top
+            Constraint::Min(0),                     // Middle
+            Constraint::Length(BOTTOM_AREA_HEIGHT), // Bottom
         ])
         .split(area);
 
-    // top section
-    let top_section = Layout::default()
+    let top_area = chunks[0];
+    let mid_area = chunks[1];
+    let bot_area = chunks[2];
+
+    // ==== TOP ====
+    let top_chunk = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(TOP_BAR_HEIGHT),  // title
-            Constraint::Length(MODE_BAR_OFFSET), // space
-            Constraint::Length(MODE_BAR_OFFSET), // top bar
+            Constraint::Length(HEADER_HEIGHT),
+            Constraint::Length(ACTION_BAR_HEIGHT),
         ])
-        .split(vertical_layout[0]);
+        .split(top_area);
 
-    // title
-    let title_area = Layout::default()
-        .direction(Direction::Horizontal)
+    let header_section = top_chunk[0];
+    let action_bar_section = apply_horizontal_centering(top_chunk[1], TYPING_AREA_WIDTH_PERCENT);
+
+    // ==== MIDDLE ====
+    let mid_outer_chunk = Layout::default()
+        .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(20), // Termitype
-            Constraint::Min(1),
+            Constraint::Min(0), // top padding
+            Constraint::Length(MODE_BAR_HEIGHT + termi.config.visible_lines as u16), // typing area
+            Constraint::Min(0), // bottom padding
         ])
-        .split(top_section[0])[0];
+        .split(mid_area)[1];
 
-    // TODO: left align the progress info
-    Rc::from([
-        title_area,         // [0] Title area (left-aligned)
-        top_section[1],     // [1] Top bar area (centered)
-        vertical_layout[2], // [2] Typing area (centered)
-        vertical_layout[4], // [3] Command bar
-        vertical_layout[6], // [4] Footer
-    ])
+    let mid_chunk = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(MODE_BAR_HEIGHT),
+            Constraint::Length(termi.config.visible_lines as u16),
+        ])
+        .split(mid_outer_chunk);
+
+    let mode_bar_section = apply_horizontal_centering(mid_chunk[0], TYPING_AREA_WIDTH_PERCENT);
+    let typing_area_section = apply_horizontal_centering(mid_chunk[1], TYPING_AREA_WIDTH_PERCENT);
+
+    // ==== BOTTOM ====
+    let bot_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(COMMAND_BAR_HEIGHT),
+            Constraint::Length(BOTTOM_PADDING),
+            Constraint::Length(FOOTER_HEIGHT),
+        ])
+        .split(bot_area);
+
+    let command_bar_section = apply_horizontal_centering(bot_chunks[0], TYPING_AREA_WIDTH_PERCENT);
+    let footer_section = apply_horizontal_centering(bot_chunks[2], TYPING_AREA_WIDTH_PERCENT);
+
+    let section = TermiSection {
+        header: header_section,
+        action_bar: action_bar_section,
+        mode_bar: mode_bar_section,
+        typing_area: typing_area_section,
+        command_bar: command_bar_section,
+        footer: footer_section,
+    };
+
+    TermiLayout { area, section }
 }
 
-/// Typing area layout
-pub fn create_typing_area_layout(area: Rect) -> Rc<[Rect]> {
+fn apply_horizontal_centering(area: Rect, width_percent: u16) -> Rect {
+    let padding = (100 - width_percent) / 2;
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage((100 - TYPING_AREA_WIDTH_PERCENT) / 2),
-            Constraint::Percentage(TYPING_AREA_WIDTH_PERCENT),
-            Constraint::Percentage((100 - TYPING_AREA_WIDTH_PERCENT) / 2),
+            Constraint::Percentage(padding),
+            Constraint::Percentage(width_percent),
+            Constraint::Percentage(padding),
         ])
-        .split(area)
+        .split(area)[1] // centered chunk
 }

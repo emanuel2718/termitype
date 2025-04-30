@@ -44,13 +44,12 @@ cargo run -- --debug
 ## Installation
 
 ```sh
-cargo install termitype@0.0.1-alpha.22
+cargo install termitype@0.0.1-alpha.23
 ```
 
 ### TODO
 
 - [ ] Locally track stats (results) with sqlite (can be opted-out with `termitype --no-track`)
-- [ ] Layout cleanup pass
 - [ ] Release on:
   - [x] crates.io
   - [ ] Homebrew
@@ -59,6 +58,7 @@ cargo install termitype@0.0.1-alpha.22
 
 ### Done
 
+- [x] Layout cleanup pass
 - [x] Settings persistance
 - [x] Proper Results screen
 - [x] Build Github CI
