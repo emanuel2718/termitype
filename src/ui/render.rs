@@ -207,7 +207,7 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     let current_word_pos = word_positions
         .iter()
         .filter(|pos| cursor_idx >= pos.start_index)
-        .last()
+        .next_back()
         .unwrap_or_else(|| {
             word_positions.first().unwrap_or(&WordPosition {
                 start_index: 0,
