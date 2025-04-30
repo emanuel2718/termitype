@@ -1025,7 +1025,7 @@ dependencies = [
 
 [[package]]
 name = "termitype"
-version = "0.0.1-alpha.23"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "clap",
