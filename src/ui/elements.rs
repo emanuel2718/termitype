@@ -412,13 +412,20 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
 
 pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement> {
     let theme = termi.get_current_theme().clone();
-    let text = Text::from("≡ Show Menu").alignment(Alignment::Center);
-    vec![TermiElement::new(
-        text,
-        termi.menu.is_open(),
-        Some(TermiClickAction::ToggleMenu),
-    )
-    .to_styled(&theme)]
+    let menu_text = "≡ Show Menu";
+    // bound the text in non clickable padding to avoid having a wider click area
+    let padding = " ".repeat((menu_text.len() / 2).max(1));
+
+    vec![
+        TermiElement::new(padding.clone(), false, None),
+        TermiElement::new(
+            menu_text,
+            termi.menu.is_open(),
+            Some(TermiClickAction::ToggleMenu),
+        )
+        .to_styled(&theme),
+        TermiElement::new(padding, false, None),
+    ]
 }
 
 pub fn create_menu_footer_text(termi: &Termi) -> Line {
