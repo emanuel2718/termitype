@@ -1,7 +1,7 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
-    style::Style,
-    text::Line,
+    style::{Modifier, Style},
+    text::{Line, Span, Text},
     widgets::{
         Block, Clear, List, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
         Wrap,
@@ -9,7 +9,14 @@ use ratatui::{
     Frame,
 };
 
-use crate::{constants::MENU_HEIGHT, log_debug, termi::Termi, tracker::Status};
+use crate::{
+    config::Mode,
+    constants::{ASCII_ART, MENU_HEIGHT},
+    log_debug,
+    termi::Termi,
+    tracker::Status,
+    version::VERSION,
+};
 
 use super::{
     actions::TermiClickAction,
@@ -375,16 +382,235 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
     frame.render_widget(footer_widget, footer_area);
 }
 
-pub fn render_results_screen(frame: &mut Frame, _termi: &mut Termi, area: Rect, is_small: bool) {
-    let stats_widget = Paragraph::new("> results")
-        .alignment(if is_small {
-            Alignment::Center
-        } else {
-            Alignment::Left
-        })
-        .wrap(Wrap { trim: false });
+pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
+    let tracker = &termi.tracker;
+    let theme = termi.get_current_theme();
+    let config = &termi.config;
+    let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
+    let hostname = "termitype";
 
-    frame.render_widget(stats_widget, area);
+    let header = format!("{}@{}", username, hostname);
+    let separator = "─".repeat(header.chars().count());
+
+    // TODO: improve the coloring of this to match fastfetch. They have the @ in a different color.
+    let mut stats_lines = vec![
+        Line::from(vec![
+            Span::styled(
+                format!("{}", username),
+                Style::default().fg(theme.highlight()),
+            ),
+            Span::styled("@", Style::default().fg(theme.highlight())),
+            Span::styled(
+                format!("{}", hostname),
+                Style::default().fg(theme.highlight()),
+            ),
+        ]),
+        Line::from(Span::styled(
+            separator,
+            Style::default().fg(theme.highlight()),
+        )),
+    ];
+
+    let add_stat = |label: &str, value: String| -> Line {
+        Line::from(vec![
+            Span::styled(
+                format!("{}: ", label),
+                Style::default().fg(theme.highlight()),
+            ),
+            Span::styled(
+                value,
+                Style::default()
+                    .fg(theme.muted())
+                    .add_modifier(Modifier::DIM),
+            ),
+        ])
+    };
+
+    let errors = tracker
+        .total_keystrokes
+        .saturating_sub(tracker.correct_keystrokes);
+    let (min_wpm, max_wpm) = tracker
+        .wpm_samples
+        .iter()
+        .fold((u32::MAX, 0), |(min, max), &val| {
+            (min.min(val), max.max(val))
+        });
+    let wpm_range_str = if min_wpm == u32::MAX {
+        "N/A".to_string()
+    } else {
+        format!("{}-{}", min_wpm, max_wpm)
+    };
+
+    let mode_str = match config.current_mode() {
+        Mode::Time { duration } => format!("Time ({}s)", duration),
+        Mode::Words { count } => format!("Words ({})", count),
+    };
+
+    stats_lines.push(add_stat("OS", format!("termitype {}", VERSION)));
+    stats_lines.push(add_stat("Mode", mode_str));
+    stats_lines.push(add_stat(
+        "Lang",
+        config.language.clone().unwrap_or_default(),
+    ));
+    stats_lines.push(add_stat("WPM", format!("{:.0}", tracker.wpm)));
+    if let Some(time) = tracker.completion_time {
+        stats_lines.push(add_stat("Time", format!("{:.1}s", time)));
+    } else if let Mode::Time { duration } = config.current_mode() {
+        stats_lines.push(add_stat("Time", format!("{}s", duration)));
+    }
+    stats_lines.push(add_stat("Accuracy", format!("{}%", tracker.accuracy)));
+    stats_lines.push(add_stat(
+        "Consistency",
+        format!("{:.0}%", tracker.calculate_consistency()),
+    ));
+    stats_lines.push(add_stat("Raw WPM", format!("{:.0}", tracker.raw_wpm)));
+    stats_lines.push(add_stat(
+        "Keystrokes",
+        format!("{} ({})", tracker.total_keystrokes, tracker.accuracy),
+    ));
+    stats_lines.push(add_stat(
+        "Correct",
+        format!("{}", tracker.correct_keystrokes),
+    ));
+    stats_lines.push(add_stat("Errors", format!("{}", errors)));
+    stats_lines.push(add_stat(
+        "Backspaces",
+        format!("{}", tracker.backspace_count),
+    ));
+    stats_lines.push(add_stat("WPM Range", wpm_range_str));
+
+    stats_lines.push(Line::from(""));
+
+    let mut color_blocks = vec![];
+    for color in [
+        theme.fg(),
+        theme.highlight(),
+        theme.accent(),
+        theme.muted(),
+        theme.success(),
+        theme.warning(),
+        theme.error(),
+    ] {
+        color_blocks.push(Span::styled("██", Style::default().fg(color)));
+    }
+    stats_lines.push(Line::from(color_blocks));
+
+    let art_text = Text::from(ASCII_ART).style(Style::default().fg(theme.highlight()));
+    let art_height = art_text.height() as u16;
+    let art_width = art_text.width() as u16;
+
+    let stats_text = Text::from(stats_lines);
+    let stats_height = stats_text.height() as u16;
+    let stats_width = stats_text
+        .lines
+        .iter()
+        .map(|line| line.width())
+        .max()
+        .unwrap_or(0) as u16;
+
+    if is_small {
+        let centered_rect = Rect {
+            x: area.x + area.width.saturating_sub(stats_width) / 2,
+            y: area.y + area.height.saturating_sub(stats_height) / 2,
+            width: stats_width.min(area.width),
+            height: stats_height.min(area.height),
+        };
+        frame.render_widget(Paragraph::new(stats_text), centered_rect);
+    } else {
+        let total_needed_width = art_width + stats_width + 5;
+        let horizontal_padding = area.width.saturating_sub(total_needed_width) / 2;
+        let vertical_padding = area.height.saturating_sub(stats_height.max(art_height)) / 2;
+
+        let layout_area = Rect {
+            x: area.x + horizontal_padding,
+            y: area.y + vertical_padding,
+            width: total_needed_width.min(area.width),
+            height: stats_height.max(art_height).min(area.height),
+        };
+
+        if layout_area.right() > area.right() || layout_area.width == 0 {
+            let centered_rect = Rect {
+                x: area.x + area.width.saturating_sub(stats_width) / 2,
+                y: area.y + area.height.saturating_sub(stats_height) / 2,
+                width: stats_width.min(area.width),
+                height: stats_height.min(area.height),
+            };
+            frame.render_widget(Paragraph::new(stats_text), centered_rect);
+        } else {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(
+                    [
+                        Constraint::Length(art_width),
+                        Constraint::Length(5), // padding
+                        Constraint::Length(stats_width),
+                    ]
+                    .as_ref(),
+                )
+                .split(layout_area);
+
+            let art_area = chunks[0];
+            let stats_area = chunks[2];
+
+            // if the art is shorter than stats then center it
+            let art_y_padding = art_area.height.saturating_sub(art_height) / 2;
+            let centered_art_area = Rect {
+                y: art_area.y + art_y_padding,
+                height: art_height.min(art_area.height),
+                ..art_area
+            };
+
+            // do the same as above for the stats
+            let stats_y_padding = stats_area.height.saturating_sub(stats_height) / 2;
+            let centered_stats_area = Rect {
+                y: stats_area.y + stats_y_padding,
+                height: stats_height.min(stats_area.height),
+                ..stats_area
+            };
+
+            frame.render_widget(Paragraph::new(art_text), centered_art_area);
+            frame.render_widget(Paragraph::new(stats_text), centered_stats_area);
+        }
+    }
+
+    let restart_line = Line::from(vec![
+        Span::styled(
+            "tab",
+            Style::default()
+                .fg(theme.highlight())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            " + ",
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        ),
+        Span::styled(
+            "enter",
+            Style::default()
+                .fg(theme.highlight())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            " - restart test",
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        ),
+    ])
+    .alignment(Alignment::Center);
+
+    let restart_height: u16 = 4;
+    if area.height > restart_height {
+        let restart_area = Rect {
+            x: area.x,
+            y: area.bottom().saturating_sub(restart_height),
+            width: area.width,
+            height: restart_height,
+        };
+        frame.render_widget(Paragraph::new(restart_line), restart_area);
+    }
 }
 
 #[cfg(test)]
