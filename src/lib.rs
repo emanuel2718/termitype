@@ -22,6 +22,7 @@ pub mod input;
 pub mod log;
 pub mod macros;
 pub mod menu;
+pub mod modal;
 pub mod persistence;
 pub mod termi;
 pub mod theme;
