@@ -87,6 +87,11 @@ pub struct Config {
     #[arg(short = 'd', long = "debug")]
     pub debug: bool,
 
+    /// Shows the current frames per second (FPS).
+    #[arg(long = "fps")]
+    pub show_fps: bool,
+
+    /// Stores the persistence of the game. Set automatically.
     #[arg(skip)]
     persistent: Option<Persistence>,
 }
@@ -130,6 +135,7 @@ impl Default for Config {
             list_themes: false,
             list_languages: false,
             version: false,
+            show_fps: false,
             #[cfg(debug_assertions)]
             debug: false,
             persistent: None,
@@ -470,6 +476,7 @@ mod tests {
         assert!(!config.use_punctuation);
         #[cfg(debug_assertions)]
         assert!(!config.debug);
+        assert!(!config.show_fps);
     }
 
     fn assert_mode(config: &Config, expected_mode: ModeType, expected_value: usize) {

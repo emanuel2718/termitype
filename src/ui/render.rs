@@ -1,6 +1,6 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
-    style::{Modifier, Style},
+    style::{Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{
         Block, Clear, List, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
@@ -12,7 +12,6 @@ use ratatui::{
 use crate::{
     config::Mode,
     constants::{ASCII_ART, MENU_HEIGHT},
-    log_debug,
     termi::Termi,
     tracker::Status,
     version::VERSION,
@@ -43,7 +42,7 @@ impl TermiClickableRegions {
 }
 
 /// Main entry point for the rendering
-pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
+pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiClickableRegions {
     let mut regions = TermiClickableRegions::default();
     let theme = termi.get_current_theme();
     let area = frame.area();
@@ -77,9 +76,26 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
 
     let layout = create_layout(inner_area, termi);
 
+    let mut fps_widget: Option<(Paragraph, Rect)> = None;
+    if let Some(fps_value) = fps {
+        let fps_text = format!("FPS: {:.0}", fps_value);
+        let widget = Paragraph::new(fps_text)
+            .style(Style::default().fg(theme.muted()))
+            .add_modifier(Modifier::DIM)
+            .alignment(Alignment::Right);
+
+        let widget_width = 10;
+        let fps_area = Rect::new(
+            area.right().saturating_sub(widget_width + 1),
+            area.top() + 1,
+            widget_width,
+            1,
+        );
+        fps_widget = Some((widget, fps_area));
+    }
+
     let header = create_header(termi);
 
-    log_debug!("Area: {}", area);
     match termi.tracker.status {
         Status::Typing => {
             let mode_bar = create_mode_bar(termi);
@@ -120,6 +136,12 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
 
     if termi.menu.is_open() {
         render_menu(frame, termi, area);
+    }
+
+    if let Some((widget, fps_area)) = fps_widget {
+        if fps_area.right() <= frame.area().right() && fps_area.bottom() <= frame.area().bottom() {
+            frame.render_widget(widget, fps_area);
+        }
     }
 
     regions
