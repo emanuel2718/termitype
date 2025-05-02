@@ -206,14 +206,6 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
             idle_frame_time
         };
 
-        if needs_redraw && now.duration_since(last_render) >= current_frame_time {
-            terminal.draw(|frame| {
-                clickable_regions = draw_ui(frame, &mut termi);
-            })?;
-            last_render = now;
-            needs_redraw = false;
-        }
-
         let timeout = current_frame_time
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
@@ -262,7 +254,14 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
         if now.duration_since(last_metrics_update) >= Duration::from_millis(500) {
             termi.tracker.update_metrics();
             last_metrics_update = now;
-            needs_redraw = true;
+        }
+
+        if needs_redraw && now.duration_since(last_render) >= current_frame_time {
+            terminal.draw(|frame| {
+                clickable_regions = draw_ui(frame, &mut termi);
+            })?;
+            last_render = now;
+            needs_redraw = false;
         }
 
         last_tick = Instant::now();
