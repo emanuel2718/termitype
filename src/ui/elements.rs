@@ -220,51 +220,33 @@ pub fn create_styled_typing_text<'a>(
         let word_start = pos.start_index;
         let word_len = word.chars().count();
 
-        let is_current_word = termi.tracker.cursor_position >= word_start
-            && termi.tracker.cursor_position <= word_start + word_len;
+        let cursor_pos = termi.tracker.cursor_position;
+        let is_word_wrong = termi.tracker.is_word_wrong(word_start);
+        let is_past_word = cursor_pos > word_start + word_len;
+        let should_underline_word =
+            is_word_wrong && is_past_word && theme.color_support.supports_themes();
 
-        let is_wrong_word = !is_current_word && termi.tracker.is_word_wrong(word_start);
-
-        let mut chars = Vec::with_capacity(word_len);
-
-        for (i, c) in word.chars().enumerate() {
-            let char_idx = word_start + i;
-            let style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
-                Some(input) if input == c => {
-                    let mut style = Style::default().fg(theme.success());
-                    // underline wrong words just like that other typing game...
-                    if is_wrong_word && theme.color_support.supports_themes() {
-                        style = style
-                            .add_modifier(Modifier::UNDERLINED)
-                            .underline_color(theme.error());
-                    }
-                    style
-                }
-                // wrong char
-                Some(_) => {
-                    let mut style = Style::default().fg(theme.error());
-                    if !is_current_word && theme.color_support.supports_themes() {
-                        style = style
-                            .add_modifier(Modifier::UNDERLINED)
-                            .underline_color(theme.error());
-                    }
-                    style
-                }
-                // otehr
+        for (char_i, c) in word.chars().enumerate() {
+            let char_idx = word_start + char_i;
+            let base_style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
+                Some(input) if input == c => Style::default().fg(theme.success()),
+                Some(_) => Style::default().fg(theme.error()),
                 None => Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
             };
-            chars.push(Span::styled(c.to_string(), style));
+
+            let style = if should_underline_word {
+                base_style
+                    .add_modifier(Modifier::UNDERLINED)
+                    .underline_color(theme.error())
+            } else {
+                base_style
+            };
+
+            curr_line_spans.push(Span::styled(String::from(c), style));
         }
 
-        curr_line_spans.extend(chars);
-
         if i < words.len() - 1 {
-            curr_line_spans.push(Span::styled(
-                " ",
-                Style::default()
-                    .fg(theme.muted())
-                    .add_modifier(Modifier::DIM),
-            ));
+            curr_line_spans.push(Span::raw(" "));
         }
     }
 
