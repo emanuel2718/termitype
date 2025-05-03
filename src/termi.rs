@@ -242,6 +242,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                 }) => {
                     log_debug!("Status: {:?}", termi.tracker.status);
                     termi.handle_click(&clickable_regions, column, row);
+                    needs_redraw = true;
                 }
                 Event::Resize(_width, _height) => {
                     needs_redraw = true;

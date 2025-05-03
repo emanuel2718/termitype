@@ -88,7 +88,7 @@ pub struct Config {
     pub debug: bool,
 
     /// Shows the current frames per second (FPS).
-    #[arg(long = "fps")]
+    #[arg(long = "show-fps")]
     pub show_fps: bool,
 
     /// Stores the persistence of the game. Set automatically.
