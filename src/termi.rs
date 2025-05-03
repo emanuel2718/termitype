@@ -9,6 +9,7 @@ use crossterm::{
 };
 use ratatui::{layout::Position, prelude::Backend, Terminal};
 
+use crate::modal::{build_modal, InputModal};
 use crate::{
     builder::Builder,
     config::Config,
@@ -29,6 +30,7 @@ pub struct Termi {
     pub builder: Builder,
     pub words: String,
     pub menu: MenuState,
+    pub modal: Option<InputModal>,
 }
 
 impl std::fmt::Debug for Termi {
@@ -46,7 +48,8 @@ impl std::fmt::Debug for Termi {
             )
             .field("builder", &self.builder)
             .field("words", &self.words)
-            .field("menu", &self.menu);
+            .field("menu", &self.words)
+            .field("modal", &self.modal);
 
         debug_struct.finish()
     }
@@ -69,6 +72,7 @@ impl Termi {
             builder,
             words,
             menu,
+            modal: None,
         }
     }
 
@@ -126,6 +130,14 @@ impl Termi {
                 TermiClickAction::ToggleMenu => {
                     self.menu.toggle(&self.config);
                 }
+                TermiClickAction::ToggleModal(ctx) => {
+                    if self.modal.is_some() {
+                        self.modal = None;
+                    } else {
+                        self.modal = Some(build_modal(ctx));
+                    }
+                }
+                TermiClickAction::ModalConfirm => todo!(),
             }
         }
     }

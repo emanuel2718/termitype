@@ -1,15 +1,27 @@
+use crate::constants::{
+    MAX_CUSTOM_TIME, MAX_CUSTOM_WORD_COUNT, MIN_CUSTOM_TIME, MIN_CUSTOM_WORD_COUNT,
+};
+
+/// Used to determine which content to show on the modal
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ModalContext {
+    CustomTime,
+    CustomWordCount,
+}
+
 #[derive(Debug, Clone)]
 pub struct InputBuffer {
     input: String,
     cursor_pos: usize,
     is_numeric: bool,
     error_msg: Option<String>,
-    min_value: u8,
-    max_value: u8,
+    min_value: u16,
+    max_value: u16,
 }
 
 #[derive(Debug, Clone)]
 pub struct InputModal {
+    pub ctx: ModalContext,
     pub title: String,
     pub description: String,
     pub buffer: InputBuffer,
@@ -18,6 +30,7 @@ pub struct InputModal {
 impl Default for InputModal {
     fn default() -> Self {
         Self {
+            ctx: ModalContext::CustomTime,
             title: "<title>".to_string(),
             description: "<description>".to_string(),
             buffer: InputBuffer {
@@ -33,8 +46,16 @@ impl Default for InputModal {
 }
 
 impl InputModal {
-    pub fn new(title: String, description: String, is_numeric: bool, min: u8, max: u8) -> Self {
+    pub fn new(
+        ctx: ModalContext,
+        title: String,
+        description: String,
+        is_numeric: bool,
+        min: u16,
+        max: u16,
+    ) -> Self {
         Self {
+            ctx,
             title,
             description,
             buffer: InputBuffer {
@@ -106,13 +127,44 @@ impl InputModal {
         }
     }
 }
+pub fn build_modal(ctx: ModalContext) -> InputModal {
+    match ctx {
+        ModalContext::CustomTime => InputModal {
+            ctx,
+            title: "Custom Time".to_string(),
+            description: "Enter desired test duration (seconds)".to_string(),
+            buffer: InputBuffer {
+                input: "".to_string(),
+                cursor_pos: 0,
+                is_numeric: true,
+                error_msg: None,
+                min_value: MIN_CUSTOM_TIME,
+                max_value: MAX_CUSTOM_TIME,
+            },
+        },
+        ModalContext::CustomWordCount => InputModal {
+            ctx,
+            title: "Custom Word Count".to_string(),
+            description: "Enter desired word count".to_string(),
+            buffer: InputBuffer {
+                input: "".to_string(),
+                cursor_pos: 0,
+                is_numeric: true,
+                error_msg: None,
+                min_value: MIN_CUSTOM_WORD_COUNT,
+                max_value: MAX_CUSTOM_WORD_COUNT,
+            },
+        },
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn create_custom_modal(is_numeric: bool, min: u8, max: u8) -> InputModal {
+    fn create_custom_modal(is_numeric: bool, min: u16, max: u16) -> InputModal {
         InputModal {
+            ctx: ModalContext::CustomTime,
             title: "Test Modal".to_string(),
             description: "Random Test Modal".to_string(),
             buffer: InputBuffer {

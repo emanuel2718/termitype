@@ -96,7 +96,7 @@ pub struct Config {
     persistent: Option<Persistence>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ModeType {
     Time = 0,
     Words = 1,

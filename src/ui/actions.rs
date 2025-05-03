@@ -1,6 +1,6 @@
-use crate::config::ModeType;
+use crate::{config::ModeType, modal::ModalContext};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum TermiClickAction {
     SwitchMode(ModeType),
     SetModeValue(usize),
@@ -11,4 +11,6 @@ pub enum TermiClickAction {
     ToggleThemePicker,
     ToggleLanguagePicker,
     ToggleAbout,
+    ToggleModal(ModalContext),
+    ModalConfirm,
 }

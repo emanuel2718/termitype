@@ -59,3 +59,10 @@ pub const COMMAND_BAR_HEIGHT: u16 = 3;
 pub const FOOTER_HEIGHT: u16 = 1;
 pub const BOTTOM_PADDING: u16 = 1;
 pub const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + BOTTOM_PADDING + FOOTER_HEIGHT;
+
+// Modals
+pub const MIN_CUSTOM_TIME: u16 = 1;
+pub const MAX_CUSTOM_TIME: u16 = 100;
+
+pub const MIN_CUSTOM_WORD_COUNT: u16 = 1;
+pub const MAX_CUSTOM_WORD_COUNT: u16 = 5000;
