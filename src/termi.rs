@@ -231,7 +231,8 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind == KeyEventKind::Press {
-                        let action = input_handler.handle_input(key, &termi.menu, false);
+                        let is_modal_active = termi.modal.is_some();
+                        let action = input_handler.handle_input(key, &termi.menu, is_modal_active);
 
                         if action == Action::Quit {
                             break;

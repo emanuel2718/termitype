@@ -87,6 +87,10 @@ impl InputModal {
         }
     }
 
+    pub fn get_value(&self) -> String {
+        self.buffer.input.clone()
+    }
+
     fn validate_input(&mut self) {
         if self.buffer.input.is_empty() {
             self.buffer.error_msg = Some("Input field cannot be empty".to_string());

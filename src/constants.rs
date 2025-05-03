@@ -5,6 +5,9 @@ pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
 pub const DEFAULT_THEME: &str = "tokyonight";
 // pub const DEFAULT_THEME: &str = "termitype-dark";
 
+pub const DEFAULT_TIME_MODE_DURATION: usize = 30;
+pub const DEFAULT_WORD_MODE_COUNT: usize = 50;
+
 pub const STATE_FILE: &str = ".state";
 pub const LOG_FILE: &str = "debug.log";
 
