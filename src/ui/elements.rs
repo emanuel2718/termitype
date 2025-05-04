@@ -1,6 +1,7 @@
 use crate::{
     config::{Mode, ModeType},
     constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH},
+    modal::ModalContext,
     termi::Termi,
     theme::Theme,
     tracker::Status,
@@ -72,22 +73,39 @@ pub fn create_header(termi: &Termi) -> Vec<TermiElement> {
 
 pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
     let theme = termi.get_current_theme().clone();
-    let is_time_mode = matches!(termi.config.current_mode(), Mode::Time { .. });
+    let config = &termi.config;
+    let current_value = config.current_mode().value();
+    let is_time_mode = matches!(config.current_mode(), Mode::Time { .. });
+    let presets: Vec<u64> = if is_time_mode {
+        vec![15, 30, 60, 120]
+    } else {
+        vec![10, 25, 50, 100]
+    };
+
+    let is_custom_active = !presets.contains(&(current_value as u64));
+
+    // NOTE: this is okay because the <custom> on the action bar will only select between
+    //       custom time or custom words by design
+    let custom_ctx = if is_time_mode {
+        ModalContext::CustomTime
+    } else {
+        ModalContext::CustomWordCount
+    };
 
     let elements = vec![
         TermiElement::new(
             "@ punctuation ",
-            termi.config.use_punctuation,
+            config.use_punctuation,
             Some(TermiClickAction::TogglePunctuation),
         ),
         TermiElement::new(
             "# numbers ",
-            termi.config.use_numbers,
+            config.use_numbers,
             Some(TermiClickAction::ToggleNumbers),
         ),
         TermiElement::new(
             "@ symbols ",
-            termi.config.use_symbols,
+            config.use_symbols,
             Some(TermiClickAction::ToggleSymbols),
         ),
         TermiElement::new("│ ", false, None),
@@ -103,40 +121,29 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
         ),
         TermiElement::new("│ ", false, None),
         TermiElement::new(
-            format!("{} ", if is_time_mode { 15 } else { 10 }),
-            termi.config.current_mode().value() == if is_time_mode { 15 } else { 10 },
-            Some(TermiClickAction::SetModeValue(if is_time_mode {
-                15
-            } else {
-                10
-            })),
+            format!("{} ", presets[0]),
+            current_value as u64 == presets[0],
+            Some(TermiClickAction::SetModeValue(presets[0] as usize)),
         ),
         TermiElement::new(
-            format!("{} ", if is_time_mode { 30 } else { 25 }),
-            termi.config.current_mode().value() == if is_time_mode { 30 } else { 25 },
-            Some(TermiClickAction::SetModeValue(if is_time_mode {
-                30
-            } else {
-                25
-            })),
+            format!("{} ", presets[1]),
+            current_value as u64 == presets[1],
+            Some(TermiClickAction::SetModeValue(presets[1] as usize)),
         ),
         TermiElement::new(
-            format!("{} ", if is_time_mode { 60 } else { 50 }),
-            termi.config.current_mode().value() == if is_time_mode { 60 } else { 50 },
-            Some(TermiClickAction::SetModeValue(if is_time_mode {
-                60
-            } else {
-                50
-            })),
+            format!("{} ", presets[2]),
+            current_value as u64 == presets[2],
+            Some(TermiClickAction::SetModeValue(presets[2] as usize)),
         ),
         TermiElement::new(
-            format!("{} ", if is_time_mode { 120 } else { 100 }),
-            termi.config.current_mode().value() == if is_time_mode { 120 } else { 100 },
-            Some(TermiClickAction::SetModeValue(if is_time_mode {
-                120
-            } else {
-                100
-            })),
+            format!("{} ", presets[3]),
+            current_value as u64 == presets[3],
+            Some(TermiClickAction::SetModeValue(presets[3] as usize)),
+        ),
+        TermiElement::new(
+            "custom ",
+            is_custom_active,
+            Some(TermiClickAction::ToggleModal(custom_ctx)),
         ),
     ];
 

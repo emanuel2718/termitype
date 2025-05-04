@@ -1,18 +1,18 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Position, Rect},
-    style::{Modifier, Style},
+    style::{Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{
-        Block, Clear, List, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
-        Wrap,
+        Block, BorderType, Borders, Clear, List, Padding, Paragraph, Scrollbar,
+        ScrollbarOrientation, ScrollbarState, Wrap,
     },
     Frame,
 };
 
 use crate::{
     config::Mode,
-    constants::{ASCII_ART, MENU_HEIGHT},
-    log_debug,
+    constants::{ASCII_ART, MENU_HEIGHT, MODAL_HEIGHT, MODAL_WIDTH},
+    modal::InputModal,
     termi::Termi,
     tracker::Status,
     version::VERSION,
@@ -26,8 +26,9 @@ use super::{
         create_show_menu_button, create_styled_typing_text, TermiElement,
     },
     layout::create_layout,
-    utils::{calculate_word_positions, WordPosition},
+    utils::{calculate_word_positions, center_div, WordPosition},
 };
+use crate::modal::ModalContext;
 
 #[derive(Debug, Default)]
 pub struct TermiClickableRegions {
@@ -43,7 +44,7 @@ impl TermiClickableRegions {
 }
 
 /// Main entry point for the rendering
-pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
+pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiClickableRegions {
     let mut regions = TermiClickableRegions::default();
     let theme = termi.get_current_theme();
     let area = frame.area();
@@ -77,9 +78,26 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
 
     let layout = create_layout(inner_area, termi);
 
+    let mut fps_widget: Option<(Paragraph, Rect)> = None;
+    if let Some(fps_value) = fps {
+        let fps_text = format!("FPS: {:.0}", fps_value);
+        let widget = Paragraph::new(fps_text)
+            .style(Style::default().fg(theme.muted()))
+            .add_modifier(Modifier::DIM)
+            .alignment(Alignment::Right);
+
+        let widget_width = 10;
+        let fps_area = Rect::new(
+            area.right().saturating_sub(widget_width + 1),
+            area.top() + 1,
+            widget_width,
+            1,
+        );
+        fps_widget = Some((widget, fps_area));
+    }
+
     let header = create_header(termi);
 
-    log_debug!("Area: {}", area);
     match termi.tracker.status {
         Status::Typing => {
             let mode_bar = create_mode_bar(termi);
@@ -120,6 +138,18 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi) -> TermiClickableRegions {
 
     if termi.menu.is_open() {
         render_menu(frame, termi, area);
+    }
+
+    if let Some(modal) = &termi.modal {
+        if let Some(region) = render_modal(frame, termi, area, modal.clone()) {
+            regions.add(region.0, region.1);
+        }
+    }
+
+    if let Some((widget, fps_area)) = fps_widget {
+        if fps_area.right() <= frame.area().right() && fps_area.bottom() <= frame.area().bottom() {
+            frame.render_widget(widget, fps_area);
+        }
     }
 
     regions
@@ -270,6 +300,109 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
             });
         }
     }
+}
+
+fn render_modal(
+    frame: &mut Frame,
+    termi: &Termi,
+    area: Rect,
+    modal: InputModal,
+) -> Option<(Rect, TermiClickAction)> {
+    let theme = termi.theme.clone();
+    let modal_area = center_div(MODAL_WIDTH, MODAL_HEIGHT, area);
+    frame.render_widget(Clear, modal_area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(theme.fg()))
+        .style(Style::default().bg(theme.bg()));
+
+    let inner_area = block.inner(modal_area);
+
+    frame.render_widget(block, modal_area);
+
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([
+            Constraint::Length(1), // title
+            Constraint::Length(1), // desc
+            Constraint::Length(1), // space
+            Constraint::Length(1), // input
+            Constraint::Length(1), // error/space
+            Constraint::Length(1), // space
+            Constraint::Length(1), // [ OK ]
+        ])
+        .split(inner_area);
+
+    // ------ TITLE ------
+    let title_area = layout[0];
+    let title = Paragraph::new(modal.title.clone())
+        .style(
+            Style::default()
+                .fg(theme.highlight())
+                .add_modifier(Modifier::BOLD),
+        )
+        .alignment(Alignment::Center);
+
+    frame.render_widget(title, title_area);
+
+    // ------ DESCRIPTION ------
+    let desc_area = layout[1];
+    let desc = Paragraph::new(modal.description.clone())
+        .style(Style::default().fg(theme.muted()))
+        .alignment(Alignment::Center);
+    frame.render_widget(desc, desc_area);
+
+    // ------ INPUT FIELD ------
+    let input_area = layout[3];
+    let input_style = Style::default().fg(theme.fg());
+    let cursor_style = Style::default().fg(theme.cursor_text()).bg(theme.cursor());
+    let suffix_style = Style::default()
+        .fg(theme.muted())
+        .add_modifier(Modifier::DIM);
+
+    let suffix = match modal.ctx {
+        ModalContext::CustomTime => " second(s)",
+        ModalContext::CustomWordCount => " word(s)",
+    };
+
+    let input_text = &modal.buffer.input;
+    let cursor_pos = modal.buffer.cursor_pos;
+
+    let display_text_width = (input_text.len() + 1 + suffix.len()) as u16;
+    let padding = (input_area.width.saturating_sub(display_text_width)) / 2;
+    let padding_span = Span::raw(" ".repeat(padding as usize));
+
+    let input_spans = vec![
+        padding_span,
+        Span::styled(&input_text[..cursor_pos], input_style),
+        Span::styled(" ", cursor_style),
+        Span::styled(&input_text[cursor_pos..], input_style),
+        Span::styled(suffix, suffix_style),
+    ];
+
+    let input_field = Paragraph::new(Line::from(input_spans));
+    frame.render_widget(input_field, input_area);
+
+    // ------ ERROR ------
+    let error_area = layout[4];
+    if let Some(error) = &modal.buffer.error_msg {
+        let error_text = Paragraph::new(error.as_str())
+            .style(Style::default().fg(theme.error()))
+            .alignment(Alignment::Center);
+        frame.render_widget(error_text, error_area);
+    }
+
+    // ------ [ OK ] ------
+    let ok_area = layout[6];
+    let ok_button = Paragraph::new("[ OK ]")
+        .style(Style::default().fg(theme.highlight()))
+        .alignment(Alignment::Center);
+    frame.render_widget(ok_button, ok_area);
+
+    Some((ok_area, TermiClickAction::ModalConfirm))
 }
 
 fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {

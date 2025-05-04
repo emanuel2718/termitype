@@ -5,6 +5,9 @@ pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
 pub const DEFAULT_THEME: &str = "tokyonight";
 // pub const DEFAULT_THEME: &str = "termitype-dark";
 
+pub const DEFAULT_TIME_MODE_DURATION: usize = 30;
+pub const DEFAULT_WORD_MODE_COUNT: usize = 50;
+
 pub const STATE_FILE: &str = ".state";
 pub const LOG_FILE: &str = "debug.log";
 
@@ -45,6 +48,9 @@ pub const MIN_FOOTER_WIDTH: u16 = 55;
 
 pub const MENU_HEIGHT: u16 = 20;
 
+pub const MODAL_WIDTH: u16 = 50;
+pub const MODAL_HEIGHT: u16 = 11;
+
 // top area
 pub const HEADER_HEIGHT: u16 = 4;
 pub const ACTION_BAR_HEIGHT: u16 = 1;
@@ -59,3 +65,10 @@ pub const COMMAND_BAR_HEIGHT: u16 = 3;
 pub const FOOTER_HEIGHT: u16 = 1;
 pub const BOTTOM_PADDING: u16 = 1;
 pub const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + BOTTOM_PADDING + FOOTER_HEIGHT;
+
+// Modals
+pub const MIN_CUSTOM_TIME: u16 = 1;
+pub const MAX_CUSTOM_TIME: u16 = 100;
+
+pub const MIN_CUSTOM_WORD_COUNT: u16 = 1;
+pub const MAX_CUSTOM_WORD_COUNT: u16 = 5000;

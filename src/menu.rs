@@ -1,10 +1,12 @@
 use crate::config::{Config, ModeType};
 use crate::constants::DEFAULT_THEME;
+use crate::modal::ModalContext;
 use crate::utils::fuzzy_match;
 use crate::version::VERSION;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
+    OpenModal(ModalContext),
     OpenMainMenu,
     ToggleThemePicker,
     OpenLanguagePicker,
@@ -355,6 +357,9 @@ impl MenuState {
                     self.menu_stack.clear();
                     self.clear_previews();
                 }
+                if matches!(action, MenuAction::OpenModal(_)) {
+                    self.close();
+                }
                 Some(action)
             }
         }
@@ -495,26 +500,36 @@ impl MenuState {
 
     fn build_time_menu() -> Vec<MenuItem> {
         let times = vec![15, 30, 60, 120];
-        Self::build_generic_menu(times, MenuAction::ChangeTime, {
+        let mut items = Self::build_generic_menu(times, MenuAction::ChangeTime, {
             |a, b| {
                 a.label
                     .parse::<u32>()
                     .unwrap_or(0)
                     .cmp(&b.label.parse::<u32>().unwrap_or(0))
             }
-        })
+        });
+        items.push(MenuItem::new(
+            "custom...",
+            MenuAction::OpenModal(ModalContext::CustomTime),
+        ));
+        items
     }
 
     fn build_words_menu() -> Vec<MenuItem> {
         let word_counts = vec![10, 25, 50, 100];
-        Self::build_generic_menu(word_counts, MenuAction::ChangeWordCount, {
+        let mut items = Self::build_generic_menu(word_counts, MenuAction::ChangeWordCount, {
             |a, b| {
                 a.label
                     .parse::<u32>()
                     .unwrap_or(0)
                     .cmp(&b.label.parse::<u32>().unwrap_or(0))
             }
-        })
+        });
+        items.push(MenuItem::new(
+            "custom...",
+            MenuAction::OpenModal(ModalContext::CustomWordCount),
+        ));
+        items
     }
 
     fn build_visible_lines_menu() -> Vec<MenuItem> {

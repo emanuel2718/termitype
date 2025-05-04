@@ -1,3 +1,5 @@
+use ratatui::layout::Rect;
+
 // TODO: maybe having this file is not entirely needed question mark
 #[derive(Debug, Clone, Copy)]
 pub struct WordPosition {
@@ -5,6 +7,20 @@ pub struct WordPosition {
     pub line: usize,
     pub col: usize,
 }
+
+pub fn center_div(width: u16, height: u16, parent: Rect) -> Rect {
+    let parent_w = parent.width;
+    let parent_h = parent.height;
+
+    let width = width.min(parent_w);
+    let height = height.min(parent_h);
+
+    let x = parent.x + (parent_w.saturating_sub(width)) / 2;
+    let y = parent.y + (parent_h.saturating_sub(height)) / 2;
+
+    Rect::new(x, y, width, height)
+}
+
 pub fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosition> {
     if text.is_empty() || available_width == 0 {
         return vec![];

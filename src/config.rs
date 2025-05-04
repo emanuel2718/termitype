@@ -3,7 +3,10 @@ use crossterm::cursor::SetCursorStyle;
 
 use crate::{
     builder::Builder,
-    constants::{DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME},
+    constants::{
+        DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME,
+        DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT,
+    },
     persistence::Persistence,
     theme::ThemeLoader,
 };
@@ -87,11 +90,16 @@ pub struct Config {
     #[arg(short = 'd', long = "debug")]
     pub debug: bool,
 
+    /// Shows the current frames per second (FPS).
+    #[arg(long = "show-fps")]
+    pub show_fps: bool,
+
+    /// Stores the persistence of the game. Set automatically.
     #[arg(skip)]
     persistent: Option<Persistence>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ModeType {
     Time = 0,
     Words = 1,
@@ -130,6 +138,7 @@ impl Default for Config {
             list_themes: false,
             list_languages: false,
             version: false,
+            show_fps: false,
             #[cfg(debug_assertions)]
             debug: false,
             persistent: None,
@@ -268,7 +277,7 @@ impl Config {
         match mode {
             ModeType::Time => {
                 self.word_count = None;
-                self.time = Some(value.unwrap_or(30) as u64);
+                self.time = Some(value.unwrap_or(DEFAULT_TIME_MODE_DURATION) as u64);
                 if let Some(persistence) = &mut self.persistent {
                     let _ = persistence.set("mode", "Time");
                     let _ = persistence.set("mode_value", &value.unwrap_or(30).to_string());
@@ -276,10 +285,13 @@ impl Config {
             }
             ModeType::Words => {
                 self.time = None;
-                self.word_count = Some(value.unwrap_or(25));
+                self.word_count = Some(value.unwrap_or(DEFAULT_WORD_MODE_COUNT));
                 if let Some(persistence) = &mut self.persistent {
                     let _ = persistence.set("mode", "Words");
-                    let _ = persistence.set("mode_value", &value.unwrap_or(25).to_string());
+                    let _ = persistence.set(
+                        "mode_value",
+                        &value.unwrap_or(DEFAULT_WORD_MODE_COUNT).to_string(),
+                    );
                 }
             }
         }
@@ -348,7 +360,7 @@ impl Config {
     pub fn resolve_word_count(&self) -> usize {
         match (self.time, self.word_count) {
             (None, Some(count)) => count,
-            _ => 100,
+            _ => DEFAULT_WORD_MODE_COUNT,
         }
     }
 
@@ -356,7 +368,7 @@ impl Config {
     pub fn resolve_duration(&self) -> u64 {
         match (self.time, self.word_count) {
             (Some(duration), None) => duration,
-            _ => 30,
+            _ => DEFAULT_TIME_MODE_DURATION as u64,
         }
     }
 
@@ -470,6 +482,7 @@ mod tests {
         assert!(!config.use_punctuation);
         #[cfg(debug_assertions)]
         assert!(!config.debug);
+        assert!(!config.show_fps);
     }
 
     fn assert_mode(config: &Config, expected_mode: ModeType, expected_value: usize) {

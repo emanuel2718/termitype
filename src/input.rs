@@ -2,6 +2,7 @@ use crate::{
     config::ModeType,
     constants::{BACKSPACE_CHAR, DEFAULT_LINE_COUNT},
     menu::{self, MenuAction, MenuState},
+    modal::{build_modal, ModalContext},
     termi::Termi,
     theme::Theme,
     tracker::Status,
@@ -20,6 +21,15 @@ pub enum Action {
     TypeCharacter(char),
     Backspace,
     Menu(MenuInputAction),
+    Modal(ModalInputAction),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ModalInputAction {
+    TypeChar(char),
+    Backspace,
+    Confirm,
+    Close,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,12 +65,16 @@ impl InputHandler {
         }
     }
 
-    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, _is_debug: bool) -> Action {
+    pub fn handle_input(&mut self, key: KeyEvent, menu: &MenuState, modal_active: bool) -> Action {
         let last_key_cache = self.last_key;
         self.last_key = Some(key.code);
 
         if self.is_quit_sequence(&key) {
             return Action::Quit;
+        }
+
+        if modal_active {
+            return self.handle_modal_input(key);
         }
 
         if self.is_restart_sequence(&key.code, &last_key_cache) {
@@ -99,6 +113,16 @@ impl InputHandler {
                     Action::TypeCharacter(c)
                 }
             }
+            _ => Action::None,
+        }
+    }
+
+    fn handle_modal_input(&mut self, key: KeyEvent) -> Action {
+        match key.code {
+            KeyCode::Esc => Action::Modal(ModalInputAction::Close),
+            KeyCode::Enter => Action::Modal(ModalInputAction::Confirm),
+            KeyCode::Backspace => Action::Modal(ModalInputAction::Backspace),
+            KeyCode::Char(c) => Action::Modal(ModalInputAction::TypeChar(c)),
             _ => Action::None,
         }
     }
@@ -234,6 +258,63 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             Action::None
         }
         Action::Quit => Action::Quit,
+        Action::Modal(modal_action) => execute_modal_action(modal_action, state),
+    }
+}
+
+fn execute_modal_action(action: ModalInputAction, termi: &mut Termi) -> Action {
+    match action {
+        ModalInputAction::TypeChar(c) => {
+            if let Some(modal) = termi.modal.as_mut() {
+                modal.handle_char(c);
+            }
+            Action::None
+        }
+        ModalInputAction::Backspace => {
+            if let Some(modal) = termi.modal.as_mut() {
+                modal.handle_backspace();
+            }
+            Action::None
+        }
+        ModalInputAction::Close => {
+            if termi.modal.is_some() {
+                termi.modal = None;
+            }
+            Action::None
+        }
+        ModalInputAction::Confirm => {
+            // FIXME: this is repeated on termi.rs
+            if let Some(modal) = termi.modal.as_mut() {
+                if modal.buffer.error_msg.is_some() || modal.buffer.input.is_empty() {
+                    return Action::None;
+                }
+                match modal.ctx {
+                    ModalContext::CustomTime => {
+                        let value = modal.get_value().parse::<usize>();
+                        if value.is_err() {
+                            return Action::None;
+                        }
+                        termi
+                            .config
+                            .change_mode(ModeType::Time, Some(value.unwrap()));
+                        termi.start();
+                    }
+                    ModalContext::CustomWordCount => {
+                        let value = modal.get_value().parse::<usize>();
+                        if value.is_err() {
+                            return Action::None;
+                        }
+                        termi
+                            .config
+                            .change_mode(ModeType::Words, Some(value.unwrap()));
+                        termi.start();
+                    }
+                }
+            }
+            termi.modal = None;
+
+            Action::None
+        }
     }
 }
 
@@ -353,6 +434,9 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                         state.start();
                     }
                     MenuAction::Quit => return Action::Quit,
+                    MenuAction::OpenModal(ctx) => {
+                        state.modal = Some(build_modal(ctx));
+                    }
                     _ => {}
                 }
             }
