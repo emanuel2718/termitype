@@ -152,7 +152,7 @@ impl Termi {
                                 }
                                 self.config
                                     .change_mode(ModeType::Time, Some(value.unwrap()));
-                                self.start()
+                                self.start();
                             }
                             ModalContext::CustomWordCount => {
                                 let value = modal.get_value().parse::<usize>();
@@ -161,7 +161,7 @@ impl Termi {
                                 }
                                 self.config
                                     .change_mode(ModeType::Words, Some(value.unwrap()));
-                                self.start()
+                                self.start();
                             }
                         }
                     }

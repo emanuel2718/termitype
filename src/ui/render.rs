@@ -140,7 +140,9 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiC
     }
 
     if let Some(modal) = &termi.modal {
-        render_modal(frame, termi, area, modal.clone());
+        if let Some(region) = render_modal(frame, termi, area, modal.clone()) {
+            regions.add(region.0, region.1);
+        }
     }
 
     if let Some((widget, fps_area)) = fps_widget {
@@ -299,7 +301,12 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     }
 }
 
-fn render_modal(frame: &mut Frame, termi: &Termi, area: Rect, modal: InputModal) {
+fn render_modal(
+    frame: &mut Frame,
+    termi: &Termi,
+    area: Rect,
+    modal: InputModal,
+) -> Option<(Rect, TermiClickAction)> {
     let theme = termi.theme.clone();
     let modal_area = center_div(MODAL_WIDTH, MODAL_HEIGHT, area);
     frame.render_widget(Clear, modal_area);
@@ -380,6 +387,7 @@ fn render_modal(frame: &mut Frame, termi: &Termi, area: Rect, modal: InputModal)
         x: input_area.x + modal.buffer.cursor_pos as u16,
         y: input_area.y,
     });
+    Some((ok_area, TermiClickAction::ModalConfirm))
 }
 
 fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
