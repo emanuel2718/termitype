@@ -6,7 +6,7 @@ use crate::version::VERSION;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
-    OpenCustomModal(ModalContext),
+    OpenModal(ModalContext),
     OpenMainMenu,
     ToggleThemePicker,
     OpenLanguagePicker,
@@ -353,12 +353,12 @@ impl MenuState {
             // return the other actions to be handled by the caller
             action => {
                 // clear menu stack for non-toggle actions
-                if !matches!(
-                    action,
-                    MenuAction::ToggleFeature(_) | MenuAction::OpenCustomModal(_)
-                ) {
+                if !matches!(action, MenuAction::ToggleFeature(_)) {
                     self.menu_stack.clear();
                     self.clear_previews();
+                }
+                if matches!(action, MenuAction::OpenModal(_)) {
+                    self.close();
                 }
                 Some(action)
             }
@@ -510,7 +510,7 @@ impl MenuState {
         });
         items.push(MenuItem::new(
             "custom...",
-            MenuAction::OpenCustomModal(ModalContext::CustomTime),
+            MenuAction::OpenModal(ModalContext::CustomTime),
         ));
         items
     }
@@ -527,7 +527,7 @@ impl MenuState {
         });
         items.push(MenuItem::new(
             "custom...",
-            MenuAction::OpenCustomModal(ModalContext::CustomWordCount),
+            MenuAction::OpenModal(ModalContext::CustomWordCount),
         ));
         items
     }

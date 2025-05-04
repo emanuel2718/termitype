@@ -434,7 +434,7 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                         state.start();
                     }
                     MenuAction::Quit => return Action::Quit,
-                    MenuAction::OpenCustomModal(ctx) => {
+                    MenuAction::OpenModal(ctx) => {
                         state.modal = Some(build_modal(ctx));
                     }
                     _ => {}
