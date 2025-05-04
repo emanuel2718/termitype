@@ -1,10 +1,8 @@
 use crate::{
     config::ModeType,
-    constants::{
-        BACKSPACE_CHAR, DEFAULT_LINE_COUNT, DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT,
-    },
+    constants::{BACKSPACE_CHAR, DEFAULT_LINE_COUNT},
     menu::{self, MenuAction, MenuState},
-    modal::ModalContext,
+    modal::{build_modal, ModalContext},
     termi::Termi,
     theme::Theme,
     tracker::Status,
@@ -285,29 +283,36 @@ fn execute_modal_action(action: ModalInputAction, termi: &mut Termi) -> Action {
             Action::None
         }
         ModalInputAction::Confirm => {
-            // TODO: ensure that if we get here the input is valid.
+            // FIXME: this is repeated on termi.rs
             if let Some(modal) = termi.modal.as_mut() {
+                if modal.buffer.error_msg.is_some() || modal.buffer.input.is_empty() {
+                    return Action::None;
+                }
                 match modal.ctx {
-                    ModalContext::CustomTime => termi.config.change_mode(
-                        ModeType::Time,
-                        Some(
-                            modal
-                                .get_value()
-                                .parse::<usize>()
-                                .unwrap_or(DEFAULT_TIME_MODE_DURATION),
-                        ),
-                    ),
-                    ModalContext::CustomWordCount => termi.config.change_mode(
-                        ModeType::Words,
-                        Some(
-                            modal
-                                .get_value()
-                                .parse::<usize>()
-                                .unwrap_or(DEFAULT_WORD_MODE_COUNT),
-                        ),
-                    ),
+                    ModalContext::CustomTime => {
+                        let value = modal.get_value().parse::<usize>();
+                        if value.is_err() {
+                            return Action::None;
+                        }
+                        termi
+                            .config
+                            .change_mode(ModeType::Time, Some(value.unwrap()));
+                        termi.start();
+                    }
+                    ModalContext::CustomWordCount => {
+                        let value = modal.get_value().parse::<usize>();
+                        if value.is_err() {
+                            return Action::None;
+                        }
+                        termi
+                            .config
+                            .change_mode(ModeType::Words, Some(value.unwrap()));
+                        termi.start();
+                    }
                 }
             }
+            termi.modal = None;
+
             Action::None
         }
     }
@@ -429,6 +434,9 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                         state.start();
                     }
                     MenuAction::Quit => return Action::Quit,
+                    MenuAction::OpenCustomModal(ctx) => {
+                        state.modal = Some(build_modal(ctx));
+                    }
                     _ => {}
                 }
             }

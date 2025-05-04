@@ -48,6 +48,9 @@ pub const MIN_FOOTER_WIDTH: u16 = 55;
 
 pub const MENU_HEIGHT: u16 = 20;
 
+pub const MODAL_WIDTH: u16 = 50;
+pub const MODAL_HEIGHT: u16 = 11;
+
 // top area
 pub const HEADER_HEIGHT: u16 = 4;
 pub const ACTION_BAR_HEIGHT: u16 = 1;

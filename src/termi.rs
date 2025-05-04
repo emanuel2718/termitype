@@ -9,7 +9,8 @@ use crossterm::{
 };
 use ratatui::{layout::Position, prelude::Backend, Terminal};
 
-use crate::modal::{build_modal, InputModal};
+use crate::config::ModeType;
+use crate::modal::{build_modal, InputModal, ModalContext};
 use crate::{
     builder::Builder,
     config::Config,
@@ -137,7 +138,35 @@ impl Termi {
                         self.modal = Some(build_modal(ctx));
                     }
                 }
-                TermiClickAction::ModalConfirm => todo!(),
+                TermiClickAction::ModalConfirm => {
+                    // NOTE: this is repeated on input.rs
+                    if let Some(modal) = self.modal.as_mut() {
+                        if modal.buffer.error_msg.is_some() || modal.buffer.input.is_empty() {
+                            return;
+                        }
+                        match modal.ctx {
+                            ModalContext::CustomTime => {
+                                let value = modal.get_value().parse::<usize>();
+                                if value.is_err() {
+                                    return;
+                                }
+                                self.config
+                                    .change_mode(ModeType::Time, Some(value.unwrap()));
+                                self.start()
+                            }
+                            ModalContext::CustomWordCount => {
+                                let value = modal.get_value().parse::<usize>();
+                                if value.is_err() {
+                                    return;
+                                }
+                                self.config
+                                    .change_mode(ModeType::Words, Some(value.unwrap()));
+                                self.start()
+                            }
+                        }
+                    }
+                    self.modal = None;
+                }
             }
         }
     }

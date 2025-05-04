@@ -509,7 +509,7 @@ impl MenuState {
             }
         });
         items.push(MenuItem::new(
-            "Custom...",
+            "custom...",
             MenuAction::OpenCustomModal(ModalContext::CustomTime),
         ));
         items
@@ -526,7 +526,7 @@ impl MenuState {
             }
         });
         items.push(MenuItem::new(
-            "Custom...",
+            "custom...",
             MenuAction::OpenCustomModal(ModalContext::CustomWordCount),
         ));
         items

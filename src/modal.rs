@@ -11,12 +11,12 @@ pub enum ModalContext {
 
 #[derive(Debug, Clone)]
 pub struct InputBuffer {
-    input: String,
-    cursor_pos: usize,
-    is_numeric: bool,
-    error_msg: Option<String>,
-    min_value: u16,
-    max_value: u16,
+    pub input: String,
+    pub cursor_pos: usize,
+    pub is_numeric: bool,
+    pub error_msg: Option<String>,
+    pub min_value: u16,
+    pub max_value: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -48,16 +48,16 @@ impl Default for InputModal {
 impl InputModal {
     pub fn new(
         ctx: ModalContext,
-        title: String,
-        description: String,
+        title: &str,
+        description: &str,
         is_numeric: bool,
         min: u16,
         max: u16,
     ) -> Self {
         Self {
             ctx,
-            title,
-            description,
+            title: title.to_string(),
+            description: description.to_string(),
             buffer: InputBuffer {
                 input: String::new(),
                 is_numeric,
@@ -72,7 +72,6 @@ impl InputModal {
     pub fn handle_char(&mut self, c: char) {
         let is_numeric = self.buffer.is_numeric;
         if (is_numeric && c.is_ascii_digit()) || (!is_numeric && c.is_alphabetic()) {
-            println!("Registering char: {c}");
             self.buffer.input.insert(self.buffer.cursor_pos, c);
             self.buffer.cursor_pos += 1;
             self.validate_input();
@@ -100,13 +99,12 @@ impl InputModal {
         if self.buffer.is_numeric {
             match self.buffer.input.parse::<u64>() {
                 Ok(value) => {
-                    let min_msg =
-                        Some(format!("Value must be at least: {}", self.buffer.min_value));
-                    let max_msg = Some(format!("Value must not exceed: {}", self.buffer.max_value));
+                    let min_msg = format!("Value must be at least: {}", self.buffer.min_value);
+                    let max_msg = format!("Value must not exceed: {}", self.buffer.max_value);
                     if value < self.buffer.min_value as u64 {
-                        self.buffer.error_msg = min_msg;
+                        self.buffer.error_msg = Some(min_msg);
                     } else if value > self.buffer.max_value as u64 {
-                        self.buffer.error_msg = max_msg;
+                        self.buffer.error_msg = Some(max_msg);
                     } else {
                         self.buffer.error_msg = None;
                     }
@@ -119,18 +117,19 @@ impl InputModal {
             let input_len = self.buffer.input.len();
             let min_len = self.buffer.min_value as usize;
             let max_len = self.buffer.max_value as usize;
-            let min_msg = Some(format!("Input must be at least {}", min_len));
-            let max_msg = Some(format!("Input must not exceed {}", max_len));
+            let min_msg = format!("Input must be at least {}", min_len);
+            let max_msg = format!("Input must not exceed {}", max_len);
             if input_len < min_len {
-                self.buffer.error_msg = min_msg;
+                self.buffer.error_msg = Some(min_msg);
             } else if input_len > max_len {
-                self.buffer.error_msg = max_msg;
+                self.buffer.error_msg = Some(max_msg);
             } else {
                 self.buffer.error_msg = None;
             }
         }
     }
 }
+
 pub fn build_modal(ctx: ModalContext) -> InputModal {
     match ctx {
         ModalContext::CustomTime => InputModal {
@@ -138,7 +137,7 @@ pub fn build_modal(ctx: ModalContext) -> InputModal {
             title: "Custom Time".to_string(),
             description: "Enter desired test duration (seconds)".to_string(),
             buffer: InputBuffer {
-                input: "".to_string(),
+                input: String::new(),
                 cursor_pos: 0,
                 is_numeric: true,
                 error_msg: None,
@@ -151,7 +150,7 @@ pub fn build_modal(ctx: ModalContext) -> InputModal {
             title: "Custom Word Count".to_string(),
             description: "Enter desired word count".to_string(),
             buffer: InputBuffer {
-                input: "".to_string(),
+                input: String::new(),
                 cursor_pos: 0,
                 is_numeric: true,
                 error_msg: None,
