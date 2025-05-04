@@ -70,6 +70,11 @@ impl InputModal {
     }
 
     pub fn handle_char(&mut self, c: char) {
+        // stop input from growing for ever. stop when we have eerror
+        if self.buffer.error_msg.is_some() && !self.buffer.input.is_empty() {
+            return;
+        }
+
         let is_numeric = self.buffer.is_numeric;
         if (is_numeric && c.is_ascii_digit()) || (!is_numeric && c.is_alphabetic()) {
             self.buffer.input.insert(self.buffer.cursor_pos, c);
@@ -225,6 +230,29 @@ mod tests {
         modal.handle_char('e'); // now the input should be `eee` exceeding max
         assert!(modal.buffer.error_msg.is_some());
     }
+
+    #[test]
+    fn test_dont_accept_input_on_error() {
+        let is_numeric = true;
+        let mut modal = create_custom_modal(is_numeric, 1, 2);
+        assert!(modal.buffer.input.is_empty());
+
+        assert!(modal.buffer.error_msg.is_none());
+        modal.handle_char('1');
+        assert!(!modal.buffer.input.is_empty());
+
+        modal.handle_char('2');
+        assert!(modal.buffer.input.len() == 2);
+        modal.handle_char('3');
+        assert!(modal.buffer.input.len() == 2);
+
+        modal.handle_backspace();
+        modal.handle_backspace();
+        modal.handle_backspace();
+        modal.handle_char('1');
+        assert!(modal.buffer.input.len() == 1);
+    }
+
     #[test]
     fn test_backspace() {
         let is_numeric = false;

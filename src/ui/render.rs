@@ -28,6 +28,7 @@ use super::{
     layout::create_layout,
     utils::{calculate_word_positions, center_div, WordPosition},
 };
+use crate::modal::ModalContext;
 
 #[derive(Debug, Default)]
 pub struct TermiClickableRegions {
@@ -358,10 +359,28 @@ fn render_modal(
     let input_area = layout[3];
     let input_style = Style::default().fg(theme.fg());
     let cursor_style = Style::default().fg(theme.cursor_text()).bg(theme.cursor());
+    let suffix_style = Style::default()
+        .fg(theme.muted())
+        .add_modifier(Modifier::DIM);
+
+    let suffix = match modal.ctx {
+        ModalContext::CustomTime => " second(s)",
+        ModalContext::CustomWordCount => " word(s)",
+    };
+
+    let input_text = &modal.buffer.input;
+    let cursor_pos = modal.buffer.cursor_pos;
+
+    let display_text_width = (input_text.len() + 1 + suffix.len()) as u16;
+    let padding = (input_area.width.saturating_sub(display_text_width)) / 2;
+    let padding_span = Span::raw(" ".repeat(padding as usize));
+
     let input_spans = vec![
-        Span::styled(&modal.buffer.input[..modal.buffer.cursor_pos], input_style),
+        padding_span,
+        Span::styled(&input_text[..cursor_pos], input_style),
         Span::styled(" ", cursor_style),
-        Span::styled(&modal.buffer.input[modal.buffer.cursor_pos..], input_style),
+        Span::styled(&input_text[cursor_pos..], input_style),
+        Span::styled(suffix, suffix_style),
     ];
 
     let input_field = Paragraph::new(Line::from(input_spans));
@@ -383,10 +402,6 @@ fn render_modal(
         .alignment(Alignment::Center);
     frame.render_widget(ok_button, ok_area);
 
-    frame.set_cursor_position(Position {
-        x: input_area.x + modal.buffer.cursor_pos as u16,
-        y: input_area.y,
-    });
     Some((ok_area, TermiClickAction::ModalConfirm))
 }
 
