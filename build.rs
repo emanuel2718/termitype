@@ -3,9 +3,9 @@ use sha2::{Digest, Sha256};
 use std::{fs, io::Read, path::Path};
 use tar::Archive;
 
-const THEME_URL: &str = "https://github.com/mbadolato/iTerm2-Color-Schemes/archive/0e23daf59234fc892cba949562d7bf69204594bb.tar.gz";
-const THEME_PATH: &str = "iTerm2-Color-Schemes-0e23daf59234fc892cba949562d7bf69204594bb/ghostty";
-const EXPECTED_HASH: &str = "2acc06085a83d5338192f6aab517053a6f7a4db22a86a5043a0d6ed727bf7f4b";
+const THEME_URL: &str = "https://github.com/mbadolato/iTerm2-Color-Schemes/archive/1e4957e65005908993250f8f07be3f70e805195e.tar.gz";
+const THEME_PATH: &str = "iTerm2-Color-Schemes-1e4957e65005908993250f8f07be3f70e805195e/ghostty";
+const EXPECTED_HASH: &str = "c690e2b57a59add53f11c80bc86e06d1c1224f8af8daf8b2f832402e6cb6b101";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=build.rs");

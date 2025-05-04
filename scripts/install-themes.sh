@@ -2,7 +2,8 @@
 set -euo pipefail
 
 THEME_REPO="https://github.com/mbadolato/iTerm2-Color-Schemes"
-COMMIT_SHA="0e23daf59234fc892cba949562d7bf69204594bb"
+# COMMIT_SHA="0e23daf59234fc892cba949562d7bf69204594bb"
+COMMIT_SHA="1e4957e65005908993250f8f07be3f70e805195e"
 ARCHIVE_URL="$THEME_REPO/archive/$COMMIT_SHA.tar.gz"
 ARCHIVE_NAME="iTerm2-Color-Schemes-$COMMIT_SHA"
 TARGET_DIR="assets/themes"
