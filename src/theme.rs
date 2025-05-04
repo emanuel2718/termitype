@@ -91,20 +91,60 @@ impl Theme {
         theme.color_support = color_support;
         theme
     }
+
     /// Detects the terminal's color support level
-    fn detect_color_support() -> ColorSupport {
-        if let Ok(colors) = std::env::var("COLORTERM") {
-            match colors.as_str() {
-                "truecolor" | "24bit" => ColorSupport::TrueColor,
-                "256color" => ColorSupport::Extended,
-                _ => ColorSupport::Basic,
+    pub fn detect_color_support() -> ColorSupport {
+        // $COLORTERM
+        if let Ok(colorterm) = std::env::var("COLORTERM") {
+            match colorterm.to_lowercase().as_str() {
+                "truecolor" | "24bit" => return ColorSupport::TrueColor,
+                // NOTE: don't assume Basic support yet.
+                _ => {}
             }
-        } else {
-            ColorSupport::Basic
         }
+
+        // known problematic terminal overrides. this might be dumb but good enough for now
+        if cfg!(target_os = "macos") {
+            if let Ok(term_program) = std::env::var("TERM_PROGRAM") {
+                match term_program.as_str() {
+                    // MacOS Terminal.app blatanly lies about 256color support and do not really supports it
+                    "Apple_Terminal" => return ColorSupport::Basic,
+                    _ => {}
+                }
+            }
+        }
+
+        // TODO: spin up termitype on a windows VM and check
+
+        // $TERM
+        if let Ok(term) = std::env::var("TERM") {
+            let target = term.to_lowercase();
+
+            if target.contains("truecolor") {
+                return ColorSupport::TrueColor;
+            }
+
+            // known terminals that support truecolor
+            if matches!(target.as_str(), "alacritty" | "kitty" | "wezterm") {
+                return ColorSupport::TrueColor;
+            }
+
+            if target.contains("256color") {
+                return ColorSupport::Extended;
+            }
+
+            if target.starts_with("screen") || target.starts_with("tmux") {
+                return ColorSupport::Extended;
+            }
+        }
+
+        // use fallback theme, at this point I don't know if theres something else we can do
+        ColorSupport::Basic
     }
 
     fn fallback_theme() -> Self {
+        // TODO: detect system color (dark/light) and show a respective fallback theme.
+        //      could use: https://crates.io/crates/terminal-light
         // TODO: must notice the user somehow that we are defaulting to "default" theme
         // if Self::detect_color_support() > ColorSupport::Extended {
         //     return Self::default();
@@ -114,14 +154,14 @@ impl Theme {
             colors: [
                 Color::Black,       // Background
                 Color::White,       // Foreground
-                Color::DarkGray,    // Muted
-                Color::Yellow,      // Accent
-                Color::Cyan,        // Highlight
-                Color::LightGreen,  // Success
+                Color::Gray,        // Muted
+                Color::Cyan,        // Accent
+                Color::LightGreen,  // Highlight
+                Color::Green,       // Success
                 Color::Red,         // Error
                 Color::LightYellow, // Warning
                 Color::DarkGray,    // Border
-                Color::LightBlue,   // Cursor
+                Color::White,       // Cursor
                 Color::Black,       // CursorText
                 Color::DarkGray,    // SelectionBg
                 Color::White,       // SelectionFg
@@ -459,13 +499,16 @@ mod tests {
 
     #[test]
     fn test_supports_themes() {
-        assert_eq!(ColorSupport::Basic.supports_themes(), false);
-        assert_eq!(ColorSupport::Extended.supports_themes(), true);
-        assert_eq!(ColorSupport::TrueColor.supports_themes(), true);
+        assert!(!ColorSupport::Basic.supports_themes());
+        assert!(ColorSupport::Extended.supports_themes());
+        assert!(ColorSupport::TrueColor.supports_themes());
     }
 
     #[test]
     fn test_detect_color_support() {
+        env::remove_var("TERM");
+        env::remove_var("TERM_PROGRAM");
+
         env::set_var("COLORTERM", "truecolor");
         assert_eq!(Theme::detect_color_support(), ColorSupport::TrueColor);
 
@@ -473,15 +516,26 @@ mod tests {
         assert_eq!(Theme::detect_color_support(), ColorSupport::TrueColor);
 
         env::set_var("COLORTERM", "256color");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::Extended);
+        assert_eq!(Theme::detect_color_support(), ColorSupport::Basic);
 
-        // fallback
         env::set_var("COLORTERM", "other");
         assert_eq!(Theme::detect_color_support(), ColorSupport::Basic);
 
-        // no $COLORTERM found
         env::remove_var("COLORTERM");
         assert_eq!(Theme::detect_color_support(), ColorSupport::Basic);
+
+        env::remove_var("COLORTERM");
+        env::set_var("TERM", "xterm-256color");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::Extended);
+
+        env::set_var("TERM", "screen-256color");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::Extended);
+
+        env::set_var("TERM", "tmux-256color");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::Extended);
+
+        env::set_var("TERM", "alacritty");
+        assert_eq!(Theme::detect_color_support(), ColorSupport::TrueColor);
     }
 
     #[test]

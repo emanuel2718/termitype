@@ -39,6 +39,7 @@ pub struct MenuItem {
     pub has_submenu: bool,
     pub is_active: bool,
     pub is_toggleable: bool,
+    pub is_disabled: bool,
 }
 
 impl MenuItem {
@@ -49,6 +50,7 @@ impl MenuItem {
             is_active: false,
             has_submenu: false,
             is_toggleable: false,
+            is_disabled: false,
         }
     }
 
@@ -60,6 +62,11 @@ impl MenuItem {
 
     pub fn submenufy(mut self) -> Self {
         self.has_submenu = true;
+        self
+    }
+
+    pub fn disabled(mut self, is_disabled: bool) -> Self {
+        self.is_disabled = is_disabled;
         self
     }
 }
@@ -285,14 +292,16 @@ impl MenuState {
                 None
             }
             MenuAction::ToggleThemePicker => {
-                let mut menu = Menu::new(Self::build_theme_picker());
-                if let Some(index) = Self::get_label_index(
-                    menu.items(),
-                    config.theme.as_deref().unwrap_or(DEFAULT_THEME),
-                ) {
-                    menu.select(index);
+                if config.term_has_color_support() {
+                    let mut menu = Menu::new(Self::build_theme_picker());
+                    if let Some(index) = Self::get_label_index(
+                        menu.items(),
+                        config.theme.as_deref().unwrap_or(DEFAULT_THEME),
+                    ) {
+                        menu.select(index);
+                    }
+                    self.menu_stack.push(menu);
                 }
-                self.menu_stack.push(menu);
                 None
             }
             MenuAction::OpenLanguagePicker => {
@@ -416,7 +425,9 @@ impl MenuState {
             MenuItem::new("Time...", MenuAction::OpenTimePicker).submenufy(),
             MenuItem::new("Words...", MenuAction::OpenWordsPicker).submenufy(),
             MenuItem::new("Language...", MenuAction::OpenLanguagePicker).submenufy(),
-            MenuItem::new("Theme...", MenuAction::ToggleThemePicker).submenufy(),
+            MenuItem::new("Theme...", MenuAction::ToggleThemePicker)
+                .submenufy()
+                .disabled(!config.term_has_color_support()),
             MenuItem::new("Cursor...", MenuAction::OpenCursorPicker).submenufy(),
             MenuItem::new("Visible Lines...", MenuAction::OpenVisibleLines).submenufy(),
             MenuItem::new("About...", MenuAction::OpenAbout).submenufy(),
@@ -683,6 +694,7 @@ impl MenuState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
 
     fn create_test_menu() -> MenuState {
         MenuState::new()
@@ -707,6 +719,10 @@ mod tests {
 
     #[test]
     fn test_theme_picker() {
+        // must set this manually as the theme sub-menu is disbabled if the
+        // current environment doesn't have proper color support and without it
+        // this test will fail in CI for example.
+        env::set_var("COLORTERM", "truecolor");
         let mut menu = create_test_menu();
         menu.toggle(&Config::default());
 

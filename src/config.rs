@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use clap::{ArgGroup, Parser};
 use crossterm::cursor::SetCursorStyle;
 
@@ -8,7 +10,7 @@ use crate::{
         DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT,
     },
     persistence::Persistence,
-    theme::ThemeLoader,
+    theme::{ColorSupport, Theme, ThemeLoader},
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -457,6 +459,16 @@ impl Config {
         let val = !self.use_symbols;
         self.use_symbols = val;
         self.set_symbols(val);
+    }
+
+    /// Chesk if the current terminal has proper color support. Mainly used for themes
+    pub fn term_has_color_support(&self) -> bool {
+        let color_support = self
+            .color_mode
+            .as_deref()
+            .and_then(|s| ColorSupport::from_str(s).ok())
+            .unwrap_or_else(Theme::detect_color_support);
+        color_support.supports_themes()
     }
 }
 
