@@ -44,7 +44,7 @@ cargo run -- --debug
 ## Installation
 
 ```sh
-cargo install termitype@0.0.1-alpha.25
+cargo install termitype@0.0.1-alpha.26
 ```
 
 ### TODO
