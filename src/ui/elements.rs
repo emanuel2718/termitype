@@ -488,7 +488,9 @@ pub fn build_menu_items(
                         .map(|&(i, item)| {
                             let is_selected = i == menu.selected_index();
                             let item_style = Style::default()
-                                .fg(if item.is_toggleable {
+                                .fg(if item.is_disabled {
+                                    theme.muted()
+                                } else if item.is_toggleable {
                                     if item.is_active {
                                         theme.highlight()
                                     } else {
@@ -499,7 +501,7 @@ pub fn build_menu_items(
                                 } else {
                                     theme.fg()
                                 })
-                                .bg(if is_selected {
+                                .bg(if is_selected && !item.is_disabled {
                                     theme.selection_bg()
                                 } else {
                                     theme.bg()
