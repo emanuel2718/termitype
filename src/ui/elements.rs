@@ -92,25 +92,33 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
         ModalContext::CustomWordCount
     };
 
+    let supports_unicode = theme.supports_unicode();
+    let punct_symbol = if supports_unicode { "@" } else { "P" };
+    let num_symbol = if supports_unicode { "#" } else { "N" };
+    let symbol_symbol = if supports_unicode { "@" } else { "S" };
+    let divider = if supports_unicode { "│" } else { "|" };
+    let time_symbol = if supports_unicode { "⏱" } else { "T" };
+    let custom_symbol = if supports_unicode { "⚙" } else { "<c>" };
+
     let elements = vec![
         TermiElement::new(
-            "@ punctuation ",
+            format!("{} punctuation ", punct_symbol),
             config.use_punctuation,
             Some(TermiClickAction::TogglePunctuation),
         ),
         TermiElement::new(
-            "# numbers ",
+            format!("{} numbers ", num_symbol),
             config.use_numbers,
             Some(TermiClickAction::ToggleNumbers),
         ),
         TermiElement::new(
-            "@ symbols ",
+            format!("{} symbols ", symbol_symbol),
             config.use_symbols,
             Some(TermiClickAction::ToggleSymbols),
         ),
-        TermiElement::new("│ ", false, None),
+        TermiElement::new(format!("{} ", divider), false, None),
         TermiElement::new(
-            "⏱ time ",
+            format!("{} time ", time_symbol),
             is_time_mode,
             Some(TermiClickAction::SwitchMode(ModeType::Time)),
         ),
@@ -119,7 +127,7 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
             !is_time_mode,
             Some(TermiClickAction::SwitchMode(ModeType::Words)),
         ),
-        TermiElement::new("│ ", false, None),
+        TermiElement::new(format!("{} ", divider), false, None),
         TermiElement::new(
             format!("{} ", presets[0]),
             current_value as u64 == presets[0],
@@ -141,7 +149,7 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
             Some(TermiClickAction::SetModeValue(presets[3] as usize)),
         ),
         TermiElement::new(
-            "custom ",
+            format!("{} ", custom_symbol),
             is_custom_active,
             Some(TermiClickAction::ToggleModal(custom_ctx)),
         ),
@@ -335,14 +343,24 @@ pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
 
 pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
     let theme = termi.get_current_theme().clone();
+
+    // Check if terminal supports Unicode
+    let supports_unicode = theme.supports_unicode();
+    let info_symbol = if supports_unicode { "ⓘ" } else { "i" };
+    let divider = if supports_unicode {
+        DOUBLE_VERTICAL_LEFT
+    } else {
+        "|"
+    };
+
     let elements = vec![
         TermiElement::new(
-            "ⓘ about",
+            format!("{} about", info_symbol),
             termi.menu.is_about_menu(),
             Some(TermiClickAction::ToggleAbout),
         ),
         TermiElement::new(" ", false, None),
-        TermiElement::new(DOUBLE_VERTICAL_LEFT, false, None),
+        TermiElement::new(divider, false, None),
         TermiElement::new(" ", false, None),
         TermiElement::new(
             termi.theme.id.clone(),
@@ -350,7 +368,7 @@ pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
             Some(TermiClickAction::ToggleThemePicker),
         ),
         TermiElement::new(" ", false, None),
-        TermiElement::new(DOUBLE_VERTICAL_LEFT, false, None),
+        TermiElement::new(divider, false, None),
         TermiElement::new(" ", false, None),
         TermiElement::new(VERSION, false, None),
     ];
@@ -421,12 +439,18 @@ pub fn create_menu_footer_text(termi: &Termi) -> Line {
     let theme = termi.get_current_theme();
     let menu_state = &termi.menu;
 
+    // Check if terminal supports Unicode
+    let supports_unicode = theme.supports_unicode();
+    let cursor_symbol = if supports_unicode { "█" } else { "_" };
+    let up_arrow = if supports_unicode { "↑" } else { "^" };
+    let down_arrow = if supports_unicode { "↓" } else { "v" };
+
     if menu_state.is_searching() {
         Line::from(vec![
             Span::styled("Filter: ", Style::default().fg(theme.accent())),
             Span::styled(menu_state.search_query(), Style::default().fg(theme.fg())),
             Span::styled(
-                "█",
+                cursor_symbol,
                 Style::default()
                     .fg(theme.cursor())
                     .add_modifier(Modifier::RAPID_BLINK),
@@ -434,9 +458,15 @@ pub fn create_menu_footer_text(termi: &Termi) -> Line {
         ])
     } else {
         Line::from(vec![
-            Span::styled("[↑/k]", Style::default().fg(theme.highlight())),
+            Span::styled(
+                format!("[{}/k]", up_arrow),
+                Style::default().fg(theme.highlight()),
+            ),
             Span::styled(" up ", Style::default().fg(theme.muted())),
-            Span::styled("[↓/j]", Style::default().fg(theme.highlight())),
+            Span::styled(
+                format!("[{}/j]", down_arrow),
+                Style::default().fg(theme.highlight()),
+            ),
             Span::styled(" down ", Style::default().fg(theme.muted())),
             Span::styled("[/]", Style::default().fg(theme.highlight())),
             Span::styled(" search ", Style::default().fg(theme.muted())),

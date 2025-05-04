@@ -54,7 +54,14 @@ pub enum ColorSupport {
 }
 
 impl ColorSupport {
+    /// Checks if the terminal likely supports theming
     pub fn supports_themes(self) -> bool {
+        self >= ColorSupport::Extended
+    }
+
+    /// Checks if the terminal likely supports Unicode characters
+    pub fn supports_unicode(self) -> bool {
+        // TODO: improve this detection. This heuristic will probably be wrong in some cases
         self >= ColorSupport::Extended
     }
 }
@@ -236,6 +243,11 @@ impl Theme {
 
     pub fn selection_fg(&self) -> Color {
         self.colors[ThemeColor::SelectionFg as usize]
+    }
+
+    /// Checks if the terminal likely supports Unicode characters
+    pub fn supports_unicode(&self) -> bool {
+        self.color_support.supports_unicode()
     }
 }
 
