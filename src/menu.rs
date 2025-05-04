@@ -694,6 +694,7 @@ impl MenuState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
 
     fn create_test_menu() -> MenuState {
         MenuState::new()
@@ -718,6 +719,10 @@ mod tests {
 
     #[test]
     fn test_theme_picker() {
+        // must set this manually as the theme sub-menu is disbabled if the
+        // current environment doesn't have proper color support and without it
+        // this test will fail in CI for example.
+        env::set_var("COLORTERM", "truecolor");
         let mut menu = create_test_menu();
         menu.toggle(&Config::default());
 
