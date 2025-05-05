@@ -45,8 +45,9 @@ pub const SMALL_TERM_HEIGHT: u16 = 20;
 pub const MIN_TERM_HEIGHT: u16 = 15;
 pub const MIN_TERM_WIDTH: u16 = 35;
 pub const MIN_FOOTER_WIDTH: u16 = 55;
+pub const MIN_THEME_PREVIEW_WIDTH: u16 = 50;
 
-pub const MENU_HEIGHT: u16 = 20;
+pub const MENU_HEIGHT: u16 = 25;
 
 pub const MODAL_WIDTH: u16 = 50;
 pub const MODAL_HEIGHT: u16 = 11;

@@ -93,7 +93,7 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
     };
 
     let supports_unicode = theme.supports_unicode();
-    let punct_symbol = if supports_unicode { "@" } else { "P" };
+    let punct_symbol = if supports_unicode { "!" } else { "P" };
     let num_symbol = if supports_unicode { "#" } else { "N" };
     let symbol_symbol = if supports_unicode { "@" } else { "S" };
     let divider = if supports_unicode { "│" } else { "|" };

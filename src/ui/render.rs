@@ -11,9 +11,10 @@ use ratatui::{
 
 use crate::{
     config::Mode,
-    constants::{ASCII_ART, MENU_HEIGHT, MODAL_HEIGHT, MODAL_WIDTH},
+    constants::{ASCII_ART, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH},
     modal::InputModal,
     termi::Termi,
+    theme::Theme,
     tracker::Status,
     version::VERSION,
 };
@@ -26,7 +27,7 @@ use super::{
         create_show_menu_button, create_styled_typing_text, TermiElement,
     },
     layout::create_layout,
-    utils::{calculate_word_positions, center_div, WordPosition},
+    utils::{apply_horizontal_centering, calculate_word_positions, center_div, WordPosition},
 };
 use crate::modal::ModalContext;
 
@@ -46,6 +47,7 @@ impl TermiClickableRegions {
 /// Main entry point for the rendering
 pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiClickableRegions {
     let mut regions = TermiClickableRegions::default();
+
     let theme = termi.get_current_theme();
     let area = frame.area();
 
@@ -280,9 +282,11 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     //     - typing/idle
     //     - menu is closed OR menu do not overlap typing area
     //          * this is to be able to preview the cursor if we can see the typing area
+    //     - not in theme menu (to prevent cursor flicker when scrolling through themes)
     let show_cursor = (termi.tracker.status == Status::Idle
         || termi.tracker.status == Status::Typing)
-        && (!termi.menu.is_open() || !estimated_menu_area.intersects(area));
+        && (!termi.menu.is_open() || !estimated_menu_area.intersects(area))
+        && !termi.menu.is_theme_menu();
 
     if show_cursor {
         let offset = cursor_idx.saturating_sub(current_word_pos.start_index);
@@ -409,17 +413,57 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
     let theme = termi.get_current_theme();
     let menu_state = &termi.menu;
 
-    let menu_height = MENU_HEIGHT.min(area.height);
+    let is_theme_picker = menu_state.is_theme_menu();
 
-    let menu_area = Rect {
-        x: area.x,
-        y: area.y,
-        width: area.width,
-        height: menu_height,
+    let small_width = area.width <= MIN_THEME_PREVIEW_WIDTH;
+    let menu_height = if is_theme_picker && small_width {
+        area.height
+    } else {
+        MENU_HEIGHT.min(area.height)
     };
+
+    // split the menu in two folds if we are in the theme picker
+    let (menu_area, preview_area) = if is_theme_picker && !small_width {
+        let split = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+            .split(Rect {
+                x: area.x,
+                y: area.y,
+                width: area.width,
+                height: menu_height,
+            });
+        (split[0], Some(split[1]))
+    } else if is_theme_picker && small_width {
+        let split = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+            .split(Rect {
+                x: area.x,
+                y: area.y,
+                width: area.width,
+                height: menu_height,
+            });
+        (split[0], Some(split[1]))
+    } else {
+        (
+            Rect {
+                x: area.x,
+                y: area.y,
+                width: area.width,
+                height: menu_height,
+            },
+            None,
+        )
+    };
+
     let menu_area = menu_area.intersection(area);
 
     frame.render_widget(Clear, menu_area);
+
+    if let Some(preview) = preview_area {
+        frame.render_widget(Clear, preview);
+    }
 
     let menu_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -499,6 +543,11 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
 
             frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
         }
+
+        // theme preview
+        if let Some(preview_area) = preview_area {
+            render_theme_preview(frame, termi, preview_area);
+        }
     }
 
     let footer_text = create_menu_footer_text(termi);
@@ -513,6 +562,178 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
         .alignment(Alignment::Left);
 
     frame.render_widget(footer_widget, footer_area);
+}
+
+fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
+    let theme_name = termi
+        .preview_theme_name
+        .as_deref()
+        .unwrap_or(&termi.theme.id);
+
+    let preview_theme = Theme::from_name(theme_name);
+    let theme = &preview_theme;
+
+    // First render a clear background to ensure no color bleed
+    frame.render_widget(Clear, area);
+
+    let preview_block = Block::default()
+        .title(format!(" Theme: {} ", theme_name))
+        .title_alignment(Alignment::Left)
+        .bg(termi.theme.bg())
+        .borders(ratatui::widgets::Borders::ALL)
+        .border_style(Style::default().fg(theme.border()));
+
+    let inner_area = preview_block.inner(area);
+    frame.render_widget(preview_block, area);
+
+    frame.render_widget(
+        Block::default().style(Style::default().bg(theme.bg())),
+        inner_area,
+    );
+
+    let preview_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // header + spacing
+            Constraint::Length(1), // action bar
+            Constraint::Length(3), // space
+            Constraint::Min(5),    // teset text
+            Constraint::Length(6), // command bar
+        ])
+        .split(inner_area);
+
+    // ------ TITLE ------
+    let header = Paragraph::new("termitype")
+        .style(Style::default().fg(theme.highlight()))
+        .alignment(Alignment::Left);
+
+    frame.render_widget(header, preview_layout[0]);
+
+    // ------ ACTION BAR ------
+    let action_bar_centered = apply_horizontal_centering(preview_layout[1], 80);
+    let action_bar = Line::from(vec![
+        Span::styled("! ", Style::default().fg(theme.highlight())),
+        Span::styled("punctuation ", Style::default().fg(theme.highlight())),
+        Span::styled("# ", Style::default().fg(theme.muted())),
+        Span::styled("numbers ", Style::default().fg(theme.muted())),
+        Span::styled("@ ", Style::default().fg(theme.muted())),
+        Span::styled("symbols ", Style::default().fg(theme.muted())),
+    ])
+    .alignment(Alignment::Center);
+    frame.render_widget(Paragraph::new(action_bar), action_bar_centered);
+
+    // ------ TYPING AREA ------
+    let typing_area_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(2), // space + lang
+            Constraint::Min(3),    // text
+        ])
+        .split(preview_layout[3]);
+
+    let lang_centered = apply_horizontal_centering(typing_area_layout[0], 80);
+    let lang_indicator = Paragraph::new("english")
+        .style(
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        )
+        .alignment(Alignment::Center);
+    frame.render_widget(lang_indicator, lang_centered);
+
+    let typing_area_centered = apply_horizontal_centering(typing_area_layout[1], 80);
+    let sample_text = vec![
+        Line::from(vec![
+            Span::styled("terminal ", Style::default().fg(theme.success())),
+            Span::styled("typing ", Style::default().fg(theme.error())),
+            Span::styled(
+                "at its finest",
+                Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
+            ),
+        ]),
+        Line::from(vec![Span::styled(
+            "brought to you by termitype!",
+            Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
+        )]),
+    ];
+
+    frame.render_widget(
+        Paragraph::new(sample_text).alignment(Alignment::Center),
+        typing_area_centered,
+    );
+
+    // ------ COMMAND BAR ------
+    let bottom_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // space
+            Constraint::Length(1), // space
+            Constraint::Length(1), // command bar
+            Constraint::Length(2), // space
+        ])
+        .split(preview_layout[4]);
+
+    let command_bar_centered = apply_horizontal_centering(bottom_layout[2], 80);
+    let command_bar = vec![
+        Line::from(vec![
+            Span::styled(
+                "tab",
+                Style::default()
+                    .fg(theme.highlight())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" + ", Style::default().fg(theme.muted())),
+            Span::styled(
+                "enter",
+                Style::default()
+                    .fg(theme.highlight())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" - restart test", Style::default().fg(theme.muted())),
+            // Span::styled(
+            //     "esc",
+            //     Style::default()
+            //         .fg(theme.highlight())
+            //         .add_modifier(Modifier::BOLD),
+            // ),
+            // Span::styled(" - menu", Style::default().fg(theme.muted())),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "ctrl",
+                Style::default()
+                    .fg(theme.highlight())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" + ", Style::default().fg(theme.muted())),
+            Span::styled(
+                "c",
+                Style::default()
+                    .fg(theme.highlight())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" or ", Style::default().fg(theme.muted())),
+            Span::styled(
+                "ctrl",
+                Style::default()
+                    .fg(theme.highlight())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" + ", Style::default().fg(theme.muted())),
+            Span::styled(
+                "z",
+                Style::default()
+                    .fg(theme.highlight())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" - to quit", Style::default().fg(theme.muted())),
+        ]),
+    ];
+
+    frame.render_widget(
+        Paragraph::new(command_bar).alignment(Alignment::Center),
+        command_bar_centered,
+    );
 }
 
 pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {

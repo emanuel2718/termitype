@@ -1,4 +1,4 @@
-use ratatui::layout::Rect;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 // TODO: maybe having this file is not entirely needed question mark
 #[derive(Debug, Clone, Copy)]
@@ -19,6 +19,18 @@ pub fn center_div(width: u16, height: u16, parent: Rect) -> Rect {
     let y = parent.y + (parent_h.saturating_sub(height)) / 2;
 
     Rect::new(x, y, width, height)
+}
+
+pub fn apply_horizontal_centering(area: Rect, width_percent: u16) -> Rect {
+    let padding = (100 - width_percent) / 2;
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(padding),
+            Constraint::Percentage(width_percent),
+            Constraint::Percentage(padding),
+        ])
+        .split(area)[1]
 }
 
 pub fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosition> {

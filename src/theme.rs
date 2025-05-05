@@ -1,7 +1,9 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
     str::FromStr,
     sync::{OnceLock, RwLock},
+    thread_local,
 };
 
 use ratatui::style::Color;
@@ -70,6 +72,11 @@ impl Default for Theme {
     fn default() -> Self {
         Self::new(&Config::default())
     }
+}
+
+thread_local! {
+    static THEME_CACHE: RefCell<HashMap<String, Theme>> = RefCell::new(HashMap::new());
+    static CACHE_INITIALIZED: RefCell<bool> = const { RefCell::new(false) };
 }
 
 impl Theme {
@@ -183,13 +190,77 @@ impl Theme {
         theme
     }
 
-    pub fn from_name(name: &str) -> Self {
+    fn ensure_all_themes_loaded() {
+        let initialized = CACHE_INITIALIZED.with(|init| *init.borrow());
+        if initialized {
+            return;
+        }
+
         let loader = ThemeLoader::init();
-        loader
-            .write()
+        let themes = available_themes();
+
+        // loader
+        for theme_name in themes {
+            let needs_loading = {
+                let read_guard = loader.read().unwrap();
+                !read_guard.themes.contains_key(theme_name)
+            };
+
+            if needs_loading {
+                loader.write().unwrap().load_theme(theme_name).ok();
+            }
+        }
+
+        // thread-local cache
+        {
+            let read_guard = loader.read().unwrap();
+            THEME_CACHE.with(|cache| {
+                let mut cache = cache.borrow_mut();
+                for (name, theme) in &read_guard.themes {
+                    cache.insert(name.clone(), theme.clone());
+                }
+            });
+        }
+
+        // Mark it as good
+        CACHE_INITIALIZED.with(|init| {
+            *init.borrow_mut() = true;
+        });
+    }
+
+    pub fn from_name(name: &str) -> Self {
+        Self::ensure_all_themes_loaded();
+
+        // cache hit from thread-local
+        let cached_theme = THEME_CACHE.with(|cache| {
+            let cache = cache.borrow();
+            cache.get(name).cloned()
+        });
+
+        if let Some(theme) = cached_theme {
+            return theme;
+        }
+
+        // fallback to loader (this should not happen often)
+        let loader = ThemeLoader::init();
+        let theme = loader
+            .read()
             .unwrap()
-            .get_theme(name)
-            .unwrap_or_else(|_| Self::fallback_theme())
+            .themes
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| {
+                let fallback = Self::fallback_theme();
+
+                THEME_CACHE.with(|cache| {
+                    let mut cache = cache.borrow_mut();
+                    cache.insert(name.to_string(), fallback.clone());
+                });
+
+                fallback
+            });
+
+        theme
     }
 
     // ************** COLORS_FN **************
@@ -267,11 +338,17 @@ impl std::str::FromStr for ColorSupport {
 impl ThemeLoader {
     fn init() -> &'static RwLock<ThemeLoader> {
         THEME_LOADER.get_or_init(|| {
-            let mut loader = Self {
+            let loader = Self {
                 themes: HashMap::new(),
             };
-            // pre-load default theme
-            loader.load_theme(DEFAULT_THEME).ok();
+
+            // NOTE: is this tradeoff worth it? The increase in startup time is neglible
+            //       but we should consider the memory overheaad of having all the themes
+            //       loaded when in reality not everytime the user will use the theme previewer.
+            // for theme_name in assets::list_themes() {
+            //     loader.load_theme(&theme_name).ok();
+            // }
+
             RwLock::new(loader)
         })
     }
@@ -301,15 +378,17 @@ impl ThemeLoader {
 
     /// Get a theme by name, loading it if necessary
     pub fn get_theme(&mut self, theme_name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
-        let is_cached = self.themes.contains_key(theme_name);
-
-        if !is_cached && self.load_theme(theme_name).is_err() {
-            return Ok(Theme::fallback_theme());
+        if let Some(theme) = self.themes.get(theme_name) {
+            return Ok(theme.clone());
         }
 
-        let theme = self.themes.get(theme_name).unwrap().clone();
+        self.load_theme(theme_name)?;
 
-        Ok(theme)
+        Ok(self
+            .themes
+            .get(theme_name)
+            .cloned()
+            .unwrap_or_else(Theme::fallback_theme))
     }
 
     fn parse_theme_file(content: &str, name: &str) -> Result<Theme, Box<dyn std::error::Error>> {

@@ -689,6 +689,16 @@ impl MenuState {
             })
             .unwrap_or(false)
     }
+
+    pub fn is_theme_menu(&self) -> bool {
+        if !self.is_open() {
+            return false;
+        }
+        self.current_menu()
+            .and_then(|menu| menu.selected_item())
+            .map(|item| matches!(item.action, MenuAction::ChangeTheme(_)))
+            .unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
