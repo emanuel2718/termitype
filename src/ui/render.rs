@@ -426,7 +426,7 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
     let (menu_area, preview_area) = if is_theme_picker && !small_width {
         let split = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(Rect {
                 x: area.x,
                 y: area.y,
@@ -437,7 +437,7 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
     } else if is_theme_picker && small_width {
         let split = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
             .split(Rect {
                 x: area.x,
                 y: area.y,
