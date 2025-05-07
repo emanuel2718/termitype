@@ -573,12 +573,9 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
     let preview_theme = Theme::from_name(theme_name);
     let theme = &preview_theme;
 
-    // First render a clear background to ensure no color bleed
     frame.render_widget(Clear, area);
 
     let preview_block = Block::default()
-        .title(format!(" Theme: {} ", theme_name))
-        .title_alignment(Alignment::Left)
         .bg(termi.theme.bg())
         .borders(ratatui::widgets::Borders::ALL)
         .border_style(Style::default().fg(theme.border()));
@@ -594,20 +591,39 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
     let preview_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // header + spacing
+            Constraint::Length(4), // header + spacing
             Constraint::Length(1), // action bar
             Constraint::Length(3), // space
-            Constraint::Min(5),    // teset text
+            Constraint::Min(5),    // test text
             Constraint::Length(6), // command bar
         ])
         .split(inner_area);
 
     // ------ TITLE ------
-    let header = Paragraph::new("termitype")
+    let header_area = preview_layout[0];
+    let header_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // p-top
+            Constraint::Length(1), // title
+            Constraint::Min(0),    // space
+        ])
+        .split(header_area);
+
+    let title_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(2), // p-left
+            Constraint::Min(10),   // title
+            Constraint::Min(0),    // space
+        ])
+        .split(header_layout[1]);
+
+    let header = Paragraph::new(theme_name)
         .style(Style::default().fg(theme.highlight()))
         .alignment(Alignment::Left);
 
-    frame.render_widget(header, preview_layout[0]);
+    frame.render_widget(header, title_layout[1]);
 
     // ------ ACTION BAR ------
     let action_bar_centered = apply_horizontal_centering(preview_layout[1], 80);
