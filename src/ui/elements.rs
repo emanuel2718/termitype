@@ -535,6 +535,11 @@ pub fn build_menu_items(
                                     theme.selection_bg()
                                 } else {
                                     theme.bg()
+                                })
+                                .add_modifier(if item.is_toggleable && !item.is_active {
+                                    Modifier::DIM
+                                } else {
+                                    Modifier::empty()
                                 });
 
                             ListItem::new(Line::from(vec![

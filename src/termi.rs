@@ -134,7 +134,7 @@ impl Termi {
                         .toggle_from_footer(&self.config, MenuAction::OpenAbout);
                 }
                 TermiClickAction::ToggleMenu => {
-                    self.menu.toggle(&self.config);
+                    self.menu.toggle_menu(&self.config);
                 }
                 TermiClickAction::ToggleModal(ctx) => {
                     if self.modal.is_some() {
