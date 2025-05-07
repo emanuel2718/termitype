@@ -2,7 +2,8 @@ use crate::{
     constants::{
         ACTION_BAR_HEIGHT, BOTTOM_AREA_HEIGHT, BOTTOM_PADDING, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT,
         HEADER_HEIGHT, MIN_FOOTER_WIDTH, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, MODE_BAR_HEIGHT,
-        SMALL_TERM_HEIGHT, SMALL_TERM_WIDTH, TOP_AREA_HEIGHT, TYPING_AREA_WIDTH_PERCENT,
+        SMALL_RESULTS_HEIGHT, SMALL_RESULTS_WIDTH, SMALL_TERM_HEIGHT, SMALL_TERM_WIDTH,
+        TOP_AREA_HEIGHT, TYPING_AREA_WIDTH_PERCENT,
     },
     termi::Termi,
 };
@@ -43,6 +44,10 @@ impl TermiLayout {
 
     pub fn show_footer(&self) -> bool {
         self.area.width >= MIN_FOOTER_WIDTH
+    }
+
+    pub fn show_small_results(&self) -> bool {
+        self.area.width < SMALL_RESULTS_WIDTH || self.area.height < SMALL_RESULTS_HEIGHT
     }
 }
 

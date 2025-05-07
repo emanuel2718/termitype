@@ -108,7 +108,7 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiC
             render_typing_area(frame, termi, layout.section.typing_area);
         }
         Status::Completed => {
-            render_results_screen(frame, termi, area, layout.is_small());
+            render_results_screen(frame, termi, area, layout.show_small_results());
         }
         _ => {
             let mode_bar = create_mode_bar(termi);
