@@ -473,7 +473,7 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
     let footer_area = menu_layout[1];
 
     if let Some(current_menu) = menu_state.current_menu() {
-        let max_visible = content_area.height.saturating_sub(2) as usize;
+        let max_visible = content_area.height.saturating_sub(3) as usize;
 
         let filtered_items_for_scroll_calc: Vec<_> = if menu_state.is_searching() {
             current_menu.filtered_items(menu_state.search_query())
