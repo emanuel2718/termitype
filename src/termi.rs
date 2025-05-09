@@ -115,12 +115,12 @@ impl Termi {
                     if self.theme.color_support.supports_themes() {
                         if self.menu.get_preview_theme().is_some() {
                             self.menu.close();
-                            self.preview_theme = None;
+                            self.update_preview_theme();
                         } else {
                             self.menu
                                 .toggle_from_footer(&self.config, MenuAction::ToggleThemePicker);
-                            self.menu.preview_selected();
                             self.update_preview_theme();
+                            self.menu.preview_selected();
                         }
                     }
                 }

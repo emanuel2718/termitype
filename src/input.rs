@@ -257,7 +257,12 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             state.tracker.backspace();
             Action::None
         }
-        Action::Menu(menu_action) => execute_menu_action(menu_action, state),
+        Action::Menu(menu_action) => {
+            // NOTE: This might be wasteful
+            state.update_preview_theme();
+            state.update_preview_cursor();
+            execute_menu_action(menu_action, state)
+        }
         Action::Start => {
             state.start();
             Action::None
@@ -340,11 +345,11 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                 if let Some(menu) = state.menu.current_menu() {
                     if let Some(item) = menu.selected_item() {
                         if let menu::MenuAction::ChangeTheme(_) = &item.action {
-                            state.menu.preview_selected();
                             state.update_preview_theme();
-                        } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
                             state.menu.preview_selected();
+                        } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
                             state.update_preview_cursor();
+                            state.menu.preview_selected();
                         }
                     }
                 }
@@ -373,8 +378,8 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                 return Action::None;
             }
             state.menu.back();
-            if state.preview_theme.is_some() {
-                state.preview_theme = None;
+            if !state.menu.is_open() {
+                state.tracker.resume();
             }
             if state.preview_cursor.is_some() {
                 state.preview_cursor = None;
@@ -383,9 +388,6 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                     state.config.resolve_current_cursor_style()
                 )
                 .ok();
-            }
-            if !state.menu.is_open() {
-                state.tracker.resume();
             }
             Action::None
         }
