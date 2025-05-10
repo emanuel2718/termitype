@@ -1,6 +1,6 @@
 use crate::{
     config::{Mode, ModeType},
-    constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH},
+    constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH},
     modal::ModalContext,
     termi::Termi,
     theme::Theme,
@@ -216,19 +216,20 @@ pub fn create_typing_area(
     width: usize,
     scroll_offset: usize,
     visible_line_count: usize,
-) -> Text {
-    let word_positions = calculate_word_positions(&termi.words, width);
-    let theme = &termi.theme;
+) -> (Text, usize) {
+    let typing_width = width.min(TYPING_AREA_WIDTH as usize);
+    let word_positions = calculate_word_positions(&termi.words, typing_width);
+    let theme = termi.get_current_theme();
 
     if word_positions.is_empty() {
-        return Text::raw("");
+        return (Text::raw(""), typing_width);
     }
 
     let words: Vec<&str> = termi.words.split_whitespace().collect();
     let mut lines: Vec<Line> = Vec::with_capacity(visible_line_count);
 
     let first_line_to_render = scroll_offset;
-    let last_line_to_render = scroll_offset + visible_line_count.saturating_sub(1);
+    let last_line_to_render = scroll_offset + visible_line_count;
 
     let mut current_line_spans = Vec::new();
     let mut current_line_idx_in_full_text = 0;
@@ -240,7 +241,7 @@ pub fn create_typing_area(
     for (i, pos) in word_positions.iter().enumerate() {
         if pos.line > current_line_idx_in_full_text {
             if current_line_idx_in_full_text >= first_line_to_render
-                && current_line_idx_in_full_text <= last_line_to_render
+                && current_line_idx_in_full_text < last_line_to_render
             {
                 if !current_line_spans.is_empty() {
                     lines.push(Line::from(std::mem::take(&mut current_line_spans)));
@@ -255,7 +256,7 @@ pub fn create_typing_area(
             }
         }
 
-        if pos.line >= first_line_to_render && pos.line <= last_line_to_render {
+        if pos.line >= first_line_to_render && pos.line < last_line_to_render {
             let word = words.get(i).unwrap_or(&"");
             let word_start = pos.start_index;
             let word_len = word.chars().count();
@@ -295,13 +296,14 @@ pub fn create_typing_area(
 
     if !current_line_spans.is_empty()
         && current_line_idx_in_full_text >= first_line_to_render
-        && current_line_idx_in_full_text <= last_line_to_render
+        && current_line_idx_in_full_text < last_line_to_render
         && lines.len() < visible_line_count
     {
         lines.push(Line::from(current_line_spans));
     }
 
-    Text::from(lines)
+    let text = Text::from(lines);
+    (text, typing_width)
 }
 
 pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {

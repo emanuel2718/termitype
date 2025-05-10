@@ -20,6 +20,9 @@ include = [
 [profile.release]
 debug = true
 
+[profile.dev]
+debug = true
+
 [dependencies]
 anyhow = "1.0.97"
 clap = { version = "4.5.31", features = ["derive"] }

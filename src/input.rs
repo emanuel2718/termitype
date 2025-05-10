@@ -257,12 +257,7 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             state.tracker.backspace();
             Action::None
         }
-        Action::Menu(menu_action) => {
-            // NOTE: This might be wasteful
-            state.update_preview_theme();
-            state.update_preview_cursor();
-            execute_menu_action(menu_action, state)
-        }
+        Action::Menu(menu_action) => execute_menu_action(menu_action, state),
         Action::Start => {
             state.start();
             Action::None
@@ -389,6 +384,7 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                 )
                 .ok();
             }
+            state.clear_previews();
             Action::None
         }
         MenuInputAction::Select => {
@@ -505,6 +501,7 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
         MenuInputAction::Close => {
             state.tracker.resume();
             state.menu.close();
+            state.clear_previews();
             Action::None
         }
     }

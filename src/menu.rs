@@ -1,5 +1,6 @@
 use crate::config::{Config, ModeType};
 use crate::constants::DEFAULT_THEME;
+use crate::log_debug;
 use crate::modal::ModalContext;
 use crate::utils::fuzzy_match;
 use crate::version::VERSION;
@@ -250,8 +251,8 @@ impl MenuState {
     pub fn toggle_menu(&mut self, config: &Config) {
         if self.is_open() {
             self.menu_stack.clear();
-            self.clear_previews();
             self.opened_from_footer = false;
+            self.clear_previews();
         } else {
             self.execute(MenuAction::OpenMainMenu, config);
             self.opened_from_footer = false;
@@ -264,22 +265,22 @@ impl MenuState {
 
     pub fn back(&mut self) {
         if self.should_close_completely() {
-            self.menu_stack.clear();
-            self.clear_previews();
-            self.opened_from_footer = false;
+            self.close();
         } else if self.menu_depth() > 1 {
             self.menu_stack.pop();
         } else {
-            self.menu_stack.clear();
-            self.opened_from_footer = false;
+            self.close();
         }
         self.clear_previews();
     }
 
     pub fn close(&mut self) {
         self.menu_stack.clear();
-        self.clear_previews();
         self.opened_from_footer = false;
+        self.clear_previews();
+        if self.is_searching() {
+            self.cancel_search()
+        }
     }
 
     fn get_label_index(items: &[MenuItem], label: &str) -> Option<usize> {
@@ -358,35 +359,42 @@ impl MenuState {
                 None
             }
             MenuAction::Back => {
-                self.back();
+                if self.is_searching() {
+                    self.cancel_search();
+                } else {
+                    self.back();
+                }
                 None
             }
             MenuAction::Close => {
-                self.menu_stack.clear();
-                self.clear_previews();
+                self.close();
                 None
             }
             MenuAction::None => None,
-            // return the other actions to be handled by the caller
-            action => {
-                // clear menu stack for non-toggle actions
-                if !matches!(action, MenuAction::ToggleFeature(_)) {
-                    self.menu_stack.clear();
-                    self.clear_previews();
-                }
-                if matches!(action, MenuAction::OpenModal(_)) {
-                    self.close();
-                }
+            // NOTE: on all of this actions we want to close
+            action @ (MenuAction::OpenModal(_)
+            | MenuAction::ChangeMode(_)
+            | MenuAction::ChangeTime(_)
+            | MenuAction::ChangeWordCount(_)
+            | MenuAction::ChangeTheme(_)
+            | MenuAction::ChangeCursorStyle(_)
+            | MenuAction::ChangeLanguage(_)
+            | MenuAction::ChangeVisibleLineCount(_)
+            | MenuAction::Restart
+            | MenuAction::Quit) => {
+                self.close();
+                Some(action)
+            }
+            action @ MenuAction::ToggleFeature(_) => {
+                // NOTE: we don't close the menu on feature toggles. We do them in place
                 Some(action)
             }
         }
     }
 
-    fn clear_previews(&mut self) {
+    pub fn clear_previews(&mut self) {
         self.preview_theme = None;
         self.preview_cursor = None;
-        self.is_searching = false;
-        self.search_query.clear();
     }
 
     pub fn preview_selected(&mut self) {
@@ -674,7 +682,6 @@ impl MenuState {
     pub fn toggle_from_footer(&mut self, config: &Config, action: MenuAction) {
         if self.is_open() {
             self.menu_stack.clear();
-            self.clear_previews();
         } else {
             self.execute(action, config);
             self.opened_from_footer = true;
