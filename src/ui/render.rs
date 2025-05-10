@@ -284,10 +284,12 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     //     - typing/idle
     //     - menu is closed OR menu do not overlap typing area
     //          * this is to be able to preview the cursor if we can see the typing area
+    //     - not rendering a modal
     //     - not in theme menu (to prevent cursor flicker when scrolling through themes)
     let show_cursor = (termi.tracker.status == Status::Idle
         || termi.tracker.status == Status::Typing)
         && (!termi.menu.is_open() || !estimated_menu_area.intersects(area))
+        && termi.modal.is_none()
         && !termi.menu.is_theme_menu();
 
     if show_cursor {
