@@ -17,6 +17,7 @@ pub enum Action {
     None,
     Start,
     TogglePause,
+    ToggleThemePicker,
     Quit,
     TypeCharacter(char),
     Backspace,
@@ -98,6 +99,9 @@ impl InputHandler {
                 self.pending_accent = None;
                 Action::TogglePause
             }
+            // NOTE: ctrl-t is a nice keybind for toggling the theme picker but it might
+            // conflict with users keybinds (i.e terminal tabs on linux for those that use them)
+            // (KeyCode::Char('t'), KeyModifiers::CONTROL) => Action::ToggleThemePicker,
             (KeyCode::Char(c), KeyModifiers::ALT) => {
                 self.pending_accent = Some(c);
                 Action::None
@@ -150,12 +154,16 @@ impl InputHandler {
             };
         }
 
-        match key.code {
-            KeyCode::Char('/') => Action::Menu(MenuInputAction::StartSearch),
-            KeyCode::Char('k') | KeyCode::Up => Action::Menu(MenuInputAction::Up),
-            KeyCode::Char('j') | KeyCode::Down => Action::Menu(MenuInputAction::Down),
-            KeyCode::Enter => Action::Menu(MenuInputAction::Select),
-            KeyCode::Char('l') => {
+        match (key.code, key.modifiers) {
+            (KeyCode::Char('/'), KeyModifiers::NONE) => Action::Menu(MenuInputAction::StartSearch),
+            (KeyCode::Char('k') | KeyCode::Up, KeyModifiers::NONE) => {
+                Action::Menu(MenuInputAction::Up)
+            }
+            (KeyCode::Char('j') | KeyCode::Down, KeyModifiers::NONE) => {
+                Action::Menu(MenuInputAction::Down)
+            }
+            (KeyCode::Enter, KeyModifiers::NONE) => Action::Menu(MenuInputAction::Select),
+            (KeyCode::Char('l'), KeyModifiers::NONE) => {
                 if let Some(menu) = menu.current_menu() {
                     if menu.current_item().has_submenu {
                         return Action::Menu(MenuInputAction::Select);
@@ -163,7 +171,7 @@ impl InputHandler {
                 }
                 Action::None
             }
-            KeyCode::Char(' ') => {
+            (KeyCode::Char(' '), KeyModifiers::NONE) => {
                 if let Some(menu) = menu.current_menu() {
                     if menu.current_item().is_toggleable {
                         return Action::Menu(MenuInputAction::Select);
@@ -171,7 +179,7 @@ impl InputHandler {
                 }
                 Action::None
             }
-            KeyCode::Char('h') | KeyCode::Esc => {
+            (KeyCode::Char('h') | KeyCode::Esc, KeyModifiers::NONE) => {
                 if menu.should_close_completely() {
                     Action::Menu(MenuInputAction::Close)
                 } else if menu.menu_depth() > 1 {
@@ -180,6 +188,9 @@ impl InputHandler {
                     Action::Menu(MenuInputAction::Close)
                 }
             }
+            // NOTE: ctrl-t is a nice keybind for toggling the theme picker but it might
+            // conflict with users keybinds (i.e terminal tabs on linux for those that use them)
+            // (KeyCode::Char('t'), KeyModifiers::CONTROL) => Action::ToggleThemePicker,
             _ => Action::None,
         }
     }
@@ -231,6 +242,10 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             state.tracker.type_char(char);
             Action::None
         }
+        Action::ToggleThemePicker => {
+            state.menu.toggle_theme_picker(&state.config);
+            Action::None
+        }
         Action::Backspace => {
             if state.menu.is_open() {
                 return Action::None;
@@ -242,7 +257,12 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             state.tracker.backspace();
             Action::None
         }
-        Action::Menu(menu_action) => execute_menu_action(menu_action, state),
+        Action::Menu(menu_action) => {
+            // NOTE: This might be wasteful
+            state.update_preview_theme();
+            state.update_preview_cursor();
+            execute_menu_action(menu_action, state)
+        }
         Action::Start => {
             state.start();
             Action::None
@@ -253,7 +273,7 @@ pub fn process_action(action: Action, state: &mut Termi) -> Action {
             } else {
                 state.tracker.pause();
             }
-            state.menu.toggle(&state.config);
+            state.menu.toggle_menu(&state.config);
 
             Action::None
         }
@@ -325,11 +345,11 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                 if let Some(menu) = state.menu.current_menu() {
                     if let Some(item) = menu.selected_item() {
                         if let menu::MenuAction::ChangeTheme(_) = &item.action {
-                            state.menu.preview_selected();
                             state.update_preview_theme();
-                        } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
                             state.menu.preview_selected();
+                        } else if let crate::menu::MenuAction::ChangeCursorStyle(_) = &item.action {
                             state.update_preview_cursor();
+                            state.menu.preview_selected();
                         }
                     }
                 }
@@ -358,8 +378,8 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                 return Action::None;
             }
             state.menu.back();
-            if state.preview_theme.is_some() {
-                state.preview_theme = None;
+            if !state.menu.is_open() {
+                state.tracker.resume();
             }
             if state.preview_cursor.is_some() {
                 state.preview_cursor = None;
@@ -368,9 +388,6 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                     state.config.resolve_current_cursor_style()
                 )
                 .ok();
-            }
-            if !state.menu.is_open() {
-                state.tracker.resume();
             }
             Action::None
         }

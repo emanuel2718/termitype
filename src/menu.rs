@@ -247,7 +247,7 @@ impl MenuState {
         self.menu_stack.last_mut()
     }
 
-    pub fn toggle(&mut self, config: &Config) {
+    pub fn toggle_menu(&mut self, config: &Config) {
         if self.is_open() {
             self.menu_stack.clear();
             self.clear_previews();
@@ -256,6 +256,10 @@ impl MenuState {
             self.execute(MenuAction::OpenMainMenu, config);
             self.opened_from_footer = false;
         }
+    }
+
+    pub fn toggle_theme_picker(&mut self, config: &Config) {
+        self.execute(MenuAction::ToggleThemePicker, config);
     }
 
     pub fn back(&mut self) {
@@ -292,6 +296,10 @@ impl MenuState {
                 None
             }
             MenuAction::ToggleThemePicker => {
+                if self.is_theme_menu() {
+                    self.close();
+                    return None;
+                }
                 if config.term_has_color_support() {
                     let mut menu = Menu::new(Self::build_theme_picker());
                     if let Some(index) = Self::get_label_index(
@@ -689,6 +697,16 @@ impl MenuState {
             })
             .unwrap_or(false)
     }
+
+    pub fn is_theme_menu(&self) -> bool {
+        if !self.is_open() {
+            return false;
+        }
+        self.current_menu()
+            .and_then(|menu| menu.selected_item())
+            .map(|item| matches!(item.action, MenuAction::ChangeTheme(_)))
+            .unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
@@ -703,7 +721,7 @@ mod tests {
     #[test]
     fn test_menu_navigation() {
         let mut menu = create_test_menu();
-        menu.toggle(&Config::default());
+        menu.toggle_menu(&Config::default());
         assert!(menu.is_open());
 
         assert!(menu.next_item());
@@ -724,7 +742,7 @@ mod tests {
         // this test will fail in CI for example.
         env::set_var("COLORTERM", "truecolor");
         let mut menu = create_test_menu();
-        menu.toggle(&Config::default());
+        menu.toggle_menu(&Config::default());
 
         let theme_index = if let Some(menu_ref) = menu.current_menu() {
             menu_ref
@@ -764,7 +782,7 @@ mod tests {
     fn test_toggle_features() {
         let mut menu = create_test_menu();
         let mut config = Config::default();
-        menu.toggle(&Config::default());
+        menu.toggle_menu(&Config::default());
         config.use_punctuation = true;
 
         menu.update_toggles(&config);
@@ -780,7 +798,7 @@ mod tests {
     #[test]
     fn test_search_functionality() {
         let mut menu = create_test_menu();
-        menu.toggle(&Config::default());
+        menu.toggle_menu(&Config::default());
         assert!(!menu.is_searching());
 
         // start search

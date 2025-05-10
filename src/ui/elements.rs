@@ -93,7 +93,7 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
     };
 
     let supports_unicode = theme.supports_unicode();
-    let punct_symbol = if supports_unicode { "@" } else { "P" };
+    let punct_symbol = if supports_unicode { "!" } else { "P" };
     let num_symbol = if supports_unicode { "#" } else { "N" };
     let symbol_symbol = if supports_unicode { "@" } else { "S" };
     let divider = if supports_unicode { "│" } else { "|" };
@@ -211,71 +211,97 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
     vec![element]
 }
 
-pub fn create_styled_typing_text<'a>(
-    termi: &'a Termi,
-    theme: &Theme,
-    width: Option<usize>,
-) -> Text<'a> {
-    let width = width.unwrap_or(100);
+pub fn create_typing_area(
+    termi: &Termi,
+    width: usize,
+    scroll_offset: usize,
+    visible_line_count: usize,
+) -> Text {
     let word_positions = calculate_word_positions(&termi.words, width);
+    let theme = &termi.theme;
+
+    if word_positions.is_empty() {
+        return Text::raw("");
+    }
 
     let words: Vec<&str> = termi.words.split_whitespace().collect();
-    let mut lines: Vec<Line> =
-        Vec::with_capacity(word_positions.last().map(|p| p.line + 1).unwrap_or(1));
-    let mut curr_line = 0;
-    let mut curr_line_spans = Vec::new();
+    let mut lines: Vec<Line> = Vec::with_capacity(visible_line_count);
+
+    let first_line_to_render = scroll_offset;
+    let last_line_to_render = scroll_offset + visible_line_count.saturating_sub(1);
+
+    let mut current_line_spans = Vec::new();
+    let mut current_line_idx_in_full_text = 0;
+
+    if let Some(first_pos) = word_positions.first() {
+        current_line_idx_in_full_text = first_pos.line;
+    }
 
     for (i, pos) in word_positions.iter().enumerate() {
-        if pos.line > curr_line {
-            lines.push(Line::from(std::mem::take(&mut curr_line_spans)));
-            curr_line = pos.line;
-        }
-
-        let word = words.get(i).unwrap_or(&"");
-        let word_start = pos.start_index;
-        let word_len = word.chars().count();
-
-        let cursor_pos = termi.tracker.cursor_position;
-        let is_word_wrong = termi.tracker.is_word_wrong(word_start);
-        let is_past_word = cursor_pos > word_start + word_len;
-        let should_underline_word =
-            is_word_wrong && is_past_word && theme.color_support.supports_themes();
-
-        for (char_i, c) in word.chars().enumerate() {
-            let char_idx = word_start + char_i;
-            let base_style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
-                Some(input) if input == c => Style::default().fg(theme.success()),
-                Some(_) => Style::default().fg(theme.error()),
-                None => Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
-            };
-
-            let style = if should_underline_word {
-                base_style
-                    .add_modifier(Modifier::UNDERLINED)
-                    .underline_color(theme.error())
+        if pos.line > current_line_idx_in_full_text {
+            if current_line_idx_in_full_text >= first_line_to_render
+                && current_line_idx_in_full_text <= last_line_to_render
+            {
+                if !current_line_spans.is_empty() {
+                    lines.push(Line::from(std::mem::take(&mut current_line_spans)));
+                }
             } else {
-                base_style
-            };
+                current_line_spans.clear();
+            }
+            current_line_idx_in_full_text = pos.line;
 
-            curr_line_spans.push(Span::styled(String::from(c), style));
+            if lines.len() >= visible_line_count {
+                break;
+            }
         }
 
-        if i < words.len() - 1 {
-            curr_line_spans.push(Span::raw(" "));
+        if pos.line >= first_line_to_render && pos.line <= last_line_to_render {
+            let word = words.get(i).unwrap_or(&"");
+            let word_start = pos.start_index;
+            let word_len = word.chars().count();
+
+            let cursor_pos = termi.tracker.cursor_position;
+            let is_word_wrong = termi.tracker.is_word_wrong(word_start);
+            let is_past_word = cursor_pos > word_start + word_len;
+            let should_underline_word =
+                is_word_wrong && is_past_word && theme.color_support.supports_themes();
+
+            for (char_i, c) in word.chars().enumerate() {
+                let char_idx = word_start + char_i;
+                let base_style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
+                    Some(input) if input == c => Style::default().fg(theme.success()),
+                    Some(_) => Style::default().fg(theme.error()),
+                    None => Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
+                };
+
+                let style = if should_underline_word {
+                    base_style
+                        .add_modifier(Modifier::UNDERLINED)
+                        .underline_color(theme.error())
+                } else {
+                    base_style
+                };
+                current_line_spans.push(Span::styled(String::from(c), style));
+            }
+            if i < words.len() - 1
+                && word_positions
+                    .get(i + 1)
+                    .is_some_and(|next_pos| next_pos.line == pos.line)
+            {
+                current_line_spans.push(Span::raw(" "));
+            }
         }
     }
 
-    if !curr_line_spans.is_empty() {
-        lines.push(Line::from(curr_line_spans));
+    if !current_line_spans.is_empty()
+        && current_line_idx_in_full_text >= first_line_to_render
+        && current_line_idx_in_full_text <= last_line_to_render
+        && lines.len() < visible_line_count
+    {
+        lines.push(Line::from(current_line_spans));
     }
 
     Text::from(lines)
-}
-
-pub fn create_typing_area(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme().clone();
-    let text = create_styled_typing_text(termi, &theme, None);
-    vec![TermiElement::new(text, false, None)]
 }
 
 pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
@@ -535,6 +561,11 @@ pub fn build_menu_items(
                                     theme.selection_bg()
                                 } else {
                                     theme.bg()
+                                })
+                                .add_modifier(if item.is_toggleable && !item.is_active {
+                                    Modifier::DIM
+                                } else {
+                                    Modifier::empty()
                                 });
 
                             ListItem::new(Line::from(vec![

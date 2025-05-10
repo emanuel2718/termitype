@@ -27,6 +27,7 @@ pub struct Termi {
     pub tracker: Tracker,
     pub theme: Theme,
     pub preview_theme: Option<Theme>,
+    pub preview_theme_name: Option<String>,
     pub preview_cursor: Option<SetCursorStyle>,
     pub builder: Builder,
     pub words: String,
@@ -69,6 +70,7 @@ impl Termi {
             tracker,
             theme,
             preview_theme: None,
+            preview_theme_name: None,
             preview_cursor: None,
             builder,
             words,
@@ -112,12 +114,12 @@ impl Termi {
                     if self.theme.color_support.supports_themes() {
                         if self.menu.get_preview_theme().is_some() {
                             self.menu.close();
-                            self.preview_theme = None;
+                            self.update_preview_theme();
                         } else {
                             self.menu
                                 .toggle_from_footer(&self.config, MenuAction::ToggleThemePicker);
-                            self.menu.preview_selected();
                             self.update_preview_theme();
+                            self.menu.preview_selected();
                         }
                     }
                 }
@@ -131,7 +133,7 @@ impl Termi {
                         .toggle_from_footer(&self.config, MenuAction::OpenAbout);
                 }
                 TermiClickAction::ToggleMenu => {
-                    self.menu.toggle(&self.config);
+                    self.menu.toggle_menu(&self.config);
                 }
                 TermiClickAction::ToggleModal(ctx) => {
                     if self.modal.is_some() {
@@ -176,6 +178,7 @@ impl Termi {
     pub fn start(&mut self) {
         let menu = self.menu.clone();
         let preview_theme = self.preview_theme.clone();
+        let preview_theme_name = self.preview_theme_name.clone();
         let preview_cursor = self.preview_cursor;
 
         if self.config.words.is_some() {
@@ -188,6 +191,7 @@ impl Termi {
 
         self.menu = menu;
         self.preview_theme = preview_theme;
+        self.preview_theme_name = preview_theme_name;
         self.preview_cursor = preview_cursor;
     }
 
@@ -197,16 +201,18 @@ impl Termi {
 
     pub fn update_preview_theme(&mut self) {
         if let Some(theme_name) = self.menu.get_preview_theme() {
+            self.preview_theme_name = Some(theme_name.clone());
+
             let needs_update = match &self.preview_theme {
                 None => true,
                 Some(current_theme) => current_theme.id != *theme_name,
             };
 
             if needs_update {
-                self.preview_theme = None;
                 self.preview_theme = Some(Theme::from_name(theme_name));
             }
         } else {
+            self.preview_theme_name = None;
             self.preview_theme = None;
         }
     }
