@@ -199,6 +199,11 @@ impl Termi {
         self.preview_theme.as_ref().unwrap_or(&self.theme)
     }
 
+    pub fn clear_previews(&mut self) {
+        self.preview_theme = None;
+        self.preview_cursor = None
+    }
+
     pub fn update_preview_theme(&mut self) {
         if let Some(theme_name) = self.menu.get_preview_theme() {
             self.preview_theme_name = Some(theme_name.clone());

@@ -3,7 +3,7 @@ use crate::{
         ACTION_BAR_HEIGHT, BOTTOM_AREA_HEIGHT, BOTTOM_PADDING, COMMAND_BAR_HEIGHT, FOOTER_HEIGHT,
         HEADER_HEIGHT, MIN_FOOTER_WIDTH, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, MODE_BAR_HEIGHT,
         SMALL_RESULTS_HEIGHT, SMALL_RESULTS_WIDTH, SMALL_TERM_HEIGHT, SMALL_TERM_WIDTH,
-        TOP_AREA_HEIGHT, TYPING_AREA_WIDTH_PERCENT,
+        TOP_AREA_HEIGHT, TYPING_AREA_WIDTH,
     },
     termi::Termi,
 };
@@ -98,7 +98,7 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         .split(top_area);
 
     let header_section = top_chunk[0];
-    let action_bar_section = apply_horizontal_centering(top_chunk[1], TYPING_AREA_WIDTH_PERCENT);
+    let action_bar_section = apply_horizontal_centering(top_chunk[1], TYPING_AREA_WIDTH);
 
     // ==== MIDDLE ====
     let mid_outer_chunk = Layout::default()
@@ -118,8 +118,8 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         ])
         .split(mid_outer_chunk);
 
-    let mode_bar_section = apply_horizontal_centering(mid_chunk[0], TYPING_AREA_WIDTH_PERCENT);
-    let typing_area_section = apply_horizontal_centering(mid_chunk[1], TYPING_AREA_WIDTH_PERCENT);
+    let mode_bar_section = apply_horizontal_centering(mid_chunk[0], TYPING_AREA_WIDTH);
+    let typing_area_section = apply_horizontal_centering(mid_chunk[1], TYPING_AREA_WIDTH);
 
     // ==== BOTTOM ====
     let bot_chunks = Layout::default()
@@ -131,8 +131,8 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         ])
         .split(bot_area);
 
-    let command_bar_section = apply_horizontal_centering(bot_chunks[0], TYPING_AREA_WIDTH_PERCENT);
-    let footer_section = apply_horizontal_centering(bot_chunks[2], TYPING_AREA_WIDTH_PERCENT);
+    let command_bar_section = apply_horizontal_centering(bot_chunks[0], TYPING_AREA_WIDTH);
+    let footer_section = apply_horizontal_centering(bot_chunks[2], TYPING_AREA_WIDTH);
 
     let section = TermiSection {
         header: header_section,

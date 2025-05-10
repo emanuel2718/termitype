@@ -11,7 +11,10 @@ use ratatui::{
 
 use crate::{
     config::Mode,
-    constants::{ASCII_ART, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH},
+    constants::{
+        ASCII_ART, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH,
+        TYPING_AREA_WIDTH,
+    },
     modal::InputModal,
     termi::Termi,
     tracker::Status,
@@ -26,7 +29,7 @@ use super::{
         create_show_menu_button, create_typing_area, TermiElement,
     },
     layout::create_layout,
-    utils::{apply_horizontal_centering, calculate_word_positions, center_div, WordPosition},
+    utils::{apply_horizontal_centering, calculate_word_positions, center_div},
 };
 use crate::modal::ModalContext;
 
@@ -103,7 +106,28 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiC
         Status::Typing => {
             let mode_bar = create_mode_bar(termi);
             render(frame, &mut regions, header, layout.section.header);
-            render(frame, &mut regions, mode_bar, layout.section.mode_bar);
+
+            let available_width = layout.section.typing_area.width as usize;
+
+            let typing_area_width = available_width.min(TYPING_AREA_WIDTH as usize);
+
+            let x_offset = layout
+                .section
+                .typing_area
+                .width
+                .saturating_sub(typing_area_width as u16)
+                / 2;
+
+            let x_pos = layout.section.typing_area.x + x_offset;
+
+            let mode_bar_rect = Rect {
+                x: x_pos,
+                y: layout.section.mode_bar.y,
+                width: typing_area_width as u16,
+                height: layout.section.mode_bar.height,
+            };
+
+            render(frame, &mut regions, mode_bar, mode_bar_rect);
             render_typing_area(frame, termi, layout.section.typing_area);
         }
         Status::Completed => {
@@ -228,25 +252,35 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
 
 fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     let available_width = area.width as usize;
-
-    let word_positions = calculate_word_positions(&termi.words, available_width);
-
+    let line_count_from_config = termi.config.visible_lines as usize;
     let cursor_idx = termi.tracker.cursor_position;
+
+    let effective_layout_width = available_width.min(TYPING_AREA_WIDTH as usize);
+    let word_positions = calculate_word_positions(&termi.words, effective_layout_width);
+
+    if word_positions.is_empty() {
+        // if we don't have words, `create_typing_area` will return empty text.
+        let (empty_text, _) = create_typing_area(termi, available_width, 0, line_count_from_config);
+
+        let area_width = effective_layout_width as u16;
+        let area_padding = area.width.saturating_sub(area_width) / 2;
+        let render_area = Rect {
+            x: area.x + area_padding,
+            y: area.y,
+            width: area_width,
+            height: area.height,
+        };
+        frame.render_widget(Paragraph::new(empty_text), render_area);
+        return;
+    }
 
     let current_word_pos = word_positions
         .iter()
         .filter(|pos| cursor_idx >= pos.start_index)
         .next_back()
-        .unwrap_or_else(|| {
-            word_positions.first().unwrap_or(&WordPosition {
-                start_index: 0,
-                line: 0,
-                col: 0,
-            })
-        });
+        .unwrap_or_else(|| word_positions.first().unwrap());
 
     let current_line = current_word_pos.line;
-    let line_count_from_config = termi.config.visible_lines as usize;
 
     let scroll_offset = if line_count_from_config <= 1 {
         current_line
@@ -259,7 +293,7 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         }
     };
 
-    let typing_text = create_typing_area(
+    let (typing_text, _) = create_typing_area(
         termi,
         available_width,
         scroll_offset,
@@ -268,10 +302,19 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
 
     let text_height = typing_text.height();
 
+    let area_width = effective_layout_width as u16;
+    let area_padding = area.width.saturating_sub(area_width) / 2;
+    let render_area = Rect {
+        x: area.x + area_padding,
+        y: area.y,
+        width: area_width,
+        height: area.height,
+    };
+
     let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
+    frame.render_widget(paragraph, render_area);
 
-    frame.render_widget(paragraph, area);
-
+    // Menu overlap check logic
     let menu_height = MENU_HEIGHT.min(frame.area().height);
     let estimated_menu_area = Rect {
         x: frame.area().x,
@@ -279,28 +322,22 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         width: frame.area().width,
         height: menu_height,
     };
-
-    // show cursor if:
-    //     - typing/idle
-    //     - menu is closed OR menu do not overlap typing area
-    //          * this is to be able to preview the cursor if we can see the typing area
-    //     - not rendering a modal
-    //     - not in theme menu (to prevent cursor flicker when scrolling through themes)
     let show_cursor = (termi.tracker.status == Status::Idle
         || termi.tracker.status == Status::Typing)
-        && (!termi.menu.is_open() || !estimated_menu_area.intersects(area))
+        && (!termi.menu.is_open() || !estimated_menu_area.intersects(render_area))
         && termi.modal.is_none()
         && !termi.menu.is_theme_menu();
 
     if show_cursor {
         let offset_x = cursor_idx.saturating_sub(current_word_pos.start_index);
-        let cursor_x = area.x + current_word_pos.col.saturating_add(offset_x) as u16;
-        let cursor_y = area.y + current_line.saturating_sub(scroll_offset) as u16;
+        let cursor_x = render_area.x + current_word_pos.col.saturating_add(offset_x) as u16;
+        let cursor_y = render_area.y + current_line.saturating_sub(scroll_offset) as u16;
 
-        if cursor_x >= area.left()
-            && cursor_x < area.right()
-            && cursor_y >= area.top()
-            && cursor_y < area.top() + (line_count_from_config.min(text_height) as u16)
+        // boundary check.
+        if cursor_x >= render_area.left()
+            && cursor_x < render_area.right()
+            && cursor_y >= render_area.top()
+            && cursor_y < render_area.top() + (line_count_from_config.min(text_height) as u16)
         {
             frame.set_cursor_position(Position {
                 x: cursor_x,

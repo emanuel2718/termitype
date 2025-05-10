@@ -62,7 +62,7 @@ pub const TOP_AREA_HEIGHT: u16 = HEADER_HEIGHT + ACTION_BAR_HEIGHT;
 
 // mid area
 pub const MODE_BAR_HEIGHT: u16 = 2;
-pub const TYPING_AREA_WIDTH_PERCENT: u16 = 80;
+pub const TYPING_AREA_WIDTH: u16 = 80;
 
 // bottom area
 pub const COMMAND_BAR_HEIGHT: u16 = 3;
