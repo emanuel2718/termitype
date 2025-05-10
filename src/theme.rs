@@ -424,7 +424,7 @@ impl ThemeLoader {
         colors[ThemeColor::Success as usize] = parse_color("palette2")?;
         colors[ThemeColor::Error as usize] = parse_color("palette1")?;
         colors[ThemeColor::Cursor as usize] = parse_color("cursor-color")?;
-        colors[ThemeColor::CursorText as usize] = parse_color("cursor-text")?;
+        colors[ThemeColor::CursorText as usize] = parse_color("palette0")?;
         colors[ThemeColor::SelectionBg as usize] = parse_color("selection-background")?;
         colors[ThemeColor::SelectionFg as usize] = parse_color("selection-foreground")?;
 
@@ -492,6 +492,7 @@ mod tests {
             cursor-text = #000000
             selection-background = #333333
             selection-foreground =  #ffffff
+            palette0 = #ff0000
             palette1 = #ff0000
             palette2 = #00ff00
             palette3 = #ffff00
@@ -521,6 +522,7 @@ mod tests {
             cursor-text = #000000
             selection-background = #333333
             selection-foreground = #ffffff
+            palette0 = #ff0000
             palette1 = #ff0000
             palette2 = #00ff00
             palette3 = #ffff00
@@ -547,6 +549,7 @@ mod tests {
             cursor-color = #cccccc
             cursor-text = #000000
             selection-background = #333333
+            palette0 = #ff0000
             palette1 = #ff0000
             palette2 = #00ff00
             palette3 = #ffff00
@@ -568,6 +571,7 @@ mod tests {
             cursor-color = #cccccc
             cursor-text = #000000
             selection-background = #333333
+            palette0 = #ff0000
             palette1 = #ff0000
             palette2 = #00ff00
             palette3 = #ffff00

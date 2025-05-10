@@ -14,7 +14,6 @@ use crate::{
     constants::{ASCII_ART, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH},
     modal::InputModal,
     termi::Termi,
-    theme::Theme,
     tracker::Status,
     version::VERSION,
 };
@@ -24,7 +23,7 @@ use super::{
     elements::{
         build_menu_items, create_action_bar, create_command_bar, create_footer, create_header,
         create_menu_footer_text, create_minimal_size_warning, create_mode_bar,
-        create_show_menu_button, create_styled_typing_text, TermiElement,
+        create_show_menu_button, create_typing_area, TermiElement,
     },
     layout::create_layout,
     utils::{apply_horizontal_centering, calculate_word_positions, center_div, WordPosition},
@@ -229,9 +228,7 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
 
 fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     let available_width = area.width as usize;
-    let theme = termi.get_current_theme();
 
-    let styled_text = create_styled_typing_text(termi, theme, Some(available_width));
     let word_positions = calculate_word_positions(&termi.words, available_width);
 
     let cursor_idx = termi.tracker.cursor_position;
@@ -249,24 +246,29 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         });
 
     let current_line = current_word_pos.line;
-    let line_count = termi.config.visible_lines as usize;
+    let line_count_from_config = termi.config.visible_lines as usize;
 
-    let scroll_offset = if line_count <= 1 {
+    let scroll_offset = if line_count_from_config <= 1 {
         current_line
     } else {
-        let half_visible = line_count / 2;
+        let half_visible = line_count_from_config / 2;
         if current_line < half_visible {
             0
-        } else if current_line >= half_visible {
-            current_line.saturating_sub(half_visible)
         } else {
-            current_line
+            current_line.saturating_sub(half_visible)
         }
     };
 
-    let paragraph = Paragraph::new(styled_text)
-        .wrap(Wrap { trim: false })
-        .scroll((scroll_offset as u16, 0));
+    let typing_text = create_typing_area(
+        termi,
+        available_width,
+        scroll_offset,
+        line_count_from_config,
+    );
+
+    let text_height = typing_text.height();
+
+    let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
 
     frame.render_widget(paragraph, area);
 
@@ -289,14 +291,14 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         && !termi.menu.is_theme_menu();
 
     if show_cursor {
-        let offset = cursor_idx.saturating_sub(current_word_pos.start_index);
-        let cursor_x = area.x + (current_word_pos.col + offset) as u16;
-        let cursor_y = area.y + (current_line.saturating_sub(scroll_offset)) as u16;
+        let offset_x = cursor_idx.saturating_sub(current_word_pos.start_index);
+        let cursor_x = area.x + current_word_pos.col.saturating_add(offset_x) as u16;
+        let cursor_y = area.y + current_line.saturating_sub(scroll_offset) as u16;
 
         if cursor_x >= area.left()
             && cursor_x < area.right()
             && cursor_y >= area.top()
-            && cursor_y < area.bottom()
+            && cursor_y < area.top() + (line_count_from_config.min(text_height) as u16)
         {
             frame.set_cursor_position(Position {
                 x: cursor_x,
@@ -565,18 +567,19 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
 }
 
 fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
-    let theme_name = termi
-        .preview_theme_name
-        .as_deref()
-        .unwrap_or(&termi.theme.id);
+    let theme = termi.get_current_theme();
+    // let theme_name = termi
+    //     .preview_theme_name
+    //     .as_deref()
+    //     .unwrap_or(&termi.theme.id);
 
-    let preview_theme = Theme::from_name(theme_name);
-    let theme = &preview_theme;
+    // let preview_theme = Theme::from_name(theme_name);
+    // let theme = &preview_theme;
 
     frame.render_widget(Clear, area);
 
     let preview_block = Block::default()
-        .bg(termi.theme.bg())
+        .bg(theme.bg())
         .borders(ratatui::widgets::Borders::ALL)
         .border_style(Style::default().fg(theme.border()));
 
@@ -619,7 +622,7 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
         ])
         .split(header_layout[1]);
 
-    let header = Paragraph::new(theme_name)
+    let header = Paragraph::new(theme.id.clone())
         .style(Style::default().fg(theme.highlight()))
         .alignment(Alignment::Left);
 

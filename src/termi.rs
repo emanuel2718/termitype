@@ -10,7 +10,6 @@ use crossterm::{
 use ratatui::{layout::Position, prelude::Backend, Terminal};
 
 use crate::config::ModeType;
-use crate::constants::MIN_THEME_PREVIEW_WIDTH;
 use crate::modal::{build_modal, InputModal, ModalContext};
 use crate::{
     builder::Builder,
@@ -204,19 +203,13 @@ impl Termi {
         if let Some(theme_name) = self.menu.get_preview_theme() {
             self.preview_theme_name = Some(theme_name.clone());
 
-            let (width, _) = crossterm::terminal::size().unwrap_or((0, 0));
+            let needs_update = match &self.preview_theme {
+                None => true,
+                Some(current_theme) => current_theme.id != *theme_name,
+            };
 
-            if width <= MIN_THEME_PREVIEW_WIDTH {
-                let needs_update = match &self.preview_theme {
-                    None => true,
-                    Some(current_theme) => current_theme.id != *theme_name,
-                };
-
-                if needs_update {
-                    self.preview_theme = Some(Theme::from_name(theme_name));
-                }
-            } else {
-                self.preview_theme = None;
+            if needs_update {
+                self.preview_theme = Some(Theme::from_name(theme_name));
             }
         } else {
             self.preview_theme_name = None;

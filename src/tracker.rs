@@ -924,6 +924,26 @@ mod tests {
     }
 
     #[test]
+    fn test_partial_wrong_word_fix() {
+        let config = Config::default();
+        let target_text = String::from("hello world");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+        tracker.type_char('f');
+        tracker.type_char('f');
+        tracker.type_char('f');
+        tracker.type_char('f');
+        tracker.type_char('f');
+
+        tracker.backspace();
+        tracker.backspace();
+        tracker.type_char('l');
+        tracker.type_char('0');
+        tracker.type_char(' ');
+        assert!(tracker.is_word_wrong(0), "Word should be marked wrong");
+    }
+
+    #[test]
     fn test_backspace_at_word_boundary_behavior() {
         let config = Config::default();
         let target_text = String::from("hello world");
