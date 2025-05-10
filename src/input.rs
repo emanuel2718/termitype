@@ -420,19 +420,23 @@ fn execute_menu_action(action: MenuInputAction, state: &mut Termi) -> Action {
                     }
                     MenuAction::ChangeMode(mode) => {
                         state.config.change_mode(mode, None);
+                        state.start();
                     }
                     MenuAction::ChangeTime(time) => {
                         state
                             .config
                             .change_mode(ModeType::Time, Some(time as usize));
+                        state.start();
                     }
                     MenuAction::ChangeWordCount(count) => {
                         state.config.change_mode(ModeType::Words, Some(count));
+                        state.start();
                     }
                     MenuAction::ChangeVisibleLineCount(count) => {
                         state
                             .config
                             .change_visible_lines(count.try_into().unwrap_or(DEFAULT_LINE_COUNT));
+                        state.start();
                     }
                     MenuAction::ChangeTheme(theme_name) => {
                         state.config.change_theme(&theme_name);
