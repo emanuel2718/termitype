@@ -1,6 +1,5 @@
 use crate::config::{Config, ModeType};
 use crate::constants::DEFAULT_THEME;
-use crate::log_debug;
 use crate::modal::ModalContext;
 use crate::utils::fuzzy_match;
 use crate::version::VERSION;
