@@ -1,16 +1,13 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::{
-    actions::{MenuNavAction, MenuSearchAction, TermiAction},
-    modal::ModalContext,
-};
+use crate::actions::{MenuNavAction, MenuSearchAction, TermiAction};
 
 /// Current input context
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InputMode {
     Typing,
+    Modal,
     Menu { is_searching: bool },
-    Modal(ModalContext),
 }
 
 #[derive(Default)]
@@ -41,8 +38,8 @@ impl InputHandler {
 
         let action = match mode {
             InputMode::Typing => self.handle_typing_input(event),
+            InputMode::Modal => self.handle_modal_input(event),
             InputMode::Menu { is_searching } => self.handle_menu_input(event, is_searching),
-            InputMode::Modal(ctx) => self.handle_modal_input(event, ctx),
         };
 
         self.last_key_code = Some(curr_key_code);
@@ -99,8 +96,12 @@ impl InputHandler {
             }
         } else {
             match (event.code, event.modifiers) {
-                // start
+                // actions
                 (KeyCode::Char('/'), _) => TermiAction::MenuSearch(MenuSearchAction::Start),
+                (KeyCode::Enter, _) => TermiAction::MenuSelect,
+                (KeyCode::Char('l') | KeyCode::Char(' '), _) => TermiAction::MenuSelect,
+                (KeyCode::Esc, _) => TermiAction::MenuNavigate(MenuNavAction::Back),
+                (KeyCode::Char('h'), _) => TermiAction::MenuNavigate(MenuNavAction::Back),
 
                 // nav
                 (KeyCode::Up | KeyCode::Char('k'), _) => {
@@ -130,19 +131,19 @@ impl InputHandler {
                     TermiAction::NoOp
                 }
 
-                // actions
-                (KeyCode::Enter, _) => TermiAction::MenuSelect,
-                (KeyCode::Char('l') | KeyCode::Char(' '), _) => TermiAction::MenuSelect,
-                (KeyCode::Esc, _) => TermiAction::MenuNavigate(MenuNavAction::Back),
-                (KeyCode::Char('h'), _) => TermiAction::MenuNavigate(MenuNavAction::Back),
-
                 _ => TermiAction::NoOp,
             }
         }
     }
 
-    fn handle_modal_input(&self, event: KeyEvent, ctx: ModalContext) -> TermiAction {
-        todo!()
+    fn handle_modal_input(&self, event: KeyEvent) -> TermiAction {
+        match event.code {
+            KeyCode::Esc => TermiAction::ModalClose,
+            KeyCode::Enter => TermiAction::ModalConfirm,
+            KeyCode::Backspace => TermiAction::ModalBackspace,
+            KeyCode::Char(c) => TermiAction::ModalInput(c),
+            _ => TermiAction::NoOp,
+        }
     }
 
     fn is_quit_sequence(&self, event: &KeyEvent) -> bool {
