@@ -348,7 +348,13 @@ impl MenuState {
                 None
             }
             MenuAction::OpenVisibleLines => {
-                let menu = Menu::new(Self::build_visible_lines_menu());
+                let mut menu = Menu::new(Self::build_visible_lines_menu());
+                if let Some(index) =
+                    Self::get_label_index(menu.items(), config.visible_lines.to_string().as_str())
+                {
+                    menu.select(index);
+                }
+
                 self.menu_stack.push(menu);
                 None
             }
