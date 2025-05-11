@@ -1,4 +1,5 @@
 use crate::{
+    actions::TermiClickAction,
     config::{Mode, ModeType},
     constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH},
     modal::ModalContext,
@@ -15,8 +16,6 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::ListItem,
 };
-
-use super::actions::TermiClickAction;
 
 #[derive(Debug)]
 pub struct TermiElement<'a> {

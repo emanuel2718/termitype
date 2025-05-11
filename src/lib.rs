@@ -13,6 +13,7 @@ use ratatui::{prelude::CrosstermBackend, Terminal};
 use utils::get_config_dir;
 use version::VERSION;
 
+pub mod actions;
 pub mod assets;
 pub mod builder;
 pub mod config;

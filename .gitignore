@@ -11,3 +11,5 @@
 
 flamegraph.svg
 .DS_Store
+
+**.tmp.*

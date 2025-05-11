@@ -10,6 +10,7 @@ use ratatui::{
 };
 
 use crate::{
+    actions::TermiClickAction,
     config::Mode,
     constants::{
         ASCII_ART, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH,
@@ -22,7 +23,6 @@ use crate::{
 };
 
 use super::{
-    actions::TermiClickAction,
     elements::{
         build_menu_items, create_action_bar, create_command_bar, create_footer, create_header,
         create_menu_footer_text, create_minimal_size_warning, create_mode_bar,

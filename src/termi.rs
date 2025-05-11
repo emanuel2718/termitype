@@ -12,6 +12,7 @@ use ratatui::{layout::Position, prelude::Backend, Terminal};
 use crate::config::ModeType;
 use crate::modal::{build_modal, InputModal, ModalContext};
 use crate::{
+    actions::TermiClickAction,
     builder::Builder,
     config::Config,
     input::{process_action, Action, InputHandler},
@@ -19,7 +20,7 @@ use crate::{
     menu::{MenuAction, MenuState},
     theme::Theme,
     tracker::Tracker,
-    ui::{actions::TermiClickAction, draw_ui, render::TermiClickableRegions},
+    ui::{draw_ui, render::TermiClickableRegions},
 };
 
 pub struct Termi {
