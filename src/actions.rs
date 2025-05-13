@@ -1,10 +1,13 @@
+use crossterm::execute;
 use ratatui::layout::Position;
 
 use crate::{
     config::ModeType,
+    constants::DEFAULT_LINE_COUNT,
     log_debug,
     modal::{build_modal, handle_modal_confirm, ModalContext},
     termi::Termi,
+    theme::Theme,
     tracker::Status,
     ui::render::TermiClickableRegions,
 };
@@ -41,7 +44,7 @@ pub enum TermiAction {
 
     // === Configuration/State Changes ===
     ChangeTheme(String),
-    ChangePreview(PreviewType),
+    // ChangePreview(PreviewType),
     ChangeLanguage(String),
     ChangeCursor(String),
     ChangeMode(ModeType, Option<usize>),
@@ -263,18 +266,66 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                 modal.handle_backspace();
             }
         }
-        TermiAction::ChangeTheme(_) => todo!(),
-        TermiAction::ChangePreview(preview_type) => todo!(),
-        TermiAction::ChangeLanguage(_) => todo!(),
-        TermiAction::ChangeCursor(_) => todo!(),
-        TermiAction::ChangeMode(mode_type, _) => todo!(),
-        TermiAction::ChangeTime(_) => todo!(),
-        TermiAction::ChangeVisibleLines(_) => todo!(),
-        TermiAction::ChangeWordCount(_) => todo!(),
-        TermiAction::TogglePunctuation => todo!(),
-        TermiAction::ToggleNumbers => todo!(),
-        TermiAction::ToggleSymbols => todo!(),
-        TermiAction::ApplyPreview(preview_type) => todo!(),
-        TermiAction::ClearPreview => todo!(),
+        TermiAction::ChangeLanguage(lang) => {
+            termi.config.change_language(&lang);
+            termi.start();
+        }
+        TermiAction::ChangeCursor(style) => {
+            termi.config.change_cursor_style(&style);
+            execute!(
+                std::io::stdout(),
+                termi.config.resolve_current_cursor_style()
+            )
+            .ok();
+        }
+        TermiAction::ChangeMode(mode_type, val) => {
+            termi.config.change_mode(mode_type, val);
+            termi.start();
+        }
+        TermiAction::ChangeTime(time) => {
+            termi
+                .config
+                .change_mode(ModeType::Time, Some(time as usize));
+            termi.start();
+        }
+        TermiAction::ChangeWordCount(word_count) => {
+            termi.config.change_mode(ModeType::Words, Some(word_count));
+        }
+        TermiAction::ChangeVisibleLines(line_count) => termi
+            .config
+            .change_visible_lines(line_count.try_into().unwrap_or(DEFAULT_LINE_COUNT)),
+        TermiAction::TogglePunctuation => termi.config.toggle_punctuation(),
+        TermiAction::ToggleNumbers => termi.config.toggle_numbers(),
+        TermiAction::ToggleSymbols => termi.config.toggle_symbols(),
+        TermiAction::ChangeTheme(name) => {
+            termi.config.change_theme(&name);
+            termi.theme = Theme::from_name(&name);
+            termi.preview_theme = None;
+            execute!(
+                std::io::stdout(),
+                termi.config.resolve_current_cursor_style()
+            )
+            .ok();
+        }
+        TermiAction::ApplyPreview(preview_type) => match preview_type {
+            PreviewType::Theme(name) => termi.preview_theme = Some(Theme::from_name(&name)),
+            PreviewType::Cursor(name) => {
+                let style = termi.config.resolve_cursor_style_from_name(&name);
+                termi.preview_cursor = Some(style);
+                execute!(std::io::stdout(), style).ok();
+            }
+        },
+        TermiAction::ClearPreview => {
+            if termi.preview_theme.is_some() {
+                termi.preview_theme = None;
+            }
+            if termi.preview_cursor.take().is_some() {
+                execute!(
+                    std::io::stdout(),
+                    termi.config.resolve_current_cursor_style()
+                )
+                .ok();
+            }
+        }
     }
 }
