@@ -1,4 +1,13 @@
-use crate::{config::ModeType, log_debug, modal::ModalContext, termi::Termi, tracker::Status};
+use ratatui::layout::Position;
+
+use crate::{
+    config::ModeType,
+    log_debug,
+    modal::{build_modal, handle_modal_confirm, ModalContext},
+    termi::Termi,
+    tracker::Status,
+    ui::render::TermiClickableRegions,
+};
 
 /// Top-Level actions
 #[derive(Debug, Clone, PartialEq)]
@@ -113,6 +122,65 @@ pub enum TermiClickAction {
     ToggleModal(ModalContext),
     ModalConfirm,
 }
+pub fn handle_click_action(
+    termi: &mut Termi,
+    reg: &TermiClickableRegions,
+    x: u16,
+    y: u16,
+) -> Option<TermiAction> {
+    let mut clicked_action: Option<TermiClickAction> = None;
+    for (rect, action) in reg.regions.iter().rev() {
+        if rect.contains(Position { x, y }) {
+            clicked_action = Some(*action);
+            break;
+        }
+    }
+
+    if let Some(action) = clicked_action {
+        match action {
+            TermiClickAction::SwitchMode(mode) => Some(TermiAction::ChangeMode(mode, None)),
+            TermiClickAction::SetModeValue(value) => match termi.config.current_mode_type() {
+                ModeType::Time => Some(TermiAction::ChangeTime(value as u64)),
+                ModeType::Words => Some(TermiAction::ChangeWordCount(value)),
+            },
+            TermiClickAction::ToggleMenu => {
+                if termi.menu.is_open() {
+                    Some(TermiAction::MenuClose)
+                } else {
+                    Some(TermiAction::MenuOpen(MenuContext::Root))
+                }
+            }
+            TermiClickAction::TogglePunctuation => Some(TermiAction::TogglePunctuation),
+            TermiClickAction::ToggleSymbols => Some(TermiAction::ToggleSymbols),
+            TermiClickAction::ToggleNumbers => Some(TermiAction::ToggleNumbers),
+            TermiClickAction::ToggleThemePicker => {
+                if termi.theme.color_support.supports_themes() && termi.menu.is_theme_menu() {
+                    Some(TermiAction::MenuClose)
+                } else {
+                    Some(TermiAction::MenuOpen(MenuContext::Theme))
+                }
+            }
+            TermiClickAction::ToggleLanguagePicker => {
+                if termi.menu.is_language_menu() {
+                    Some(TermiAction::MenuClose)
+                } else {
+                    Some(TermiAction::MenuOpen(MenuContext::Language))
+                }
+            }
+            TermiClickAction::ToggleAbout => Some(TermiAction::MenuOpen(MenuContext::About)),
+            TermiClickAction::ToggleModal(modal_context) => {
+                if termi.modal.is_some() {
+                    Some(TermiAction::ModalClose)
+                } else {
+                    Some(TermiAction::ModalOpen(modal_context))
+                }
+            }
+            TermiClickAction::ModalConfirm => Some(TermiAction::ModalConfirm),
+        }
+    } else {
+        None
+    }
+}
 
 pub fn process_action(action: TermiAction, termi: &mut Termi) {
     match action {
@@ -177,11 +245,24 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
             let action = TermiAction::MenuSelect;
             termi.menu.handle_action(action, &termi.config);
         }
-        TermiAction::ModalOpen(modal_context) => todo!(),
-        TermiAction::ModalInput(_) => todo!(),
-        TermiAction::ModalClose => todo!(),
-        TermiAction::ModalConfirm => todo!(),
-        TermiAction::ModalBackspace => todo!(),
+        TermiAction::ModalClose => termi.modal = None,
+        TermiAction::ModalOpen(ctx) => {
+            termi.modal = Some(build_modal(ctx));
+            log_debug!("Opening modal with: {ctx:?}")
+        }
+        TermiAction::ModalInput(char) => {
+            if let Some(modal) = termi.modal.as_mut() {
+                modal.handle_char(char);
+            }
+        }
+        TermiAction::ModalConfirm => {
+            handle_modal_confirm(termi);
+        }
+        TermiAction::ModalBackspace => {
+            if let Some(modal) = termi.modal.as_mut() {
+                modal.handle_backspace();
+            }
+        }
         TermiAction::ChangeTheme(_) => todo!(),
         TermiAction::ChangePreview(preview_type) => todo!(),
         TermiAction::ChangeLanguage(_) => todo!(),

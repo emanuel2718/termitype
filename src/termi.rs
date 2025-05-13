@@ -8,12 +8,12 @@ use crossterm::{
     cursor::SetCursorStyle,
     event::{self, Event, KeyEventKind, MouseButton, MouseEvent, MouseEventKind},
 };
-use ratatui::{layout::Position, prelude::Backend, Terminal};
+use ratatui::{prelude::Backend, Terminal};
 
 use crate::{
-    actions::{process_action, MenuContext, TermiAction, TermiClickAction},
+    actions::{handle_click_action, process_action, TermiAction},
     builder::Builder,
-    config::{Config, ModeType},
+    config::Config,
     input::InputHandler,
     menu::MenuState,
     modal::InputModal,
@@ -88,72 +88,12 @@ impl Termi {
     pub fn current_theme(&self) -> &Theme {
         self.preview_theme.as_ref().unwrap_or(&self.theme)
     }
-
-    pub fn handle_click(
-        &mut self,
-        reg: &TermiClickableRegions,
-        x: u16,
-        y: u16,
-    ) -> Option<TermiAction> {
-        let mut clicked_action: Option<TermiClickAction> = None;
-        for (rect, action) in reg.regions.iter().rev() {
-            if rect.contains(Position { x, y }) {
-                clicked_action = Some(*action);
-                break;
-            }
-        }
-
-        if let Some(action) = clicked_action {
-            match action {
-                TermiClickAction::SwitchMode(mode) => Some(TermiAction::ChangeMode(mode, None)),
-                TermiClickAction::SetModeValue(value) => match self.config.current_mode_type() {
-                    ModeType::Time => Some(TermiAction::ChangeTime(value as u64)),
-                    ModeType::Words => Some(TermiAction::ChangeWordCount(value)),
-                },
-                TermiClickAction::ToggleMenu => {
-                    if self.menu.is_open() {
-                        Some(TermiAction::MenuClose)
-                    } else {
-                        Some(TermiAction::MenuOpen(MenuContext::Root))
-                    }
-                }
-                TermiClickAction::TogglePunctuation => Some(TermiAction::TogglePunctuation),
-                TermiClickAction::ToggleSymbols => Some(TermiAction::ToggleSymbols),
-                TermiClickAction::ToggleNumbers => Some(TermiAction::ToggleNumbers),
-                TermiClickAction::ToggleThemePicker => {
-                    if self.theme.color_support.supports_themes() && self.menu.is_theme_menu() {
-                        Some(TermiAction::MenuClose)
-                    } else {
-                        Some(TermiAction::MenuOpen(MenuContext::Theme))
-                    }
-                }
-                TermiClickAction::ToggleLanguagePicker => {
-                    if self.menu.is_language_menu() {
-                        Some(TermiAction::MenuClose)
-                    } else {
-                        Some(TermiAction::MenuOpen(MenuContext::Language))
-                    }
-                }
-                TermiClickAction::ToggleAbout => Some(TermiAction::MenuOpen(MenuContext::About)),
-                TermiClickAction::ToggleModal(modal_context) => {
-                    if self.modal.is_some() {
-                        Some(TermiAction::ModalClose)
-                    } else {
-                        Some(TermiAction::ModalOpen(modal_context))
-                    }
-                }
-                TermiClickAction::ModalConfirm => Some(TermiAction::ModalConfirm),
-            }
-        } else {
-            None
-        }
-    }
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
     let mut termi = Termi::new(config);
     let mut input_handler = InputHandler::new();
-    let mut clickable_regions = TermiClickableRegions::default();
+    let mut click_regions = TermiClickableRegions::default();
 
     let mut frame_times: VecDeque<Instant> = VecDeque::with_capacity(60);
     let typing_frame_time = Duration::from_micros(6944); // ~144 FPS (1000000/144)
@@ -206,8 +146,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                     row,
                     ..
                 }) => {
-                    termi.handle_click(&clickable_regions, column, row);
-                    needs_redraw = true;
+                    let click_action = handle_click_action(&mut termi, &click_regions, column, row);
+                    if let Some(action) = click_action {
+                        process_action(action, &mut termi);
+                        needs_redraw = true;
+                    }
                 }
                 Event::Resize(_width, _height) => {
                     needs_redraw = true;
@@ -259,7 +202,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
 
         if needs_redraw {
             terminal.draw(|frame| {
-                clickable_regions = draw_ui(frame, &mut termi, fps_to_display);
+                click_regions = draw_ui(frame, &mut termi, fps_to_display);
             })?;
             needs_redraw = false;
         }

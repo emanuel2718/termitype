@@ -1,5 +1,8 @@
-use crate::constants::{
-    MAX_CUSTOM_TIME, MAX_CUSTOM_WORD_COUNT, MIN_CUSTOM_TIME, MIN_CUSTOM_WORD_COUNT,
+use crate::{
+    actions::TermiAction,
+    config::ModeType,
+    constants::{MAX_CUSTOM_TIME, MAX_CUSTOM_WORD_COUNT, MIN_CUSTOM_TIME, MIN_CUSTOM_WORD_COUNT},
+    termi::Termi,
 };
 
 /// Used to determine which content to show on the modal
@@ -133,6 +136,37 @@ impl InputModal {
             }
         }
     }
+}
+
+pub fn handle_modal_confirm(termi: &mut Termi) {
+    if let Some(modal) = termi.modal.as_mut() {
+        if modal.buffer.error_msg.is_some() || modal.buffer.input.is_empty() {
+            return;
+        }
+        match modal.ctx {
+            ModalContext::CustomTime => {
+                let value = modal.get_value().parse::<usize>();
+                if value.is_err() {
+                    return;
+                }
+                termi
+                    .config
+                    .change_mode(ModeType::Time, Some(value.unwrap()));
+                termi.start();
+            }
+            ModalContext::CustomWordCount => {
+                let value = modal.get_value().parse::<usize>();
+                if value.is_err() {
+                    return;
+                }
+                termi
+                    .config
+                    .change_mode(ModeType::Words, Some(value.unwrap()));
+                termi.start();
+            }
+        }
+    }
+    termi.modal = None;
 }
 
 pub fn build_modal(ctx: ModalContext) -> InputModal {
