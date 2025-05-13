@@ -16,6 +16,7 @@ use crate::{
         ASCII_ART, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH,
         TYPING_AREA_WIDTH,
     },
+    log_debug,
     modal::InputModal,
     termi::Termi,
     tracker::Status,

@@ -23,6 +23,7 @@ pub mod input;
 pub mod log;
 pub mod macros;
 pub mod menu;
+pub mod menu_builder;
 pub mod modal;
 pub mod persistence;
 pub mod termi;

@@ -115,6 +115,7 @@ impl InputHandler {
                 // actions
                 (KeyCode::Char('/'), _) => TermiAction::MenuSearch(MenuSearchAction::Start),
                 (KeyCode::Enter, _) => TermiAction::MenuSelect,
+                (KeyCode::Char(' '), KeyModifiers::NONE) => TermiAction::MenuSelect,
                 (KeyCode::Char('l') | KeyCode::Char(' '), _) => TermiAction::MenuSelect,
                 (KeyCode::Esc, _) => TermiAction::MenuNavigate(MenuNavAction::Back),
                 (KeyCode::Char('h'), _) => TermiAction::MenuNavigate(MenuNavAction::Back),

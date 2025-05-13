@@ -136,6 +136,8 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()
                         }
 
                         last_keystroke = now;
+
+                        // process all the actions that are not quit as is the only inmediate action atm
                         process_action(action, &mut termi);
                         needs_redraw = true;
                     }

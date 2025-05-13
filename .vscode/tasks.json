@@ -20,6 +20,9 @@
           "command": "build",
           "args": [
           ],
+          "env": {
+            "RUSTFLAGS": "-g"
+          },
           "problemMatcher": [
               "$rustc"
           ],
@@ -34,6 +37,9 @@
           "args": [
               "--release"
           ],
+          "env": {
+            "RUSTFLAGS": "-g"
+          },
           "problemMatcher": [
               "$rustc"
           ],

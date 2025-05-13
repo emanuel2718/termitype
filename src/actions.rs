@@ -234,10 +234,11 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         | TermiAction::MenuOpen(_)
         | TermiAction::MenuClose
         | TermiAction::MenuSelect => {
-            if let Some(next_action) = termi.menu.handle_action(action, &termi.config) {
-                process_action(next_action, termi);
+            if let Some(menu_action) = termi.menu.handle_action(action, &termi.config) {
+                process_action(menu_action, termi);
             }
         }
+
         // === Modal Actions ===
         TermiAction::ModalClose => termi.modal = None,
         TermiAction::ModalOpen(ctx) => {
@@ -251,6 +252,7 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         }
         TermiAction::ModalConfirm => {
             handle_modal_confirm(termi);
+            termi.menu.close();
         }
         TermiAction::ModalBackspace => {
             if let Some(modal) = termi.modal.as_mut() {
@@ -260,6 +262,7 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::ChangeLanguage(lang) => {
             termi.config.change_language(&lang);
             termi.start();
+            termi.menu.close();
         }
         TermiAction::ChangeCursor(style) => {
             termi.config.change_cursor_style(&style);
@@ -268,34 +271,41 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                 termi.config.resolve_current_cursor_style()
             )
             .ok();
+            termi.menu.close();
         }
         TermiAction::ChangeMode(mode_type, val) => {
             termi.config.change_mode(mode_type, val);
             termi.start();
+            termi.menu.close();
         }
         TermiAction::ChangeTime(time) => {
             termi
                 .config
                 .change_mode(ModeType::Time, Some(time as usize));
             termi.start();
+            termi.menu.close();
         }
         TermiAction::ChangeWordCount(word_count) => {
             termi.config.change_mode(ModeType::Words, Some(word_count));
             termi.start();
+            termi.menu.close();
         }
         TermiAction::ChangeVisibleLines(line_count) => termi
             .config
             .change_visible_lines(line_count.try_into().unwrap_or(DEFAULT_LINE_COUNT)),
         TermiAction::TogglePunctuation => {
             termi.config.toggle_punctuation();
-            termi.start()
+            termi.menu.sync_toggle_items(&termi.config);
+            termi.start();
         }
         TermiAction::ToggleNumbers => {
             termi.config.toggle_numbers();
+            termi.menu.sync_toggle_items(&termi.config);
             termi.start()
         }
         TermiAction::ToggleSymbols => {
             termi.config.toggle_symbols();
+            termi.menu.sync_toggle_items(&termi.config);
             termi.start()
         }
         TermiAction::ChangeTheme(name) => {
@@ -311,6 +321,7 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                 termi.config.resolve_current_cursor_style()
             )
             .ok();
+            termi.menu.close();
         }
         TermiAction::ApplyPreview(preview_type) => match preview_type {
             PreviewType::Theme(name) => termi.preview_theme = Some(Theme::from_name(&name)),

@@ -509,22 +509,23 @@ pub fn create_menu_footer_text(termi: &Termi) -> Line {
     }
 }
 
-pub fn build_menu_items(
-    termi: &Termi,
+pub fn build_menu_items<'a>(
+    termi: &'a Termi,
     scroll_offset: usize,
     max_visible: usize,
-) -> (Vec<ListItem>, usize) {
+) -> (Vec<ListItem<'a>>, usize) {
     let theme = termi.current_theme().clone();
 
     if let Some(menu) = &termi.menu.current_menu() {
-        let filtered_items: Vec<_> = if termi.menu.is_searching() {
-            menu.filtered_items(termi.menu.search_query())
-        } else {
-            menu.items_with_indices()
-        };
-
-        let total_items = filtered_items.len();
-
+        // let filtered_items: Vec<_> = if termi.menu.is_searching() {
+        //     menu.filtered_items(termi.menu.search_query())
+        // } else {
+        //     menu.items_with_indices()
+        // };
+        //
+        let items = menu.items();
+        let total_items = items.len();
+        //
         if total_items == 0 {
             let no_matches = vec![
                 ListItem::new(""),
@@ -542,18 +543,18 @@ pub fn build_menu_items(
                 .current_item()
                 .map(|i| i.id.clone())
                 .unwrap_or_default();
-            let items: Vec<ListItem> = std::iter::once(ListItem::new(""))
+            let items: Vec<ListItem<'a>> = std::iter::once(ListItem::new(""))
                 .chain(
-                    filtered_items
+                    items
                         .iter()
                         .skip(scroll_offset)
                         .take(max_visible)
-                        .map(|(_, item)| {
-                            // log_debug!("***************************");
-                            // log_debug!("Selected item: {:?}", item);
-                            // log_debug!("Current item: {:?}", current_item);
-                            //
-                            // log_debug!("***************************");
+                        .map(|item| {
+                            log_debug!("***************************");
+                            log_debug!("Selected item: {:?}", item);
+                            log_debug!("Current item: {:?}", current_item);
+
+                            log_debug!("***************************");
                             let is_selected = item.id == current_item;
 
                             let item_style = Style::default()
@@ -594,7 +595,7 @@ pub fn build_menu_items(
                                     if is_selected { arrow_symbol } else { "  " },
                                     Style::default().fg(theme.accent()),
                                 ),
-                                Span::styled(&item.label, item_style),
+                                Span::styled(item.label.clone(), item_style),
                                 if matches!(item.result, MenuItemResult::OpenSubMenu(_)) {
                                     Span::styled(
                                         submenu_symbol,
