@@ -246,10 +246,7 @@ impl MenuState {
     pub fn is_theme_menu(&self) -> bool {
         let curr_menu = self.current_menu();
         if let Some(menu) = curr_menu {
-            match menu.ctx {
-                MenuContext::Theme => true,
-                _ => false,
-            };
+            return matches!(menu.ctx, MenuContext::Theme);
         }
         false
     }
@@ -257,10 +254,7 @@ impl MenuState {
     pub fn is_language_menu(&self) -> bool {
         let curr_menu = self.current_menu();
         if let Some(menu) = curr_menu {
-            match menu.ctx {
-                MenuContext::Language => true,
-                _ => false,
-            };
+            return matches!(menu.ctx, MenuContext::Language);
         }
         false
     }
@@ -268,10 +262,7 @@ impl MenuState {
     pub fn is_about_menu(&self) -> bool {
         let curr_menu = self.current_menu();
         if let Some(menu) = curr_menu {
-            match menu.ctx {
-                MenuContext::About => true,
-                _ => false,
-            };
+            return matches!(menu.ctx, MenuContext::About);
         }
         false
     }
@@ -289,12 +280,6 @@ impl MenuState {
         match action {
             // Open
             TermiAction::MenuOpen(ctx) => {
-                log_debug!("------> menu open: {:?}", ctx);
-                // Before opening, if it's a direct request (not sub-menu), clear stack.
-                // This logic might need refinement based on desired sub-menu behavior.
-                if self.stack.is_empty() || self.stack.last().map_or(true, |m| m.ctx != ctx) {
-                    // This check is to prevent re-pushing same menu if already on top from sub-menu logic
-                }
                 self.open(ctx, config);
                 self.preview_selection()
             }

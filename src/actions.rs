@@ -228,26 +228,17 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
             }
             termi.tracker.backspace();
         }
-        TermiAction::MenuNavigate(nav_action) => {
-            let action = TermiAction::MenuNavigate(nav_action);
-            termi.menu.handle_action(action, &termi.config);
+        // === Menu Actions ===
+        TermiAction::MenuNavigate(_)
+        | TermiAction::MenuSearch(_)
+        | TermiAction::MenuOpen(_)
+        | TermiAction::MenuClose
+        | TermiAction::MenuSelect => {
+            if let Some(next_action) = termi.menu.handle_action(action, &termi.config) {
+                process_action(next_action, termi);
+            }
         }
-        TermiAction::MenuSearch(search_action) => {
-            let action = TermiAction::MenuSearch(search_action);
-            termi.menu.handle_action(action, &termi.config);
-        }
-        TermiAction::MenuOpen(ctx) => {
-            let action = TermiAction::MenuOpen(ctx);
-            termi.menu.handle_action(action, &termi.config);
-        }
-        TermiAction::MenuClose => {
-            let action = TermiAction::MenuClose;
-            termi.menu.handle_action(action, &termi.config);
-        }
-        TermiAction::MenuSelect => {
-            let action = TermiAction::MenuSelect;
-            termi.menu.handle_action(action, &termi.config);
-        }
+        // === Modal Actions ===
         TermiAction::ModalClose => termi.modal = None,
         TermiAction::ModalOpen(ctx) => {
             termi.modal = Some(build_modal(ctx));
@@ -290,16 +281,30 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         }
         TermiAction::ChangeWordCount(word_count) => {
             termi.config.change_mode(ModeType::Words, Some(word_count));
+            termi.start();
         }
         TermiAction::ChangeVisibleLines(line_count) => termi
             .config
             .change_visible_lines(line_count.try_into().unwrap_or(DEFAULT_LINE_COUNT)),
-        TermiAction::TogglePunctuation => termi.config.toggle_punctuation(),
-        TermiAction::ToggleNumbers => termi.config.toggle_numbers(),
-        TermiAction::ToggleSymbols => termi.config.toggle_symbols(),
+        TermiAction::TogglePunctuation => {
+            termi.config.toggle_punctuation();
+            termi.start()
+        }
+        TermiAction::ToggleNumbers => {
+            termi.config.toggle_numbers();
+            termi.start()
+        }
+        TermiAction::ToggleSymbols => {
+            termi.config.toggle_symbols();
+            termi.start()
+        }
         TermiAction::ChangeTheme(name) => {
             termi.config.change_theme(&name);
             termi.theme = Theme::from_name(&name);
+            log_debug!(
+                "Changing theme event with name: {name} and resolved theme: {:?}",
+                termi.theme
+            );
             termi.preview_theme = None;
             execute!(
                 std::io::stdout(),
