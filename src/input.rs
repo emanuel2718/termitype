@@ -126,6 +126,14 @@ impl InputHandler {
                 (KeyCode::Down | KeyCode::Char('j'), _) => {
                     TermiAction::MenuNavigate(MenuNavAction::Down)
                 }
+                // ctrl-n + ctrl+p movement
+                (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
+                    TermiAction::MenuNavigate(MenuNavAction::Up)
+                }
+                (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
+                    TermiAction::MenuNavigate(MenuNavAction::Down)
+                }
+                (KeyCode::Char('y'), KeyModifiers::CONTROL) => TermiAction::MenuSelect,
                 (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                     TermiAction::MenuNavigate(MenuNavAction::PageUp)
                 }
