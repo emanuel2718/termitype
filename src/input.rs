@@ -1,6 +1,10 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::actions::{MenuNavAction, MenuSearchAction, TermiAction};
+use crate::{
+    actions::{MenuNavAction, MenuSearchAction, TermiAction},
+    log_debug,
+    termi::Termi,
+};
 
 /// Current input context
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -21,6 +25,18 @@ impl InputHandler {
         InputHandler {
             last_key_code: None,
             pending_accent: None,
+        }
+    }
+
+    pub fn resolve_input_mode(&self, termi: &Termi) -> InputMode {
+        if termi.modal.is_some() {
+            InputMode::Modal
+        } else if termi.menu.is_open() {
+            InputMode::Menu {
+                is_searching: termi.menu.is_searching(),
+            }
+        } else {
+            InputMode::Typing
         }
     }
 
@@ -108,7 +124,7 @@ impl InputHandler {
                     TermiAction::MenuNavigate(MenuNavAction::Up)
                 }
                 (KeyCode::Down | KeyCode::Char('j'), _) => {
-                    TermiAction::MenuNavigate(MenuNavAction::Up)
+                    TermiAction::MenuNavigate(MenuNavAction::Down)
                 }
                 (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                     TermiAction::MenuNavigate(MenuNavAction::PageUp)
@@ -120,15 +136,18 @@ impl InputHandler {
                     TermiAction::MenuNavigate(MenuNavAction::End)
                 }
                 (KeyCode::Char('g'), KeyModifiers::NONE) => {
+                    // this is fugly
+                    let mut phone_home = false;
                     if let Some(code) = self.last_key_code {
-                        match code == KeyCode::Char('g') {
-                            true => TermiAction::MenuNavigate(MenuNavAction::Home),
-                            false => TermiAction::NoOp,
+                        log_debug!("Code: {}.... result = {}", code, code == KeyCode::Char('g'));
+                        if code == KeyCode::Char('g') {
+                            phone_home = true
                         }
-                    } else {
+                    }
+                    if !phone_home {
                         return TermiAction::NoOp;
-                    };
-                    TermiAction::NoOp
+                    }
+                    TermiAction::MenuNavigate(MenuNavAction::Home)
                 }
 
                 _ => TermiAction::NoOp,

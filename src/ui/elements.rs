@@ -2,6 +2,8 @@ use crate::{
     actions::TermiClickAction,
     config::{Mode, ModeType},
     constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH},
+    log_debug,
+    menu::MenuItemResult,
     modal::ModalContext,
     termi::Termi,
     theme::Theme,
@@ -58,7 +60,7 @@ impl<'a> TermiElement<'a> {
 }
 
 pub fn create_header(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     let text = Text::from(APPNAME)
         .alignment(Alignment::Left)
         .style(Style::default().fg(theme.highlight()))
@@ -71,7 +73,7 @@ pub fn create_header(termi: &Termi) -> Vec<TermiElement> {
 }
 
 pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
     let config = &termi.config;
     let current_value = config.current_mode().value();
     let is_time_mode = matches!(config.current_mode(), Mode::Time { .. });
@@ -162,7 +164,7 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
 
 pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
     let status = termi.tracker.status.clone();
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
     let element = match status {
         Status::Idle | Status::Paused => {
             let current_language = termi.config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
@@ -218,7 +220,7 @@ pub fn create_typing_area(
 ) -> (Text, usize) {
     let typing_width = width.min(TYPING_AREA_WIDTH as usize);
     let word_positions = calculate_word_positions(&termi.words, typing_width);
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
 
     if word_positions.is_empty() {
         return (Text::raw(""), typing_width);
@@ -306,7 +308,7 @@ pub fn create_typing_area(
 }
 
 pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
 
     fn styled_span(content: String, is_key: bool, theme: &Theme) -> Span<'static> {
         let style = if is_key {
@@ -369,7 +371,7 @@ pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
 }
 
 pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
 
     // Check if terminal supports Unicode
     let supports_unicode = theme.supports_unicode();
@@ -407,7 +409,7 @@ pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
 }
 
 pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
     let warning_lines = vec![
         Line::from(Span::styled(
             "! too small",
@@ -445,7 +447,7 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
 }
 
 pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
     let menu_text = "≡ Show Menu";
     // bound the text in non clickable padding to avoid having a wider click area
     let padding = " ".repeat((menu_text.len() / 2).max(1));
@@ -463,7 +465,7 @@ pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement> {
 }
 
 pub fn create_menu_footer_text(termi: &Termi) -> Line {
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     let menu_state = &termi.menu;
 
     // Check if terminal supports Unicode
@@ -512,13 +514,13 @@ pub fn build_menu_items(
     scroll_offset: usize,
     max_visible: usize,
 ) -> (Vec<ListItem>, usize) {
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme().clone();
 
     if let Some(menu) = &termi.menu.current_menu() {
         let filtered_items: Vec<_> = if termi.menu.is_searching() {
             menu.filtered_items(termi.menu.search_query())
         } else {
-            menu.items().iter().enumerate().collect()
+            menu.items_with_indices()
         };
 
         let total_items = filtered_items.len();
@@ -536,19 +538,30 @@ pub fn build_menu_items(
             ];
             (no_matches, 0)
         } else {
+            let current_item = menu
+                .current_item()
+                .map(|i| i.id.clone())
+                .unwrap_or_default();
             let items: Vec<ListItem> = std::iter::once(ListItem::new(""))
                 .chain(
                     filtered_items
                         .iter()
                         .skip(scroll_offset)
                         .take(max_visible)
-                        .map(|&(i, item)| {
-                            let is_selected = i == menu.selected_index();
+                        .map(|(_, item)| {
+                            // log_debug!("***************************");
+                            // log_debug!("Selected item: {:?}", item);
+                            // log_debug!("Current item: {:?}", current_item);
+                            //
+                            // log_debug!("***************************");
+                            let is_selected = item.id == current_item;
+
                             let item_style = Style::default()
                                 .fg(if item.is_disabled {
                                     theme.muted()
-                                } else if item.is_toggleable {
-                                    if item.is_active {
+                                } else if item.is_active.is_some() {
+                                    // safe to unwrap here
+                                    if item.is_active.unwrap() {
                                         theme.highlight()
                                     } else {
                                         theme.muted()
@@ -563,21 +576,30 @@ pub fn build_menu_items(
                                 } else {
                                     theme.bg()
                                 })
-                                .add_modifier(if item.is_toggleable && !item.is_active {
-                                    Modifier::DIM
-                                } else {
-                                    Modifier::empty()
-                                });
+                                .add_modifier(
+                                    if item.is_active.is_some() && !item.is_active.unwrap() {
+                                        Modifier::DIM
+                                    } else {
+                                        Modifier::empty()
+                                    },
+                                );
+
+                            let supports_unicode = theme.supports_unicode();
+                            let arrow_symbol = if supports_unicode { "❯ " } else { "> " };
+                            let submenu_symbol = if supports_unicode { " →" } else { " >" };
 
                             ListItem::new(Line::from(vec![
                                 Span::styled("  ", Style::default()),
                                 Span::styled(
-                                    if is_selected { "❯ " } else { "  " },
+                                    if is_selected { arrow_symbol } else { "  " },
                                     Style::default().fg(theme.accent()),
                                 ),
                                 Span::styled(&item.label, item_style),
-                                if item.has_submenu {
-                                    Span::styled(" →", Style::default().fg(theme.accent()))
+                                if matches!(item.result, MenuItemResult::OpenSubMenu(_)) {
+                                    Span::styled(
+                                        submenu_symbol,
+                                        Style::default().fg(theme.accent()),
+                                    )
                                 } else {
                                     Span::raw("")
                                 },

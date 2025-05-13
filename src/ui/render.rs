@@ -50,7 +50,7 @@ impl TermiClickableRegions {
 pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiClickableRegions {
     let mut regions = TermiClickableRegions::default();
 
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     let area = frame.area();
 
     let dummy_layout = create_layout(Block::new().inner(area), termi);
@@ -450,9 +450,9 @@ fn render_modal(
     Some((ok_area, TermiClickAction::ModalConfirm))
 }
 
-fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
-    let theme = termi.get_current_theme();
-    let menu_state = &termi.menu;
+fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
+    let theme = termi.current_theme().clone();
+    let menu_state = &mut termi.menu;
 
     let is_theme_picker = menu_state.is_theme_menu();
 
@@ -516,36 +516,17 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
     if let Some(current_menu) = menu_state.current_menu() {
         let max_visible = content_area.height.saturating_sub(3) as usize;
 
-        let filtered_items_for_scroll_calc: Vec<_> = if menu_state.is_searching() {
-            current_menu.filtered_items(menu_state.search_query())
-        } else {
-            current_menu.items().iter().enumerate().collect()
-        };
-        let total_items_for_scroll_calc = filtered_items_for_scroll_calc.len();
+        let total_items = current_menu.items().len();
 
-        let scroll_offset = if total_items_for_scroll_calc <= max_visible || max_visible == 0 {
+        let scroll_offset = if total_items <= max_visible || max_visible == 0 {
             0
         } else {
             let halfway = max_visible / 2;
             let selected_index = current_menu.selected_index();
-
-            if menu_state.is_searching() {
-                let filtered_position = filtered_items_for_scroll_calc
-                    .iter()
-                    .position(|(idx, _)| *idx == selected_index)
-                    .unwrap_or(0);
-
-                if filtered_position < halfway {
-                    0
-                } else if filtered_position >= total_items_for_scroll_calc.saturating_sub(halfway) {
-                    total_items_for_scroll_calc.saturating_sub(max_visible)
-                } else {
-                    filtered_position.saturating_sub(halfway)
-                }
-            } else if selected_index < halfway {
+            if selected_index < halfway {
                 0
-            } else if selected_index >= total_items_for_scroll_calc.saturating_sub(halfway) {
-                total_items_for_scroll_calc.saturating_sub(max_visible)
+            } else if selected_index >= total_items.saturating_sub(halfway) {
+                total_items.saturating_sub(max_visible)
             } else {
                 selected_index.saturating_sub(halfway)
             }
@@ -606,7 +587,7 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
 }
 
 fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     // let theme_name = termi
     //     .preview_theme_name
     //     .as_deref()
@@ -796,7 +777,7 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
 
 pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
     let tracker = &termi.tracker;
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     let config = &termi.config;
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
     let hostname = "termitype";

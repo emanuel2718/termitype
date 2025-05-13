@@ -1,850 +1,649 @@
-use crate::config::{Config, ModeType};
-use crate::constants::DEFAULT_THEME;
-use crate::modal::ModalContext;
-use crate::utils::fuzzy_match;
-use crate::version::VERSION;
+use crate::{
+    actions::{MenuContext, MenuNavAction, MenuSearchAction, PreviewType, TermiAction},
+    config::{Config, ModeType},
+    log_debug,
+    modal::ModalContext,
+    utils::fuzzy_match,
+    version::VERSION,
+};
 
+/// Represents the resulting action of selecting a menu item
 #[derive(Debug, Clone, PartialEq)]
-pub enum MenuAction {
-    OpenModal(ModalContext),
-    OpenMainMenu,
-    ToggleThemePicker,
-    OpenLanguagePicker,
-    OpenCursorPicker,
-    OpenModePicker,
-    OpenTimePicker,
-    OpenWordsPicker,
-    OpenVisibleLines,
-    OpenAbout,
-    Back,
-    Close,
-    None,
-
-    ToggleFeature(String),
-    ChangeMode(ModeType),
-    ChangeTime(u64),
-    ChangeWordCount(usize),
-    ChangeTheme(String),
-    ChangeCursorStyle(String),
-    ChangeLanguage(String),
-    ChangeVisibleLineCount(usize),
-    Restart,
-    Quit,
+pub enum MenuItemResult {
+    TriggerAction(TermiAction),
+    OpenSubMenu(MenuContext),
+    ToggleState,
 }
 
 #[derive(Debug, Clone)]
 pub struct MenuItem {
+    pub id: String,
     pub label: String,
-    pub action: MenuAction,
-    pub has_submenu: bool,
-    pub is_active: bool,
-    pub is_toggleable: bool,
+    pub result: MenuItemResult,
+    // TODO: this is weird, want to find a better name represantion than `is_active`.
+    pub is_active: Option<bool>, // true/false if toggleable, None otherwise
     pub is_disabled: bool,
+    pub preview_type: Option<PreviewType>,
 }
 
 impl MenuItem {
-    pub fn new(label: impl Into<String>, action: MenuAction) -> Self {
+    pub fn action(id: &str, label: &str, action: TermiAction) -> Self {
         Self {
-            label: label.into(),
-            action,
-            is_active: false,
-            has_submenu: false,
-            is_toggleable: false,
+            id: id.to_string(),
+            label: label.to_string(),
+            result: MenuItemResult::TriggerAction(action),
+            is_active: None,
             is_disabled: false,
+            preview_type: None,
         }
     }
 
-    pub fn toggleable(mut self, is_active: bool) -> Self {
-        self.is_toggleable = true;
-        self.is_active = is_active;
+    pub fn toggle(id: &str, label: &str, is_active: bool) -> Self {
+        Self {
+            id: id.to_string(),
+            label: label.to_string(),
+            result: MenuItemResult::ToggleState,
+            is_active: Some(is_active),
+            is_disabled: false,
+            preview_type: None,
+        }
+    }
+
+    pub fn sub_menu(id: &str, label: &str, ctx: MenuContext) -> Self {
+        Self {
+            id: id.to_string(),
+            label: label.to_string(),
+            result: MenuItemResult::OpenSubMenu(ctx),
+            is_active: None,
+            is_disabled: false,
+            preview_type: None,
+        }
+    }
+
+    pub fn with_preview(mut self, preview: PreviewType) -> Self {
+        self.preview_type = Some(preview);
         self
     }
 
-    pub fn submenufy(mut self) -> Self {
-        self.has_submenu = true;
-        self
-    }
-
-    pub fn disabled(mut self, is_disabled: bool) -> Self {
-        self.is_disabled = is_disabled;
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.is_disabled = disabled;
         self
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Menu {
-    items: Vec<MenuItem>,
-    selected_index: usize,
+    pub ctx: MenuContext,
+    pub title: String,
+    _items: Vec<MenuItem>,
+    current_index: usize,
+    filtered_indices: Option<Vec<usize>>,
 }
 
 impl Menu {
-    pub fn new(items: Vec<MenuItem>) -> Self {
-        Self {
-            items,
-            selected_index: 0,
+    pub fn new(ctx: MenuContext, title: String, items: Vec<MenuItem>) -> Self {
+        Menu {
+            ctx,
+            title,
+            _items: items,
+            current_index: 0,
+            filtered_indices: None,
         }
     }
 
-    pub fn items(&self) -> &[MenuItem] {
-        &self.items
-    }
-
-    pub fn selected_index(&self) -> usize {
-        self.selected_index
-    }
-
-    pub fn current_item(&self) -> MenuItem {
-        self.items[self.selected_index].clone()
-    }
-
-    pub fn selected_item(&self) -> Option<&MenuItem> {
-        self.items.get(self.selected_index)
-    }
-
-    pub fn select(&mut self, index: usize) {
-        if index < self.items.len() {
-            self.selected_index = index;
+    pub fn navigate(&mut self, nav: MenuNavAction) {
+        let items_count = self.size();
+        log_debug!(
+            "Calling navigate with nav action: {:?} and count: {}",
+            nav,
+            items_count
+        );
+        if items_count == 0 {
+            return;
+        }
+        let curr = self.current_index;
+        log_debug!("current_index = {}", curr);
+        match nav {
+            MenuNavAction::Up => self.current_index = curr.saturating_sub(1),
+            MenuNavAction::Down => self.current_index = (curr + 1).min(items_count - 1),
+            MenuNavAction::PageUp => {
+                let scroll_amount = (self.size() / 2).max(1);
+                self.current_index = curr.saturating_sub(scroll_amount).max(0)
+            }
+            MenuNavAction::PageDown => {
+                let scroll_amount = (self.size() / 2).max(1);
+                self.current_index = (curr + scroll_amount).min(items_count - 1)
+            }
+            MenuNavAction::Home => {
+                self.current_index = 0;
+                log_debug!("Calling home")
+            }
+            MenuNavAction::End => self.current_index = items_count - 1,
+            MenuNavAction::Back => {} // handled by MenuState
         }
     }
 
-    pub fn next_item(&mut self) {
-        if self.selected_index < self.items.len().saturating_sub(1) {
-            self.selected_index += 1;
+    /// Amount of items in the current menu. Takes into consideration if there is a current filer
+    pub fn size(&self) -> usize {
+        if let Some(indices) = &self.filtered_indices {
+            indices.len()
+        } else {
+            self._items.len()
         }
     }
 
-    pub fn prev_item(&mut self) {
-        if self.selected_index > 0 {
-            self.selected_index -= 1;
+    pub fn current_item(&self) -> Option<&MenuItem> {
+        // if filtering, `selected_index` is an index into `filtered_indexes`
+        // which then itself points to the actual item in `self.items`. cool
+        if let Some(indices) = &self.filtered_indices {
+            indices
+                .get(self.current_index)
+                .and_then(|&og_idx| self._items.get(og_idx))
+        } else {
+            self._items.get(self.current_index)
         }
     }
 
-    pub fn update_toggles(&mut self, config: &Config) {
-        for item in &mut self.items {
-            if item.is_toggleable {
-                if let MenuAction::ToggleFeature(feature) = &item.action {
-                    item.is_active = match feature.as_str() {
-                        "punctuation" => config.use_punctuation,
-                        "numbers" => config.use_numbers,
-                        "symbols" => config.use_symbols,
-                        _ => item.is_active,
-                    };
-                }
+    /// Toggles the state of the current item if is a toggleable item
+    pub fn toggle_item(&mut self, id: &str) {
+        if let Some(item) = self._items.iter_mut().find(|item| item.id == id) {
+            if let Some(is_active) = item.is_active {
+                item.is_active = Some(!is_active)
             }
         }
+    }
+
+    pub fn items(&self) -> Vec<MenuItem> {
+        if let Some(indices) = &self.filtered_indices {
+            indices
+                .iter()
+                .filter_map(|&i| self._items.get(i).cloned())
+                .collect()
+        } else {
+            self._items.clone()
+        }
+    }
+
+    pub fn items_with_indices(&self) -> Vec<(usize, &MenuItem)> {
+        self._items.iter().enumerate().collect()
     }
 
     pub fn filtered_items(&self, query: &str) -> Vec<(usize, &MenuItem)> {
         if query.is_empty() {
-            return self.items.iter().enumerate().collect();
+            return self._items.iter().enumerate().collect();
         }
 
         let query = query.to_lowercase();
-        self.items
+        self._items
             .iter()
             .enumerate()
             .filter(|(_, item)| {
-                let label = item.label.to_lowercase();
-                // most simple fuzzy search on the market
-                fuzzy_match(&label, &query)
+                !item.is_disabled && fuzzy_match(&item.label.to_lowercase(), &query)
             })
             .collect()
     }
 
-    pub fn next_filtered_item(&mut self, query: &str) {
-        let filtered = self.filtered_items(query);
-        if filtered.is_empty() {
-            return;
-        }
-
-        let current_pos = filtered.iter().position(|(i, _)| *i == self.selected_index);
-        if let Some(pos) = current_pos {
-            if pos + 1 < filtered.len() {
-                self.selected_index = filtered[pos + 1].0;
-            }
-        } else {
-            // extreme edge case that _in theory_ should never trigger.
-            let next_item = filtered
-                .iter()
-                .find(|(i, _)| *i > self.selected_index)
-                .or_else(|| filtered.first())
-                .map(|(i, _)| *i);
-
-            if let Some(index) = next_item {
-                self.selected_index = index;
-            }
-        }
+    pub fn selected_index(&self) -> usize {
+        self.current_index
     }
 
-    pub fn prev_filtered_item(&mut self, query: &str) {
-        let filtered = self.filtered_items(query);
-        if filtered.is_empty() {
+    pub fn filter_items(&mut self, query: &str) -> Vec<MenuItem> {
+        self.update_filtered_indices(query);
+        self.items()
+    }
+
+    fn update_filtered_indices(&mut self, query: &str) {
+        if query.is_empty() {
+            self.filtered_indices = None;
+            self.current_index = 0;
             return;
         }
 
-        let current_pos = filtered.iter().position(|(i, _)| *i == self.selected_index);
-        if let Some(pos) = current_pos {
-            if pos > 0 {
-                self.selected_index = filtered[pos - 1].0;
-            }
-        } else {
-            // extreme edge case that _in theory_ should never trigger.
-            let prev_item = filtered
-                .iter()
-                .rev()
-                .find(|(i, _)| *i < self.selected_index)
-                .or_else(|| filtered.last())
-                .map(|(i, _)| *i);
+        let query = query.to_lowercase();
+        let indices: Vec<usize> = self
+            ._items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| {
+                !item.is_disabled && fuzzy_match(&item.label.to_lowercase(), &query)
+            })
+            .map(|(i, _)| i)
+            .collect();
 
-            if let Some(index) = prev_item {
-                self.selected_index = index;
-            }
+        self.filtered_indices = Some(indices);
+        let size = self.size();
+        if size > 0 {
+            self.current_index = self.current_index.min(size - 1)
+        } else {
+            self.current_index = 0
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct MenuState {
-    menu_stack: Vec<Menu>,
-    preview_theme: Option<String>,
-    preview_cursor: Option<String>,
+    stack: Vec<Menu>,
     search_query: String,
     is_searching: bool,
-    opened_from_footer: bool,
-}
-
-impl Default for MenuState {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub ui_height: usize,
 }
 
 impl MenuState {
     pub fn new() -> Self {
-        Self {
-            menu_stack: Vec::new(),
-            preview_theme: None,
-            preview_cursor: None,
-            search_query: String::new(),
-            is_searching: false,
-            opened_from_footer: false,
-        }
+        Default::default()
     }
 
     pub fn is_open(&self) -> bool {
-        !self.menu_stack.is_empty()
-    }
-
-    pub fn menu_depth(&self) -> usize {
-        self.menu_stack.len()
-    }
-
-    pub fn current_menu(&self) -> Option<&Menu> {
-        self.menu_stack.last()
-    }
-
-    pub fn current_menu_mut(&mut self) -> Option<&mut Menu> {
-        self.menu_stack.last_mut()
-    }
-
-    pub fn toggle_menu(&mut self, config: &Config) {
-        if self.is_open() {
-            self.menu_stack.clear();
-            self.opened_from_footer = false;
-            self.clear_previews();
-        } else {
-            self.execute(MenuAction::OpenMainMenu, config);
-            self.opened_from_footer = false;
-        }
-    }
-
-    pub fn toggle_theme_picker(&mut self, config: &Config) {
-        self.execute(MenuAction::ToggleThemePicker, config);
-    }
-
-    pub fn back(&mut self) {
-        if self.should_close_completely() {
-            self.close();
-        } else if self.menu_depth() > 1 {
-            self.menu_stack.pop();
-        } else {
-            self.close();
-        }
-        self.clear_previews();
-    }
-
-    pub fn close(&mut self) {
-        self.menu_stack.clear();
-        self.opened_from_footer = false;
-        self.clear_previews();
-        if self.is_searching() {
-            self.cancel_search()
-        }
-    }
-
-    fn get_label_index(items: &[MenuItem], label: &str) -> Option<usize> {
-        items
-            .iter()
-            .position(|item| item.label.to_lowercase() == label.to_lowercase())
-    }
-
-    pub fn execute(&mut self, action: MenuAction, config: &Config) -> Option<MenuAction> {
-        match action {
-            MenuAction::OpenMainMenu => {
-                let menu = Menu::new(Self::build_main_menu(config));
-                self.menu_stack.push(menu);
-                None
-            }
-            MenuAction::ToggleThemePicker => {
-                if self.is_theme_menu() {
-                    self.close();
-                    return None;
-                }
-                if config.term_has_color_support() {
-                    let mut menu = Menu::new(Self::build_theme_picker());
-                    if let Some(index) = Self::get_label_index(
-                        menu.items(),
-                        config.theme.as_deref().unwrap_or(DEFAULT_THEME),
-                    ) {
-                        menu.select(index);
-                    }
-                    self.menu_stack.push(menu);
-                }
-                None
-            }
-            MenuAction::OpenLanguagePicker => {
-                let mut menu = Menu::new(Self::build_language_picker());
-                if let Some(lang) = config.language.as_ref() {
-                    if let Some(index) = Self::get_label_index(menu.items(), lang.as_str()) {
-                        menu.select(index);
-                    }
-                }
-                self.menu_stack.push(menu);
-                None
-            }
-            MenuAction::OpenCursorPicker => {
-                let mut menu = Menu::new(Self::build_cursor_picker());
-                if let Some(style) = &config.cursor_style {
-                    if let Some(index) = Self::get_label_index(menu.items(), style.as_str()) {
-                        menu.select(index);
-                    }
-                }
-                self.menu_stack.push(menu);
-                None
-            }
-            MenuAction::OpenModePicker => {
-                let menu = Menu::new(Self::build_mode_menu());
-                self.menu_stack.push(menu);
-                None
-            }
-            MenuAction::OpenTimePicker => {
-                let menu = Menu::new(Self::build_time_menu());
-                self.menu_stack.push(menu);
-                None
-            }
-            MenuAction::OpenWordsPicker => {
-                let menu = Menu::new(Self::build_words_menu());
-                self.menu_stack.push(menu);
-                None
-            }
-            MenuAction::OpenVisibleLines => {
-                let mut menu = Menu::new(Self::build_visible_lines_menu());
-                if let Some(index) =
-                    Self::get_label_index(menu.items(), config.visible_lines.to_string().as_str())
-                {
-                    menu.select(index);
-                }
-
-                self.menu_stack.push(menu);
-                None
-            }
-            MenuAction::OpenAbout => {
-                let menu = Menu::new(Self::build_about_menu());
-                self.menu_stack.push(menu);
-                None
-            }
-            MenuAction::Back => {
-                if self.is_searching() {
-                    self.cancel_search();
-                } else {
-                    self.back();
-                }
-                None
-            }
-            MenuAction::Close => {
-                self.close();
-                None
-            }
-            MenuAction::None => None,
-            // NOTE: on all of this actions we want to close
-            action @ (MenuAction::OpenModal(_)
-            | MenuAction::ChangeMode(_)
-            | MenuAction::ChangeTime(_)
-            | MenuAction::ChangeWordCount(_)
-            | MenuAction::ChangeTheme(_)
-            | MenuAction::ChangeCursorStyle(_)
-            | MenuAction::ChangeLanguage(_)
-            | MenuAction::ChangeVisibleLineCount(_)
-            | MenuAction::Restart
-            | MenuAction::Quit) => {
-                self.close();
-                Some(action)
-            }
-            action @ MenuAction::ToggleFeature(_) => {
-                // NOTE: we don't close the menu on feature toggles. We do them in place
-                Some(action)
-            }
-        }
-    }
-
-    pub fn clear_previews(&mut self) {
-        self.preview_theme = None;
-        self.preview_cursor = None;
-    }
-
-    pub fn preview_selected(&mut self) {
-        let action = self
-            .current_menu()
-            .and_then(|menu| menu.selected_item())
-            .map(|item| item.action.clone());
-
-        if let Some(action) = action {
-            match action {
-                MenuAction::ChangeTheme(theme) => self.preview_theme = Some(theme),
-                MenuAction::ChangeCursorStyle(cursor) => self.preview_cursor = Some(cursor),
-                _ => {}
-            }
-        }
-    }
-
-    pub fn get_preview_theme(&self) -> Option<&String> {
-        self.preview_theme.as_ref()
-    }
-
-    pub fn get_preview_cursor(&self) -> Option<&String> {
-        self.preview_cursor.as_ref()
-    }
-
-    fn build_main_menu(config: &Config) -> Vec<MenuItem> {
-        vec![
-            MenuItem::new(
-                "Toggle Punctuation",
-                MenuAction::ToggleFeature("punctuation".into()),
-            )
-            .toggleable(config.use_punctuation),
-            MenuItem::new(
-                "Toggle Numbers",
-                MenuAction::ToggleFeature("numbers".into()),
-            )
-            .toggleable(config.use_numbers),
-            MenuItem::new(
-                "Toggle Symbols",
-                MenuAction::ToggleFeature("symbols".into()),
-            )
-            .toggleable(config.use_symbols),
-            MenuItem::new("Mode...", MenuAction::OpenModePicker).submenufy(),
-            MenuItem::new("Time...", MenuAction::OpenTimePicker).submenufy(),
-            MenuItem::new("Words...", MenuAction::OpenWordsPicker).submenufy(),
-            MenuItem::new("Language...", MenuAction::OpenLanguagePicker).submenufy(),
-            MenuItem::new("Theme...", MenuAction::ToggleThemePicker)
-                .submenufy()
-                .disabled(!config.term_has_color_support()),
-            MenuItem::new("Cursor...", MenuAction::OpenCursorPicker).submenufy(),
-            MenuItem::new("Visible Lines...", MenuAction::OpenVisibleLines).submenufy(),
-            MenuItem::new("About...", MenuAction::OpenAbout).submenufy(),
-            MenuItem::new("Exit", MenuAction::Quit),
-        ]
-    }
-
-    fn build_about_menu() -> Vec<MenuItem> {
-        vec![
-            MenuItem::new("name: termitype", MenuAction::None),
-            MenuItem::new(format!("version: {}", VERSION), MenuAction::None),
-            MenuItem::new("description: TUI typing game", MenuAction::None),
-            MenuItem::new("license: MIT", MenuAction::None),
-            MenuItem::new(
-                "source: http://github.com/emanuel2718/termitype",
-                MenuAction::None,
-            ),
-        ]
-    }
-
-    fn build_generic_menu<T: ToString + Clone>(
-        items: Vec<T>,
-        action_builder: impl Fn(T) -> MenuAction,
-        sorter: impl Fn(&MenuItem, &MenuItem) -> std::cmp::Ordering,
-    ) -> Vec<MenuItem> {
-        let mut menu_items: Vec<MenuItem> = items
-            .into_iter()
-            .map(|item| {
-                let label = item.to_string();
-                MenuItem::new(label, action_builder(item))
-            })
-            .collect();
-
-        menu_items.sort_by(sorter);
-        menu_items
-    }
-
-    fn build_theme_picker() -> Vec<MenuItem> {
-        let themes = crate::theme::available_themes().to_vec();
-        Self::build_generic_menu(themes, MenuAction::ChangeTheme, {
-            |a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase())
-        })
-    }
-
-    fn build_language_picker() -> Vec<MenuItem> {
-        let languages = crate::builder::Builder::available_languages().to_vec();
-        Self::build_generic_menu(languages, MenuAction::ChangeLanguage, {
-            |a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase())
-        })
-    }
-
-    fn build_cursor_picker() -> Vec<MenuItem> {
-        vec![
-            MenuItem::new("Beam", MenuAction::ChangeCursorStyle("beam".into())),
-            MenuItem::new("Block", MenuAction::ChangeCursorStyle("block".into())),
-            MenuItem::new(
-                "Underline",
-                MenuAction::ChangeCursorStyle("underline".into()),
-            ),
-            MenuItem::new(
-                "Blinking Beam",
-                MenuAction::ChangeCursorStyle("blinking-beam".into()),
-            ),
-            MenuItem::new(
-                "Blinking Block",
-                MenuAction::ChangeCursorStyle("blinking-block".into()),
-            ),
-            MenuItem::new(
-                "Blinking Underline",
-                MenuAction::ChangeCursorStyle("blinking-underline".into()),
-            ),
-        ]
-    }
-
-    fn build_mode_menu() -> Vec<MenuItem> {
-        vec![
-            MenuItem::new("Time", MenuAction::ChangeMode(ModeType::Time)),
-            MenuItem::new("Words", MenuAction::ChangeMode(ModeType::Words)),
-        ]
-    }
-
-    fn build_time_menu() -> Vec<MenuItem> {
-        let times = vec![15, 30, 60, 120];
-        let mut items = Self::build_generic_menu(times, MenuAction::ChangeTime, {
-            |a, b| {
-                a.label
-                    .parse::<u32>()
-                    .unwrap_or(0)
-                    .cmp(&b.label.parse::<u32>().unwrap_or(0))
-            }
-        });
-        items.push(MenuItem::new(
-            "custom...",
-            MenuAction::OpenModal(ModalContext::CustomTime),
-        ));
-        items
-    }
-
-    fn build_words_menu() -> Vec<MenuItem> {
-        let word_counts = vec![10, 25, 50, 100];
-        let mut items = Self::build_generic_menu(word_counts, MenuAction::ChangeWordCount, {
-            |a, b| {
-                a.label
-                    .parse::<u32>()
-                    .unwrap_or(0)
-                    .cmp(&b.label.parse::<u32>().unwrap_or(0))
-            }
-        });
-        items.push(MenuItem::new(
-            "custom...",
-            MenuAction::OpenModal(ModalContext::CustomWordCount),
-        ));
-        items
-    }
-
-    fn build_visible_lines_menu() -> Vec<MenuItem> {
-        let line_counts = vec![1, 2, 3, 4, 5];
-        Self::build_generic_menu(line_counts, MenuAction::ChangeVisibleLineCount, {
-            |a, b| {
-                a.label
-                    .parse::<usize>()
-                    .unwrap_or(0)
-                    .cmp(&b.label.parse::<usize>().unwrap_or(0))
-            }
-        })
-    }
-
-    pub fn select(&mut self, index: usize) {
-        if let Some(menu) = self.current_menu_mut() {
-            menu.select(index);
-            self.preview_selected();
-        }
-    }
-
-    pub fn enter(&mut self, config: &Config) -> Option<MenuAction> {
-        if let Some(menu) = self.current_menu() {
-            let selected_item = menu.selected_item()?;
-            let action = selected_item.action.clone();
-            self.execute(action, config)
-        } else {
-            None
-        }
-    }
-
-    pub fn next_item(&mut self) -> bool {
-        let is_searching = self.is_searching();
-        let query = if is_searching {
-            Some(self.search_query.clone())
-        } else {
-            None
-        };
-
-        if let Some(menu) = self.current_menu_mut() {
-            if let Some(q) = query {
-                menu.next_filtered_item(&q);
-            } else {
-                menu.next_item();
-            }
-            self.preview_selected();
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn prev_item(&mut self) -> bool {
-        let is_searching = self.is_searching();
-        let query = if is_searching {
-            Some(self.search_query.clone())
-        } else {
-            None
-        };
-
-        if let Some(menu) = self.current_menu_mut() {
-            if let Some(q) = query {
-                menu.prev_filtered_item(&q);
-            } else {
-                menu.prev_item();
-            }
-            self.preview_selected();
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn update_toggles(&mut self, config: &Config) {
-        if let Some(menu) = self.current_menu_mut() {
-            menu.update_toggles(config);
-        }
+        !self.stack.is_empty()
     }
 
     pub fn is_searching(&self) -> bool {
         self.is_searching
     }
 
-    pub fn search_query(&self) -> &str {
-        &self.search_query
+    // NOTE: might need a more generic way to detect if the current menu is an `X` menu.
+    // could get annoying when we get a lot of menus
+    pub fn is_theme_menu(&self) -> bool {
+        let curr_menu = self.current_menu();
+        if let Some(menu) = curr_menu {
+            match menu.ctx {
+                MenuContext::Theme => true,
+                _ => false,
+            };
+        }
+        false
     }
 
-    pub fn start_search(&mut self) {
-        self.is_searching = true;
+    pub fn is_language_menu(&self) -> bool {
+        let curr_menu = self.current_menu();
+        if let Some(menu) = curr_menu {
+            match menu.ctx {
+                MenuContext::Language => true,
+                _ => false,
+            };
+        }
+        false
     }
 
-    pub fn cancel_search(&mut self) {
-        self.is_searching = false;
-        self.search_query.clear();
+    pub fn is_about_menu(&self) -> bool {
+        let curr_menu = self.current_menu();
+        if let Some(menu) = curr_menu {
+            match menu.ctx {
+                MenuContext::About => true,
+                _ => false,
+            };
+        }
+        false
     }
 
-    pub fn finish_search(&mut self) {
-        self.is_searching = false;
+    pub fn current_menu(&self) -> Option<&Menu> {
+        self.stack.last()
     }
 
-    pub fn update_search(&mut self, query: &str) {
-        self.search_query = query.to_string();
-        if let Some(menu) = self.current_menu() {
-            if let Some(index) = self.find_best_match(menu, &self.search_query) {
-                self.select(index);
+    pub fn current_menu_mut(&mut self) -> Option<&mut Menu> {
+        self.stack.last_mut()
+    }
+
+    // =============== HANDLERS ===============
+    pub fn handle_action(&mut self, action: TermiAction, config: &Config) -> Option<TermiAction> {
+        match action {
+            // Open
+            TermiAction::MenuOpen(ctx) => {
+                log_debug!("------> menu open: {:?}", ctx);
+                // Before opening, if it's a direct request (not sub-menu), clear stack.
+                // This logic might need refinement based on desired sub-menu behavior.
+                if self.stack.is_empty() || self.stack.last().map_or(true, |m| m.ctx != ctx) {
+                    // This check is to prevent re-pushing same menu if already on top from sub-menu logic
+                }
+                self.open(ctx, config);
+                self.preview_selection()
+            }
+            // Close
+            TermiAction::MenuClose => {
+                self.stack.clear();
+                self.clear_search();
+                return Some(TermiAction::ClearPreview);
+            }
+            // Select
+            TermiAction::MenuSelect => return self.execute_menu_action(config),
+            // Search
+            TermiAction::MenuSearch(search_action) => {
+                self.handle_search_action(search_action);
+                return self.preview_selection();
+            }
+            // Navigate
+            TermiAction::MenuNavigate(nav_action) => {
+                // TODO: this could be simplified
+                if nav_action == MenuNavAction::Back {
+                    if self.is_searching {
+                        self.clear_search();
+                        if let Some(menu) = self.stack.last_mut() {
+                            menu.filter_items("");
+                        }
+                    } else {
+                        self.stack.pop();
+                        if self.stack.is_empty() {
+                            return Some(TermiAction::ClearPreview);
+                        }
+                    }
+                } else if let Some(menu) = self.stack.last_mut() {
+                    menu.navigate(nav_action);
+                }
+                return self.preview_selection();
+            }
+            _ => Some(TermiAction::NoOp),
+        };
+        None
+    }
+
+    fn handle_search_action(&mut self, action: MenuSearchAction) {
+        match action {
+            MenuSearchAction::Start => self.is_searching = true,
+            MenuSearchAction::Close => self.is_searching = false,
+            MenuSearchAction::Confirm => self.is_searching = false,
+            MenuSearchAction::Clear => self.search_query.clear(),
+            MenuSearchAction::Backspace => {
+                self.search_query.pop();
+            }
+            MenuSearchAction::Input(c) if self.is_searching => self.search_query.push(c),
+            _ => {}
+        }
+
+        if let Some(menu) = self.stack.last_mut() {
+            if self.is_searching {
+                menu.filter_items(&self.search_query);
+            } else {
+                menu.filter_items("");
             }
         }
     }
 
-    pub fn find_best_match(&self, menu: &Menu, query: &str) -> Option<usize> {
-        if query.is_empty() {
-            return None;
-        }
+    // =============== EXECUTOR ===============
+    fn execute_menu_action(&mut self, config: &Config) -> Option<TermiAction> {
+        let item_result = self
+            .stack
+            .last()
+            .and_then(|menu| menu.current_item())
+            .filter(|item| !item.is_disabled)
+            .map(|item| item.result.clone());
 
-        let filtered = menu.filtered_items(query);
-        if filtered.is_empty() {
-            None
-        } else {
-            Some(filtered[0].0)
+        if let Some(result) = item_result {
+            match result {
+                MenuItemResult::TriggerAction(action) => {
+                    self.stack.clear();
+                    self.clear_search();
+                    return Some(action);
+                }
+                MenuItemResult::OpenSubMenu(ctx) => {
+                    self.open(ctx, config);
+                    return self.preview_selection();
+                }
+                MenuItemResult::ToggleState => {
+                    // TODO: extract this to a fn
+                    if let Some(id) = self
+                        .stack
+                        .last()
+                        .and_then(|m| m.current_item().map(|i| i.id.clone()))
+                    {
+                        // TODO: maybe this ids need to be MenuItemId enum
+                        let act = match id.as_str() {
+                            "root/punctuation" => TermiAction::TogglePunctuation,
+                            "root/numbers" => TermiAction::ToggleNumbers,
+                            "root/symbols" => TermiAction::ToggleSymbols,
+                            _ => TermiAction::NoOp,
+                        };
+                        return Some(act);
+                    }
+                }
+            }
         }
+        None
     }
 
-    pub fn toggle_from_footer(&mut self, config: &Config, action: MenuAction) {
+    fn preview_selection(&self) -> Option<TermiAction> {
+        self.stack
+            .last()
+            .and_then(|menu| menu.current_item())
+            .and_then(|item| item.preview_type.clone())
+            .map(TermiAction::ApplyPreview)
+            .or(Some(TermiAction::ClearPreview))
+    }
+
+    fn open(&mut self, ctx: MenuContext, config: &Config) {
+        let menu = self.build_menu(ctx, config);
+        self.stack.push(menu);
+        self.clear_search();
+    }
+
+    fn close(&mut self) {
+        self.stack.clear();
+        self.clear_search();
+    }
+
+    pub fn toggle(&mut self, config: &Config) {
         if self.is_open() {
-            self.menu_stack.clear();
+            self.close();
         } else {
-            self.execute(action, config);
-            self.opened_from_footer = true;
+            self.open(MenuContext::Root, config);
         }
     }
 
-    pub fn should_close_completely(&self) -> bool {
-        self.opened_from_footer && self.menu_depth() == 1
+    fn clear_search(&mut self) {
+        self.is_searching = false;
+        self.search_query.clear();
     }
 
-    // TODO: this is hacky until we have more fine grained control of the exact menu item we are (current and parent item)
-    // FIXME: improve menu state to get rid of this mess
-    pub fn is_about_menu(&self) -> bool {
-        self.current_menu()
-            .map(|menu| {
-                menu.items().iter().any(|item| {
-                    matches!(item.action, MenuAction::None)
-                        && item.label.starts_with("name: termitype")
-                })
+    pub fn search_query(&self) -> &str {
+        &self.search_query
+    }
+
+    pub fn sync_toggle_items(&mut self, config: &Config) {
+        if let Some(menu) = self.stack.last_mut() {
+            // TODO: there has to be a better way of doing this
+            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "root/punctuation") {
+                item.is_active = Some(config.use_punctuation);
+            }
+            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "root/symbols") {
+                item.is_active = Some(config.use_symbols);
+            }
+            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "root/numbers") {
+                item.is_active = Some(config.use_numbers);
+            }
+        }
+    }
+
+    fn build_menu(&self, ctx: MenuContext, config: &Config) -> Menu {
+        match ctx {
+            MenuContext::Root => self.build_root_menu(config),
+            MenuContext::Theme => self.build_theme_menu(),
+            MenuContext::Language => self.build_language_menu(),
+            MenuContext::Cursor => self.build_cursor_menu(),
+            MenuContext::Mode => self.build_mode_menu(),
+            MenuContext::Time => self.build_time_menu(),
+            MenuContext::Words => self.build_words_menu(),
+            MenuContext::LineCount => self.build_lines_count_menu(),
+            MenuContext::About => self.build_about_menu(),
+        }
+    }
+
+    fn build_root_menu(&self, config: &Config) -> Menu {
+        let items = vec![
+            MenuItem::toggle("root/punctuation", "Punctuation", config.use_punctuation),
+            MenuItem::toggle("root/numbers", "Numbers", config.use_numbers),
+            MenuItem::toggle("root/symbols", "Symbols", config.use_symbols),
+            MenuItem::sub_menu("root/mode", "Mode...", MenuContext::Mode),
+            MenuItem::sub_menu("root/time", "Time...", MenuContext::Time),
+            MenuItem::sub_menu("root/words", "Words...", MenuContext::Words),
+            MenuItem::sub_menu("root/language", "Language...", MenuContext::Language),
+            MenuItem::sub_menu("root/theme", "Theme...", MenuContext::Theme)
+                .disabled(!config.term_has_color_support()),
+            MenuItem::sub_menu("root/cursor", "Cursor...", MenuContext::Cursor),
+            MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
+            MenuItem::sub_menu("root/about", "About...", MenuContext::About),
+            MenuItem::action("root/quit", "Exit", TermiAction::Quit),
+        ];
+        Menu::new(MenuContext::Root, "Main Menu".to_string(), items)
+    }
+
+    // Chnage theme menu
+    fn build_theme_menu(&self) -> Menu {
+        let themes = crate::theme::available_themes();
+        let items: Vec<MenuItem> = themes
+            .iter()
+            .map(|name| {
+                MenuItem::action(
+                    &format!("themes/{}", name),
+                    name,
+                    TermiAction::ChangeTheme(name.to_string()),
+                )
+                .with_preview(PreviewType::Theme(name.to_string()))
             })
-            .unwrap_or(false)
+            .collect();
+        Menu::new(MenuContext::Theme, "Select Theme".to_string(), items)
     }
 
-    pub fn is_theme_menu(&self) -> bool {
-        if !self.is_open() {
-            return false;
-        }
-        self.current_menu()
-            .and_then(|menu| menu.selected_item())
-            .map(|item| matches!(item.action, MenuAction::ChangeTheme(_)))
-            .unwrap_or(false)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::env;
-
-    fn create_test_menu() -> MenuState {
-        MenuState::new()
+    // Chnage test language menu
+    fn build_language_menu(&self) -> Menu {
+        let languages = crate::builder::Builder::available_languages();
+        let items = languages
+            .iter()
+            .map(|lang| {
+                MenuItem::action(
+                    &format!("lang/{}", lang),
+                    lang,
+                    TermiAction::ChangeLanguage(lang.to_string()),
+                )
+            })
+            .collect();
+        Menu::new(MenuContext::Language, "Select Language".to_string(), items)
     }
 
-    #[test]
-    fn test_menu_navigation() {
-        let mut menu = create_test_menu();
-        menu.toggle_menu(&Config::default());
-        assert!(menu.is_open());
-
-        assert!(menu.next_item());
-        assert!(menu.next_item());
-        assert_eq!(menu.current_menu().unwrap().selected_index(), 2);
-
-        assert!(menu.prev_item());
-        assert_eq!(menu.current_menu().unwrap().selected_index(), 1);
-
-        menu.select(5);
-        assert_eq!(menu.current_menu().unwrap().selected_index(), 5);
+    // Chnage cursor style menu
+    fn build_cursor_menu(&self) -> Menu {
+        let styles = [
+            "beam",
+            "block",
+            "underline",
+            "blinking-beam",
+            "blinking-block",
+            "blinking-underline",
+        ];
+        let items = styles
+            .iter()
+            .map(|&style| {
+                MenuItem::action(
+                    &format!("cursor/{}", style),
+                    style,
+                    TermiAction::ChangeCursor(style.to_string()),
+                )
+                .with_preview(PreviewType::Cursor(style.to_string()))
+            })
+            .collect();
+        Menu::new(
+            MenuContext::Cursor,
+            "Select Cursor Style".to_string(),
+            items,
+        )
     }
 
-    #[test]
-    fn test_theme_picker() {
-        // must set this manually as the theme sub-menu is disbabled if the
-        // current environment doesn't have proper color support and without it
-        // this test will fail in CI for example.
-        env::set_var("COLORTERM", "truecolor");
-        let mut menu = create_test_menu();
-        menu.toggle_menu(&Config::default());
-
-        let theme_index = if let Some(menu_ref) = menu.current_menu() {
-            menu_ref
-                .items()
-                .iter()
-                .position(|item| matches!(item.action, MenuAction::ToggleThemePicker))
-                .unwrap()
-        } else {
-            panic!("Menu should be open");
-        };
-        menu.select(theme_index);
-
-        let theme_action = menu
-            .current_menu()
-            .and_then(|menu_ref| menu_ref.selected_item())
-            .map(|item| item.action.clone());
-
-        if let Some(action) = theme_action {
-            menu.execute(action, &Config::default());
-        }
-
-        assert_eq!(menu.menu_depth(), 2);
-
-        let has_theme = menu
-            .current_menu()
-            .and_then(|menu_ref| menu_ref.selected_item())
-            .map(|item| matches!(item.action, MenuAction::ChangeTheme(_)))
-            .unwrap_or(false);
-
-        if has_theme {
-            menu.preview_selected();
-            assert!(menu.get_preview_theme().is_some());
-        }
+    // Change test mode menu
+    fn build_mode_menu(&self) -> Menu {
+        let items = vec![
+            MenuItem::action(
+                "mode/time",
+                "Time",
+                TermiAction::ChangeMode(ModeType::Time, None),
+            ),
+            MenuItem::action(
+                "mode/words",
+                "Words",
+                TermiAction::ChangeMode(ModeType::Words, None),
+            ),
+        ];
+        Menu::new(MenuContext::Mode, "Select Mode".to_string(), items)
     }
 
-    #[test]
-    fn test_toggle_features() {
-        let mut menu = create_test_menu();
-        let mut config = Config::default();
-        menu.toggle_menu(&Config::default());
-        config.use_punctuation = true;
-
-        menu.update_toggles(&config);
-
-        if let Some(menu_ref) = menu.current_menu() {
-            let toggle_item = menu_ref.items().iter()
-                .find(|item| matches!(item.action, MenuAction::ToggleFeature(ref f) if f == "punctuation"))
-                .unwrap();
-            assert!(toggle_item.is_active);
-        }
+    // Change test duration menu
+    fn build_time_menu(&self) -> Menu {
+        let times = [15, 30, 60, 120];
+        let mut items: Vec<MenuItem> = times
+            .iter()
+            .map(|&t| {
+                MenuItem::action(
+                    &format!("time/{}", t),
+                    &t.to_string(),
+                    TermiAction::ChangeTime(t as u64),
+                )
+            })
+            .collect();
+        items.push(MenuItem::action(
+            "time/custom",
+            "Custom...",
+            TermiAction::ModalOpen(ModalContext::CustomTime),
+        ));
+        Menu::new(MenuContext::Time, "Select Time".to_string(), items)
     }
 
-    #[test]
-    fn test_search_functionality() {
-        let mut menu = create_test_menu();
-        menu.toggle_menu(&Config::default());
-        assert!(!menu.is_searching());
+    // Change word count menu
+    fn build_words_menu(&self) -> Menu {
+        let counts = [10, 25, 50, 100];
+        let mut items: Vec<MenuItem> = counts
+            .iter()
+            .map(|&c| {
+                MenuItem::action(
+                    &format!("words/{}", c),
+                    &c.to_string(),
+                    TermiAction::ChangeWordCount(c),
+                )
+            })
+            .collect();
+        items.push(MenuItem::action(
+            "words/custom",
+            "Custom...",
+            TermiAction::ModalOpen(ModalContext::CustomWordCount),
+        ));
+        Menu::new(MenuContext::Words, "Select Word Count".to_string(), items)
+    }
+    // Visible Line count menu
+    fn build_lines_count_menu(&self) -> Menu {
+        let lines = [1, 2, 3, 4, 5];
+        let items: Vec<MenuItem> = lines
+            .iter()
+            .map(|&line_count| {
+                MenuItem::action(
+                    &format!("lines/{}", line_count),
+                    &line_count.to_string(),
+                    TermiAction::ChangeVisibleLines(line_count),
+                )
+            })
+            .collect();
+        Menu::new(
+            MenuContext::LineCount,
+            "Select Visible Lines".to_string(),
+            items,
+        )
+    }
 
-        // start search
-        menu.start_search();
-        assert!(menu.is_searching());
-        assert_eq!(menu.search_query(), "");
-
-        // update serach query
-        menu.update_search("theme");
-        assert_eq!(menu.search_query(), "theme");
-        if let Some(menu) = menu.current_menu() {
-            let selected_item = menu.selected_item().unwrap();
-            assert_eq!(selected_item.label, "Theme...");
-        }
-
-        // fuzzy
-        menu.update_search("thm");
-        if let Some(menu) = menu.current_menu() {
-            let selected_item = menu.selected_item().unwrap();
-            assert_eq!(selected_item.label, "Theme...");
-        }
-
-        // cancel
-        menu.cancel_search();
-        assert!(!menu.is_searching());
-        assert_eq!(menu.search_query(), "");
-
-        menu.update_search("cur");
-        menu.finish_search();
-        assert!(!menu.is_searching());
-        assert_eq!(menu.search_query(), "cur");
-
-        menu.start_search();
-        assert!(menu.is_searching());
-        assert_eq!(menu.search_query(), "cur");
+    // About menu
+    fn build_about_menu(&self) -> Menu {
+        let items = vec![
+            MenuItem::action("about/name", "Name: termitype", TermiAction::NoOp),
+            MenuItem::action(
+                "about/version",
+                &format!("Version: {}", VERSION),
+                TermiAction::NoOp,
+            ),
+            MenuItem::action(
+                "about/desc",
+                "Description: A typing game for the terminal.",
+                TermiAction::NoOp,
+            ),
+            MenuItem::action(
+                "about/source",
+                "Source: http://github.com/emanuel2718/termitype",
+                TermiAction::NoOp,
+            ),
+        ];
+        Menu::new(MenuContext::About, "About Termitype".to_string(), items)
     }
 }
