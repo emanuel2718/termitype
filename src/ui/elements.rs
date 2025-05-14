@@ -85,7 +85,7 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
         DEFAULT_WORD_COUNT_LIST
     };
 
-    let is_custom_active = !presets.contains(&(current_value as usize));
+    let is_custom_active = !presets.contains(&{ current_value });
 
     // NOTE: this is okay because the <custom> on the action bar will only select between
     //       custom time or custom words by design
@@ -134,22 +134,22 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
         TermiElement::new(
             format!("{} ", presets[0]),
             current_value == presets[0],
-            Some(TermiClickAction::SetModeValue(presets[0] as usize)),
+            Some(TermiClickAction::SetModeValue(presets[0])),
         ),
         TermiElement::new(
             format!("{} ", presets[1]),
             current_value == presets[1],
-            Some(TermiClickAction::SetModeValue(presets[1] as usize)),
+            Some(TermiClickAction::SetModeValue(presets[1])),
         ),
         TermiElement::new(
             format!("{} ", presets[2]),
             current_value == presets[2],
-            Some(TermiClickAction::SetModeValue(presets[2] as usize)),
+            Some(TermiClickAction::SetModeValue(presets[2])),
         ),
         TermiElement::new(
             format!("{} ", presets[3]),
             current_value == presets[3],
-            Some(TermiClickAction::SetModeValue(presets[3] as usize)),
+            Some(TermiClickAction::SetModeValue(presets[3])),
         ),
         TermiElement::new(
             format!("{} ", custom_symbol),
@@ -160,7 +160,7 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
 
     elements
         .into_iter()
-        .map(|element| element.to_styled(&theme))
+        .map(|element| element.to_styled(theme))
         .collect()
 }
 
@@ -406,7 +406,7 @@ pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
 
     elements
         .into_iter()
-        .map(|element| element.to_styled(&theme))
+        .map(|element| element.to_styled(theme))
         .collect()
 }
 
@@ -461,7 +461,7 @@ pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement> {
             termi.menu.is_open(),
             Some(TermiClickAction::ToggleMenu),
         )
-        .to_styled(&theme),
+        .to_styled(theme),
         TermiElement::new(padding, false, None),
     ]
 }
