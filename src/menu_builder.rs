@@ -1,6 +1,7 @@
 use crate::{
     actions::{MenuContext, PreviewType, TermiAction},
     config::{Config, ModeType},
+    constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST},
     menu::{Menu, MenuItem},
     modal::ModalContext,
     version::VERSION,
@@ -119,7 +120,7 @@ fn build_mode_menu() -> Menu {
 
 // Change test duration menu
 fn build_time_menu() -> Menu {
-    let times = [15, 30, 60, 120];
+    let times = DEFAULT_TIME_DURATION_LIST;
     let mut items: Vec<MenuItem> = times
         .iter()
         .map(|&t| {
@@ -140,7 +141,7 @@ fn build_time_menu() -> Menu {
 
 // Change word count menu
 fn build_words_menu() -> Menu {
-    let counts = [10, 25, 50, 100];
+    let counts = DEFAULT_WORD_COUNT_LIST;
     let mut items: Vec<MenuItem> = counts
         .iter()
         .map(|&c| {

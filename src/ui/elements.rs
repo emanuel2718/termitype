@@ -1,7 +1,10 @@
 use crate::{
     actions::TermiClickAction,
     config::{Mode, ModeType},
-    constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH},
+    constants::{
+        APPNAME, DEFAULT_LANGUAGE, DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST,
+        MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH,
+    },
     log_debug,
     menu::MenuItemResult,
     modal::ModalContext,
@@ -77,13 +80,13 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
     let config = &termi.config;
     let current_value = config.current_mode().value();
     let is_time_mode = matches!(config.current_mode(), Mode::Time { .. });
-    let presets: Vec<u64> = if is_time_mode {
-        vec![15, 30, 60, 120]
+    let presets = if is_time_mode {
+        DEFAULT_TIME_DURATION_LIST
     } else {
-        vec![10, 25, 50, 100]
+        DEFAULT_WORD_COUNT_LIST
     };
 
-    let is_custom_active = !presets.contains(&(current_value as u64));
+    let is_custom_active = !presets.contains(&(current_value as usize));
 
     // NOTE: this is okay because the <custom> on the action bar will only select between
     //       custom time or custom words by design
@@ -131,22 +134,22 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
         TermiElement::new(format!("{} ", divider), false, None),
         TermiElement::new(
             format!("{} ", presets[0]),
-            current_value as u64 == presets[0],
+            current_value == presets[0],
             Some(TermiClickAction::SetModeValue(presets[0] as usize)),
         ),
         TermiElement::new(
             format!("{} ", presets[1]),
-            current_value as u64 == presets[1],
+            current_value == presets[1],
             Some(TermiClickAction::SetModeValue(presets[1] as usize)),
         ),
         TermiElement::new(
             format!("{} ", presets[2]),
-            current_value as u64 == presets[2],
+            current_value == presets[2],
             Some(TermiClickAction::SetModeValue(presets[2] as usize)),
         ),
         TermiElement::new(
             format!("{} ", presets[3]),
-            current_value as u64 == presets[3],
+            current_value == presets[3],
             Some(TermiClickAction::SetModeValue(presets[3] as usize)),
         ),
         TermiElement::new(

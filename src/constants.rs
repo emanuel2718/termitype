@@ -6,7 +6,10 @@ pub const DEFAULT_THEME: &str = "tokyonight";
 // pub const DEFAULT_THEME: &str = "termitype-dark";
 
 pub const DEFAULT_TIME_MODE_DURATION: usize = 30;
+pub const DEFAULT_TIME_DURATION_LIST: [usize; 4] = [15, 30, 60, 120];
+
 pub const DEFAULT_WORD_MODE_COUNT: usize = 50;
+pub const DEFAULT_WORD_COUNT_LIST: [usize; 4] = [10, 25, 50, 100];
 
 pub const STATE_FILE: &str = ".state";
 pub const LOG_FILE: &str = "debug.log";

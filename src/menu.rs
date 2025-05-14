@@ -1,7 +1,9 @@
 use crate::{
     actions::{MenuContext, MenuNavAction, MenuSearchAction, PreviewType, TermiAction},
     config::Config,
+    constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_TIME_MODE_DURATION},
     log_debug,
+    menu_builder::build_menu,
     utils::fuzzy_match,
 };
 
@@ -414,9 +416,14 @@ impl MenuState {
     }
 
     fn open(&mut self, ctx: MenuContext, config: &Config) {
-        let menu = crate::menu_builder::build_menu(ctx, config);
-        self.stack.push(menu);
+        self.stack.push(build_menu(ctx, config));
         self.clear_search();
+        if let Some(menu) = self.stack.last_mut() {
+            let index = MenuState::resolve_index(menu, config);
+            if index < menu.items().len() {
+                menu.current_index = index;
+            }
+        }
     }
 
     pub fn close(&mut self) {
@@ -453,6 +460,71 @@ impl MenuState {
             if let Some(item) = menu._items.iter_mut().find(|i| i.id == "root/numbers") {
                 item.is_active = Some(config.use_numbers);
             }
+        }
+    }
+
+    /// Used for auto selecting the currently selected item when opening a submenu
+    fn resolve_index(menu: &Menu, config: &Config) -> usize {
+        let target_id: Option<String> = match menu.ctx {
+            MenuContext::Theme => {
+                let theme_name = config
+                    .theme
+                    .as_deref()
+                    .unwrap_or(crate::constants::DEFAULT_THEME);
+                Some(format!("themes/{}", theme_name))
+            }
+            MenuContext::Language => {
+                let lang_name = config
+                    .language
+                    .as_deref()
+                    .unwrap_or(crate::constants::DEFAULT_LANGUAGE);
+                Some(format!("lang/{}", lang_name))
+            }
+            MenuContext::Cursor => {
+                let cursor_style = config
+                    .cursor_style
+                    .as_deref()
+                    .unwrap_or(crate::constants::DEFAULT_CURSOR_STYLE);
+                Some(format!("cursor/{}", cursor_style))
+            }
+            MenuContext::Mode => Some(format!(
+                "mode/{}",
+                match config.current_mode_type() {
+                    crate::config::ModeType::Time => "time",
+                    crate::config::ModeType::Words => "words",
+                }
+            )),
+            MenuContext::Time => {
+                let presets = DEFAULT_TIME_DURATION_LIST;
+                let current_val = config.time.unwrap_or(DEFAULT_TIME_MODE_DURATION as u64);
+                if presets.contains(&(current_val as usize)) {
+                    Some(format!("time/{}", current_val))
+                } else {
+                    Some("time/custom".to_string())
+                }
+            }
+            MenuContext::Words => {
+                let presets: Vec<usize> = vec![10, 25, 50, 100];
+                let current_val = config
+                    .word_count
+                    .unwrap_or(crate::constants::DEFAULT_WORD_MODE_COUNT);
+                if presets.contains(&current_val) {
+                    Some(format!("words/{}", current_val))
+                } else {
+                    Some("words/custom".to_string())
+                }
+            }
+            MenuContext::LineCount => Some(format!("lines/{}", config.visible_lines)),
+            MenuContext::Root | MenuContext::About => None,
+        };
+
+        if let Some(id) = target_id {
+            menu._items
+                .iter()
+                .position(|item| item.id == id)
+                .unwrap_or(0)
+        } else {
+            0
         }
     }
 }

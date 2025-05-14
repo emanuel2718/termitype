@@ -1,5 +1,4 @@
 use crate::{
-    actions::TermiAction,
     config::ModeType,
     constants::{MAX_CUSTOM_TIME, MAX_CUSTOM_WORD_COUNT, MIN_CUSTOM_TIME, MIN_CUSTOM_WORD_COUNT},
     termi::Termi,
