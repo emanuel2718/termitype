@@ -3,7 +3,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::Result;
 use crossterm::{
     cursor::SetCursorStyle,
     event::{self, Event, KeyEventKind, MouseButton, MouseEvent, MouseEventKind},
@@ -90,7 +89,7 @@ impl Termi {
     }
 }
 
-pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> Result<()> {
+pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
     let mut termi = Termi::new(config);
     let mut input_handler = InputHandler::new();
     let mut click_regions = TermiClickableRegions::default();

@@ -1,6 +1,5 @@
 use std::io;
 
-use anyhow::Result;
 use config::Config;
 use constants::{APPNAME, LOG_FILE};
 use crossterm::{
@@ -34,7 +33,7 @@ pub mod ui;
 pub mod utils;
 pub mod version;
 
-pub fn run() -> Result<()> {
+pub fn run() -> anyhow::Result<()> {
     let config = Config::try_parse()?;
 
     // init logger
