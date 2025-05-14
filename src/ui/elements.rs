@@ -5,7 +5,6 @@ use crate::{
         APPNAME, DEFAULT_LANGUAGE, DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST,
         MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH,
     },
-    log_debug,
     menu::MenuItemResult,
     modal::ModalContext,
     termi::Termi,
@@ -553,11 +552,6 @@ pub fn build_menu_items<'a>(
                         .skip(scroll_offset)
                         .take(max_visible)
                         .map(|item| {
-                            log_debug!("***************************");
-                            log_debug!("Selected item: {:?}", item);
-                            log_debug!("Current item: {:?}", current_item);
-
-                            log_debug!("***************************");
                             let is_selected = item.id == current_item;
 
                             let item_style = Style::default()

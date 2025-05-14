@@ -91,28 +91,28 @@ impl Menu {
         }
     }
 
+    pub fn current_selection_index(&self) -> usize {
+        self.current_index
+    }
+
     pub fn navigate(&mut self, nav: MenuNavAction) {
         let items_count = self.size();
-        log_debug!(
-            "Calling navigate with nav action: {:?} and count: {}",
-            nav,
-            items_count
-        );
         if items_count == 0 {
             return;
         }
-        let curr = self.current_index;
-        log_debug!("current_index = {}", curr);
+
         match nav {
-            MenuNavAction::Up => self.current_index = curr.saturating_sub(1),
-            MenuNavAction::Down => self.current_index = (curr + 1).min(items_count - 1),
+            MenuNavAction::Up => self.current_index = self.current_index.saturating_sub(1),
+            MenuNavAction::Down => {
+                self.current_index = (self.current_index + 1).min(items_count - 1)
+            }
             MenuNavAction::PageUp => {
                 let scroll_amount = (self.size() / 2).max(1);
-                self.current_index = curr.saturating_sub(scroll_amount).max(0)
+                self.current_index = self.current_index.saturating_sub(scroll_amount).max(0)
             }
             MenuNavAction::PageDown => {
                 let scroll_amount = (self.size() / 2).max(1);
-                self.current_index = (curr + scroll_amount).min(items_count - 1)
+                self.current_index = (self.current_index + scroll_amount).min(items_count - 1)
             }
             MenuNavAction::Home => {
                 self.current_index = 0;
@@ -184,16 +184,6 @@ impl Menu {
             .collect()
     }
 
-    pub fn selected_index(&self) -> usize {
-        if let Some(indices) = &self.filtered_indices {
-            *indices
-                .get(self.current_index)
-                .unwrap_or(&self.current_index)
-        } else {
-            self.current_index
-        }
-    }
-
     pub fn filter_items(&mut self, query: &str) -> Vec<MenuItem> {
         self.update_filtered_indices(query);
         self.items()
@@ -218,12 +208,7 @@ impl Menu {
             .collect();
 
         self.filtered_indices = Some(indices);
-        let size = self.size();
-        if size > 0 {
-            self.current_index = self.current_index.min(size - 1)
-        } else {
-            self.current_index = 0
-        }
+        self.current_index = 0
     }
 }
 
@@ -302,7 +287,7 @@ impl MenuState {
             }
             // Search
             TermiAction::MenuSearch(search_action) => {
-                let action = self.handle_search_action(search_action, config);
+                let action = self.handle_search_action(search_action.clone(), config);
                 if action.is_some() {
                     return action;
                 }
@@ -354,14 +339,13 @@ impl MenuState {
         }
 
         if let Some(menu) = self.stack.last_mut() {
-            if self.is_searching {
-                menu.filter_items(&self.search_query);
-            } else {
-                menu.filter_items("");
+            let query = &self.search_query;
+            if self.is_searching && !query.is_empty() {
+                menu.filter_items(query);
             }
         }
 
-        None
+        self.preview_selection()
     }
 
     // =============== EXECUTOR ===============

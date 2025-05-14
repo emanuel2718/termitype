@@ -522,7 +522,7 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
             0
         } else {
             let halfway = max_visible / 2;
-            let selected_index = current_menu.selected_index();
+            let selected_index = current_menu.current_selection_index();
             if selected_index < halfway {
                 0
             } else if selected_index >= total_items.saturating_sub(halfway) {
