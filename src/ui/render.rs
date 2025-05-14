@@ -259,8 +259,8 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     let word_positions = calculate_word_positions(&termi.words, effective_layout_width);
 
     if word_positions.is_empty() {
-        // if we don't have words, `create_typing_area` will return empty text.
-        let (empty_text, _) = create_typing_area(termi, available_width, 0, line_count_from_config);
+        let (empty_text, _) =
+            create_typing_area(termi, available_width, 0, line_count_from_config, &[]);
 
         let area_width = effective_layout_width as u16;
         let area_padding = area.width.saturating_sub(area_width) / 2;
@@ -298,6 +298,7 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         available_width,
         scroll_offset,
         line_count_from_config,
+        &word_positions,
     );
 
     let text_height = typing_text.height();

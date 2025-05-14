@@ -10,7 +10,7 @@ use crate::{
     termi::Termi,
     theme::Theme,
     tracker::Status,
-    ui::utils::calculate_word_positions,
+    ui::utils::WordPosition,
     version::VERSION,
 };
 use ratatui::{
@@ -214,14 +214,14 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
     vec![element]
 }
 
-pub fn create_typing_area(
-    termi: &Termi,
+pub fn create_typing_area<'a>(
+    termi: &'a Termi,
     width: usize,
     scroll_offset: usize,
     visible_line_count: usize,
-) -> (Text, usize) {
+    word_positions: &[WordPosition],
+) -> (Text<'a>, usize) {
     let typing_width = width.min(TYPING_AREA_WIDTH as usize);
-    let word_positions = calculate_word_positions(&termi.words, typing_width);
     let theme = termi.current_theme();
 
     if word_positions.is_empty() {
