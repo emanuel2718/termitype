@@ -95,7 +95,7 @@ impl Menu {
         self.current_index
     }
 
-    pub fn navigate(&mut self, nav: MenuNavAction) {
+    pub fn navigate(&mut self, nav: MenuNavAction, ui_height: usize) {
         let items_count = self.size();
         if items_count == 0 {
             return;
@@ -107,11 +107,11 @@ impl Menu {
                 self.current_index = (self.current_index + 1).min(items_count - 1)
             }
             MenuNavAction::PageUp => {
-                let scroll_amount = (self.size() / 2).max(1);
+                let scroll_amount = (ui_height / 2).max(1);
                 self.current_index = self.current_index.saturating_sub(scroll_amount).max(0)
             }
             MenuNavAction::PageDown => {
-                let scroll_amount = (self.size() / 2).max(1);
+                let scroll_amount = (ui_height / 2).max(1);
                 self.current_index = (self.current_index + scroll_amount).min(items_count - 1)
             }
             MenuNavAction::Home => {
@@ -317,7 +317,7 @@ impl MenuState {
                         }
                     }
                 } else if let Some(menu) = self.stack.last_mut() {
-                    menu.navigate(nav_action);
+                    menu.navigate(nav_action, self.ui_height);
                 }
                 return self.preview_selection();
             }

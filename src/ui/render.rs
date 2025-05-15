@@ -516,6 +516,10 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     let content_area = menu_layout[0];
     let footer_area = menu_layout[1];
 
+    // FIXME: not a good idea to update menu state directly from here.
+    // current menu height - (top border + bottom border)
+    menu_state.ui_height = content_area.height.saturating_sub(2).max(1) as usize;
+
     if let Some(current_menu) = menu_state.current_menu() {
         let max_visible = content_area.height.saturating_sub(3) as usize;
 
