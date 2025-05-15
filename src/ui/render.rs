@@ -507,9 +507,11 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
         frame.render_widget(Clear, preview);
     }
 
+    let hide_menu_footer = small_width && !menu_state.is_searching();
+    let footer_len = if hide_menu_footer { 0 } else { 3 };
     let menu_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1), Constraint::Length(3)])
+        .constraints([Constraint::Min(1), Constraint::Length(footer_len)])
         .split(menu_area);
     let content_area = menu_layout[0];
     let footer_area = menu_layout[1];
@@ -572,19 +574,21 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
             render_theme_preview(frame, termi, preview_area);
         }
     }
+    // don't render the menu footer text if we are in small width
+    if !hide_menu_footer {
+        let footer_text = create_menu_footer_text(termi);
+        let footer_block = Block::default()
+            .borders(ratatui::widgets::Borders::ALL)
+            .border_style(Style::default().fg(theme.border()))
+            .style(Style::default().bg(theme.bg()));
 
-    let footer_text = create_menu_footer_text(termi);
-    let footer_block = Block::default()
-        .borders(ratatui::widgets::Borders::ALL)
-        .border_style(Style::default().fg(theme.border()))
-        .style(Style::default().bg(theme.bg()));
+        let footer_widget = Paragraph::new(footer_text)
+            .block(footer_block)
+            .style(Style::default().bg(theme.bg()))
+            .alignment(Alignment::Left);
 
-    let footer_widget = Paragraph::new(footer_text)
-        .block(footer_block)
-        .style(Style::default().bg(theme.bg()))
-        .alignment(Alignment::Left);
-
-    frame.render_widget(footer_widget, footer_area);
+        frame.render_widget(footer_widget, footer_area);
+    }
 }
 
 fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
