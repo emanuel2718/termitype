@@ -593,14 +593,6 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
 
 fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
     let theme = termi.current_theme();
-    // let theme_name = termi
-    //     .preview_theme_name
-    //     .as_deref()
-    //     .unwrap_or(&termi.theme.id);
-
-    // let preview_theme = Theme::from_name(theme_name);
-    // let theme = &preview_theme;
-
     frame.render_widget(Clear, area);
 
     let preview_block = Block::default()

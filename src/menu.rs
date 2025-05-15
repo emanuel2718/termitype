@@ -259,6 +259,14 @@ impl MenuState {
         false
     }
 
+    pub fn is_cursor_menu(&self) -> bool {
+        let curr_menu = self.current_menu();
+        if let Some(menu) = curr_menu {
+            return matches!(menu.ctx, MenuContext::Cursor);
+        }
+        false
+    }
+
     pub fn current_menu(&self) -> Option<&Menu> {
         self.stack.last()
     }
@@ -510,5 +518,100 @@ impl MenuState {
         } else {
             0
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    fn create_test_menu() -> MenuState {
+        MenuState::new()
+    }
+
+    #[test]
+    fn test_menu_navigation() {
+        let mut menu = create_test_menu();
+        let config = Config::default();
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        assert!(menu.is_open());
+
+        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config);
+        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config);
+        assert_eq!(menu.current_menu().unwrap().current_selection_index(), 2);
+
+        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Up), &config);
+        assert_eq!(menu.current_menu().unwrap().current_selection_index(), 1);
+
+        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config); // idx 2
+        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config); // idx 3
+        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config); // idx 4
+        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config); // idx 5
+        assert_eq!(menu.current_menu().unwrap().current_selection_index(), 5);
+    }
+
+    #[test]
+    fn test_theme_picker() {
+        // must set this manually as the theme sub-menu is disbabled if the
+        // current environment doesn't have proper color support and without it
+        // this test will fail in CI for example.
+        env::set_var("COLORTERM", "truecolor");
+        let mut menu = create_test_menu();
+        let config = Config::default();
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        assert!(menu.is_open());
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
+        assert!(menu.stack.len() == 2);
+        assert!(menu.is_theme_menu());
+
+        let action_result = menu.handle_action(TermiAction::MenuSelect, &config);
+        assert!(matches!(action_result, Some(TermiAction::ChangeTheme(_))));
+    }
+
+    #[test]
+    fn test_toggle_features() {
+        let mut menu = create_test_menu();
+        let mut config = Config::default();
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        assert!(menu.is_open());
+        config.use_punctuation = true;
+        menu.sync_toggle_items(&config);
+
+        if let Some(menu_ref) = menu.current_menu() {
+            let current_items = menu_ref.items();
+            let item = current_items
+                .iter()
+                .find(|i| i.label == "Punctuation")
+                .unwrap();
+            assert_eq!(item.is_active, Some(true));
+        } else {
+            panic!("We should have a menu opened by this point")
+        }
+    }
+
+    #[test]
+    fn test_search() {
+        let mut menu = create_test_menu();
+        let config = Config::default();
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+
+        assert!(!menu.is_searching());
+
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
+        assert!(menu.is_theme_menu());
+
+        assert!(!menu.is_searching());
+        assert_ne!(menu.current_menu().unwrap().items().len(), 2);
+
+        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
+        assert!(menu.is_searching());
+
+        for c in "termitype".chars() {
+            menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Input(c)), &config);
+        }
+
+        // NOTE: this could be a flaky test if we ever add more termitype themes.
+        assert_eq!(menu.current_menu().unwrap().items().len(), 2);
     }
 }
