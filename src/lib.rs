@@ -1,6 +1,5 @@
 use std::io;
 
-use anyhow::Result;
 use config::Config;
 use constants::{APPNAME, LOG_FILE};
 use crossterm::{
@@ -13,6 +12,7 @@ use ratatui::{prelude::CrosstermBackend, Terminal};
 use utils::get_config_dir;
 use version::VERSION;
 
+pub mod actions;
 pub mod assets;
 pub mod builder;
 pub mod config;
@@ -22,6 +22,7 @@ pub mod input;
 pub mod log;
 pub mod macros;
 pub mod menu;
+pub mod menu_builder;
 pub mod modal;
 pub mod persistence;
 pub mod termi;
@@ -32,7 +33,7 @@ pub mod ui;
 pub mod utils;
 pub mod version;
 
-pub fn run() -> Result<()> {
+pub fn run() -> anyhow::Result<()> {
     let config = Config::try_parse()?;
 
     // init logger

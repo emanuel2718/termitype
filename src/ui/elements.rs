@@ -1,11 +1,16 @@
 use crate::{
+    actions::TermiClickAction,
     config::{Mode, ModeType},
-    constants::{APPNAME, DEFAULT_LANGUAGE, MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH},
+    constants::{
+        APPNAME, DEFAULT_LANGUAGE, DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST,
+        MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH,
+    },
+    menu::MenuItemResult,
     modal::ModalContext,
     termi::Termi,
     theme::Theme,
     tracker::Status,
-    ui::utils::calculate_word_positions,
+    ui::utils::WordPosition,
     version::VERSION,
 };
 use ratatui::{
@@ -15,8 +20,6 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::ListItem,
 };
-
-use super::actions::TermiClickAction;
 
 #[derive(Debug)]
 pub struct TermiElement<'a> {
@@ -59,7 +62,7 @@ impl<'a> TermiElement<'a> {
 }
 
 pub fn create_header(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     let text = Text::from(APPNAME)
         .alignment(Alignment::Left)
         .style(Style::default().fg(theme.highlight()))
@@ -72,17 +75,17 @@ pub fn create_header(termi: &Termi) -> Vec<TermiElement> {
 }
 
 pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
     let config = &termi.config;
     let current_value = config.current_mode().value();
     let is_time_mode = matches!(config.current_mode(), Mode::Time { .. });
-    let presets: Vec<u64> = if is_time_mode {
-        vec![15, 30, 60, 120]
+    let presets = if is_time_mode {
+        DEFAULT_TIME_DURATION_LIST
     } else {
-        vec![10, 25, 50, 100]
+        DEFAULT_WORD_COUNT_LIST
     };
 
-    let is_custom_active = !presets.contains(&(current_value as u64));
+    let is_custom_active = !presets.contains(&{ current_value });
 
     // NOTE: this is okay because the <custom> on the action bar will only select between
     //       custom time or custom words by design
@@ -130,23 +133,23 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
         TermiElement::new(format!("{} ", divider), false, None),
         TermiElement::new(
             format!("{} ", presets[0]),
-            current_value as u64 == presets[0],
-            Some(TermiClickAction::SetModeValue(presets[0] as usize)),
+            current_value == presets[0],
+            Some(TermiClickAction::SetModeValue(presets[0])),
         ),
         TermiElement::new(
             format!("{} ", presets[1]),
-            current_value as u64 == presets[1],
-            Some(TermiClickAction::SetModeValue(presets[1] as usize)),
+            current_value == presets[1],
+            Some(TermiClickAction::SetModeValue(presets[1])),
         ),
         TermiElement::new(
             format!("{} ", presets[2]),
-            current_value as u64 == presets[2],
-            Some(TermiClickAction::SetModeValue(presets[2] as usize)),
+            current_value == presets[2],
+            Some(TermiClickAction::SetModeValue(presets[2])),
         ),
         TermiElement::new(
             format!("{} ", presets[3]),
-            current_value as u64 == presets[3],
-            Some(TermiClickAction::SetModeValue(presets[3] as usize)),
+            current_value == presets[3],
+            Some(TermiClickAction::SetModeValue(presets[3])),
         ),
         TermiElement::new(
             format!("{} ", custom_symbol),
@@ -157,13 +160,13 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
 
     elements
         .into_iter()
-        .map(|element| element.to_styled(&theme))
+        .map(|element| element.to_styled(theme))
         .collect()
 }
 
 pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
     let status = termi.tracker.status.clone();
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
     let element = match status {
         Status::Idle | Status::Paused => {
             let current_language = termi.config.language.as_deref().unwrap_or(DEFAULT_LANGUAGE);
@@ -211,15 +214,15 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
     vec![element]
 }
 
-pub fn create_typing_area(
-    termi: &Termi,
+pub fn create_typing_area<'a>(
+    termi: &'a Termi,
     width: usize,
     scroll_offset: usize,
     visible_line_count: usize,
-) -> (Text, usize) {
+    word_positions: &[WordPosition],
+) -> (Text<'a>, usize) {
     let typing_width = width.min(TYPING_AREA_WIDTH as usize);
-    let word_positions = calculate_word_positions(&termi.words, typing_width);
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
 
     if word_positions.is_empty() {
         return (Text::raw(""), typing_width);
@@ -307,7 +310,7 @@ pub fn create_typing_area(
 }
 
 pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
 
     fn styled_span(content: String, is_key: bool, theme: &Theme) -> Span<'static> {
         let style = if is_key {
@@ -370,7 +373,7 @@ pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
 }
 
 pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
 
     // Check if terminal supports Unicode
     let supports_unicode = theme.supports_unicode();
@@ -403,12 +406,12 @@ pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
 
     elements
         .into_iter()
-        .map(|element| element.to_styled(&theme))
+        .map(|element| element.to_styled(theme))
         .collect()
 }
 
 pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
     let warning_lines = vec![
         Line::from(Span::styled(
             "! too small",
@@ -446,7 +449,7 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
 }
 
 pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement> {
-    let theme = termi.get_current_theme().clone();
+    let theme = termi.current_theme();
     let menu_text = "≡ Show Menu";
     // bound the text in non clickable padding to avoid having a wider click area
     let padding = " ".repeat((menu_text.len() / 2).max(1));
@@ -458,13 +461,13 @@ pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement> {
             termi.menu.is_open(),
             Some(TermiClickAction::ToggleMenu),
         )
-        .to_styled(&theme),
+        .to_styled(theme),
         TermiElement::new(padding, false, None),
     ]
 }
 
 pub fn create_menu_footer_text(termi: &Termi) -> Line {
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     let menu_state = &termi.menu;
 
     // Check if terminal supports Unicode
@@ -508,22 +511,23 @@ pub fn create_menu_footer_text(termi: &Termi) -> Line {
     }
 }
 
-pub fn build_menu_items(
-    termi: &Termi,
+pub fn build_menu_items<'a>(
+    termi: &'a Termi,
     scroll_offset: usize,
     max_visible: usize,
-) -> (Vec<ListItem>, usize) {
-    let theme = termi.get_current_theme();
+) -> (Vec<ListItem<'a>>, usize) {
+    let theme = termi.current_theme().clone();
 
     if let Some(menu) = &termi.menu.current_menu() {
-        let filtered_items: Vec<_> = if termi.menu.is_searching() {
-            menu.filtered_items(termi.menu.search_query())
-        } else {
-            menu.items().iter().enumerate().collect()
-        };
-
-        let total_items = filtered_items.len();
-
+        // let filtered_items: Vec<_> = if termi.menu.is_searching() {
+        //     menu.filtered_items(termi.menu.search_query())
+        // } else {
+        //     menu.items_with_indices()
+        // };
+        //
+        let items = menu.items();
+        let total_items = items.len();
+        //
         if total_items == 0 {
             let no_matches = vec![
                 ListItem::new(""),
@@ -537,19 +541,25 @@ pub fn build_menu_items(
             ];
             (no_matches, 0)
         } else {
-            let items: Vec<ListItem> = std::iter::once(ListItem::new(""))
+            let current_item = menu
+                .current_item()
+                .map(|i| i.id.clone())
+                .unwrap_or_default();
+            let items: Vec<ListItem<'a>> = std::iter::once(ListItem::new(""))
                 .chain(
-                    filtered_items
+                    items
                         .iter()
                         .skip(scroll_offset)
                         .take(max_visible)
-                        .map(|&(i, item)| {
-                            let is_selected = i == menu.selected_index();
+                        .map(|item| {
+                            let is_selected = item.id == current_item;
+
                             let item_style = Style::default()
                                 .fg(if item.is_disabled {
                                     theme.muted()
-                                } else if item.is_toggleable {
-                                    if item.is_active {
+                                } else if item.is_active.is_some() {
+                                    // safe to unwrap here
+                                    if item.is_active.unwrap() {
                                         theme.highlight()
                                     } else {
                                         theme.muted()
@@ -564,21 +574,30 @@ pub fn build_menu_items(
                                 } else {
                                     theme.bg()
                                 })
-                                .add_modifier(if item.is_toggleable && !item.is_active {
-                                    Modifier::DIM
-                                } else {
-                                    Modifier::empty()
-                                });
+                                .add_modifier(
+                                    if item.is_active.is_some() && !item.is_active.unwrap() {
+                                        Modifier::DIM
+                                    } else {
+                                        Modifier::empty()
+                                    },
+                                );
+
+                            let supports_unicode = theme.supports_unicode();
+                            let arrow_symbol = if supports_unicode { "❯ " } else { "> " };
+                            let submenu_symbol = if supports_unicode { " →" } else { " >" };
 
                             ListItem::new(Line::from(vec![
                                 Span::styled("  ", Style::default()),
                                 Span::styled(
-                                    if is_selected { "❯ " } else { "  " },
+                                    if is_selected { arrow_symbol } else { "  " },
                                     Style::default().fg(theme.accent()),
                                 ),
-                                Span::styled(&item.label, item_style),
-                                if item.has_submenu {
-                                    Span::styled(" →", Style::default().fg(theme.accent()))
+                                Span::styled(item.label.clone(), item_style),
+                                if matches!(item.result, MenuItemResult::OpenSubMenu(_)) {
+                                    Span::styled(
+                                        submenu_symbol,
+                                        Style::default().fg(theme.accent()),
+                                    )
                                 } else {
                                     Span::raw("")
                                 },

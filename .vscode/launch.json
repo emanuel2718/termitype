@@ -5,6 +5,10 @@
           "name": "Debug",
           "type": "lldb",
           "request": "launch",
+          "env": {
+              "RUST_BACKTRACE": "1",
+              "RUSTFLAGS": "-g"
+          },
           "program": "${workspaceFolder}/target/debug/termitype",
           "args": [
             "--color-mode",

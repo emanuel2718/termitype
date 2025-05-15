@@ -10,6 +10,7 @@ use ratatui::{
 };
 
 use crate::{
+    actions::TermiClickAction,
     config::Mode,
     constants::{
         ASCII_ART, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH,
@@ -22,7 +23,6 @@ use crate::{
 };
 
 use super::{
-    actions::TermiClickAction,
     elements::{
         build_menu_items, create_action_bar, create_command_bar, create_footer, create_header,
         create_menu_footer_text, create_minimal_size_warning, create_mode_bar,
@@ -50,7 +50,7 @@ impl TermiClickableRegions {
 pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiClickableRegions {
     let mut regions = TermiClickableRegions::default();
 
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     let area = frame.area();
 
     let dummy_layout = create_layout(Block::new().inner(area), termi);
@@ -259,8 +259,8 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     let word_positions = calculate_word_positions(&termi.words, effective_layout_width);
 
     if word_positions.is_empty() {
-        // if we don't have words, `create_typing_area` will return empty text.
-        let (empty_text, _) = create_typing_area(termi, available_width, 0, line_count_from_config);
+        let (empty_text, _) =
+            create_typing_area(termi, available_width, 0, line_count_from_config, &[]);
 
         let area_width = effective_layout_width as u16;
         let area_padding = area.width.saturating_sub(area_width) / 2;
@@ -298,6 +298,7 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         available_width,
         scroll_offset,
         line_count_from_config,
+        &word_positions,
     );
 
     let text_height = typing_text.height();
@@ -450,9 +451,9 @@ fn render_modal(
     Some((ok_area, TermiClickAction::ModalConfirm))
 }
 
-fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
-    let theme = termi.get_current_theme();
-    let menu_state = &termi.menu;
+fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
+    let theme = termi.current_theme().clone();
+    let menu_state = &mut termi.menu;
 
     let is_theme_picker = menu_state.is_theme_menu();
 
@@ -506,46 +507,33 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
         frame.render_widget(Clear, preview);
     }
 
+    let hide_menu_footer = small_width && !menu_state.is_searching();
+    let footer_len = if hide_menu_footer { 0 } else { 3 };
     let menu_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1), Constraint::Length(3)])
+        .constraints([Constraint::Min(1), Constraint::Length(footer_len)])
         .split(menu_area);
     let content_area = menu_layout[0];
     let footer_area = menu_layout[1];
 
+    // FIXME: not a good idea to update menu state directly from here.
+    // current menu height - (top border + bottom border)
+    menu_state.ui_height = content_area.height.saturating_sub(2).max(1) as usize;
+
     if let Some(current_menu) = menu_state.current_menu() {
         let max_visible = content_area.height.saturating_sub(3) as usize;
 
-        let filtered_items_for_scroll_calc: Vec<_> = if menu_state.is_searching() {
-            current_menu.filtered_items(menu_state.search_query())
-        } else {
-            current_menu.items().iter().enumerate().collect()
-        };
-        let total_items_for_scroll_calc = filtered_items_for_scroll_calc.len();
+        let total_items = current_menu.items().len();
 
-        let scroll_offset = if total_items_for_scroll_calc <= max_visible || max_visible == 0 {
+        let scroll_offset = if total_items <= max_visible || max_visible == 0 {
             0
         } else {
             let halfway = max_visible / 2;
-            let selected_index = current_menu.selected_index();
-
-            if menu_state.is_searching() {
-                let filtered_position = filtered_items_for_scroll_calc
-                    .iter()
-                    .position(|(idx, _)| *idx == selected_index)
-                    .unwrap_or(0);
-
-                if filtered_position < halfway {
-                    0
-                } else if filtered_position >= total_items_for_scroll_calc.saturating_sub(halfway) {
-                    total_items_for_scroll_calc.saturating_sub(max_visible)
-                } else {
-                    filtered_position.saturating_sub(halfway)
-                }
-            } else if selected_index < halfway {
+            let selected_index = current_menu.current_selection_index();
+            if selected_index < halfway {
                 0
-            } else if selected_index >= total_items_for_scroll_calc.saturating_sub(halfway) {
-                total_items_for_scroll_calc.saturating_sub(max_visible)
+            } else if selected_index >= total_items.saturating_sub(halfway) {
+                total_items.saturating_sub(max_visible)
             } else {
                 selected_index.saturating_sub(halfway)
             }
@@ -590,31 +578,25 @@ fn render_menu(frame: &mut Frame, termi: &Termi, area: Rect) {
             render_theme_preview(frame, termi, preview_area);
         }
     }
+    // don't render the menu footer text if we are in small width
+    if !hide_menu_footer {
+        let footer_text = create_menu_footer_text(termi);
+        let footer_block = Block::default()
+            .borders(ratatui::widgets::Borders::ALL)
+            .border_style(Style::default().fg(theme.border()))
+            .style(Style::default().bg(theme.bg()));
 
-    let footer_text = create_menu_footer_text(termi);
-    let footer_block = Block::default()
-        .borders(ratatui::widgets::Borders::ALL)
-        .border_style(Style::default().fg(theme.border()))
-        .style(Style::default().bg(theme.bg()));
+        let footer_widget = Paragraph::new(footer_text)
+            .block(footer_block)
+            .style(Style::default().bg(theme.bg()))
+            .alignment(Alignment::Left);
 
-    let footer_widget = Paragraph::new(footer_text)
-        .block(footer_block)
-        .style(Style::default().bg(theme.bg()))
-        .alignment(Alignment::Left);
-
-    frame.render_widget(footer_widget, footer_area);
+        frame.render_widget(footer_widget, footer_area);
+    }
 }
 
 fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
-    let theme = termi.get_current_theme();
-    // let theme_name = termi
-    //     .preview_theme_name
-    //     .as_deref()
-    //     .unwrap_or(&termi.theme.id);
-
-    // let preview_theme = Theme::from_name(theme_name);
-    // let theme = &preview_theme;
-
+    let theme = termi.current_theme();
     frame.render_widget(Clear, area);
 
     let preview_block = Block::default()
@@ -796,7 +778,7 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
 
 pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
     let tracker = &termi.tracker;
-    let theme = termi.get_current_theme();
+    let theme = termi.current_theme();
     let config = &termi.config;
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
     let hostname = "termitype";
