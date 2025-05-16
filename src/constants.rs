@@ -75,7 +75,7 @@ pub const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + BOTTOM_PADDING + FOOTER
 
 // Modals
 pub const MIN_CUSTOM_TIME: u16 = 1;
-pub const MAX_CUSTOM_TIME: u16 = 100;
+pub const MAX_CUSTOM_TIME: u16 = 300; // 5 minutes
 
 pub const MIN_CUSTOM_WORD_COUNT: u16 = 1;
 pub const MAX_CUSTOM_WORD_COUNT: u16 = 5000;

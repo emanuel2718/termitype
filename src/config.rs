@@ -360,9 +360,15 @@ impl Config {
 
     /// Resolves the test word count based on current configuration.
     pub fn resolve_word_count(&self) -> usize {
-        match (self.time, self.word_count) {
-            (None, Some(count)) => count,
-            _ => DEFAULT_WORD_MODE_COUNT,
+        const WORDS_PER_SECOND: f64 = 5.0;
+        if let Some(word_count) = self.word_count {
+            word_count
+        } else if let Some(duration) = self.time {
+            let estimated_wc = (duration as f64 * WORDS_PER_SECOND).ceil() as usize;
+            std::cmp::max(estimated_wc, DEFAULT_WORD_MODE_COUNT)
+        } else {
+            let estimated_wc = (DEFAULT_WORD_MODE_COUNT as f64 * WORDS_PER_SECOND).ceil() as usize;
+            std::cmp::max(estimated_wc, DEFAULT_WORD_MODE_COUNT)
         }
     }
 

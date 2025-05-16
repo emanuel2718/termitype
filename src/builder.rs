@@ -193,7 +193,7 @@ pub fn print_language_list() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
+    use crate::{config::Config, constants::MAX_CUSTOM_TIME};
 
     fn create_builder() -> Builder {
         Builder::new()
@@ -238,5 +238,41 @@ mod tests {
 
         let unique_words: std::collections::HashSet<&str> = words.iter().copied().collect();
         assert!(unique_words.len() > 1);
+    }
+
+    #[test]
+    fn test_generates_enough_words_in_time_mode() {
+        // NOTE: This test assumes a user typing at 300wpm which is equivalent to 5 words per second (300/60)
+        let mut builder = create_builder();
+        let mut config = Config::default();
+        const WPS: usize = 5;
+
+        // 10 seconds test duration
+        config.change_mode(crate::config::ModeType::Time, Some(10));
+        let test = builder.generate_test(&config);
+        let words: Vec<&str> = test.split_whitespace().collect();
+
+        assert!(words.len() >= WPS * 10);
+
+        // 60 seconds test duration
+        config.change_mode(crate::config::ModeType::Time, Some(60));
+        let test = builder.generate_test(&config);
+        let words: Vec<&str> = test.split_whitespace().collect();
+        assert!(words.len() >= WPS * 60);
+
+        // 120 seconds test duration
+        config.change_mode(crate::config::ModeType::Time, Some(120));
+        let test = builder.generate_test(&config);
+        let words: Vec<&str> = test.split_whitespace().collect();
+        assert!(words.len() >= WPS * 120);
+
+        // MAX_CUSTOM_TIME seconds test duration
+        config.change_mode(
+            crate::config::ModeType::Time,
+            Some(MAX_CUSTOM_TIME as usize),
+        );
+        let test = builder.generate_test(&config);
+        let words: Vec<&str> = test.split_whitespace().collect();
+        assert!(words.len() >= WPS * MAX_CUSTOM_TIME as usize);
     }
 }
