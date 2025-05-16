@@ -414,12 +414,14 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
     let theme = termi.current_theme();
     let warning_lines = vec![
         Line::from(Span::styled(
-            "! too small",
+            "! size too small",
             Style::default().fg(theme.error()),
         )),
         Line::from(""),
+        Line::from("Current:"),
+        Line::from(""),
         Line::from(vec![
-            Span::styled("Current: (", Style::default().fg(theme.muted())),
+            Span::styled("Width = ", Style::default().fg(theme.muted())),
             Span::styled(
                 format!("{}", width),
                 Style::default().fg(if width < MIN_TERM_WIDTH {
@@ -428,7 +430,7 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
                     theme.success()
                 }),
             ),
-            Span::styled("x", Style::default().fg(theme.muted())),
+            Span::styled(" Height = ", Style::default().fg(theme.muted())),
             Span::styled(
                 format!("{}", height),
                 Style::default().fg(if height < MIN_TERM_HEIGHT {
@@ -437,12 +439,22 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
                     theme.success()
                 }),
             ),
-            Span::styled(")", Style::default().fg(theme.muted())),
         ]),
-        Line::from(Span::styled(
-            format!("Needed: ({}x{})", MIN_TERM_WIDTH, MIN_TERM_HEIGHT),
-            Style::default().fg(theme.muted()),
-        )),
+        Line::from(""),
+        Line::from("Needed:"),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Width = ", Style::default().fg(theme.muted())),
+            Span::styled(
+                format!("{}", MIN_TERM_WIDTH),
+                Style::default().fg(theme.muted()),
+            ),
+            Span::styled(" Height = ", Style::default().fg(theme.muted())),
+            Span::styled(
+                format!("{}", MIN_TERM_HEIGHT),
+                Style::default().fg(theme.muted()),
+            ),
+        ]),
     ];
     let text = Text::from(warning_lines).alignment(Alignment::Center);
     vec![TermiElement::new(text, false, None)]

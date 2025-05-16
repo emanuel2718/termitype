@@ -834,7 +834,8 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         Mode::Words { count } => format!("Words ({})", count),
     };
 
-    stats_lines.push(add_stat("OS", format!("termitype {}", VERSION)));
+    stats_lines.push(add_stat("OS", "termitype".to_string()));
+    stats_lines.push(add_stat("Version", VERSION.to_string()));
     stats_lines.push(add_stat("Mode", mode_str));
     stats_lines.push(add_stat(
         "Lang",
