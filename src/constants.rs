@@ -8,6 +8,9 @@ pub const DEFAULT_THEME: &str = "tokyonight";
 pub const DEFAULT_TIME_MODE_DURATION: usize = 30;
 pub const DEFAULT_TIME_DURATION_LIST: [usize; 4] = [15, 30, 60, 120];
 
+// This is the target wps that we use. This assument as constant 350wpm as our upper bound
+pub const WPS_TARGET: f64 = 6.0;
+
 pub const DEFAULT_WORD_MODE_COUNT: usize = 50;
 pub const DEFAULT_WORD_COUNT_LIST: [usize; 4] = [10, 25, 50, 100];
 

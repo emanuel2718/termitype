@@ -7,7 +7,7 @@ use crate::{
     builder::Builder,
     constants::{
         DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME,
-        DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT,
+        DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT, WPS_TARGET,
     },
     persistence::Persistence,
     theme::{ColorSupport, Theme, ThemeLoader},
@@ -360,14 +360,13 @@ impl Config {
 
     /// Resolves the test word count based on current configuration.
     pub fn resolve_word_count(&self) -> usize {
-        const WORDS_PER_SECOND: f64 = 5.0;
         if let Some(word_count) = self.word_count {
             word_count
         } else if let Some(duration) = self.time {
-            let estimated_wc = (duration as f64 * WORDS_PER_SECOND).ceil() as usize;
+            let estimated_wc = (duration as f64 * WPS_TARGET).ceil() as usize;
             std::cmp::max(estimated_wc, DEFAULT_WORD_MODE_COUNT)
         } else {
-            let estimated_wc = (DEFAULT_WORD_MODE_COUNT as f64 * WORDS_PER_SECOND).ceil() as usize;
+            let estimated_wc = (DEFAULT_WORD_MODE_COUNT as f64 * WPS_TARGET).ceil() as usize;
             std::cmp::max(estimated_wc, DEFAULT_WORD_MODE_COUNT)
         }
     }

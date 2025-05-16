@@ -193,7 +193,10 @@ pub fn print_language_list() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::Config, constants::MAX_CUSTOM_TIME};
+    use crate::{
+        config::Config,
+        constants::{MAX_CUSTOM_TIME, WPS_TARGET},
+    };
 
     fn create_builder() -> Builder {
         Builder::new()
@@ -245,26 +248,25 @@ mod tests {
         // NOTE: This test assumes a user typing at 300wpm which is equivalent to 5 words per second (300/60)
         let mut builder = create_builder();
         let mut config = Config::default();
-        const WPS: usize = 5;
 
         // 10 seconds test duration
         config.change_mode(crate::config::ModeType::Time, Some(10));
         let test = builder.generate_test(&config);
         let words: Vec<&str> = test.split_whitespace().collect();
 
-        assert!(words.len() >= WPS * 10);
+        assert!(words.len() >= WPS_TARGET as usize * 10);
 
         // 60 seconds test duration
         config.change_mode(crate::config::ModeType::Time, Some(60));
         let test = builder.generate_test(&config);
         let words: Vec<&str> = test.split_whitespace().collect();
-        assert!(words.len() >= WPS * 60);
+        assert!(words.len() >= WPS_TARGET as usize * 60);
 
         // 120 seconds test duration
         config.change_mode(crate::config::ModeType::Time, Some(120));
         let test = builder.generate_test(&config);
         let words: Vec<&str> = test.split_whitespace().collect();
-        assert!(words.len() >= WPS * 120);
+        assert!(words.len() >= WPS_TARGET as usize * 120);
 
         // MAX_CUSTOM_TIME seconds test duration
         config.change_mode(
@@ -273,6 +275,6 @@ mod tests {
         );
         let test = builder.generate_test(&config);
         let words: Vec<&str> = test.split_whitespace().collect();
-        assert!(words.len() >= WPS * MAX_CUSTOM_TIME as usize);
+        assert!(words.len() >= WPS_TARGET as usize * MAX_CUSTOM_TIME as usize);
     }
 }
