@@ -8,6 +8,9 @@ pub const DEFAULT_THEME: &str = "tokyonight";
 pub const DEFAULT_TIME_MODE_DURATION: usize = 30;
 pub const DEFAULT_TIME_DURATION_LIST: [usize; 4] = [15, 30, 60, 120];
 
+// This is the target wps that we use. This assument as constant 350wpm as our upper bound
+pub const WPS_TARGET: f64 = 6.0;
+
 pub const DEFAULT_WORD_MODE_COUNT: usize = 50;
 pub const DEFAULT_WORD_COUNT_LIST: [usize; 4] = [10, 25, 50, 100];
 
@@ -75,7 +78,7 @@ pub const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + BOTTOM_PADDING + FOOTER
 
 // Modals
 pub const MIN_CUSTOM_TIME: u16 = 1;
-pub const MAX_CUSTOM_TIME: u16 = 100;
+pub const MAX_CUSTOM_TIME: u16 = 300; // 5 minutes
 
 pub const MIN_CUSTOM_WORD_COUNT: u16 = 1;
 pub const MAX_CUSTOM_WORD_COUNT: u16 = 5000;
