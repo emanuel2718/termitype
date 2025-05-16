@@ -333,7 +333,7 @@ impl MenuState {
     ) -> Option<TermiAction> {
         match action {
             MenuSearchAction::Start => self.is_searching = true,
-            MenuSearchAction::Close => self.is_searching = false,
+            MenuSearchAction::Close => self.clear_search(),
             MenuSearchAction::Confirm => {
                 self.is_searching = false;
                 return self.execute_menu_action(config);
@@ -348,9 +348,7 @@ impl MenuState {
 
         if let Some(menu) = self.stack.last_mut() {
             let query = &self.search_query;
-            if self.is_searching && !query.is_empty() {
-                menu.filter_items(query);
-            }
+            menu.filter_items(query);
         }
 
         self.preview_selection()
@@ -613,5 +611,49 @@ mod tests {
 
         // NOTE: this could be a flaky test if we ever add more termitype themes.
         assert_eq!(menu.current_menu().unwrap().items().len(), 2);
+    }
+
+    #[test]
+    fn test_closing_search_should_clear_query() {
+        let mut menu = create_test_menu();
+        let config = Config::default();
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
+        assert!(menu.search_query.is_empty());
+        let str: &str = "not_found";
+        for char in str.chars() {
+            menu.handle_action(
+                TermiAction::MenuSearch(MenuSearchAction::Input(char)),
+                &config,
+            );
+        }
+
+        assert!(menu.is_searching);
+        assert!(!menu.search_query.is_empty());
+        assert_eq!(menu.search_query, str);
+
+        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Close), &config);
+
+        assert!(!menu.is_searching());
+        assert!(menu.search_query.is_empty());
+    }
+
+    #[test]
+    fn test_closing_search_should_clear_filtered_items() {
+        let mut menu = create_test_menu();
+        let config = Config::default();
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
+        assert!(menu.search_query.is_empty());
+        let str: &str = "not_found";
+        for char in str.chars() {
+            menu.handle_action(
+                TermiAction::MenuSearch(MenuSearchAction::Input(char)),
+                &config,
+            );
+        }
+
+        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Close), &config);
+        assert!(!menu.current_menu().unwrap().items().is_empty());
     }
 }
