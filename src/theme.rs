@@ -120,6 +120,7 @@ impl Theme {
         // known problematic terminal overrides. this might be dumb but good enough for now
         if cfg!(target_os = "macos") {
             if let Ok(term_program) = std::env::var("TERM_PROGRAM") {
+                #[allow(clippy::single_match)]
                 match term_program.as_str() {
                     // MacOS Terminal.app blatanly lies about 256color support and do not really supports it
                     "Apple_Terminal" => return ColorSupport::Basic,
