@@ -602,7 +602,11 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
     let preview_block = Block::default()
         .bg(theme.bg())
         .borders(ratatui::widgets::Borders::ALL)
-        .border_style(Style::default().fg(theme.border()));
+        .border_style(
+            Style::default()
+                .fg(theme.border())
+                .add_modifier(Modifier::DIM),
+        );
 
     let inner_area = preview_block.inner(area);
     frame.render_widget(preview_block, area);
@@ -789,28 +793,17 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     // TODO: improve the coloring of this to match fastfetch. They have the @ in a different color.
     let mut stats_lines = vec![
         Line::from(vec![
-            Span::styled(username, Style::default().fg(theme.highlight())),
-            Span::styled("@", Style::default().fg(theme.highlight())),
-            Span::styled(hostname, Style::default().fg(theme.highlight())),
+            Span::styled(username, Style::default().fg(theme.success())),
+            Span::styled("@", Style::default().fg(theme.fg())),
+            Span::styled(hostname, Style::default().fg(theme.success())),
         ]),
-        Line::from(Span::styled(
-            separator,
-            Style::default().fg(theme.highlight()),
-        )),
+        Line::from(Span::styled(separator, Style::default().fg(theme.fg()))),
     ];
 
     let add_stat = |label: &str, value: String| -> Line {
         Line::from(vec![
-            Span::styled(
-                format!("{}: ", label),
-                Style::default().fg(theme.highlight()),
-            ),
-            Span::styled(
-                value,
-                Style::default()
-                    .fg(theme.muted())
-                    .add_modifier(Modifier::DIM),
-            ),
+            Span::styled(format!("{}: ", label), Style::default().fg(theme.warning())),
+            Span::styled(value, Style::default().fg(theme.fg())),
         ])
     };
 
@@ -824,9 +817,9 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
             (min.min(val), max.max(val))
         });
     let wpm_range_str = if min_wpm == u32::MAX {
-        "N/A".to_string()
+        None
     } else {
-        format!("{}-{}", min_wpm, max_wpm)
+        Some(format!("{}-{}", min_wpm, max_wpm))
     };
 
     let mode_str = match config.current_mode() {
@@ -842,17 +835,19 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         config.language.clone().unwrap_or_default(),
     ));
     stats_lines.push(add_stat("WPM", format!("{:.0}", tracker.wpm)));
+    stats_lines.push(add_stat("Raw WPM", format!("{:.0}", tracker.raw_wpm)));
+
     if let Some(time) = tracker.completion_time {
         stats_lines.push(add_stat("Time", format!("{:.1}s", time)));
     } else if let Mode::Time { duration } = config.current_mode() {
         stats_lines.push(add_stat("Time", format!("{}s", duration)));
     }
+
     stats_lines.push(add_stat("Accuracy", format!("{}%", tracker.accuracy)));
     stats_lines.push(add_stat(
         "Consistency",
         format!("{:.0}%", tracker.calculate_consistency()),
     ));
-    stats_lines.push(add_stat("Raw WPM", format!("{:.0}", tracker.raw_wpm)));
     stats_lines.push(add_stat(
         "Keystrokes",
         format!("{} ({})", tracker.total_keystrokes, tracker.accuracy),
@@ -866,25 +861,28 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         "Backspaces",
         format!("{}", tracker.backspace_count),
     ));
-    stats_lines.push(add_stat("WPM Range", wpm_range_str));
+    if let Some(wpm_range) = wpm_range_str {
+        stats_lines.push(add_stat("WPM Range", wpm_range));
+    }
 
     stats_lines.push(Line::from(""));
 
     let mut color_blocks = vec![];
     for color in [
-        theme.fg(),
-        theme.highlight(),
-        theme.accent(),
-        theme.muted(),
+        theme.cursor_text(),
+        theme.error(),
         theme.success(),
         theme.warning(),
-        theme.error(),
+        theme.info(),
+        theme.accent(),
+        theme.highlight(),
+        theme.fg(),
     ] {
         color_blocks.push(Span::styled("██", Style::default().fg(color)));
     }
     stats_lines.push(Line::from(color_blocks));
 
-    let art_text = Text::from(ASCII_ART).style(Style::default().fg(theme.highlight()));
+    let art_text = Text::from(ASCII_ART).style(Style::default().fg(theme.warning()));
     let art_height = art_text.height() as u16;
     let art_width = art_text.width() as u16;
 
@@ -963,7 +961,7 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     }
 
     let footer_line = Line::from(vec![
-        Span::styled("[N]", Style::default().fg(theme.highlight())),
+        Span::styled("[N]", Style::default().fg(theme.warning())),
         Span::styled(
             "ew",
             Style::default()
@@ -971,7 +969,7 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
                 .add_modifier(Modifier::DIM),
         ),
         Span::styled(" ", Style::default()),
-        Span::styled("[R]", Style::default().fg(theme.highlight())),
+        Span::styled("[R]", Style::default().fg(theme.warning())),
         Span::styled(
             "edo",
             Style::default()
@@ -979,7 +977,7 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
                 .add_modifier(Modifier::DIM),
         ),
         Span::styled(" ", Style::default()),
-        Span::styled("[Q]", Style::default().fg(theme.highlight())),
+        Span::styled("[Q]", Style::default().fg(theme.warning())),
         Span::styled(
             "uit",
             Style::default()
