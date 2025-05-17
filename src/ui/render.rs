@@ -790,20 +790,45 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     let header = format!("{}@{}", username, hostname);
     let separator = "─".repeat(header.chars().count());
 
+    let is_monochromatic = termi.config.monocrhomatic_results;
+
+    let color_succes = if is_monochromatic {
+        theme.highlight()
+    } else {
+        theme.success()
+    };
+    let color_fg = if is_monochromatic {
+        theme.muted()
+    } else {
+        theme.fg()
+    };
+
+    let color_muted = if is_monochromatic {
+        theme.fg()
+    } else {
+        theme.muted()
+    };
+
+    let color_warning = if is_monochromatic {
+        theme.highlight()
+    } else {
+        theme.warning()
+    };
+
     // TODO: improve the coloring of this to match fastfetch. They have the @ in a different color.
     let mut stats_lines = vec![
         Line::from(vec![
-            Span::styled(username, Style::default().fg(theme.success())),
-            Span::styled("@", Style::default().fg(theme.fg())),
-            Span::styled(hostname, Style::default().fg(theme.success())),
+            Span::styled(username, Style::default().fg(color_succes)),
+            Span::styled("@", Style::default().fg(color_fg)),
+            Span::styled(hostname, Style::default().fg(color_succes)),
         ]),
-        Line::from(Span::styled(separator, Style::default().fg(theme.fg()))),
+        Line::from(Span::styled(separator, Style::default().fg(color_fg))),
     ];
 
     let add_stat = |label: &str, value: String| -> Line {
         Line::from(vec![
-            Span::styled(format!("{}: ", label), Style::default().fg(theme.warning())),
-            Span::styled(value, Style::default().fg(theme.fg())),
+            Span::styled(format!("{}: ", label), Style::default().fg(color_warning)),
+            Span::styled(value, Style::default().fg(color_fg)),
         ])
     };
 
@@ -882,7 +907,7 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     }
     stats_lines.push(Line::from(color_blocks));
 
-    let art_text = Text::from(ASCII_ART).style(Style::default().fg(theme.warning()));
+    let art_text = Text::from(ASCII_ART).style(Style::default().fg(color_warning));
     let art_height = art_text.height() as u16;
     let art_width = art_text.width() as u16;
 
@@ -961,28 +986,22 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     }
 
     let footer_line = Line::from(vec![
-        Span::styled("[N]", Style::default().fg(theme.warning())),
+        Span::styled("[N]", Style::default().fg(color_warning)),
         Span::styled(
             "ew",
-            Style::default()
-                .fg(theme.muted())
-                .add_modifier(Modifier::DIM),
+            Style::default().fg(color_muted).add_modifier(Modifier::DIM),
         ),
         Span::styled(" ", Style::default()),
-        Span::styled("[R]", Style::default().fg(theme.warning())),
+        Span::styled("[R]", Style::default().fg(color_warning)),
         Span::styled(
             "edo",
-            Style::default()
-                .fg(theme.muted())
-                .add_modifier(Modifier::DIM),
+            Style::default().fg(color_muted).add_modifier(Modifier::DIM),
         ),
         Span::styled(" ", Style::default()),
-        Span::styled("[Q]", Style::default().fg(theme.warning())),
+        Span::styled("[Q]", Style::default().fg(color_warning)),
         Span::styled(
             "uit",
-            Style::default()
-                .fg(theme.muted())
-                .add_modifier(Modifier::DIM),
+            Style::default().fg(color_muted).add_modifier(Modifier::DIM),
         ),
     ])
     .alignment(Alignment::Center);
