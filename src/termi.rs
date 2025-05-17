@@ -5,7 +5,9 @@ use std::{
 
 use crossterm::{
     cursor::SetCursorStyle,
-    event::{self, Event, KeyCode, KeyEventKind, MouseButton, MouseEvent, MouseEventKind},
+    event::{
+        self, Event, KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind,
+    },
 };
 use ratatui::{prelude::Backend, Terminal};
 
@@ -31,7 +33,7 @@ pub struct Termi {
     pub modal: Option<InputModal>,
     pub preview_theme: Option<Theme>,
     pub preview_cursor: Option<SetCursorStyle>,
-    pub last_key: Option<KeyCode>,
+    last_event: Option<KeyEvent>,
 }
 
 impl std::fmt::Debug for Termi {
@@ -70,7 +72,7 @@ impl Termi {
             modal: None,
             preview_theme: None,
             preview_cursor: None,
-            last_key: None,
+            last_event: None,
         }
     }
 
@@ -109,10 +111,10 @@ impl Termi {
 
     fn handle_debounce(&self) -> bool {
         if self.tracker.status == Status::Completed {
-            // NOTE(ema): handling this here is extremely lazy on my part. This should be handled by
-            //  the input handler
-            if self.last_key == Some(KeyCode::Enter) {
-                return false;
+            if let Some(event) = self.last_event {
+                if event.code == KeyCode::Enter {
+                    return false;
+                }
             }
 
             if let Some(end_time) = self.tracker.time_end {
@@ -162,9 +164,10 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             match event::read()? {
                 Event::Key(event) => {
                     if event.kind == KeyEventKind::Press {
-                        termi.last_key = Some(event.code);
+                        let last_event = termi.last_event;
+                        termi.last_event = Some(event);
                         let input_mode = input_handler.resolve_input_mode(&termi);
-                        let action = input_handler.handle_input(event, input_mode);
+                        let action = input_handler.handle_input(event, last_event, input_mode);
 
                         // inmediate actions
                         if action == TermiAction::Quit {
