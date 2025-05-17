@@ -84,6 +84,15 @@ impl Termi {
         self.menu = menu;
     }
 
+    /// Redo Redo - Taeha circa 2020
+    pub fn redo(&mut self) {
+        let menu = self.menu.clone();
+        let words = self.words.clone();
+
+        self.tracker = Tracker::new(&self.config, words);
+        self.menu = menu;
+    }
+
     pub fn current_theme(&self) -> &Theme {
         self.preview_theme.as_ref().unwrap_or(&self.theme)
     }

@@ -21,6 +21,7 @@ pub enum TermiAction {
 
     // === State ===
     Start,
+    Redo,
     TogglePause,
 
     // === Typing ===
@@ -194,6 +195,7 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::Quit => {} // already handled as an inmediate action above
         TermiAction::NoOp => {}
         TermiAction::Start => termi.start(),
+        TermiAction::Redo => termi.redo(),
         TermiAction::TogglePause => {
             if termi.tracker.status == Status::Paused {
                 termi.tracker.resume();

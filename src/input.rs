@@ -4,12 +4,14 @@ use crate::{
     actions::{MenuNavAction, MenuSearchAction, TermiAction},
     log_debug,
     termi::Termi,
+    tracker::Status,
 };
 
 /// Current input context
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InputMode {
     Typing,
+    Results,
     Modal,
     Menu { is_searching: bool },
 }
@@ -29,12 +31,15 @@ impl InputHandler {
     }
 
     pub fn resolve_input_mode(&self, termi: &Termi) -> InputMode {
+        // TODO: think about improving this resolver
         if termi.modal.is_some() {
             InputMode::Modal
         } else if termi.menu.is_open() {
             InputMode::Menu {
                 is_searching: termi.menu.is_searching(),
             }
+        } else if termi.tracker.status == Status::Completed {
+            InputMode::Results
         } else {
             InputMode::Typing
         }
@@ -59,6 +64,7 @@ impl InputHandler {
 
         let action = match mode {
             InputMode::Typing => self.handle_typing_input(event),
+            InputMode::Results => self.handle_results_input(event),
             InputMode::Modal => self.handle_modal_input(event),
             InputMode::Menu { is_searching } => self.handle_menu_input(event, is_searching),
         };
@@ -98,6 +104,15 @@ impl InputHandler {
                     TermiAction::Input(c)
                 }
             }
+            _ => TermiAction::NoOp,
+        }
+    }
+
+    fn handle_results_input(&mut self, event: KeyEvent) -> TermiAction {
+        match (event.code, event.modifiers) {
+            (KeyCode::Char('r'), KeyModifiers::NONE) => TermiAction::Redo,
+            (KeyCode::Char('n'), KeyModifiers::NONE) => TermiAction::Start,
+            (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::Quit,
             _ => TermiAction::NoOp,
         }
     }
