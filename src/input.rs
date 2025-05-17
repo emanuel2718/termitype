@@ -18,6 +18,7 @@ pub enum InputMode {
 
 #[derive(Default)]
 pub struct InputHandler {
+    // FIXME(ema): this is duplicated on @termi.rs
     last_key_code: Option<KeyCode>,
     pending_accent: Option<char>,
 }
