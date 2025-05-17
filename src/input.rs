@@ -52,6 +52,11 @@ impl InputHandler {
             return TermiAction::Start;
         }
 
+        #[cfg(debug_assertions)]
+        if let Some(debug_action) = self.handle_debug_input(event) {
+            return debug_action;
+        }
+
         let action = match mode {
             InputMode::Typing => self.handle_typing_input(event),
             InputMode::Modal => self.handle_modal_input(event),
@@ -60,6 +65,14 @@ impl InputHandler {
 
         self.last_key_code = Some(curr_key_code);
         action
+    }
+
+    #[cfg(debug_assertions)]
+    fn handle_debug_input(&mut self, event: KeyEvent) -> Option<TermiAction> {
+        match (event.code, event.modifiers) {
+            (KeyCode::F(4), _) => Some(TermiAction::DebugToggleResults),
+            _ => None,
+        }
     }
 
     fn handle_typing_input(&mut self, event: KeyEvent) -> TermiAction {

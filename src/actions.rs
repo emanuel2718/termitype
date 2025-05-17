@@ -60,6 +60,10 @@ pub enum TermiAction {
     // === Previews ===
     ApplyPreview(PreviewType),
     ClearPreview,
+
+    // === Debug Helper Actions ===
+    #[cfg(debug_assertions)]
+    DebugToggleResults,
 }
 
 // ============== MENU ==============
@@ -343,5 +347,10 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                 .ok();
             }
         }
+        #[cfg(debug_assertions)]
+        TermiAction::DebugToggleResults => match termi.tracker.status {
+            Status::Completed => termi.start(),
+            _ => termi.tracker.complete(),
+        },
     }
 }
