@@ -962,27 +962,26 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         }
     }
 
-    let restart_line = Line::from(vec![
+    let footer_line = Line::from(vec![
+        Span::styled("[N]", Style::default().fg(theme.highlight())),
         Span::styled(
-            "tab",
-            Style::default()
-                .fg(theme.highlight())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
-            " + ",
+            "ew",
             Style::default()
                 .fg(theme.muted())
                 .add_modifier(Modifier::DIM),
         ),
+        Span::styled(" ", Style::default()),
+        Span::styled("[R]", Style::default().fg(theme.highlight())),
         Span::styled(
-            "enter",
+            "edo",
             Style::default()
-                .fg(theme.highlight())
-                .add_modifier(Modifier::BOLD),
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
         ),
+        Span::styled(" ", Style::default()),
+        Span::styled("[Q]", Style::default().fg(theme.highlight())),
         Span::styled(
-            " - restart test",
+            "uit",
             Style::default()
                 .fg(theme.muted())
                 .add_modifier(Modifier::DIM),
@@ -998,7 +997,7 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
             width: area.width,
             height: restart_height,
         };
-        frame.render_widget(Paragraph::new(restart_line), restart_area);
+        frame.render_widget(Paragraph::new(footer_line), restart_area);
     }
 }
 

@@ -76,7 +76,7 @@ impl InputHandler {
     #[cfg(debug_assertions)]
     fn handle_debug_input(&mut self, event: KeyEvent) -> Option<TermiAction> {
         match (event.code, event.modifiers) {
-            (KeyCode::F(4), _) => Some(TermiAction::DebugToggleResults),
+            (KeyCode::F(10), _) => Some(TermiAction::DebugToggleResults),
             _ => None,
         }
     }
@@ -113,6 +113,10 @@ impl InputHandler {
             (KeyCode::Char('r'), KeyModifiers::NONE) => TermiAction::Redo,
             (KeyCode::Char('n'), KeyModifiers::NONE) => TermiAction::Start,
             (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::Quit,
+            (KeyCode::Esc, KeyModifiers::NONE) => {
+                self.pending_accent = None;
+                TermiAction::TogglePause
+            }
             _ => TermiAction::NoOp,
         }
     }
