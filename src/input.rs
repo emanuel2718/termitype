@@ -67,14 +67,12 @@ impl InputHandler {
             return debug_action;
         }
 
-        let action = match mode {
+        match mode {
             InputMode::Typing => self.handle_typing_input(event),
             InputMode::Results => self.handle_results_input(event),
             InputMode::Modal => self.handle_modal_input(event),
             InputMode::Menu { is_searching } => self.handle_menu_input(event, is_searching),
-        };
-
-        action
+        }
     }
 
     #[cfg(debug_assertions)]

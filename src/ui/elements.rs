@@ -303,8 +303,7 @@ pub fn create_typing_area<'a>(
         lines.push(Line::from(current_line_spans));
     }
 
-    let text = Text::from(lines);
-    text
+    Text::from(lines)
 }
 
 pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
