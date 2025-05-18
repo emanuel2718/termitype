@@ -276,7 +276,7 @@ fn build_help_menu() -> Menu {
         })
         .collect();
 
-    Menu::new(MenuContext::Help, "Help".to_string(), items)
+    Menu::new(MenuContext::Help, "Keybinds".to_string(), items)
 }
 
 /// Builds the About menu

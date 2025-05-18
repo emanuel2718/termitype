@@ -522,6 +522,7 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
                 selected_index.saturating_sub(halfway)
             }
         };
+        let menu_title = current_menu.title.clone();
 
         // hide description on the top fold
         let hide_description = (is_help_menu || is_about_menu) && small_width;
@@ -529,7 +530,7 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
             build_menu_items(termi, scroll_offset, max_visible, hide_description);
 
         let content_block = Block::default()
-            .title(" Menu ")
+            .title(menu_title)
             .title_alignment(Alignment::Left)
             .borders(ratatui::widgets::Borders::ALL)
             .border_style(Style::default().fg(theme.border()))
