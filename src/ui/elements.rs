@@ -524,6 +524,7 @@ pub fn build_menu_items<'a>(
     termi: &'a Termi,
     scroll_offset: usize,
     max_visible: usize,
+    hide_description: bool,
 ) -> (Vec<ListItem<'a>>, usize) {
     let theme = termi.current_theme().clone();
 
@@ -605,23 +606,40 @@ pub fn build_menu_items<'a>(
                         ),
                     ];
 
-                    // pad items with <key> <description> structure
-                    if let Some(key_text) = &item.key {
-                        let key_display_text =
-                            format!("{:<width$}  ", key_text, width = max_key_width);
-                        spans.push(Span::styled(
-                            key_display_text,
-                            Style::default()
-                                .fg(theme.accent())
-                                .add_modifier(Modifier::BOLD),
-                        ));
-                        spans.push(Span::styled(item.label.clone(), item_style));
-                    } else {
-                        if max_key_width > 0 {
-                            // +2 for the "  " separator
-                            spans.push(Span::raw(" ".repeat(max_key_width + 2)));
+                    // if we get `hide_description` this means we are folding the previews
+                    if hide_description {
+                        if let Some(key) = &item.key {
+                            let mut key_span_style = item_style;
+                            if !item.is_disabled {
+                                key_span_style = key_span_style.add_modifier(Modifier::BOLD);
+                                if !is_selected && item.is_active.is_none() {
+                                    key_span_style = key_span_style.fg(theme.accent());
+                                }
+                            } else {
+                                key_span_style = key_span_style.remove_modifier(Modifier::BOLD);
+                            }
+                            spans.push(Span::styled(key.clone(), key_span_style));
+                        } else {
+                            spans.push(Span::styled(item.label.clone(), item_style));
                         }
-                        spans.push(Span::styled(item.label.clone(), item_style));
+                    } else {
+                        // pad items with <key> <description> structure
+                        if let Some(key) = &item.key {
+                            let key_text = format!("{:<width$}  ", key, width = max_key_width);
+                            spans.push(Span::styled(
+                                key_text,
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::BOLD),
+                            ));
+                            spans.push(Span::styled(item.label.clone(), item_style));
+                        } else {
+                            if max_key_width > 0 {
+                                // +2 for the "  " separator
+                                spans.push(Span::raw(" ".repeat(max_key_width + 2)));
+                            }
+                            spans.push(Span::styled(item.label.clone(), item_style));
+                        }
                     }
 
                     if matches!(item.result, MenuItemResult::OpenSubMenu(_)) {

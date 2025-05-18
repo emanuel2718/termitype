@@ -438,15 +438,17 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     let menu_state = &mut termi.menu;
 
     let is_theme_picker = menu_state.is_theme_menu();
+    let is_help_menu = menu_state.is_help_menu();
+    let is_about_menu = menu_state.is_about_menu();
 
     let small_width = area.width <= MIN_THEME_PREVIEW_WIDTH;
-    let menu_height = if is_theme_picker && small_width {
+    let menu_height = if (is_theme_picker || is_help_menu || is_about_menu) && small_width {
         area.height
     } else {
         MENU_HEIGHT.min(area.height)
     };
 
-    // split the menu in two folds if we are in the theme picker
+    // split the menu in two folds if we are in the theme picker or help/about with small width
     let (menu_area, preview_area) = if is_theme_picker && !small_width {
         let split = Layout::default()
             .direction(Direction::Horizontal)
@@ -458,7 +460,7 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
                 height: menu_height,
             });
         (split[0], Some(split[1]))
-    } else if is_theme_picker && small_width {
+    } else if (is_theme_picker || is_help_menu || is_about_menu) && small_width {
         let split = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
@@ -521,7 +523,10 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
             }
         };
 
-        let (list_items, total_items) = build_menu_items(termi, scroll_offset, max_visible);
+        // hide description on the top fold
+        let hide_description = (is_help_menu || is_about_menu) && small_width;
+        let (list_items, total_items) =
+            build_menu_items(termi, scroll_offset, max_visible, hide_description);
 
         let content_block = Block::default()
             .title(" Menu ")
@@ -555,9 +560,13 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
             frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
         }
 
-        // theme preview
+        // theme preview or description preview
         if let Some(preview_area) = preview_area {
-            render_theme_preview(frame, termi, preview_area);
+            if is_theme_picker {
+                render_theme_preview(frame, termi, preview_area);
+            } else if (is_help_menu || is_about_menu) && small_width {
+                render_description_preview(frame, termi, preview_area);
+            }
         }
     }
     // don't render the menu footer text if we are in small width
@@ -574,6 +583,40 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
             .alignment(Alignment::Left);
 
         frame.render_widget(footer_widget, footer_area);
+    }
+}
+
+/// Renders the description portion of menu items with <key> <description> such as `Help` and `About` menus
+fn render_description_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
+    let theme = termi.current_theme();
+    frame.render_widget(Clear, area);
+
+    let preview_block = Block::default()
+        .title(" Description ")
+        .title_alignment(Alignment::Left)
+        .bg(theme.bg())
+        .borders(ratatui::widgets::Borders::ALL)
+        .border_style(
+            Style::default()
+                .fg(theme.border())
+                .add_modifier(Modifier::DIM),
+        );
+
+    let inner_area = preview_block.inner(area);
+    frame.render_widget(preview_block, area);
+
+    if let Some(menu) = termi.menu.current_menu() {
+        if let Some(item) = menu.current_item() {
+            let description_text = Text::from(item.label.as_str())
+                .style(Style::default().fg(theme.fg()))
+                .alignment(Alignment::Left);
+
+            let paragraph = Paragraph::new(description_text)
+                .wrap(Wrap { trim: false })
+                .block(Block::default().padding(Padding::new(1, 1, 1, 1)));
+
+            frame.render_widget(paragraph, inner_area);
+        }
     }
 }
 
