@@ -237,6 +237,15 @@ pub struct MenuState {
     pub ui_height: usize,
 }
 
+/// Checks if the current menu context matches the given $context
+macro_rules! is_menu_context {
+    ($self:expr, $context:path) => {
+        $self
+            .current_menu()
+            .map_or(false, |menu| matches!(menu.ctx, $context))
+    };
+}
+
 impl MenuState {
     pub fn new() -> Self {
         Default::default()
@@ -253,43 +262,23 @@ impl MenuState {
     // NOTE: might need a more generic way to detect if the current menu is an `X` menu.
     // could get annoying when we get a lot of menus
     pub fn is_theme_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::Theme);
-        }
-        false
+        is_menu_context!(self, MenuContext::Theme)
     }
 
     pub fn is_language_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::Language);
-        }
-        false
+        is_menu_context!(self, MenuContext::Language)
     }
 
     pub fn is_about_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::About);
-        }
-        false
+        is_menu_context!(self, MenuContext::About)
     }
 
     pub fn is_help_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::Help);
-        }
-        false
+        is_menu_context!(self, MenuContext::Help)
     }
 
     pub fn is_cursor_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::Cursor);
-        }
-        false
+        is_menu_context!(self, MenuContext::Cursor)
     }
 
     pub fn current_menu(&self) -> Option<&Menu> {
@@ -686,5 +675,35 @@ mod tests {
 
         menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Close), &config);
         assert!(!menu.current_menu().unwrap().items().is_empty());
+    }
+
+    #[test]
+    fn test_is_menu_context_macro() {
+        let mut menu = create_test_menu();
+        let config = Config::default();
+
+        // no menu
+        assert!(!is_menu_context!(menu, MenuContext::Root));
+
+        // <root>
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        assert!(is_menu_context!(menu, MenuContext::Root));
+        assert!(!is_menu_context!(menu, MenuContext::Theme));
+
+        // <theme>
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
+        assert!(is_menu_context!(menu, MenuContext::Theme));
+        assert!(!is_menu_context!(menu, MenuContext::Root));
+
+        menu.handle_action(TermiAction::MenuClose, &config);
+
+        // <lang>
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Language), &config);
+        assert!(is_menu_context!(menu, MenuContext::Language));
+
+        // no menu
+        menu.handle_action(TermiAction::MenuClose, &config);
+        assert!(!is_menu_context!(menu, MenuContext::Language));
+        assert!(!is_menu_context!(menu, MenuContext::Root));
     }
 }
