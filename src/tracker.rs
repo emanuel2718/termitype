@@ -329,8 +329,8 @@ impl Tracker {
     }
 
     pub fn complete(&mut self) {
-        let start_time = self.time_started.unwrap();
-        let end_time = self.time_end.unwrap();
+        let start_time = self.time_started.unwrap_or(Instant::now());
+        let end_time = self.time_end.unwrap_or(Instant::now());
         self.time_remaining = Some(Duration::from_secs(0));
         self.completion_time = Some(end_time.duration_since(start_time).as_secs_f64());
         self.status = Status::Completed;

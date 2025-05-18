@@ -21,6 +21,7 @@ pub enum TermiAction {
 
     // === State ===
     Start,
+    Redo,
     TogglePause,
 
     // === Typing ===
@@ -60,6 +61,10 @@ pub enum TermiAction {
     // === Previews ===
     ApplyPreview(PreviewType),
     ClearPreview,
+
+    // === Debug Helper Actions ===
+    #[cfg(debug_assertions)]
+    DebugToggleResults,
 }
 
 // ============== MENU ==============
@@ -190,6 +195,7 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::Quit => {} // already handled as an inmediate action above
         TermiAction::NoOp => {}
         TermiAction::Start => termi.start(),
+        TermiAction::Redo => termi.redo(),
         TermiAction::TogglePause => {
             if termi.tracker.status == Status::Paused {
                 termi.tracker.resume();
@@ -343,5 +349,10 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                 .ok();
             }
         }
+        #[cfg(debug_assertions)]
+        TermiAction::DebugToggleResults => match termi.tracker.status {
+            Status::Completed => termi.start(),
+            _ => termi.tracker.complete(),
+        },
     }
 }

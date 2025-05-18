@@ -33,11 +33,11 @@ pub enum ThemeColor {
     Foreground,     // Default Text
     Muted,          // Dimmed Text
     Accent,         // Carets and Arrows
+    Info,           // Information
     Highlight,      // Selected items
     Success,        // Correct Words
     Error,          // Wrong Words
     Warning,        // Warning messages
-    Border,         // UI Borders
     Cursor,         // Cursor Color
     CursorText,     // Text under Cursor
     SelectionBg,    // Text Selection Background
@@ -171,11 +171,11 @@ impl Theme {
                 Color::White,       // Foreground
                 Color::Gray,        // Muted
                 Color::Cyan,        // Accent
+                Color::LightCyan,   // Info
                 Color::LightGreen,  // Highlight
                 Color::Green,       // Success
                 Color::Red,         // Error
                 Color::LightYellow, // Warning
-                Color::DarkGray,    // Border
                 Color::White,       // Cursor
                 Color::Black,       // CursorText
                 Color::DarkGray,    // SelectionBg
@@ -281,6 +281,10 @@ impl Theme {
         self.colors[ThemeColor::Accent as usize]
     }
 
+    pub fn info(&self) -> Color {
+        self.colors[ThemeColor::Info as usize]
+    }
+
     pub fn highlight(&self) -> Color {
         self.colors[ThemeColor::Highlight as usize]
     }
@@ -298,7 +302,7 @@ impl Theme {
     }
 
     pub fn border(&self) -> Color {
-        self.colors[ThemeColor::Border as usize]
+        self.colors[ThemeColor::Muted as usize]
     }
 
     pub fn cursor(&self) -> Color {
@@ -420,7 +424,9 @@ impl ThemeLoader {
         colors[ThemeColor::Background as usize] = parse_color("background")?;
         colors[ThemeColor::Foreground as usize] = parse_color("foreground")?;
         colors[ThemeColor::Muted as usize] = parse_color("palette7")?;
-        colors[ThemeColor::Accent as usize] = parse_color("palette14")?;
+        colors[ThemeColor::Warning as usize] = parse_color("palette3")?;
+        colors[ThemeColor::Accent as usize] = parse_color("palette5")?;
+        colors[ThemeColor::Info as usize] = parse_color("palette4")?;
         colors[ThemeColor::Highlight as usize] = parse_color("palette6")?;
         colors[ThemeColor::Success as usize] = parse_color("palette2")?;
         colors[ThemeColor::Error as usize] = parse_color("palette1")?;

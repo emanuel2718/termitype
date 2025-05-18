@@ -96,6 +96,10 @@ pub struct Config {
     #[arg(long = "show-fps")]
     pub show_fps: bool,
 
+    /// Show results with only two colors
+    #[arg(long = "monochromatic-results")]
+    pub monocrhomatic_results: bool,
+
     /// Stores the persistence of the game. Set automatically.
     #[arg(skip)]
     persistent: Option<Persistence>,
@@ -141,6 +145,7 @@ impl Default for Config {
             list_languages: false,
             version: false,
             show_fps: false,
+            monocrhomatic_results: false,
             #[cfg(debug_assertions)]
             debug: false,
             persistent: None,

@@ -3,7 +3,7 @@ use crate::{
     config::{Mode, ModeType},
     constants::{
         APPNAME, DEFAULT_LANGUAGE, DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST,
-        MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH,
+        MIN_TERM_HEIGHT, MIN_TERM_WIDTH,
     },
     menu::MenuItemResult,
     modal::ModalContext,
@@ -216,16 +216,14 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
 
 pub fn create_typing_area<'a>(
     termi: &'a Termi,
-    width: usize,
     scroll_offset: usize,
     visible_line_count: usize,
     word_positions: &[WordPosition],
-) -> (Text<'a>, usize) {
-    let typing_width = width.min(TYPING_AREA_WIDTH as usize);
+) -> Text<'a> {
     let theme = termi.current_theme();
 
     if word_positions.is_empty() {
-        return (Text::raw(""), typing_width);
+        return Text::raw("");
     }
 
     let words: Vec<&str> = termi.words.split_whitespace().collect();
@@ -305,8 +303,7 @@ pub fn create_typing_area<'a>(
         lines.push(Line::from(current_line_spans));
     }
 
-    let text = Text::from(lines);
-    (text, typing_width)
+    Text::from(lines)
 }
 
 pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
@@ -414,12 +411,14 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
     let theme = termi.current_theme();
     let warning_lines = vec![
         Line::from(Span::styled(
-            "! too small",
+            "! size too small",
             Style::default().fg(theme.error()),
         )),
         Line::from(""),
+        Line::from("Current:"),
+        Line::from(""),
         Line::from(vec![
-            Span::styled("Current: (", Style::default().fg(theme.muted())),
+            Span::styled("Width = ", Style::default().fg(theme.muted())),
             Span::styled(
                 format!("{}", width),
                 Style::default().fg(if width < MIN_TERM_WIDTH {
@@ -428,7 +427,7 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
                     theme.success()
                 }),
             ),
-            Span::styled("x", Style::default().fg(theme.muted())),
+            Span::styled(" Height = ", Style::default().fg(theme.muted())),
             Span::styled(
                 format!("{}", height),
                 Style::default().fg(if height < MIN_TERM_HEIGHT {
@@ -437,12 +436,22 @@ pub fn create_minimal_size_warning(termi: &Termi, width: u16, height: u16) -> Ve
                     theme.success()
                 }),
             ),
-            Span::styled(")", Style::default().fg(theme.muted())),
         ]),
-        Line::from(Span::styled(
-            format!("Needed: ({}x{})", MIN_TERM_WIDTH, MIN_TERM_HEIGHT),
-            Style::default().fg(theme.muted()),
-        )),
+        Line::from(""),
+        Line::from("Needed:"),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Width = ", Style::default().fg(theme.muted())),
+            Span::styled(
+                format!("{}", MIN_TERM_WIDTH),
+                Style::default().fg(theme.muted()),
+            ),
+            Span::styled(" Height = ", Style::default().fg(theme.muted())),
+            Span::styled(
+                format!("{}", MIN_TERM_HEIGHT),
+                Style::default().fg(theme.muted()),
+            ),
+        ]),
     ];
     let text = Text::from(warning_lines).alignment(Alignment::Center);
     vec![TermiElement::new(text, false, None)]

@@ -5,7 +5,9 @@ use std::{
 
 use crossterm::{
     cursor::SetCursorStyle,
-    event::{self, Event, KeyEventKind, MouseButton, MouseEvent, MouseEventKind},
+    event::{
+        self, Event, KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind,
+    },
 };
 use ratatui::{prelude::Backend, Terminal};
 
@@ -17,7 +19,7 @@ use crate::{
     menu::MenuState,
     modal::InputModal,
     theme::Theme,
-    tracker::Tracker,
+    tracker::{Status, Tracker},
     ui::{draw_ui, render::TermiClickableRegions},
 };
 
@@ -31,6 +33,7 @@ pub struct Termi {
     pub modal: Option<InputModal>,
     pub preview_theme: Option<Theme>,
     pub preview_cursor: Option<SetCursorStyle>,
+    last_event: Option<KeyEvent>,
 }
 
 impl std::fmt::Debug for Termi {
@@ -69,10 +72,15 @@ impl Termi {
             modal: None,
             preview_theme: None,
             preview_cursor: None,
+            last_event: None,
         }
     }
 
     pub fn start(&mut self) {
+        if self.handle_debounce() {
+            return;
+        }
+
         let menu = self.menu.clone();
         if self.config.words.is_some() {
             self.config.reset_words_flag();
@@ -84,8 +92,38 @@ impl Termi {
         self.menu = menu;
     }
 
+    /// Redo Redo - Taeha circa 2020
+    pub fn redo(&mut self) {
+        if self.handle_debounce() {
+            return;
+        }
+
+        let menu = self.menu.clone();
+        let words = self.words.clone();
+
+        self.tracker = Tracker::new(&self.config, words);
+        self.menu = menu;
+    }
+
     pub fn current_theme(&self) -> &Theme {
         self.preview_theme.as_ref().unwrap_or(&self.theme)
+    }
+
+    fn handle_debounce(&self) -> bool {
+        if self.tracker.status == Status::Completed {
+            if let Some(event) = self.last_event {
+                if event.code == KeyCode::Enter {
+                    return false;
+                }
+            }
+
+            if let Some(end_time) = self.tracker.time_end {
+                if end_time.elapsed() < Duration::from_millis(500) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
@@ -126,8 +164,10 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             match event::read()? {
                 Event::Key(event) => {
                     if event.kind == KeyEventKind::Press {
+                        let last_event = termi.last_event;
+                        termi.last_event = Some(event);
                         let input_mode = input_handler.resolve_input_mode(&termi);
-                        let action = input_handler.handle_input(event, input_mode);
+                        let action = input_handler.handle_input(event, last_event, input_mode);
 
                         // inmediate actions
                         if action == TermiAction::Quit {
