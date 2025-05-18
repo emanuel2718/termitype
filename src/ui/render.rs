@@ -252,25 +252,13 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
 
 fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     let available_width = area.width as usize;
-    let line_count_from_config = termi.config.visible_lines as usize;
+    let actual_displayable_lines = (area.height as usize).max(termi.config.visible_lines as usize);
     let cursor_idx = termi.tracker.cursor_position;
 
-    let effective_layout_width = available_width.min(TYPING_AREA_WIDTH as usize);
-    let word_positions = calculate_word_positions(&termi.words, effective_layout_width);
+    let word_positions = calculate_word_positions(&termi.words, available_width);
 
     if word_positions.is_empty() {
-        let (empty_text, _) =
-            create_typing_area(termi, available_width, 0, line_count_from_config, &[]);
-
-        let area_width = effective_layout_width as u16;
-        let area_padding = area.width.saturating_sub(area_width) / 2;
-        let render_area = Rect {
-            x: area.x + area_padding,
-            y: area.y,
-            width: area_width,
-            height: area.height,
-        };
-        frame.render_widget(Paragraph::new(empty_text), render_area);
+        frame.render_widget(Paragraph::new(Text::raw("")), area);
         return;
     }
 
@@ -282,10 +270,10 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
 
     let current_line = current_word_pos.line;
 
-    let scroll_offset = if line_count_from_config <= 1 {
+    let scroll_offset = if actual_displayable_lines <= 1 {
         current_line
     } else {
-        let half_visible = line_count_from_config / 2;
+        let half_visible = actual_displayable_lines / 2;
         if current_line < half_visible {
             0
         } else {
@@ -293,24 +281,16 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         }
     };
 
-    let (typing_text, _) = create_typing_area(
+    let typing_text = create_typing_area(
         termi,
-        available_width,
         scroll_offset,
-        line_count_from_config,
+        actual_displayable_lines,
         &word_positions,
     );
 
     let text_height = typing_text.height();
 
-    let area_width = effective_layout_width as u16;
-    let area_padding = area.width.saturating_sub(area_width) / 2;
-    let render_area = Rect {
-        x: area.x + area_padding,
-        y: area.y,
-        width: area_width,
-        height: area.height,
-    };
+    let render_area = area;
 
     let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
     frame.render_widget(paragraph, render_area);
@@ -334,11 +314,11 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         let cursor_x = render_area.x + current_word_pos.col.saturating_add(offset_x) as u16;
         let cursor_y = render_area.y + current_line.saturating_sub(scroll_offset) as u16;
 
-        // boundary check.
+        // boundary check
         if cursor_x >= render_area.left()
             && cursor_x < render_area.right()
             && cursor_y >= render_area.top()
-            && cursor_y < render_area.top() + (line_count_from_config.min(text_height) as u16)
+            && cursor_y < render_area.top() + text_height as u16
         {
             frame.set_cursor_position(Position {
                 x: cursor_x,
@@ -889,23 +869,25 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     if let Some(wpm_range) = wpm_range_str {
         stats_lines.push(add_stat("WPM Range", wpm_range));
     }
-
     stats_lines.push(Line::from(""));
 
-    let mut color_blocks = vec![];
-    for color in [
-        theme.cursor_text(),
-        theme.error(),
-        theme.success(),
-        theme.warning(),
-        theme.info(),
-        theme.accent(),
-        theme.highlight(),
-        theme.fg(),
-    ] {
-        color_blocks.push(Span::styled("██", Style::default().fg(color)));
+    // only show color blocks if we show the ascii art
+    if !is_small {
+        let mut color_blocks = vec![];
+        for color in [
+            theme.cursor_text(),
+            theme.error(),
+            theme.success(),
+            theme.warning(),
+            theme.info(),
+            theme.accent(),
+            theme.highlight(),
+            theme.fg(),
+        ] {
+            color_blocks.push(Span::styled("██", Style::default().fg(color)));
+        }
+        stats_lines.push(Line::from(color_blocks));
     }
-    stats_lines.push(Line::from(color_blocks));
 
     let art_text = Text::from(ASCII_ART).style(Style::default().fg(color_warning));
     let art_height = art_text.height() as u16;
@@ -985,36 +967,39 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         }
     }
 
-    let footer_line = Line::from(vec![
-        Span::styled("[N]", Style::default().fg(color_warning)),
-        Span::styled(
-            "ew",
-            Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-        ),
-        Span::styled(" ", Style::default()),
-        Span::styled("[R]", Style::default().fg(color_warning)),
-        Span::styled(
-            "edo",
-            Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-        ),
-        Span::styled(" ", Style::default()),
-        Span::styled("[Q]", Style::default().fg(color_warning)),
-        Span::styled(
-            "uit",
-            Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-        ),
-    ])
-    .alignment(Alignment::Center);
+    // only show footer if we have enough space
+    if !is_small {
+        let footer_line = Line::from(vec![
+            Span::styled("[N]", Style::default().fg(color_warning)),
+            Span::styled(
+                "ew",
+                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
+            ),
+            Span::styled(" ", Style::default()),
+            Span::styled("[R]", Style::default().fg(color_warning)),
+            Span::styled(
+                "edo",
+                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
+            ),
+            Span::styled(" ", Style::default()),
+            Span::styled("[Q]", Style::default().fg(color_warning)),
+            Span::styled(
+                "uit",
+                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
+            ),
+        ])
+        .alignment(Alignment::Center);
 
-    let restart_height: u16 = 4;
-    if area.height > restart_height {
-        let restart_area = Rect {
-            x: area.x,
-            y: area.bottom().saturating_sub(restart_height),
-            width: area.width,
-            height: restart_height,
-        };
-        frame.render_widget(Paragraph::new(footer_line), restart_area);
+        let restart_height: u16 = 4;
+        if area.height > restart_height {
+            let restart_area = Rect {
+                x: area.x,
+                y: area.bottom().saturating_sub(restart_height),
+                width: area.width,
+                height: restart_height,
+            };
+            frame.render_widget(Paragraph::new(footer_line), restart_area);
+        }
     }
 }
 

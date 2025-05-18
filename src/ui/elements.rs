@@ -216,16 +216,14 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
 
 pub fn create_typing_area<'a>(
     termi: &'a Termi,
-    width: usize,
     scroll_offset: usize,
     visible_line_count: usize,
     word_positions: &[WordPosition],
-) -> (Text<'a>, usize) {
-    let typing_width = width.min(TYPING_AREA_WIDTH as usize);
+) -> Text<'a> {
     let theme = termi.current_theme();
 
     if word_positions.is_empty() {
-        return (Text::raw(""), typing_width);
+        return Text::raw("");
     }
 
     let words: Vec<&str> = termi.words.split_whitespace().collect();
@@ -306,7 +304,7 @@ pub fn create_typing_area<'a>(
     }
 
     let text = Text::from(lines);
-    (text, typing_width)
+    text
 }
 
 pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {

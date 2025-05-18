@@ -98,7 +98,7 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         .split(top_area);
 
     let header_section = top_chunk[0];
-    let action_bar_section = apply_horizontal_centering(top_chunk[1], TYPING_AREA_WIDTH);
+    let action_bar_section = create_centered_rect_with_max_width(top_chunk[1], TYPING_AREA_WIDTH);
 
     // ==== MIDDLE ====
     let mid_outer_chunk = Layout::default()
@@ -118,8 +118,8 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         ])
         .split(mid_outer_chunk);
 
-    let mode_bar_section = apply_horizontal_centering(mid_chunk[0], TYPING_AREA_WIDTH);
-    let typing_area_section = apply_horizontal_centering(mid_chunk[1], TYPING_AREA_WIDTH);
+    let mode_bar_section = create_centered_rect_with_max_width(mid_chunk[0], TYPING_AREA_WIDTH);
+    let typing_area_section = create_centered_rect_with_max_width(mid_chunk[1], TYPING_AREA_WIDTH);
 
     // ==== BOTTOM ====
     let bot_chunks = Layout::default()
@@ -131,8 +131,8 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
         ])
         .split(bot_area);
 
-    let command_bar_section = apply_horizontal_centering(bot_chunks[0], TYPING_AREA_WIDTH);
-    let footer_section = apply_horizontal_centering(bot_chunks[2], TYPING_AREA_WIDTH);
+    let command_bar_section = create_centered_rect_with_max_width(bot_chunks[0], TYPING_AREA_WIDTH);
+    let footer_section = create_centered_rect_with_max_width(bot_chunks[2], TYPING_AREA_WIDTH);
 
     let section = TermiSection {
         header: header_section,
@@ -146,14 +146,13 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
     TermiLayout { area, section }
 }
 
-fn apply_horizontal_centering(area: Rect, width_percent: u16) -> Rect {
-    let padding = (100 - width_percent) / 2;
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(padding),
-            Constraint::Percentage(width_percent),
-            Constraint::Percentage(padding),
-        ])
-        .split(area)[1] // centered chunk
+fn create_centered_rect_with_max_width(area: Rect, max_content_width: u16) -> Rect {
+    let display_width = max_content_width.min(area.width);
+    let padding = area.width.saturating_sub(display_width) / 2;
+    Rect {
+        x: area.x + padding,
+        y: area.y,
+        width: display_width,
+        height: area.height,
+    }
 }
