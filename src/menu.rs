@@ -276,6 +276,14 @@ impl MenuState {
         false
     }
 
+    pub fn is_help_menu(&self) -> bool {
+        let curr_menu = self.current_menu();
+        if let Some(menu) = curr_menu {
+            return matches!(menu.ctx, MenuContext::Help);
+        }
+        false
+    }
+
     pub fn is_cursor_menu(&self) -> bool {
         let curr_menu = self.current_menu();
         if let Some(menu) = curr_menu {
@@ -297,7 +305,11 @@ impl MenuState {
         match action {
             // Open
             TermiAction::MenuOpen(ctx) => {
-                self.open(ctx, config);
+                if self.is_theme_menu() || self.is_help_menu() || self.is_about_menu() {
+                    self.close();
+                } else {
+                    self.open(ctx, config);
+                }
                 self.preview_selection()
             }
             // Close

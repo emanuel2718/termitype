@@ -185,7 +185,8 @@ fn build_lines_count_menu() -> Menu {
 fn build_help_menu() -> Menu {
     let lines = [
         // === General ===
-        "[all] <C-?> -> Toggle Help",
+        "[all] <F1> -> Toggle Help",
+        "[all] <F2> -> Toggle Themes",
         "[all] <esc> -> Toggle Menu",
         "[all] <ctrl-c> -> Quit",
         "[all] <ctrl-z> -> Quit (alt)",
