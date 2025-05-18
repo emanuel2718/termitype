@@ -34,6 +34,7 @@ pub struct Termi {
     pub preview_theme: Option<Theme>,
     pub preview_cursor: Option<SetCursorStyle>,
     last_event: Option<KeyEvent>,
+    should_quit: bool,
 }
 
 impl std::fmt::Debug for Termi {
@@ -73,6 +74,7 @@ impl Termi {
             preview_theme: None,
             preview_cursor: None,
             last_event: None,
+            should_quit: false,
         }
     }
 
@@ -90,6 +92,10 @@ impl Termi {
         self.tracker = Tracker::new(&self.config, self.words.clone());
 
         self.menu = menu;
+    }
+
+    pub fn quit(&mut self) {
+        self.should_quit = true;
     }
 
     /// Redo Redo - Taeha circa 2020
@@ -147,6 +153,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     let mut needs_redraw = true;
 
     'main_loop: loop {
+        if termi.should_quit {
+            break 'main_loop;
+        }
         let now = Instant::now();
 
         let current_frame_time =

@@ -17,6 +17,7 @@ pub fn build_menu(ctx: MenuContext, config: &Config) -> Menu {
         MenuContext::Time => build_time_menu(),
         MenuContext::Words => build_words_menu(),
         MenuContext::LineCount => build_lines_count_menu(),
+        MenuContext::Help => build_help_menu(),
         MenuContext::About => build_about_menu(),
     }
 }
@@ -35,6 +36,7 @@ fn build_root_menu(config: &Config) -> Menu {
         MenuItem::sub_menu("root/cursor", "Cursor...", MenuContext::Cursor),
         MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
         MenuItem::sub_menu("root/about", "About...", MenuContext::About),
+        MenuItem::sub_menu("root/help", "Help...", MenuContext::Help),
         MenuItem::action("root/quit", "Exit", TermiAction::Quit),
     ];
     Menu::new(MenuContext::Root, "Main Menu".to_string(), items)
@@ -179,24 +181,115 @@ fn build_lines_count_menu() -> Menu {
     )
 }
 
-// About menu
+/// Builds the Help menu
+fn build_help_menu() -> Menu {
+    let lines = [
+        // === General ===
+        "[all] <F1> -> Toggle Help",
+        "[all] <F2> -> Toggle Themes",
+        "[all] <esc> -> Toggle Menu",
+        "[all] <ctrl-c> -> Quit",
+        "[all] <ctrl-z> -> Quit (alt)",
+        "[all] <tab-enter> -> Restart Test",
+        // === Menu Nav ===
+        "[menu] <up> -> Navigate Up",
+        "[menu] <down> -> Navigate Down",
+        "[menu] <k> -> Navigate Up",
+        "[menu] <j> -> Navigate Down",
+        "[menu] <ctrl-u> -> Half Page Up",
+        "[menu] <ctrl-d> -> Half Page Down",
+        "[menu] <enter> -> Select Item / Open Submenu",
+        "[menu] <space> -> Toggle Option",
+        "[menu] <esc> -> Go Back / Close Menu",
+        "[menu] / -> Start Search Mode",
+        // === Menu Serach ===
+        "[search] <enter> -> Confirm Search/Select",
+        "[search] <esc> -> Exit Search mode",
+        "[search] <ctrl-p> -> Navigate Up",
+        "[search] <ctrl-n> -> Navigate Down",
+        // === Results ===
+        "[results] r -> Redo Test",
+        "[results] n -> Start New Test",
+        "[results] q -> Quit Application",
+    ];
+
+    // TODO: find a better way to do this.
+
+    // temp parsing struct
+    struct ParsedParts {
+        id: String,
+        context: String,
+        keybind: String,
+        description: String,
+    }
+
+    let mut parsed_items_data: Vec<ParsedParts> = Vec::new();
+
+    for &item_str in lines.iter() {
+        let parts: Vec<&str> = item_str.splitn(2, "->").collect();
+        let full_key_str = parts.first().map_or("", |k| k.trim()).to_string();
+        let description_str = parts.get(1).map_or(item_str, |d| d.trim()).to_string();
+
+        let context_part;
+        let keybind_part;
+
+        if let Some(idx_closing_bracket) = full_key_str.rfind(']') {
+            context_part = full_key_str[..=idx_closing_bracket].to_string();
+            keybind_part = full_key_str[idx_closing_bracket + 1..].to_string();
+        } else {
+            // just in case
+            context_part = String::new();
+            keybind_part = full_key_str.clone();
+        }
+
+        parsed_items_data.push(ParsedParts {
+            id: full_key_str,
+            context: context_part,
+            keybind: keybind_part,
+            description: description_str,
+        });
+    }
+
+    let max_context_len = parsed_items_data
+        .iter()
+        .map(|item| item.context.chars().count())
+        .max()
+        .unwrap_or(0);
+
+    let items: Vec<MenuItem> = parsed_items_data
+        .iter()
+        .map(|parsed_data| {
+            let item_id = format!(
+                "help/{}",
+                parsed_data
+                    .id
+                    .replace(|c: char| !c.is_alphanumeric(), "_")
+                    .to_lowercase()
+            );
+            let formatted_key = format!(
+                "{:<width$}{}",
+                parsed_data.context,
+                parsed_data.keybind,
+                width = max_context_len
+            );
+            MenuItem::info(&item_id, &formatted_key, &parsed_data.description)
+        })
+        .collect();
+
+    Menu::new(MenuContext::Help, "Keybinds".to_string(), items)
+}
+
+/// Builds the About menu
 fn build_about_menu() -> Menu {
     let items = vec![
-        MenuItem::action("about/name", "Name: termitype", TermiAction::NoOp),
-        MenuItem::action(
-            "about/version",
-            &format!("Version: {}", VERSION),
-            TermiAction::NoOp,
-        ),
-        MenuItem::action(
-            "about/desc",
-            "Description: A typing game for the terminal.",
-            TermiAction::NoOp,
-        ),
-        MenuItem::action(
+        MenuItem::info("about/name", "Name", "termitype"),
+        MenuItem::info("about/version", "Version", VERSION),
+        MenuItem::info("about/desc", "Description", "TUI typing game"),
+        MenuItem::info("about/license", "License", env!("CARGO_PKG_LICENSE")),
+        MenuItem::info(
             "about/source",
-            "Source: http://github.com/emanuel2718/termitype",
-            TermiAction::NoOp,
+            "Source",
+            "https://github.com/emanuel2718/termitype",
         ),
     ];
     Menu::new(MenuContext::About, "About Termitype".to_string(), items)

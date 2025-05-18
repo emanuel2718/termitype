@@ -13,11 +13,13 @@ pub enum MenuItemResult {
     TriggerAction(TermiAction),
     OpenSubMenu(MenuContext),
     ToggleState,
+    NoOp,
 }
 
 #[derive(Debug, Clone)]
 pub struct MenuItem {
     pub id: String,
+    pub key: Option<String>,
     pub label: String,
     pub result: MenuItemResult,
     // TODO: this is weird, want to find a better name represantion than `is_active`.
@@ -30,8 +32,23 @@ impl MenuItem {
     pub fn action(id: &str, label: &str, action: TermiAction) -> Self {
         Self {
             id: id.to_string(),
+            key: None,
             label: label.to_string(),
             result: MenuItemResult::TriggerAction(action),
+            is_active: None,
+            is_disabled: false,
+            preview_type: None,
+        }
+    }
+
+    // NOTE: eventually info items could have an action (i.e opening the url for the repo etc.)
+    /// MenuItem with Key Value pair information
+    pub fn info(id: &str, key: &str, desc: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            key: Some(key.to_string()),
+            label: desc.to_string(),
+            result: MenuItemResult::NoOp,
             is_active: None,
             is_disabled: false,
             preview_type: None,
@@ -41,6 +58,7 @@ impl MenuItem {
     pub fn toggle(id: &str, label: &str, is_active: bool) -> Self {
         Self {
             id: id.to_string(),
+            key: None,
             label: label.to_string(),
             result: MenuItemResult::ToggleState,
             is_active: Some(is_active),
@@ -52,6 +70,7 @@ impl MenuItem {
     pub fn sub_menu(id: &str, label: &str, ctx: MenuContext) -> Self {
         Self {
             id: id.to_string(),
+            key: None,
             label: label.to_string(),
             result: MenuItemResult::OpenSubMenu(ctx),
             is_active: None,
@@ -116,7 +135,6 @@ impl Menu {
             }
             MenuNavAction::Home => {
                 self.current_index = 0;
-                log_debug!("Calling home")
             }
             MenuNavAction::End => self.current_index = items_count - 1,
             MenuNavAction::Back => {} // handled by MenuState
@@ -136,10 +154,9 @@ impl Menu {
         // if filtering, `selected_index` is an index into `filtered_indexes`
         // which then itself points to the actual item in `self.items`. cool
         if let Some(indices) = &self.filtered_indices {
-            indices.get(self.current_index).and_then(|&og_idx| {
-                log_debug!("current index {} maps to {og_idx}", self.current_index);
-                self._items.get(og_idx)
-            })
+            indices
+                .get(self.current_index)
+                .and_then(|&og_idx| self._items.get(og_idx))
         } else {
             self._items.get(self.current_index)
         }
@@ -220,6 +237,15 @@ pub struct MenuState {
     pub ui_height: usize,
 }
 
+/// Checks if the current menu context matches the given $context
+macro_rules! is_menu_context {
+    ($self:expr, $context:path) => {
+        $self
+            .current_menu()
+            .map_or(false, |menu| matches!(menu.ctx, $context))
+    };
+}
+
 impl MenuState {
     pub fn new() -> Self {
         Default::default()
@@ -236,35 +262,23 @@ impl MenuState {
     // NOTE: might need a more generic way to detect if the current menu is an `X` menu.
     // could get annoying when we get a lot of menus
     pub fn is_theme_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::Theme);
-        }
-        false
+        is_menu_context!(self, MenuContext::Theme)
     }
 
     pub fn is_language_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::Language);
-        }
-        false
+        is_menu_context!(self, MenuContext::Language)
     }
 
     pub fn is_about_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::About);
-        }
-        false
+        is_menu_context!(self, MenuContext::About)
+    }
+
+    pub fn is_help_menu(&self) -> bool {
+        is_menu_context!(self, MenuContext::Help)
     }
 
     pub fn is_cursor_menu(&self) -> bool {
-        let curr_menu = self.current_menu();
-        if let Some(menu) = curr_menu {
-            return matches!(menu.ctx, MenuContext::Cursor);
-        }
-        false
+        is_menu_context!(self, MenuContext::Cursor)
     }
 
     pub fn current_menu(&self) -> Option<&Menu> {
@@ -280,7 +294,11 @@ impl MenuState {
         match action {
             // Open
             TermiAction::MenuOpen(ctx) => {
-                self.open(ctx, config);
+                if self.is_theme_menu() || self.is_help_menu() || self.is_about_menu() {
+                    self.close();
+                } else {
+                    self.open(ctx, config);
+                }
                 self.preview_selection()
             }
             // Close
@@ -363,6 +381,7 @@ impl MenuState {
             .filter(|item| !item.is_disabled)
             .map(|item| item.result.clone());
 
+        log_debug!("item action: {:?}", item_action);
         if let Some(action) = item_action {
             match action {
                 MenuItemResult::TriggerAction(action) => {
@@ -391,6 +410,7 @@ impl MenuState {
                         return Some(act);
                     }
                 }
+                MenuItemResult::NoOp => return None,
             }
         }
         None
@@ -505,7 +525,7 @@ impl MenuState {
                 }
             }
             MenuContext::LineCount => Some(format!("lines/{}", config.visible_lines)),
-            MenuContext::Root | MenuContext::About => None,
+            MenuContext::Root | MenuContext::About | MenuContext::Help => None,
         };
 
         if let Some(id) = target_id {
@@ -655,5 +675,35 @@ mod tests {
 
         menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Close), &config);
         assert!(!menu.current_menu().unwrap().items().is_empty());
+    }
+
+    #[test]
+    fn test_is_menu_context_macro() {
+        let mut menu = create_test_menu();
+        let config = Config::default();
+
+        // no menu
+        assert!(!is_menu_context!(menu, MenuContext::Root));
+
+        // <root>
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        assert!(is_menu_context!(menu, MenuContext::Root));
+        assert!(!is_menu_context!(menu, MenuContext::Theme));
+
+        // <theme>
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
+        assert!(is_menu_context!(menu, MenuContext::Theme));
+        assert!(!is_menu_context!(menu, MenuContext::Root));
+
+        menu.handle_action(TermiAction::MenuClose, &config);
+
+        // <lang>
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Language), &config);
+        assert!(is_menu_context!(menu, MenuContext::Language));
+
+        // no menu
+        menu.handle_action(TermiAction::MenuClose, &config);
+        assert!(!is_menu_context!(menu, MenuContext::Language));
+        assert!(!is_menu_context!(menu, MenuContext::Root));
     }
 }

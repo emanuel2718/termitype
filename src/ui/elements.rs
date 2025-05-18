@@ -524,19 +524,13 @@ pub fn build_menu_items<'a>(
     termi: &'a Termi,
     scroll_offset: usize,
     max_visible: usize,
+    hide_description: bool,
 ) -> (Vec<ListItem<'a>>, usize) {
     let theme = termi.current_theme().clone();
 
     if let Some(menu) = &termi.menu.current_menu() {
-        // let filtered_items: Vec<_> = if termi.menu.is_searching() {
-        //     menu.filtered_items(termi.menu.search_query())
-        // } else {
-        //     menu.items_with_indices()
-        // };
-        //
         let items = menu.items();
         let total_items = items.len();
-        //
         if total_items == 0 {
             let no_matches = vec![
                 ListItem::new(""),
@@ -550,71 +544,115 @@ pub fn build_menu_items<'a>(
             ];
             (no_matches, 0)
         } else {
-            let current_item = menu
+            let current_item_id = menu
                 .current_item()
                 .map(|i| i.id.clone())
                 .unwrap_or_default();
-            let items: Vec<ListItem<'a>> = std::iter::once(ListItem::new(""))
-                .chain(
-                    items
-                        .iter()
-                        .skip(scroll_offset)
-                        .take(max_visible)
-                        .map(|item| {
-                            let is_selected = item.id == current_item;
 
-                            let item_style = Style::default()
-                                .fg(if item.is_disabled {
-                                    theme.muted()
-                                } else if item.is_active.is_some() {
-                                    // safe to unwrap here
-                                    if item.is_active.unwrap() {
-                                        theme.highlight()
-                                    } else {
-                                        theme.muted()
-                                    }
-                                } else if is_selected {
-                                    theme.selection_fg()
-                                } else {
-                                    theme.fg()
-                                })
-                                .bg(if is_selected && !item.is_disabled {
-                                    theme.selection_bg()
-                                } else {
-                                    theme.bg()
-                                })
-                                .add_modifier(
-                                    if item.is_active.is_some() && !item.is_active.unwrap() {
-                                        Modifier::DIM
-                                    } else {
-                                        Modifier::empty()
-                                    },
-                                );
-
-                            let supports_unicode = theme.supports_unicode();
-                            let arrow_symbol = if supports_unicode { "❯ " } else { "> " };
-                            let submenu_symbol = if supports_unicode { " →" } else { " >" };
-
-                            ListItem::new(Line::from(vec![
-                                Span::styled("  ", Style::default()),
-                                Span::styled(
-                                    if is_selected { arrow_symbol } else { "  " },
-                                    Style::default().fg(theme.accent()),
-                                ),
-                                Span::styled(item.label.clone(), item_style),
-                                if matches!(item.result, MenuItemResult::OpenSubMenu(_)) {
-                                    Span::styled(
-                                        submenu_symbol,
-                                        Style::default().fg(theme.accent()),
-                                    )
-                                } else {
-                                    Span::raw("")
-                                },
-                            ]))
-                        }),
-                )
+            let visible_items: Vec<_> = items
+                .iter()
+                .skip(scroll_offset)
+                .take(max_visible)
+                .cloned()
                 .collect();
-            (items, total_items)
+
+            // NOTE: this might be wasteful because we are doing it for every menu item, we should do it only
+            // for the menu items that have key and description structure
+            let max_key_width = visible_items
+                .iter()
+                .filter_map(|item| item.key.as_ref())
+                .map(|key_text| key_text.chars().count())
+                .max()
+                .unwrap_or(0);
+
+            let list_items: Vec<ListItem<'a>> = std::iter::once(ListItem::new(""))
+                .chain(visible_items.iter().map(|item| {
+                    let is_selected = item.id == current_item_id;
+
+                    let item_style = Style::default()
+                        .fg(if item.is_disabled {
+                            theme.muted()
+                        } else if item.is_active.is_some() {
+                            if item.is_active.unwrap() {
+                                theme.highlight()
+                            } else {
+                                theme.muted()
+                            }
+                        } else if is_selected {
+                            theme.selection_fg()
+                        } else {
+                            theme.fg()
+                        })
+                        .bg(if is_selected && !item.is_disabled {
+                            theme.selection_bg()
+                        } else {
+                            theme.bg()
+                        })
+                        .add_modifier(if item.is_active.is_some() && !item.is_active.unwrap() {
+                            Modifier::DIM
+                        } else {
+                            Modifier::empty()
+                        });
+
+                    let supports_unicode = theme.supports_unicode();
+                    let arrow_symbol = if supports_unicode { "❯ " } else { "> " };
+                    let submenu_symbol = if supports_unicode { " →" } else { " >" };
+
+                    let mut spans = vec![
+                        Span::styled("  ", Style::default()),
+                        Span::styled(
+                            if is_selected { arrow_symbol } else { "  " },
+                            Style::default().fg(theme.accent()),
+                        ),
+                    ];
+
+                    // if we get `hide_description` this means we are folding the previews
+                    if hide_description {
+                        if let Some(key) = &item.key {
+                            let mut key_span_style = item_style;
+                            if !item.is_disabled {
+                                key_span_style = key_span_style.add_modifier(Modifier::BOLD);
+                                if !is_selected && item.is_active.is_none() {
+                                    key_span_style = key_span_style.fg(theme.accent());
+                                }
+                            } else {
+                                key_span_style = key_span_style.remove_modifier(Modifier::BOLD);
+                            }
+                            spans.push(Span::styled(key.clone(), key_span_style));
+                        } else {
+                            spans.push(Span::styled(item.label.clone(), item_style));
+                        }
+                    } else {
+                        // pad items with <key> <description> structure
+                        if let Some(key) = &item.key {
+                            let key_text = format!("{:<width$}  ", key, width = max_key_width);
+                            spans.push(Span::styled(
+                                key_text,
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::BOLD),
+                            ));
+                            spans.push(Span::styled(item.label.clone(), item_style));
+                        } else {
+                            if max_key_width > 0 {
+                                // +2 for the "  " separator
+                                spans.push(Span::raw(" ".repeat(max_key_width + 2)));
+                            }
+                            spans.push(Span::styled(item.label.clone(), item_style));
+                        }
+                    }
+
+                    if matches!(item.result, MenuItemResult::OpenSubMenu(_)) {
+                        spans.push(Span::styled(
+                            submenu_symbol,
+                            Style::default().fg(theme.accent()),
+                        ));
+                    }
+
+                    ListItem::new(Line::from(spans))
+                }))
+                .collect();
+            (list_items, total_items)
         }
     } else {
         (vec![ListItem::new("  No menu content")], 0)

@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{
-    actions::{MenuNavAction, MenuSearchAction, TermiAction},
+    actions::{MenuContext, MenuNavAction, MenuSearchAction, TermiAction},
     log_debug,
     termi::Termi,
     tracker::Status,
@@ -62,6 +62,11 @@ impl InputHandler {
             }
         }
 
+        if let Some(global_action) = self.handle_global_input(event) {
+            log_debug!("The global action: {:?}", global_action);
+            return global_action;
+        }
+
         #[cfg(debug_assertions)]
         if let Some(debug_action) = self.handle_debug_input(event) {
             return debug_action;
@@ -79,6 +84,13 @@ impl InputHandler {
     fn handle_debug_input(&mut self, event: KeyEvent) -> Option<TermiAction> {
         match (event.code, event.modifiers) {
             (KeyCode::F(10), _) => Some(TermiAction::DebugToggleResults),
+            _ => None,
+        }
+    }
+    fn handle_global_input(&mut self, event: KeyEvent) -> Option<TermiAction> {
+        match (event.code, event.modifiers) {
+            (KeyCode::F(1), _) => Some(TermiAction::MenuOpen(MenuContext::Help)),
+            (KeyCode::F(2), _) => Some(TermiAction::MenuOpen(MenuContext::Theme)),
             _ => None,
         }
     }
