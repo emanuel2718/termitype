@@ -4,7 +4,6 @@ use ratatui::layout::Position;
 use crate::{
     config::ModeType,
     constants::DEFAULT_LINE_COUNT,
-    log_debug,
     modal::{build_modal, handle_modal_confirm, ModalContext},
     termi::Termi,
     theme::Theme,
@@ -103,6 +102,7 @@ pub enum MenuContext {
     Time,
     Words,
     LineCount,
+    Help,
     About,
 }
 
@@ -192,8 +192,8 @@ pub fn handle_click_action(
 
 pub fn process_action(action: TermiAction, termi: &mut Termi) {
     match action {
-        TermiAction::Quit => {} // already handled as an inmediate action above
         TermiAction::NoOp => {}
+        TermiAction::Quit => termi.quit(),
         TermiAction::Start => termi.start(),
         TermiAction::Redo => termi.redo(),
         TermiAction::TogglePause => {
@@ -249,7 +249,6 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::ModalClose => termi.modal = None,
         TermiAction::ModalOpen(ctx) => {
             termi.modal = Some(build_modal(ctx));
-            log_debug!("Opening modal with: {ctx:?}")
         }
         TermiAction::ModalInput(char) => {
             if let Some(modal) = termi.modal.as_mut() {
@@ -317,10 +316,6 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::ChangeTheme(name) => {
             termi.config.change_theme(&name);
             termi.theme = Theme::from_name(&name);
-            log_debug!(
-                "Changing theme event with name: {name} and resolved theme: {:?}",
-                termi.theme
-            );
             termi.preview_theme = None;
             execute!(
                 std::io::stdout(),
