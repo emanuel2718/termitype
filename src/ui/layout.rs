@@ -147,12 +147,13 @@ pub fn create_layout(area: Rect, termi: &Termi) -> TermiLayout {
 }
 
 fn create_centered_rect_with_max_width(area: Rect, max_content_width: u16) -> Rect {
-    let display_width = max_content_width.min(area.width);
-    let padding = area.width.saturating_sub(display_width) / 2;
-    Rect {
-        x: area.x + padding,
-        y: area.y,
-        width: display_width,
-        height: area.height,
-    }
+    let padding = (100 - max_content_width) / 2;
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(padding),
+            Constraint::Percentage(max_content_width),
+            Constraint::Percentage(padding),
+        ])
+        .split(area)[1] // centered chunk
 }

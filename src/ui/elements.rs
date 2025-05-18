@@ -3,7 +3,7 @@ use crate::{
     config::{Mode, ModeType},
     constants::{
         APPNAME, DEFAULT_LANGUAGE, DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST,
-        MIN_TERM_HEIGHT, MIN_TERM_WIDTH, TYPING_AREA_WIDTH,
+        MIN_TERM_HEIGHT, MIN_TERM_WIDTH,
     },
     menu::MenuItemResult,
     modal::ModalContext,

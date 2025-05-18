@@ -251,8 +251,8 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
 }
 
 fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
-    let available_width = area.width as usize;
-    let actual_displayable_lines = (area.height as usize).max(termi.config.visible_lines as usize);
+    let available_width = area.width.min(TYPING_AREA_WIDTH) as usize;
+    let line_count = termi.config.visible_lines as usize;
     let cursor_idx = termi.tracker.cursor_position;
 
     let word_positions = calculate_word_positions(&termi.words, available_width);
@@ -270,10 +270,10 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
 
     let current_line = current_word_pos.line;
 
-    let scroll_offset = if actual_displayable_lines <= 1 {
+    let scroll_offset = if line_count <= 1 {
         current_line
     } else {
-        let half_visible = actual_displayable_lines / 2;
+        let half_visible = line_count / 2;
         if current_line < half_visible {
             0
         } else {
@@ -281,16 +281,18 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
         }
     };
 
-    let typing_text = create_typing_area(
-        termi,
-        scroll_offset,
-        actual_displayable_lines,
-        &word_positions,
-    );
+    let typing_text = create_typing_area(termi, scroll_offset, line_count, &word_positions);
 
     let text_height = typing_text.height();
 
-    let render_area = area;
+    let area_width = available_width as u16;
+    let area_padding = area.width.saturating_sub(area_width) / 2;
+    let render_area = Rect {
+        x: area.x + area_padding,
+        y: area.y,
+        width: area_width,
+        height: area.height,
+    };
 
     let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
     frame.render_widget(paragraph, render_area);
