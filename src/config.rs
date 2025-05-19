@@ -4,6 +4,7 @@ use clap::{ArgGroup, Parser};
 use crossterm::cursor::SetCursorStyle;
 
 use crate::{
+    ascii::DEFAULT_ASCII_ART_NAME,
     builder::Builder,
     constants::{
         DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME,
@@ -41,6 +42,10 @@ pub struct Config {
     /// Sets the theme if a valid theme is given, ignored otherwise
     #[arg(short = 'T', long = "theme")]
     pub theme: Option<String>,
+
+    /// Sets the ASCII art if a valid name is given, ignored otherwise
+    #[arg(long = "ascii")]
+    pub ascii: Option<String>,
 
     /// Lists the available themes
     #[arg(long = "list-themes")]
@@ -137,6 +142,7 @@ impl Default for Config {
             use_numbers: false,
             use_punctuation: false,
             theme: None,
+            ascii: Some(DEFAULT_ASCII_ART_NAME.to_string()),
             language: Some(DEFAULT_LANGUAGE.to_string()),
             cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
             visible_lines: DEFAULT_LINE_COUNT,
@@ -171,6 +177,15 @@ impl Config {
                     }
                 } else {
                     self.theme = Some(DEFAULT_THEME.to_string())
+                }
+            }
+
+            // Ascii Art
+            if self.ascii.is_none() {
+                if let Some(art_name) = persistence.get("ascii") {
+                    self.ascii = Some(art_name.to_string());
+                } else {
+                    self.ascii = Some(DEFAULT_ASCII_ART_NAME.to_string());
                 }
             }
 
@@ -479,6 +494,13 @@ impl Config {
             .and_then(|s| ColorSupport::from_str(s).ok())
             .unwrap_or_else(Theme::detect_color_support);
         color_support.supports_themes()
+    }
+
+    pub fn change_ascii_art(&mut self, art_name: &str) {
+        self.ascii = Some(art_name.to_string());
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("ascii", art_name.to_string().as_str());
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::{
     actions::{MenuContext, PreviewType, TermiAction},
+    ascii,
     config::{Config, ModeType},
     constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST},
     menu::{Menu, MenuItem},
@@ -19,6 +20,7 @@ pub fn build_menu(ctx: MenuContext, config: &Config) -> Menu {
         MenuContext::LineCount => build_lines_count_menu(),
         MenuContext::Help => build_help_menu(),
         MenuContext::About => build_about_menu(),
+        MenuContext::AsciiArt => build_ascii_art_menu(),
     }
 }
 
@@ -33,6 +35,7 @@ fn build_root_menu(config: &Config) -> Menu {
         MenuItem::sub_menu("root/language", "Language...", MenuContext::Language),
         MenuItem::sub_menu("root/theme", "Theme...", MenuContext::Theme)
             .disabled(!config.term_has_color_support()),
+        MenuItem::sub_menu("root/ascii", "Art...", MenuContext::AsciiArt),
         MenuItem::sub_menu("root/cursor", "Cursor...", MenuContext::Cursor),
         MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
         MenuItem::sub_menu("root/about", "About...", MenuContext::About),
@@ -161,6 +164,24 @@ fn build_words_menu() -> Menu {
     ));
     Menu::new(MenuContext::Words, "Select Word Count".to_string(), items)
 }
+
+/// Builds the Ascii Art menu
+fn build_ascii_art_menu() -> Menu {
+    let arts = ascii::available_ascii_arts();
+    let items: Vec<MenuItem> = arts
+        .iter()
+        .map(|name| {
+            MenuItem::action(
+                &format!("ascii/{}", name),
+                name,
+                TermiAction::ChangeAsciiArt(name.to_string()),
+            )
+            .with_preview(PreviewType::AsciiArt(name.to_string()))
+        })
+        .collect();
+    Menu::new(MenuContext::AsciiArt, "Select ASCII".to_string(), items)
+}
+
 // Visible Line count menu
 fn build_lines_count_menu() -> Menu {
     let lines = [1, 2, 3, 4, 5];

@@ -33,6 +33,7 @@ pub struct Termi {
     pub modal: Option<InputModal>,
     pub preview_theme: Option<Theme>,
     pub preview_cursor: Option<SetCursorStyle>,
+    pub preview_ascii_art: Option<String>,
     last_event: Option<KeyEvent>,
     should_quit: bool,
 }
@@ -50,6 +51,7 @@ impl std::fmt::Debug for Termi {
                     .config
                     .resolve_cursor_name_from_style(&self.preview_cursor),
             )
+            .field("preview_ascii_art", &self.preview_ascii_art)
             .field("builder", &self.builder)
             .field("words", &self.words)
             .field("menu", &self.menu)
@@ -73,6 +75,7 @@ impl Termi {
             modal: None,
             preview_theme: None,
             preview_cursor: None,
+            preview_ascii_art: None,
             last_event: None,
             should_quit: false,
         }
