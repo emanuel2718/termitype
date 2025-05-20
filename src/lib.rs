@@ -100,5 +100,10 @@ fn should_print_to_console(config: &Config) -> bool {
         builder::print_language_list();
         return true;
     }
+
+    if config.list_ascii {
+        ascii::print_ascii_list();
+        return true;
+    }
     false
 }

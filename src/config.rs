@@ -55,6 +55,10 @@ pub struct Config {
     #[arg(long = "list-languages")]
     pub list_languages: bool,
 
+    /// Lists the available ascii arts
+    #[arg(long = "list-ascii")]
+    pub list_ascii: bool,
+
     /// Introduces symbols to the test words.
     #[arg(short = 's', long = "use-symbols")]
     pub use_symbols: bool,
@@ -147,6 +151,7 @@ impl Default for Config {
             cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
             visible_lines: DEFAULT_LINE_COUNT,
             color_mode: None,
+            list_ascii: false,
             list_themes: false,
             list_languages: false,
             version: false,

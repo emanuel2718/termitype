@@ -19,6 +19,25 @@ pub fn available_ascii_arts() -> Vec<String> {
         .collect()
 }
 
+pub fn print_ascii_list() {
+    let mut arts: Vec<String> = available_ascii_arts();
+    arts.sort_by_key(|k| k.to_lowercase());
+
+    println!("\n• Available Ascii Arts ({}):", arts.len());
+
+    println!("{}", "─".repeat(40));
+
+    for ascii in arts {
+        let is_default = ascii == DEFAULT_ASCII_ART_NAME;
+        let name = if is_default {
+            format!("{} (default)", ascii)
+        } else {
+            ascii
+        };
+        println!("  • {}", name);
+    }
+}
+
 // some are courtesy of https://www.twitchquotes.com/copypastas/ascii-art
 // others are manually converted using: https://github.com/TheZoraiz/ascii-image-converter
 // others are taken directly from neofetch with `neofetch --ascii-distro <distro>`
