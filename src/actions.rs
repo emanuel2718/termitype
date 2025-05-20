@@ -51,6 +51,7 @@ pub enum TermiAction {
     ChangeTime(u64),
     ChangeVisibleLines(u64),
     ChangeWordCount(usize),
+    ChangeAsciiArt(String),
 
     // === Toggles ===
     TogglePunctuation,
@@ -92,7 +93,7 @@ pub enum MenuSearchAction {
 }
 
 /// Specifies available menus
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum MenuContext {
     Root,
     Theme,
@@ -104,6 +105,7 @@ pub enum MenuContext {
     LineCount,
     Help,
     About,
+    AsciiArt,
 }
 
 // ============== PREVIEW ==============
@@ -112,6 +114,7 @@ pub enum MenuContext {
 pub enum PreviewType {
     Theme(String),
     Cursor(String),
+    AsciiArt(String),
 }
 
 // ============== CLICK ACTIONS ==============
@@ -298,6 +301,10 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::ChangeVisibleLines(line_count) => termi
             .config
             .change_visible_lines(line_count.try_into().unwrap_or(DEFAULT_LINE_COUNT)),
+        TermiAction::ChangeAsciiArt(art) => {
+            termi.config.change_ascii_art(&art);
+            termi.menu.close();
+        }
         TermiAction::TogglePunctuation => {
             termi.config.toggle_punctuation();
             termi.menu.sync_toggle_items(&termi.config);
@@ -331,6 +338,9 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                 termi.preview_cursor = Some(style);
                 execute!(std::io::stdout(), style).ok();
             }
+            PreviewType::AsciiArt(name) => {
+                termi.preview_ascii_art = Some(name);
+            }
         },
         TermiAction::ClearPreview => {
             if termi.preview_theme.is_some() {
@@ -342,6 +352,9 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                     termi.config.resolve_current_cursor_style()
                 )
                 .ok();
+            }
+            if termi.preview_ascii_art.is_some() {
+                termi.preview_ascii_art = None;
             }
         }
         #[cfg(debug_assertions)]

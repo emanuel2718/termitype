@@ -1,5 +1,6 @@
 use crate::{
     actions::{MenuContext, MenuNavAction, MenuSearchAction, PreviewType, TermiAction},
+    ascii::DEFAULT_ASCII_ART_NAME,
     config::Config,
     constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_TIME_MODE_DURATION},
     log_debug,
@@ -281,6 +282,10 @@ impl MenuState {
         is_menu_context!(self, MenuContext::Cursor)
     }
 
+    pub fn is_ascii_art_menu(&self) -> bool {
+        is_menu_context!(self, MenuContext::AsciiArt)
+    }
+
     pub fn current_menu(&self) -> Option<&Menu> {
         self.stack.last()
     }
@@ -294,7 +299,11 @@ impl MenuState {
         match action {
             // Open
             TermiAction::MenuOpen(ctx) => {
-                if self.is_theme_menu() || self.is_help_menu() || self.is_about_menu() {
+                if self.is_theme_menu()
+                    || self.is_help_menu()
+                    || self.is_about_menu()
+                    || self.is_ascii_art_menu()
+                {
                     self.close();
                 } else {
                     self.open(ctx, config);
@@ -489,6 +498,10 @@ impl MenuState {
                     .as_deref()
                     .unwrap_or(crate::constants::DEFAULT_LANGUAGE);
                 Some(format!("lang/{}", lang_name))
+            }
+            MenuContext::AsciiArt => {
+                let art_name = config.ascii.as_deref().unwrap_or(DEFAULT_ASCII_ART_NAME);
+                Some(format!("ascii/{}", art_name))
             }
             MenuContext::Cursor => {
                 let cursor_style = config

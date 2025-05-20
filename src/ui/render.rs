@@ -11,10 +11,10 @@ use ratatui::{
 
 use crate::{
     actions::TermiClickAction,
+    ascii,
     config::Mode,
     constants::{
-        ASCII_ART, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH,
-        TYPING_AREA_WIDTH,
+        MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH, TYPING_AREA_WIDTH,
     },
     modal::InputModal,
     termi::Termi,
@@ -440,16 +440,19 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     let is_theme_picker = menu_state.is_theme_menu();
     let is_help_menu = menu_state.is_help_menu();
     let is_about_menu = menu_state.is_about_menu();
+    let is_ascii_art_picker = menu_state.is_ascii_art_menu();
 
     let small_width = area.width <= MIN_THEME_PREVIEW_WIDTH;
-    let menu_height = if (is_theme_picker || is_help_menu || is_about_menu) && small_width {
+    let menu_height = if (is_theme_picker || is_help_menu || is_about_menu || is_ascii_art_picker)
+        && small_width
+    {
         area.height
     } else {
         MENU_HEIGHT.min(area.height)
     };
 
-    // split the menu in two folds if we are in the theme picker or help/about with small width
-    let (menu_area, preview_area) = if is_theme_picker && !small_width {
+    // NOTE(ema): this is starting to get annoying. Find better way to determine this
+    let (menu_area, preview_area) = if (is_theme_picker || is_ascii_art_picker) && !small_width {
         let split = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -460,7 +463,9 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
                 height: menu_height,
             });
         (split[0], Some(split[1]))
-    } else if (is_theme_picker || is_help_menu || is_about_menu) && small_width {
+    } else if (is_theme_picker || is_help_menu || is_about_menu || is_ascii_art_picker)
+        && small_width
+    {
         let split = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
@@ -561,10 +566,12 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
             frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
         }
 
-        // theme preview or description preview
+        // theme, description, or ascii art previews
         if let Some(preview_area) = preview_area {
             if is_theme_picker {
                 render_theme_preview(frame, termi, preview_area);
+            } else if is_ascii_art_picker {
+                render_ascii_art_preview(frame, termi, preview_area);
             } else if (is_help_menu || is_about_menu) && small_width {
                 render_description_preview(frame, termi, preview_area);
             }
@@ -806,6 +813,77 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
     );
 }
 
+fn render_ascii_art_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
+    let theme = termi.current_theme();
+    frame.render_widget(Clear, area);
+
+    let art_name = termi
+        .preview_ascii_art
+        .as_deref()
+        .or(termi.config.ascii.as_deref())
+        .unwrap_or(ascii::DEFAULT_ASCII_ART_NAME);
+
+    let ascii_art = ascii::get_ascii_art_by_name(art_name);
+
+    let title = format!(" Preview: {} ", art_name);
+    let preview_block = Block::default()
+        .title(title)
+        .title_alignment(Alignment::Left)
+        .bg(theme.bg())
+        .borders(ratatui::widgets::Borders::ALL)
+        .border_style(
+            Style::default()
+                .fg(theme.border())
+                .add_modifier(Modifier::DIM),
+        );
+
+    let content_area = preview_block.inner(area);
+    frame.render_widget(preview_block, area);
+
+    if content_area.width == 0 || content_area.height == 0 {
+        return;
+    }
+
+    if let Some(art) = ascii_art {
+        let art_text = Text::from(art)
+            .style(Style::default().fg(theme.fg()))
+            .alignment(Alignment::Left);
+
+        let width = art_text.width() as u16;
+        let height = art_text.height() as u16;
+
+        if width > 0 && height > 0 {
+            let centered_rect = Rect {
+                x: content_area
+                    .x
+                    .saturating_add(content_area.width.saturating_sub(width) / 2),
+                y: content_area
+                    .y
+                    .saturating_add(content_area.height.saturating_sub(height) / 2),
+                width: width.min(content_area.width),
+                height: height.min(content_area.height),
+            };
+
+            let paragraph = Paragraph::new(art_text).wrap(Wrap { trim: false });
+            frame.render_widget(paragraph, centered_rect);
+        } else {
+            let placeholder_text = Text::from("[empty art]")
+                .style(Style::default().fg(theme.muted()))
+                .alignment(Alignment::Center);
+            let paragraph = Paragraph::new(placeholder_text)
+                .block(Block::default().padding(Padding::uniform(1)));
+            frame.render_widget(paragraph, content_area);
+        }
+    } else {
+        let not_found_text = Text::from(format!("Art '{}' not found", art_name))
+            .style(Style::default().fg(theme.error()))
+            .alignment(Alignment::Center);
+        let paragraph =
+            Paragraph::new(not_found_text).block(Block::default().padding(Padding::uniform(1)));
+        frame.render_widget(paragraph, content_area);
+    }
+}
+
 pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
     let tracker = &termi.tracker;
     let theme = termi.current_theme();
@@ -840,6 +918,14 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     } else {
         theme.warning()
     };
+
+    let current_art_name = termi
+        .preview_ascii_art
+        .as_deref() // grab the preview if any first
+        .or(config.ascii.as_deref())
+        .unwrap_or(ascii::DEFAULT_ASCII_ART_NAME); // last resort
+
+    let current_ascii_art = ascii::get_ascii_art_by_name(current_art_name).unwrap_or("");
 
     // TODO: improve the coloring of this to match fastfetch. They have the @ in a different color.
     let mut stats_lines = vec![
@@ -935,7 +1021,7 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         stats_lines.push(Line::from(color_blocks));
     }
 
-    let art_text = Text::from(ASCII_ART).style(Style::default().fg(color_warning));
+    let art_text = Text::from(current_ascii_art).style(Style::default().fg(color_warning));
     let art_height = art_text.height() as u16;
     let art_width = art_text.width() as u16;
 

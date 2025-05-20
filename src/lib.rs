@@ -13,6 +13,7 @@ use utils::get_config_dir;
 use version::VERSION;
 
 pub mod actions;
+pub mod ascii;
 pub mod assets;
 pub mod builder;
 pub mod config;
@@ -97,6 +98,11 @@ fn should_print_to_console(config: &Config) -> bool {
 
     if config.list_languages {
         builder::print_language_list();
+        return true;
+    }
+
+    if config.list_ascii {
+        ascii::print_ascii_list();
         return true;
     }
     false
