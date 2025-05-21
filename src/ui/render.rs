@@ -975,9 +975,9 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     stats_lines.push(add_stat("Raw WPM", format!("{:.0}", tracker.raw_wpm)));
 
     if let Some(time) = tracker.completion_time {
-        stats_lines.push(add_stat("Time", format!("{:.1}s", time)));
+        stats_lines.push(add_stat("Duration", format!("{:.1}s", time)));
     } else if let Mode::Time { duration } = config.current_mode() {
-        stats_lines.push(add_stat("Time", format!("{}s", duration)));
+        stats_lines.push(add_stat("Duration", format!("{}s", duration)));
     }
 
     stats_lines.push(add_stat("Accuracy", format!("{}%", tracker.accuracy)));
