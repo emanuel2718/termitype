@@ -11,7 +11,7 @@
   </p>
 </p>
 
-<img align="center" alt="image" src="https://github.com/user-attachments/assets/b46815e6-4de5-4d6c-966d-fae4b0f18382" alt="Termitype Image" />
+<img align="center" alt="image" src="https://github.com/user-attachments/assets/b4a86931-786e-46f7-89e9-3502c878f786" />" alt="Termitype Image" />
 
 ## Development
 
