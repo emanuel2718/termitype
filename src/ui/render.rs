@@ -60,9 +60,9 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiC
             .padding(if dummy_layout.is_minimal() {
                 Padding::ZERO
             } else if dummy_layout.w_small() {
-                Padding::uniform(2)
+                Padding::uniform(1)
             } else {
-                Padding::symmetric(8, 2)
+                Padding::symmetric(2, 1)
             });
 
     let inner_area = container.inner(area);
@@ -215,7 +215,12 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
             element_data.push((line_width, element.action));
         }
 
-        let start_x = area.x + (area.width.saturating_sub(total_width)) / 2;
+        // if content fits, center it. left align otherwise
+        let start_x = if total_width <= area.width {
+            area.x + (area.width.saturating_sub(total_width)) / 2
+        } else {
+            area.x
+        };
 
         let mut current_x_offset: u16 = 0;
         for (i, element) in elements.iter().enumerate() {
@@ -239,10 +244,13 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
             current_x_offset += element_width;
         }
 
-        f.render_widget(
-            Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
-            area,
-        );
+        let alignment = if total_width <= area.width {
+            Alignment::Center
+        } else {
+            Alignment::Left
+        };
+
+        f.render_widget(Paragraph::new(Line::from(spans)).alignment(alignment), area);
 
         for (rect, action) in clickable_regions_to_add {
             cr.add(rect, action);
