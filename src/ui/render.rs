@@ -14,7 +14,11 @@ use crate::{
     ascii,
     config::{self, Mode},
     constants::{
-        MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH, TYPING_AREA_WIDTH,
+        ASCII_PREVIEW_CONTENT_PERCENTAGE, ASCII_PREVIEW_MENU_PERCENTAGE,
+        ASCII_PREVIEW_SMALL_CONTENT_PERCENTAGE, ASCII_PREVIEW_SMALL_MENU_PERCENTAGE,
+        ASCII_PREVIEW_TELESCOPE_HEIGHT_RATIO, ASCII_PREVIEW_TELESCOPE_MAX_WIDTH,
+        ASCII_PREVIEW_TELESCOPE_WIDTH_RATIO, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT,
+        MODAL_WIDTH, TYPING_AREA_WIDTH,
     },
     modal::InputModal,
     termi::Termi,
@@ -472,8 +476,19 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
         },
         // floating
         config::PickerStyle::Telescope => {
-            let menu_width = (area.width as f32 * 0.8).min(80.0) as u16;
-            let menu_height = (area.height as f32 * 0.6).min(menu_height as f32) as u16;
+            let (width_ratio, height_ratio, max_width) = if is_ascii_art_picker {
+                // NOTE(ema): ascii arts need more space in telescope picker
+                (
+                    ASCII_PREVIEW_TELESCOPE_WIDTH_RATIO,
+                    ASCII_PREVIEW_TELESCOPE_HEIGHT_RATIO,
+                    ASCII_PREVIEW_TELESCOPE_MAX_WIDTH,
+                )
+            } else {
+                (0.8, 0.6, 80.0)
+            };
+
+            let menu_width = (area.width as f32 * width_ratio).min(max_width) as u16;
+            let menu_height = (area.height as f32 * height_ratio).min(menu_height as f32) as u16;
             let x = area.x + (area.width.saturating_sub(menu_width)) / 2;
             let y = area.y + (area.height.saturating_sub(menu_height)) / 2;
             Rect {
@@ -499,7 +514,15 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     let (menu_area, preview_area) = if (is_theme_picker || is_ascii_art_picker) && !small_width {
         let split = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .constraints(if is_ascii_art_picker {
+                // NOTE(ema): ascii arts need more space in telescope picker
+                [
+                    Constraint::Percentage(ASCII_PREVIEW_MENU_PERCENTAGE),
+                    Constraint::Percentage(ASCII_PREVIEW_CONTENT_PERCENTAGE),
+                ]
+            } else {
+                [Constraint::Percentage(50), Constraint::Percentage(50)]
+            })
             .split(base_rect);
         (split[0], Some(split[1]))
     } else if (is_theme_picker || is_help_menu || is_about_menu || is_ascii_art_picker)
@@ -507,7 +530,15 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     {
         let split = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+            .constraints(if is_ascii_art_picker {
+                // NOTE(ema): ascii arts need more space in telescope picker
+                [
+                    Constraint::Percentage(ASCII_PREVIEW_SMALL_MENU_PERCENTAGE),
+                    Constraint::Percentage(ASCII_PREVIEW_SMALL_CONTENT_PERCENTAGE),
+                ]
+            } else {
+                [Constraint::Percentage(40), Constraint::Percentage(60)]
+            })
             .split(base_rect);
         (split[0], Some(split[1]))
     } else {
