@@ -145,6 +145,19 @@ pub fn calculate_menu_area_from_parts(
                 height: menu_height,
             }
         }
+        // floating, no preview folds
+        config::PickerStyle::Minimal => {
+            let menu_width = (area.width as f32 * 0.90).min(95.0) as u16;
+            let menu_height = (area.height as f32 * 0.6).min(menu_height as f32) as u16;
+            let x = area.x + (area.width.saturating_sub(menu_width)) / 2;
+            let y = area.y + (area.height.saturating_sub(menu_height)) / 2;
+            Rect {
+                x,
+                y,
+                width: menu_width,
+                height: menu_height,
+            }
+        }
         // bottom
         config::PickerStyle::Ivy => {
             let y = area.y + area.height.saturating_sub(menu_height);

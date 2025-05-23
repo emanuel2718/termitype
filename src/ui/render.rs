@@ -458,7 +458,11 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     );
 
     // NOTE(ema): this is starting to get annoying. Find better way to determine this
-    let (menu_area, preview_area) = if (is_theme_picker || is_ascii_art_picker) && !small_width {
+    let (menu_area, preview_area) = if picker_style == crate::config::PickerStyle::Minimal {
+        // TODO: need to decouple this from here as later adding more custom picker could be annoying
+        // if we have a minimal picker don't fold the menu ever as we don't want previews
+        (base_rect, None)
+    } else if (is_theme_picker || is_ascii_art_picker) && !small_width {
         let split = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])

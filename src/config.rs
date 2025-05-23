@@ -47,7 +47,7 @@ pub struct Config {
     #[arg(long = "ascii")]
     pub ascii: Option<String>,
 
-    /// Sets the picker style: 'quake' (top), 'telescope' (floating), 'ivy' (bottom)
+    /// Sets the picker style: 'quake' (top), 'telescope' (floating), 'ivy' (bottom), 'minimal' (no previews)
     #[arg(long = "picker", value_name = "STYLE")]
     pub picker_style: Option<String>,
 
@@ -549,6 +549,7 @@ pub enum PickerStyle {
     Quake,     // Opens from the top a la quake terminal style, hence the name
     Telescope, // Floating menu just like Telescopic johnson does
     Ivy,       // Opens from the bottom
+    Minimal,   // Telescope style picker without preview folds/splits
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -560,7 +561,7 @@ impl std::fmt::Display for PickerStyleParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Invalid picker style: '{}'. Valid options are: quake, telescope, ivy",
+            "Invalid picker style: '{}'. Valid options are: quake, telescope, ivy, minimal",
             self.invalid_input
         )
     }
@@ -576,6 +577,7 @@ impl FromStr for PickerStyle {
             "quake" => Ok(Self::Quake),
             "telescope" => Ok(Self::Telescope),
             "ivy" => Ok(Self::Ivy),
+            "minimal" => Ok(Self::Minimal),
             _ => Err(PickerStyleParseError {
                 invalid_input: s.to_string(),
             }),
@@ -589,11 +591,12 @@ impl PickerStyle {
             Self::Quake => "quake",
             Self::Telescope => "telescope",
             Self::Ivy => "ivy",
+            Self::Minimal => "minimal",
         }
     }
 
     pub fn all() -> &'static [&'static str] {
-        &["quake", "telescope", "ivy"]
+        &["quake", "telescope", "ivy", "minimal"]
     }
 
     pub fn label_from_str(label: &str) -> &'static str {
@@ -601,6 +604,7 @@ impl PickerStyle {
             "quake" => "Quake (Top)",
             "telescope" => "Telescope (Floating)",
             "ivy" => "Ivy (Bottom)",
+            "minimal" => "Minimal (Floating, No Preview)",
             _ => "Wrong picker",
         }
     }
@@ -764,6 +768,7 @@ mod tests {
             Ok(PickerStyle::Telescope)
         );
         assert_eq!("ivy".parse::<PickerStyle>(), Ok(PickerStyle::Ivy));
+        assert_eq!("minimal".parse::<PickerStyle>(), Ok(PickerStyle::Minimal));
         assert_eq!("QUAKE".parse::<PickerStyle>(), Ok(PickerStyle::Quake));
         assert!("invalid".parse::<PickerStyle>().is_err());
     }
