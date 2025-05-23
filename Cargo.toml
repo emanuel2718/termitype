@@ -18,7 +18,14 @@ include = [
 ]
 
 [profile.release]
+codegen-units = 1
 debug = true
+lto = true
+opt-level = "z"
+panic = "abort"
+strip = true
+incremental = true # better re-compile times
+
 
 [profile.dev]
 debug = true
