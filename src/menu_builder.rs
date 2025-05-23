@@ -116,7 +116,7 @@ fn build_picker_style_menu() -> Menu {
         .map(|&style| {
             MenuItem::action(
                 &format!("picker/{}", style),
-                style,
+                PickerStyle::label_from_str(style),
                 TermiAction::ChangePickerStyle(style.to_string()),
             )
         })

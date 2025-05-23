@@ -595,6 +595,15 @@ impl PickerStyle {
     pub fn all() -> &'static [&'static str] {
         &["quake", "telescope", "ivy"]
     }
+
+    pub fn label_from_str(label: &str) -> &'static str {
+        match label {
+            "quake" => "Quake (Top)",
+            "telescope" => "Telescope (Floating)",
+            "ivy" => "Ivy (Bottom)",
+            _ => "Wrong picker",
+        }
+    }
 }
 
 impl Default for PickerStyle {
