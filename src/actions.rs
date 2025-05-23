@@ -47,6 +47,7 @@ pub enum TermiAction {
     // ChangePreview(PreviewType),
     ChangeLanguage(String),
     ChangeCursor(String),
+    ChangePickerStyle(String),
     ChangeMode(ModeType, Option<usize>),
     ChangeTime(u64),
     ChangeVisibleLines(u64),
@@ -99,6 +100,7 @@ pub enum MenuContext {
     Theme,
     Language,
     Cursor,
+    PickerStyle,
     Mode,
     Time,
     Words,
@@ -279,6 +281,10 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                 termi.config.resolve_current_cursor_style()
             )
             .ok();
+            termi.menu.close();
+        }
+        TermiAction::ChangePickerStyle(style) => {
+            termi.config.change_picker_style(&style);
             termi.menu.close();
         }
         TermiAction::ChangeMode(mode_type, val) => {

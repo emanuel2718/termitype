@@ -286,6 +286,10 @@ impl MenuState {
         is_menu_context!(self, MenuContext::AsciiArt)
     }
 
+    pub fn is_picker_style_menu(&self) -> bool {
+        is_menu_context!(self, MenuContext::PickerStyle)
+    }
+
     pub fn current_menu(&self) -> Option<&Menu> {
         self.stack.last()
     }
@@ -509,6 +513,10 @@ impl MenuState {
                     .as_deref()
                     .unwrap_or(crate::constants::DEFAULT_CURSOR_STYLE);
                 Some(format!("cursor/{}", cursor_style))
+            }
+            MenuContext::PickerStyle => {
+                let picker_style = config.resolve_picker_style();
+                Some(format!("picker/{}", picker_style.as_str()))
             }
             MenuContext::Mode => Some(format!(
                 "mode/{}",

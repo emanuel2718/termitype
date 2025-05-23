@@ -12,7 +12,7 @@ use ratatui::{
 use crate::{
     actions::TermiClickAction,
     ascii,
-    config::Mode,
+    config::{self, Mode},
     constants::{
         MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH, TYPING_AREA_WIDTH,
     },
@@ -444,6 +444,7 @@ fn render_modal(
 fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     let theme = termi.current_theme().clone();
     let menu_state = &mut termi.menu;
+    let picker_style = termi.config.resolve_picker_style();
 
     let is_theme_picker = menu_state.is_theme_menu();
     let is_help_menu = menu_state.is_help_menu();
@@ -459,17 +460,47 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
         MENU_HEIGHT.min(area.height)
     };
 
+    // TODO: feels weird having to add this here. Think about this
+    // depends on the current menu picker style
+    let base_rect = match picker_style {
+        // top
+        config::PickerStyle::Quake => Rect {
+            x: area.x,
+            y: area.y,
+            width: area.width,
+            height: menu_height,
+        },
+        // floating
+        config::PickerStyle::Telescope => {
+            let menu_width = (area.width as f32 * 0.8).min(80.0) as u16;
+            let menu_height = (area.height as f32 * 0.6).min(menu_height as f32) as u16;
+            let x = area.x + (area.width.saturating_sub(menu_width)) / 2;
+            let y = area.y + (area.height.saturating_sub(menu_height)) / 2;
+            Rect {
+                x,
+                y,
+                width: menu_width,
+                height: menu_height,
+            }
+        }
+        // bottom
+        config::PickerStyle::Ivy => {
+            let y = area.y + area.height.saturating_sub(menu_height);
+            Rect {
+                x: area.x,
+                y,
+                width: area.width,
+                height: menu_height,
+            }
+        }
+    };
+
     // NOTE(ema): this is starting to get annoying. Find better way to determine this
     let (menu_area, preview_area) = if (is_theme_picker || is_ascii_art_picker) && !small_width {
         let split = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(Rect {
-                x: area.x,
-                y: area.y,
-                width: area.width,
-                height: menu_height,
-            });
+            .split(base_rect);
         (split[0], Some(split[1]))
     } else if (is_theme_picker || is_help_menu || is_about_menu || is_ascii_art_picker)
         && small_width
@@ -477,23 +508,10 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
         let split = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-            .split(Rect {
-                x: area.x,
-                y: area.y,
-                width: area.width,
-                height: menu_height,
-            });
+            .split(base_rect);
         (split[0], Some(split[1]))
     } else {
-        (
-            Rect {
-                x: area.x,
-                y: area.y,
-                width: area.width,
-                height: menu_height,
-            },
-            None,
-        )
+        (base_rect, None)
     };
 
     let menu_area = menu_area.intersection(area);
@@ -848,6 +866,7 @@ fn render_ascii_art_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
     let content_area = preview_block.inner(area);
     frame.render_widget(preview_block, area);
 
+    // log_debug!("({},{})", content_area.width, content_area.height);
     if content_area.width == 0 || content_area.height == 0 {
         return;
     }

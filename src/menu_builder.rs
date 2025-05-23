@@ -1,7 +1,7 @@
 use crate::{
     actions::{MenuContext, PreviewType, TermiAction},
     ascii,
-    config::{Config, ModeType},
+    config::{Config, ModeType, PickerStyle},
     constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST},
     menu::{Menu, MenuItem},
     modal::ModalContext,
@@ -14,6 +14,7 @@ pub fn build_menu(ctx: MenuContext, config: &Config) -> Menu {
         MenuContext::Theme => build_theme_menu(),
         MenuContext::Language => build_language_menu(),
         MenuContext::Cursor => build_cursor_menu(),
+        MenuContext::PickerStyle => build_picker_style_menu(),
         MenuContext::Mode => build_mode_menu(),
         MenuContext::Time => build_time_menu(),
         MenuContext::Words => build_words_menu(),
@@ -35,6 +36,7 @@ fn build_root_menu(config: &Config) -> Menu {
         MenuItem::sub_menu("root/language", "Language...", MenuContext::Language),
         MenuItem::sub_menu("root/theme", "Theme...", MenuContext::Theme)
             .disabled(!config.term_has_color_support()),
+        MenuItem::sub_menu("root/picker", "Picker...", MenuContext::PickerStyle),
         MenuItem::sub_menu("root/ascii", "Art...", MenuContext::AsciiArt),
         MenuItem::sub_menu("root/cursor", "Cursor...", MenuContext::Cursor),
         MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
@@ -102,6 +104,26 @@ fn build_cursor_menu() -> Menu {
     Menu::new(
         MenuContext::Cursor,
         "Select Cursor Style".to_string(),
+        items,
+    )
+}
+
+// Change picker style menu
+fn build_picker_style_menu() -> Menu {
+    let styles = PickerStyle::all();
+    let items = styles
+        .iter()
+        .map(|&style| {
+            MenuItem::action(
+                &format!("picker/{}", style),
+                style,
+                TermiAction::ChangePickerStyle(style.to_string()),
+            )
+        })
+        .collect();
+    Menu::new(
+        MenuContext::PickerStyle,
+        "Select Picker Style".to_string(),
         items,
     )
 }

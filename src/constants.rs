@@ -3,6 +3,7 @@ pub const DEFAULT_LINE_COUNT: u8 = 3;
 pub const DEFAULT_LANGUAGE: &str = "english";
 pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
 pub const DEFAULT_THEME: &str = "tokyonight";
+pub const DEFAULT_PICKER_STYLE: &str = "quake";
 // pub const DEFAULT_THEME: &str = "termitype-dark";
 
 pub const DEFAULT_TIME_MODE_DURATION: usize = 30;
