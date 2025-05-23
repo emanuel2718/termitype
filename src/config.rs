@@ -7,8 +7,8 @@ use crate::{
     ascii::DEFAULT_ASCII_ART_NAME,
     builder::Builder,
     constants::{
-        DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME,
-        DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT, WPS_TARGET,
+        DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_PICKER_STYLE,
+        DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT, WPS_TARGET,
     },
     persistence::Persistence,
     theme::{ColorSupport, Theme, ThemeLoader},
@@ -46,6 +46,10 @@ pub struct Config {
     /// Sets the ASCII art if a valid name is given, ignored otherwise
     #[arg(long = "ascii")]
     pub ascii: Option<String>,
+
+    /// Sets the picker style: 'quake' (top), 'telescope' (floating), 'ivy' (bottom), 'minimal' (no previews)
+    #[arg(long = "picker", value_name = "STYLE")]
+    pub picker_style: Option<String>,
 
     /// Lists the available themes
     #[arg(long = "list-themes")]
@@ -149,6 +153,7 @@ impl Default for Config {
             ascii: Some(DEFAULT_ASCII_ART_NAME.to_string()),
             language: Some(DEFAULT_LANGUAGE.to_string()),
             cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
+            picker_style: Some(DEFAULT_PICKER_STYLE.to_string()),
             visible_lines: DEFAULT_LINE_COUNT,
             color_mode: None,
             list_ascii: false,
@@ -200,6 +205,17 @@ impl Config {
                     self.change_cursor_style(cursor);
                 } else {
                     self.cursor_style = Some(DEFAULT_CURSOR_STYLE.to_string())
+                }
+            }
+
+            // Picker Style
+            if self.picker_style.is_none() {
+                if let Some(picker) = persistence.get("picker_style") {
+                    if picker.parse::<PickerStyle>().is_ok() {
+                        self.picker_style = Some(picker.to_string());
+                    }
+                } else {
+                    self.picker_style = Some(DEFAULT_PICKER_STYLE.to_string())
                 }
             }
 
@@ -501,11 +517,102 @@ impl Config {
         color_support.supports_themes()
     }
 
+    /// Changes the ascii art shown on the results screen.
     pub fn change_ascii_art(&mut self, art_name: &str) {
         self.ascii = Some(art_name.to_string());
         if let Some(persistence) = &mut self.persistent {
             let _ = persistence.set("ascii", art_name.to_string().as_str());
         }
+    }
+
+    /// Changes the picker style for menus.
+    pub fn change_picker_style(&mut self, style: &str) {
+        if style.parse::<PickerStyle>().is_ok() {
+            self.picker_style = Some(style.to_string());
+            if let Some(persistence) = &mut self.persistent {
+                let _ = persistence.set("picker_style", style);
+            }
+        }
+    }
+
+    /// Resolves the current picker style.
+    pub fn resolve_picker_style(&self) -> PickerStyle {
+        self.picker_style
+            .as_deref()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_default()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum PickerStyle {
+    Quake,     // Opens from the top a la quake terminal style, hence the name
+    Telescope, // Floating menu just like Telescopic johnson does
+    Ivy,       // Opens from the bottom
+    Minimal,   // Telescope style picker without preview folds/splits
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PickerStyleParseError {
+    pub invalid_input: String,
+}
+
+impl std::fmt::Display for PickerStyleParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Invalid picker style: '{}'. Valid options are: quake, telescope, ivy, minimal",
+            self.invalid_input
+        )
+    }
+}
+
+impl std::error::Error for PickerStyleParseError {}
+
+impl FromStr for PickerStyle {
+    type Err = PickerStyleParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "quake" => Ok(Self::Quake),
+            "telescope" => Ok(Self::Telescope),
+            "ivy" => Ok(Self::Ivy),
+            "minimal" => Ok(Self::Minimal),
+            _ => Err(PickerStyleParseError {
+                invalid_input: s.to_string(),
+            }),
+        }
+    }
+}
+
+impl PickerStyle {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Quake => "quake",
+            Self::Telescope => "telescope",
+            Self::Ivy => "ivy",
+            Self::Minimal => "minimal",
+        }
+    }
+
+    pub fn all() -> &'static [&'static str] {
+        &["quake", "telescope", "ivy", "minimal"]
+    }
+
+    pub fn label_from_str(label: &str) -> &'static str {
+        match label {
+            "quake" => "Quake (Top)",
+            "telescope" => "Telescope (Floating)",
+            "ivy" => "Ivy (Bottom)",
+            "minimal" => "Minimal (Floating, No Preview)",
+            _ => "Wrong picker",
+        }
+    }
+}
+
+impl Default for PickerStyle {
+    fn default() -> Self {
+        Self::Quake
     }
 }
 
@@ -632,5 +739,37 @@ mod tests {
             config.resolve_current_cursor_style(),
             SetCursorStyle::BlinkingUnderScore
         );
+    }
+
+    #[test]
+    fn test_picker_style_functionality() {
+        let mut config = create_config();
+
+        assert_eq!(config.resolve_picker_style(), PickerStyle::Quake);
+
+        config.change_picker_style("telescope");
+        assert_eq!(config.resolve_picker_style(), PickerStyle::Telescope);
+
+        config.change_picker_style("ivy");
+        assert_eq!(config.resolve_picker_style(), PickerStyle::Ivy);
+
+        config.change_picker_style("quake");
+        assert_eq!(config.resolve_picker_style(), PickerStyle::Quake);
+
+        config.change_picker_style("invalid");
+        assert_eq!(config.resolve_picker_style(), PickerStyle::Quake);
+    }
+
+    #[test]
+    fn test_picker_style_from_str() {
+        assert_eq!("quake".parse::<PickerStyle>(), Ok(PickerStyle::Quake));
+        assert_eq!(
+            "telescope".parse::<PickerStyle>(),
+            Ok(PickerStyle::Telescope)
+        );
+        assert_eq!("ivy".parse::<PickerStyle>(), Ok(PickerStyle::Ivy));
+        assert_eq!("minimal".parse::<PickerStyle>(), Ok(PickerStyle::Minimal));
+        assert_eq!("QUAKE".parse::<PickerStyle>(), Ok(PickerStyle::Quake));
+        assert!("invalid".parse::<PickerStyle>().is_err());
     }
 }

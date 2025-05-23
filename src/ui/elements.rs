@@ -323,29 +323,25 @@ pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
     }
 
     let command_groups = [
-        vec![
-            vec![
-                ("tab", true),
-                (" + ", false),
-                ("enter", true),
-                (" - restart test", false),
-            ],
-            vec![("esc", true), (" - menu", false)],
-        ],
         vec![vec![
-            ("ctrl", true),
+            ("tab", true),
             (" + ", false),
-            ("c", true),
-            (" or ", false),
-            ("ctrl", true),
-            (" + ", false),
-            ("z", true),
-            (" - to quit", false),
+            ("enter", true),
+            (" - restart", false),
         ]],
+        vec![
+            vec![("esc", true), (" - menu", false)],
+            vec![
+                ("ctrl", true),
+                (" + ", false),
+                ("c", true),
+                (" - quit", false),
+            ],
+        ],
     ];
 
     let mut lines = Vec::new();
-    for (row_idx, line_groups) in command_groups.iter().enumerate() {
+    for line_groups in command_groups {
         let mut spans = Vec::new();
         for (i, group) in line_groups.iter().enumerate() {
             let group_spans: Vec<Span<'static>> = group
@@ -355,14 +351,10 @@ pub fn create_command_bar(termi: &Termi) -> Vec<TermiElement> {
             spans.extend(group_spans);
 
             if i < line_groups.len() - 1 {
-                spans.push(styled_span("   ".to_string(), false, theme));
+                spans.push(styled_span("  ".to_string(), false, theme));
             }
         }
         lines.push(Line::from(spans).alignment(Alignment::Center));
-
-        if row_idx == 0 {
-            lines.push(Line::raw("").alignment(Alignment::Center));
-        }
     }
 
     let text = Text::from(lines).alignment(Alignment::Center);
@@ -381,6 +373,12 @@ pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
         "|"
     };
 
+    let theme_click_action = if termi.theme.color_support.supports_themes() {
+        Some(TermiClickAction::ToggleThemePicker)
+    } else {
+        None
+    };
+
     let elements = vec![
         TermiElement::new(
             format!("{} about", info_symbol),
@@ -393,12 +391,12 @@ pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
         TermiElement::new(
             termi.theme.id.clone(),
             termi.preview_theme.is_some(),
-            Some(TermiClickAction::ToggleThemePicker),
+            theme_click_action,
         ),
         TermiElement::new(" ", false, None),
         TermiElement::new(divider, false, None),
         TermiElement::new(" ", false, None),
-        TermiElement::new(VERSION, false, None),
+        TermiElement::new(format!("v{VERSION}"), false, None),
     ];
 
     elements

@@ -13,9 +13,7 @@ use crate::{
     actions::TermiClickAction,
     ascii,
     config::Mode,
-    constants::{
-        MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH, TYPING_AREA_WIDTH,
-    },
+    constants::{MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH, TYPING_AREA_WIDTH},
     modal::InputModal,
     termi::Termi,
     tracker::Status,
@@ -29,7 +27,10 @@ use super::{
         create_show_menu_button, create_typing_area, TermiElement,
     },
     layout::create_layout,
-    utils::{apply_horizontal_centering, calculate_word_positions, center_div},
+    utils::{
+        apply_horizontal_centering, calculate_menu_area, calculate_menu_area_from_parts,
+        calculate_word_positions, center_div,
+    },
 };
 use crate::modal::ModalContext;
 
@@ -60,9 +61,9 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiC
             .padding(if dummy_layout.is_minimal() {
                 Padding::ZERO
             } else if dummy_layout.w_small() {
-                Padding::uniform(2)
+                Padding::uniform(1)
             } else {
-                Padding::symmetric(8, 2)
+                Padding::symmetric(2, 1)
             });
 
     let inner_area = container.inner(area);
@@ -215,7 +216,12 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
             element_data.push((line_width, element.action));
         }
 
-        let start_x = area.x + (area.width.saturating_sub(total_width)) / 2;
+        // if content fits, center it. left align otherwise
+        let start_x = if total_width <= area.width {
+            area.x + (area.width.saturating_sub(total_width)) / 2
+        } else {
+            area.x
+        };
 
         let mut current_x_offset: u16 = 0;
         for (i, element) in elements.iter().enumerate() {
@@ -239,10 +245,13 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
             current_x_offset += element_width;
         }
 
-        f.render_widget(
-            Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
-            area,
-        );
+        let alignment = if total_width <= area.width {
+            Alignment::Center
+        } else {
+            Alignment::Left
+        };
+
+        f.render_widget(Paragraph::new(Line::from(spans)).alignment(alignment), area);
 
         for (rect, action) in clickable_regions_to_add {
             cr.add(rect, action);
@@ -298,13 +307,7 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     frame.render_widget(paragraph, render_area);
 
     // Menu overlap check logic
-    let menu_height = MENU_HEIGHT.min(frame.area().height);
-    let estimated_menu_area = Rect {
-        x: frame.area().x,
-        y: frame.area().y,
-        width: frame.area().width,
-        height: menu_height,
-    };
+    let estimated_menu_area = calculate_menu_area(termi, frame.area());
     let show_cursor = (termi.tracker.status == Status::Idle
         || termi.tracker.status == Status::Typing)
         && (!termi.menu.is_open() || !estimated_menu_area.intersects(render_area))
@@ -443,25 +446,27 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     let is_ascii_art_picker = menu_state.is_ascii_art_menu();
 
     let small_width = area.width <= MIN_THEME_PREVIEW_WIDTH;
-    let menu_height = if (is_theme_picker || is_help_menu || is_about_menu || is_ascii_art_picker)
-        && small_width
-    {
-        area.height
-    } else {
-        MENU_HEIGHT.min(area.height)
-    };
+
+    let picker_style = termi.config.resolve_picker_style();
+    let base_rect = calculate_menu_area_from_parts(
+        picker_style,
+        is_theme_picker,
+        is_help_menu,
+        is_about_menu,
+        is_ascii_art_picker,
+        area,
+    );
 
     // NOTE(ema): this is starting to get annoying. Find better way to determine this
-    let (menu_area, preview_area) = if (is_theme_picker || is_ascii_art_picker) && !small_width {
+    let (menu_area, preview_area) = if picker_style == crate::config::PickerStyle::Minimal {
+        // TODO: need to decouple this from here as later adding more custom picker could be annoying
+        // if we have a minimal picker don't fold the menu ever as we don't want previews
+        (base_rect, None)
+    } else if (is_theme_picker || is_ascii_art_picker) && !small_width {
         let split = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(Rect {
-                x: area.x,
-                y: area.y,
-                width: area.width,
-                height: menu_height,
-            });
+            .split(base_rect);
         (split[0], Some(split[1]))
     } else if (is_theme_picker || is_help_menu || is_about_menu || is_ascii_art_picker)
         && small_width
@@ -469,23 +474,10 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
         let split = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-            .split(Rect {
-                x: area.x,
-                y: area.y,
-                width: area.width,
-                height: menu_height,
-            });
+            .split(base_rect);
         (split[0], Some(split[1]))
     } else {
-        (
-            Rect {
-                x: area.x,
-                y: area.y,
-                width: area.width,
-                height: menu_height,
-            },
-            None,
-        )
+        (base_rect, None)
     };
 
     let menu_area = menu_area.intersection(area);
@@ -840,6 +832,7 @@ fn render_ascii_art_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
     let content_area = preview_block.inner(area);
     frame.render_widget(preview_block, area);
 
+    // log_debug!("({},{})", content_area.width, content_area.height);
     if content_area.width == 0 || content_area.height == 0 {
         return;
     }

@@ -2,7 +2,7 @@
 name = "termitype"
 build = "build.rs"
 description = "Terminal-based typing test inspired by a certain typing test you might know."
-version = "0.0.1-alpha.28"
+version = "0.0.1"
 license = "MIT"
 categories = ["command-line-utilities", "games"]
 keywords = ["tui", "cli", "typing", "game"]
@@ -14,11 +14,18 @@ include = [
     "**/*.rs",
     "Cargo.toml",
     "assets/themes/**/*",
-    "assets/languages/**/*"
+    "assets/languages/**/*",
 ]
 
 [profile.release]
+codegen-units = 1
 debug = true
+lto = true
+opt-level = "z"
+panic = "abort"
+strip = true
+incremental = true # better re-compile times
+
 
 [profile.dev]
 debug = true

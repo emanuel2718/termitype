@@ -210,7 +210,7 @@ impl Menu {
     fn update_filtered_indices(&mut self, query: &str) {
         if query.is_empty() {
             self.filtered_indices = None;
-            self.current_index = 0;
+            // self.current_index = 0;
             return;
         }
 
@@ -284,6 +284,10 @@ impl MenuState {
 
     pub fn is_ascii_art_menu(&self) -> bool {
         is_menu_context!(self, MenuContext::AsciiArt)
+    }
+
+    pub fn is_picker_style_menu(&self) -> bool {
+        is_menu_context!(self, MenuContext::PickerStyle)
     }
 
     pub fn current_menu(&self) -> Option<&Menu> {
@@ -510,6 +514,10 @@ impl MenuState {
                     .unwrap_or(crate::constants::DEFAULT_CURSOR_STYLE);
                 Some(format!("cursor/{}", cursor_style))
             }
+            MenuContext::PickerStyle => {
+                let picker_style = config.resolve_picker_style();
+                Some(format!("picker/{}", picker_style.as_str()))
+            }
             MenuContext::Mode => Some(format!(
                 "mode/{}",
                 match config.current_mode_type() {
@@ -644,6 +652,27 @@ mod tests {
 
         // NOTE: this could be a flaky test if we ever add more termitype themes.
         assert_eq!(menu.current_menu().unwrap().items().len(), 2);
+    }
+    #[test]
+    fn test_staring_search_should_not_change_start_index() {
+        let mut menu = create_test_menu();
+        let config = Config::default();
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
+        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
+        assert!(menu.is_searching());
+
+        for c in "termitype".chars() {
+            menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Input(c)), &config);
+        }
+        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Confirm), &config);
+
+        assert!(!menu.is_searching());
+        // now if we start searching for a theem again, it should not jump to the first item
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
+        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
+        assert_ne!(menu.current_menu().unwrap().current_selection_index(), 0);
     }
 
     #[test]

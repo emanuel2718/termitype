@@ -3,6 +3,7 @@ pub const DEFAULT_LINE_COUNT: u8 = 3;
 pub const DEFAULT_LANGUAGE: &str = "english";
 pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
 pub const DEFAULT_THEME: &str = "tokyonight";
+pub const DEFAULT_PICKER_STYLE: &str = "quake";
 // pub const DEFAULT_THEME: &str = "termitype-dark";
 
 pub const DEFAULT_TIME_MODE_DURATION: usize = 30;
@@ -26,14 +27,14 @@ pub const DAYS_PER_YEAR: u64 = 365;
 pub const DAYS_PER_MONTH: u64 = 30;
 
 // ui
-pub const SMALL_TERM_WIDTH: u16 = 85;
+pub const MIN_TERM_HEIGHT: u16 = 15;
+pub const MIN_TERM_WIDTH: u16 = 25;
+
 pub const SMALL_TERM_HEIGHT: u16 = 20;
+pub const SMALL_TERM_WIDTH: u16 = 70;
 
 pub const SMALL_RESULTS_WIDTH: u16 = 60;
 pub const SMALL_RESULTS_HEIGHT: u16 = 20;
-
-pub const MIN_TERM_HEIGHT: u16 = 15;
-pub const MIN_TERM_WIDTH: u16 = 25;
 
 pub const MIN_FOOTER_WIDTH: u16 = 55;
 pub const MIN_THEME_PREVIEW_WIDTH: u16 = 60;
