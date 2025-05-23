@@ -12,14 +12,8 @@ use ratatui::{
 use crate::{
     actions::TermiClickAction,
     ascii,
-    config::{self, Mode},
-    constants::{
-        ASCII_PREVIEW_CONTENT_PERCENTAGE, ASCII_PREVIEW_MENU_PERCENTAGE,
-        ASCII_PREVIEW_SMALL_CONTENT_PERCENTAGE, ASCII_PREVIEW_SMALL_MENU_PERCENTAGE,
-        ASCII_PREVIEW_TELESCOPE_HEIGHT_RATIO, ASCII_PREVIEW_TELESCOPE_MAX_WIDTH,
-        ASCII_PREVIEW_TELESCOPE_WIDTH_RATIO, MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT,
-        MODAL_WIDTH, TYPING_AREA_WIDTH,
-    },
+    config::Mode,
+    constants::{MIN_THEME_PREVIEW_WIDTH, MODAL_HEIGHT, MODAL_WIDTH, TYPING_AREA_WIDTH},
     modal::InputModal,
     termi::Termi,
     tracker::Status,
@@ -33,7 +27,10 @@ use super::{
         create_show_menu_button, create_typing_area, TermiElement,
     },
     layout::create_layout,
-    utils::{apply_horizontal_centering, calculate_word_positions, center_div},
+    utils::{
+        apply_horizontal_centering, calculate_menu_area, calculate_menu_area_from_parts,
+        calculate_word_positions, center_div,
+    },
 };
 use crate::modal::ModalContext;
 
@@ -310,13 +307,7 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     frame.render_widget(paragraph, render_area);
 
     // Menu overlap check logic
-    let menu_height = MENU_HEIGHT.min(frame.area().height);
-    let estimated_menu_area = Rect {
-        x: frame.area().x,
-        y: frame.area().y,
-        width: frame.area().width,
-        height: menu_height,
-    };
+    let estimated_menu_area = calculate_menu_area(termi, frame.area());
     let show_cursor = (termi.tracker.status == Status::Idle
         || termi.tracker.status == Status::Typing)
         && (!termi.menu.is_open() || !estimated_menu_area.intersects(render_area))
@@ -448,7 +439,6 @@ fn render_modal(
 fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     let theme = termi.current_theme().clone();
     let menu_state = &mut termi.menu;
-    let picker_style = termi.config.resolve_picker_style();
 
     let is_theme_picker = menu_state.is_theme_menu();
     let is_help_menu = menu_state.is_help_menu();
@@ -456,73 +446,22 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     let is_ascii_art_picker = menu_state.is_ascii_art_menu();
 
     let small_width = area.width <= MIN_THEME_PREVIEW_WIDTH;
-    let menu_height = if (is_theme_picker || is_help_menu || is_about_menu || is_ascii_art_picker)
-        && small_width
-    {
-        area.height
-    } else {
-        MENU_HEIGHT.min(area.height)
-    };
 
-    // TODO: feels weird having to add this here. Think about this
-    // depends on the current menu picker style
-    let base_rect = match picker_style {
-        // top
-        config::PickerStyle::Quake => Rect {
-            x: area.x,
-            y: area.y,
-            width: area.width,
-            height: menu_height,
-        },
-        // floating
-        config::PickerStyle::Telescope => {
-            let (width_ratio, height_ratio, max_width) = if is_ascii_art_picker {
-                // NOTE(ema): ascii arts need more space in telescope picker
-                (
-                    ASCII_PREVIEW_TELESCOPE_WIDTH_RATIO,
-                    ASCII_PREVIEW_TELESCOPE_HEIGHT_RATIO,
-                    ASCII_PREVIEW_TELESCOPE_MAX_WIDTH,
-                )
-            } else {
-                (0.8, 0.6, 80.0)
-            };
-
-            let menu_width = (area.width as f32 * width_ratio).min(max_width) as u16;
-            let menu_height = (area.height as f32 * height_ratio).min(menu_height as f32) as u16;
-            let x = area.x + (area.width.saturating_sub(menu_width)) / 2;
-            let y = area.y + (area.height.saturating_sub(menu_height)) / 2;
-            Rect {
-                x,
-                y,
-                width: menu_width,
-                height: menu_height,
-            }
-        }
-        // bottom
-        config::PickerStyle::Ivy => {
-            let y = area.y + area.height.saturating_sub(menu_height);
-            Rect {
-                x: area.x,
-                y,
-                width: area.width,
-                height: menu_height,
-            }
-        }
-    };
+    let picker_style = termi.config.resolve_picker_style();
+    let base_rect = calculate_menu_area_from_parts(
+        picker_style,
+        is_theme_picker,
+        is_help_menu,
+        is_about_menu,
+        is_ascii_art_picker,
+        area,
+    );
 
     // NOTE(ema): this is starting to get annoying. Find better way to determine this
     let (menu_area, preview_area) = if (is_theme_picker || is_ascii_art_picker) && !small_width {
         let split = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(if is_ascii_art_picker {
-                // NOTE(ema): ascii arts need more space in telescope picker
-                [
-                    Constraint::Percentage(ASCII_PREVIEW_MENU_PERCENTAGE),
-                    Constraint::Percentage(ASCII_PREVIEW_CONTENT_PERCENTAGE),
-                ]
-            } else {
-                [Constraint::Percentage(50), Constraint::Percentage(50)]
-            })
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(base_rect);
         (split[0], Some(split[1]))
     } else if (is_theme_picker || is_help_menu || is_about_menu || is_ascii_art_picker)
@@ -530,15 +469,7 @@ fn render_menu(frame: &mut Frame, termi: &mut Termi, area: Rect) {
     {
         let split = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(if is_ascii_art_picker {
-                // NOTE(ema): ascii arts need more space in telescope picker
-                [
-                    Constraint::Percentage(ASCII_PREVIEW_SMALL_MENU_PERCENTAGE),
-                    Constraint::Percentage(ASCII_PREVIEW_SMALL_CONTENT_PERCENTAGE),
-                ]
-            } else {
-                [Constraint::Percentage(40), Constraint::Percentage(60)]
-            })
+            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
             .split(base_rect);
         (split[0], Some(split[1]))
     } else {
