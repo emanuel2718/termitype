@@ -373,6 +373,12 @@ pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
         "|"
     };
 
+    let theme_click_action = if termi.theme.color_support.supports_themes() {
+        Some(TermiClickAction::ToggleThemePicker)
+    } else {
+        None
+    };
+
     let elements = vec![
         TermiElement::new(
             format!("{} about", info_symbol),
@@ -385,7 +391,7 @@ pub fn create_footer<'a>(termi: &Termi) -> Vec<TermiElement<'a>> {
         TermiElement::new(
             termi.theme.id.clone(),
             termi.preview_theme.is_some(),
-            Some(TermiClickAction::ToggleThemePicker),
+            theme_click_action,
         ),
         TermiElement::new(" ", false, None),
         TermiElement::new(divider, false, None),
