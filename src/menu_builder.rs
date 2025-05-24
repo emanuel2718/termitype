@@ -293,66 +293,43 @@ fn build_help_menu() -> Menu {
         "[results] esc -> Toggle Menu",
     ];
 
-    // TODO: find a better way to do this.
-
-    // temp parsing struct
-    struct ParsedParts {
-        id: String,
-        context: String,
-        keybind: String,
-        description: String,
-    }
-
-    let mut parsed_items_data: Vec<ParsedParts> = Vec::new();
-
-    for &item_str in lines.iter() {
-        let parts: Vec<&str> = item_str.splitn(2, "->").collect();
-        let full_key_str = parts.first().map_or("", |k| k.trim()).to_string();
-        let description_str = parts.get(1).map_or(item_str, |d| d.trim()).to_string();
-
-        let context_part;
-        let keybind_part;
-
-        if let Some(idx_closing_bracket) = full_key_str.rfind(']') {
-            context_part = full_key_str[..=idx_closing_bracket].to_string();
-            keybind_part = full_key_str[idx_closing_bracket + 1..].to_string();
-        } else {
-            // just in case
-            context_part = String::new();
-            keybind_part = full_key_str.clone();
-        }
-
-        parsed_items_data.push(ParsedParts {
-            id: full_key_str,
-            context: context_part,
-            keybind: keybind_part,
-            description: description_str,
-        });
-    }
-
-    let max_context_len = parsed_items_data
+    let parsed_entries: Vec<(String, String, String)> = lines
         .iter()
-        .map(|item| item.context.chars().count())
+        .map(|&line| {
+            let parts: Vec<&str> = line.splitn(2, " -> ").collect();
+            let full_key = parts[0].trim();
+            let description = parts.get(1).map_or("", |d| d.trim());
+
+            // split the parts (context, keybind, description)
+            if let Some(bracket_end) = full_key.rfind(']') {
+                let context = &full_key[..=bracket_end];
+                let keybind = full_key[bracket_end + 1..].trim();
+                (
+                    context.to_string(),
+                    keybind.to_string(),
+                    description.to_string(),
+                )
+            } else {
+                (String::new(), full_key.to_string(), description.to_string())
+            }
+        })
+        .collect();
+
+    let max_total_width = parsed_entries
+        .iter()
+        .map(|(context, keybind, _)| context.chars().count() + keybind.chars().count())
         .max()
         .unwrap_or(0);
 
-    let items: Vec<MenuItem> = parsed_items_data
+    let items: Vec<MenuItem> = parsed_entries
         .iter()
-        .map(|parsed_data| {
-            let item_id = format!(
-                "help/{}",
-                parsed_data
-                    .id
-                    .replace(|c: char| !c.is_alphanumeric(), "_")
-                    .to_lowercase()
-            );
-            let formatted_key = format!(
-                "{:<width$}{}",
-                parsed_data.context,
-                parsed_data.keybind,
-                width = max_context_len
-            );
-            MenuItem::info(&item_id, &formatted_key, &parsed_data.description)
+        .enumerate()
+        .map(|(idx, (context, keybind, description))| {
+            let total_key_part = format!("{}{}", context, keybind);
+            let formatted_key = format!("{:<width$}", total_key_part, width = max_total_width);
+
+            let item_id = format!("help/{}", idx);
+            MenuItem::info(&item_id, &formatted_key, description)
         })
         .collect();
 
