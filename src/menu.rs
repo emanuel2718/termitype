@@ -657,16 +657,17 @@ mod tests {
         assert!(menu.is_open());
         config.use_punctuation = true;
         menu.sync_toggle_items(&config);
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Options), &config);
 
         if let Some(menu_ref) = menu.current_menu() {
             let current_items = menu_ref.items();
             let item = current_items
                 .iter()
-                .find(|i| i.label == "Punctuation")
+                .find(|i| i.label == "Use Punctuation")
                 .unwrap();
             assert_eq!(item.is_active, Some(true));
         } else {
-            panic!("We should have a menu opened by this point")
+            panic!("We should have a menu opened Options by this point")
         }
     }
 
