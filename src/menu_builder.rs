@@ -245,7 +245,7 @@ fn build_options_menu(config: &Config) -> Menu {
         ),
         MenuItem::toggle(
             "options/show_cursorline",
-            "Show Cursorline",
+            "Show Menu Cursorline",
             !config.hide_cursorline,
         ),
         MenuItem::toggle(
