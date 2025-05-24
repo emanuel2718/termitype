@@ -1,7 +1,7 @@
 use std::io;
 
 use config::Config;
-use constants::{APPNAME, LOG_FILE};
+use constants::LOG_FILE;
 use crossterm::{
     cursor::SetCursorStyle,
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -10,7 +10,6 @@ use crossterm::{
 };
 use ratatui::{prelude::CrosstermBackend, Terminal};
 use utils::get_config_dir;
-use version::VERSION;
 
 pub mod actions;
 pub mod ascii;
@@ -87,10 +86,6 @@ pub fn run() -> anyhow::Result<()> {
 }
 
 fn should_print_to_console(config: &Config) -> bool {
-    if config.version {
-        println!("{} {}", APPNAME, VERSION);
-        return true;
-    }
     if config.list_themes {
         theme::print_theme_list();
         return true;

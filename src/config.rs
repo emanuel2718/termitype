@@ -15,7 +15,21 @@ use crate::{
 };
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "Termitype", about = "Terminal based typing game")]
+#[command(
+    name = "termitype",
+    about = "Terminal-based typing game.",
+    after_help = "EXAMPLES:\n  \
+                  termitype -t 60                        Run a 60-second typing test\n  \
+                  termitype --word-count 100             Test will contain exactly 100 words\n  \
+                  termitype -T \"catppuccin-mocha\"        Use cattpuccin-mocha theme\n  \
+                  termitype -l spanish                   Spanish test words\n  \
+                  termitype -spn                         Enable symbols, punctuation, and numbers\n  \
+                  termitype --list-themes                Show all available themes\n  \
+                  termitype --picker telescope           Use floating menu style\n\n\
+                  Note that all of the options can also be changed at runtime as well via the menu\n\
+                  Visit https://github.com/emanuel2718/termitype for more information.",
+    version
+)]
 #[command(group(
     ArgGroup::new("mode")
         .args(&["time", "word_count"])
@@ -23,102 +37,152 @@ use crate::{
         .multiple(false)
 ))]
 pub struct Config {
-    /// The language dictionary used for the test. Defaults to English.
-    #[arg(short, long, value_name = "LANG")]
+    /// Language dictionary to use
+    #[arg(
+        short = 'l',
+        long,
+        value_name = "LANGUAGE",
+        help = "Language dictionary to use"
+    )]
     pub language: Option<String>,
 
-    /// Duration of the test in seconds (only valid in Time mode).
-    #[arg(short = 't', long = "time", group = "mode")]
+    /// Test duration in seconds
+    #[arg(
+        short = 't',
+        long = "time",
+        group = "mode",
+        value_name = "SECONDS",
+        help = "Test duration in seconds"
+    )]
     pub time: Option<u64>,
 
-    /// Words used in the test (only valid in Words mode).
-    #[arg(short = 'w', long = "words", group = "mode")]
+    /// Custom words for the test
+    #[arg(
+        short = 'w',
+        long = "words",
+        group = "mode",
+        value_name = "\"WORD1 WORD2 ...\"",
+        help = "Custom words for the test"
+    )]
     pub words: Option<String>,
 
-    /// Number of words used in the test (only valid in Words mode).
-    #[arg(long = "word-count", group = "mode")]
+    /// Number of words to type
+    #[arg(
+        long = "word-count",
+        group = "mode",
+        value_name = "COUNT",
+        help = "Number of words to type"
+    )]
     pub word_count: Option<usize>,
 
-    /// Sets the theme if a valid theme is given, ignored otherwise
-    #[arg(short = 'T', long = "theme")]
+    /// Color theme to use
+    #[arg(
+        short = 'T',
+        long = "theme",
+        value_name = "THEME_NAME",
+        help = "Color theme to use"
+    )]
     pub theme: Option<String>,
 
-    /// Sets the ASCII art if a valid name is given, ignored otherwise
-    #[arg(long = "ascii")]
+    /// ASCII art for results screen
+    #[arg(
+        long = "ascii",
+        value_name = "ART_NAME",
+        help = "ASCII art for results screen"
+    )]
     pub ascii: Option<String>,
 
-    /// Sets the picker style: 'quake' (top), 'telescope' (floating), 'ivy' (bottom), 'minimal' (no previews)
-    #[arg(long = "picker", value_name = "STYLE")]
+    /// Menu style
+    #[arg(
+        long = "picker",
+        value_name = "STYLE",
+        value_parser = ["quake", "telescope", "ivy", "minimal"],
+        help = "Menu style"
+    )]
     pub picker_style: Option<String>,
 
-    /// Lists the available themes
-    #[arg(long = "list-themes")]
+    /// List all available themes
+    #[arg(long = "list-themes", help = "List all available themes")]
     pub list_themes: bool,
 
-    /// Lists the available languages
-    #[arg(long = "list-languages")]
+    /// List all available languages
+    #[arg(long = "list-languages", help = "List all available languages")]
     pub list_languages: bool,
 
-    /// Lists the available ascii arts
-    #[arg(long = "list-ascii")]
+    /// List all available ASCII arts
+    #[arg(long = "list-ascii", help = "List all available ASCII arts")]
     pub list_ascii: bool,
 
-    /// Introduces symbols to the test words.
-    #[arg(short = 's', long = "use-symbols")]
+    /// Include symbols in test words
+    #[arg(
+        short = 's',
+        long = "use-symbols",
+        help = "Include symbols in test words"
+    )]
     pub use_symbols: bool,
 
-    /// Introduces punctuation to the test words.
-    #[arg(short = 'p', long = "use-punctuation")]
+    /// Include punctuation in test words
+    #[arg(
+        short = 'p',
+        long = "use-punctuation",
+        help = "Include punctuation in test words"
+    )]
     pub use_punctuation: bool,
 
-    /// Introduces numbers to the test words
-    #[arg(short = 'n', long = "use-numbers")]
+    /// Include numbers in test words
+    #[arg(
+        short = 'n',
+        long = "use-numbers",
+        help = "Include numbers in test words"
+    )]
     pub use_numbers: bool,
 
-    /// Set color support level
+    /// Color support level
     #[arg(
         long = "color-mode",
         value_name = "MODE",
-        help = "Overwrite color support mode: 'basic' (8 colors), 'extended' (256 colors), \
-               or 'truecolor' (24-bit, default)."
+        value_parser = ["basic", "extended", "truecolor"],
+        help = "Color support"
     )]
     pub color_mode: Option<String>,
 
-    /// Sets the cursor style
+    /// Cursor style
     #[arg(
         long = "cursor-style",
-        value_name = "CURSOR",
-        help = "Sets the cursor style: 'beam', 'block', 'underline', 'blinking-beam', 'blinking-block', 'blinking-underline'"
+        value_name = "STYLE",
+        value_parser = ["beam", "block", "underline", "blinking-beam", "blinking-block", "blinking-underline"],
+        help = "Cursor style"
     )]
     pub cursor_style: Option<String>,
 
-    /// Number of visible lines in the test.
-    #[arg(long = "lines", default_value_t = DEFAULT_LINE_COUNT)]
+    /// Number of visible text lines
+    #[arg(
+        long = "lines",
+        default_value_t = DEFAULT_LINE_COUNT,
+        value_name = "COUNT",
+        help = "Number of visible text lines"
+    )]
     pub visible_lines: u8,
-
-    /// Prints termitype version
-    #[arg(short = 'v', long = "version")]
-    pub version: bool,
 
     /// Enable debug mode
     #[cfg(debug_assertions)]
-    #[arg(short = 'd', long = "debug")]
+    #[arg(short = 'd', long = "debug", help = "Enable debug mode")]
     pub debug: bool,
 
-    /// Shows the current frames per second (FPS).
-    #[arg(long = "show-fps")]
+    /// Display FPS counter
+    #[arg(long = "show-fps", help = "Display FPS counter")]
     pub show_fps: bool,
 
-    /// Hides the live WPM progress
-    #[arg(long = "hide-live-wpm")]
+    /// Hide live WPM counter
+    #[arg(long = "hide-live-wpm", help = "Hide live WPM counter")]
     pub hide_live_wpm: bool,
 
-    /// Hide menu cursor line
-    #[arg(long = "hide-cursorline")]
+    /// Hide menu cursor highlight
+    #[arg(long = "hide-cursorline", help = "Hide menu cursor highlight")]
     pub hide_cursorline: bool,
 
-    /// Show results with only two colors
-    #[arg(long = "monochromatic-results")]
+    /// Use simplified results colors
+    #[arg(long = "monochromatic-results", help = "Use simplified results colors")]
     pub monocrhomatic_results: bool,
 
     /// Stores the persistence of the game. Set automatically.
@@ -167,7 +231,6 @@ impl Default for Config {
             list_ascii: false,
             list_themes: false,
             list_languages: false,
-            version: false,
             show_fps: false,
             hide_live_wpm: false,
             hide_cursorline: false,
