@@ -34,6 +34,9 @@ pub struct Tracker {
     pub current_word_start: usize,
     pub last_metrics_update: Instant,
 
+    // Smart word tracking for performance
+    current_word_is_correct_so_far: bool,
+
     max_user_input_length: usize,
 }
 
@@ -82,6 +85,7 @@ impl Tracker {
             wrong_words_start_indexes: HashSet::with_capacity(word_count / 5), // guesstimate
             current_word_start: 0,
             last_metrics_update: Instant::now(),
+            current_word_is_correct_so_far: true,
             max_user_input_length: target_length,
         }
     }
@@ -109,6 +113,7 @@ impl Tracker {
         self.status = Status::Typing;
         self.wrong_words_start_indexes.clear();
         self.current_word_start = 0;
+        self.current_word_is_correct_so_far = true;
     }
 
     // TODO: maybe mmove this elsewhere. not sure if it makes sense here.
@@ -180,21 +185,26 @@ impl Tracker {
 
         self.user_input.push(Some(c));
 
-        if !is_correct {
+        // lazyly track the correctnes of the current word
+        if !is_correct && self.current_word_is_correct_so_far {
+            self.current_word_is_correct_so_far = false;
             self.wrong_words_start_indexes
                 .insert(self.current_word_start);
-        } else if self
-            .wrong_words_start_indexes
-            .contains(&self.current_word_start)
-        {
-            self.check_if_corrected_word_at_position(self.cursor_position);
         }
 
         self.cursor_position += 1;
 
+        // only validate correctnes of word at the boundaries
         if is_space && current_char == ' ' {
-            self.check_if_corrected_word_at_position(self.cursor_position - 1);
+            if self
+                .wrong_words_start_indexes
+                .contains(&self.current_word_start)
+            {
+                self.validate_completed_word(self.current_word_start, self.cursor_position - 1);
+            }
+
             self.current_word_start = self.cursor_position;
+            self.current_word_is_correct_so_far = true;
         }
 
         if self.time_remaining.is_none() && self.cursor_position >= self.target_chars.len() {
@@ -220,13 +230,14 @@ impl Tracker {
 
         if at_word_boundary {
             // start of a new word - only allow backspace if previous word was wrong
-            let previous_word_start_idx = self.get_previous_word_start();
+            let prev_word_start_idx = self.get_previous_word_start();
+            let is_prev_word_wrong = self.is_word_wrong(prev_word_start_idx);
 
-            if !self.is_word_wrong(previous_word_start_idx) {
+            if !is_prev_word_wrong {
                 return false;
             }
 
-            self.current_word_start = previous_word_start_idx;
+            self.current_word_start = prev_word_start_idx;
         }
 
         let mut word_start = 0;
@@ -237,7 +248,10 @@ impl Tracker {
             }
         }
 
+        // reset word correctness on backspace as we need to type at least (1) more char
+        // to reach the word boundary (where we do the correctness validation) after a backspace.
         self.wrong_words_start_indexes.remove(&word_start);
+        self.current_word_is_correct_so_far = true;
 
         // do the actual backspace
         self.user_input.pop();
@@ -350,29 +364,32 @@ impl Tracker {
         self.wrong_words_start_indexes.contains(&start_idx)
     }
 
-    /// Check if the word at the given position is correct and remove it from wrong_words_start_indexes if it is
-    fn check_if_corrected_word_at_position(&mut self, position: usize) {
-        let mut word_start = 0;
-        for i in (0..position).rev() {
-            if i < self.user_input.len() && self.user_input[i] == Some(' ') {
-                word_start = i + 1;
-                break;
-            }
-        }
-
-        if !self.wrong_words_start_indexes.contains(&word_start) {
-            return;
-        }
-
-        let mut word_end = position;
-        while word_end < self.user_input.len() && self.user_input[word_end] != Some(' ') {
-            word_end += 1;
-        }
-
+    /// Validates the last complete typed word and marks the word as correct/incorrect
+    fn validate_completed_word(&mut self, word_start: usize, word_end: usize) {
         let mut target_end = word_start;
+        // TODO: need to improve the way we store things
         while target_end < self.target_chars.len() && self.target_chars[target_end] != ' ' {
             target_end += 1;
         }
+
+        let user_word_len = word_end - word_start;
+        let target_word_len = target_end - word_start;
+
+        if user_word_len != target_word_len {
+            return;
+        }
+
+        // check if any of the chars don't match between the current word and what was typed.
+        for i in word_start..word_end {
+            let user_char = self.user_input.get(i).and_then(|c| *c);
+            let target_char = self.target_chars.get(i).copied();
+
+            if user_char != target_char {
+                return;
+            }
+        }
+
+        self.wrong_words_start_indexes.remove(&word_start);
     }
 
     /// Checks if the test has reached its conclusion. Only applicable in Time mode
@@ -1110,5 +1127,49 @@ mod tests {
         assert!(tracker.type_char('t'));
         assert_eq!(tracker.cursor_position, 7);
         assert_eq!(tracker.user_input.len(), 7);
+    }
+
+    #[test]
+    fn test_mistype_and_fix_word_should_unmark_as_wrong() {
+        // scenario taken from an actual live reproduction of the bug
+        // `termitype --words "about too soon"`
+        let config = Config::default();
+        let target_text = String::from("about too soon");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+
+        assert!(tracker.type_char('a')); // cursor = 1
+        assert!(tracker.type_char('b')); // cursor = 2
+        assert!(tracker.type_char('o')); // cursor = 3
+        assert!(tracker.type_char('u')); // cursor = 4
+        assert!(tracker.type_char('t')); // cursor = 5
+        assert!(tracker.type_char(' ')); // cursor = 6
+
+        // 'too' starts at 6 in this case
+        assert_eq!(tracker.current_word_start, 6);
+        assert!(tracker.wrong_words_start_indexes.is_empty());
+
+        // type 'too' but make error by hitting space when `o` is expected
+        assert!(tracker.type_char('t')); // cursor = 7
+        assert!(tracker.type_char('o')); // cursor = 8
+        assert!(tracker.type_char(' ')); // cursor = 9, wrong char
+
+        assert!(
+            tracker.is_word_wrong(6),
+            "Word 'too' should be marked wrong after early space"
+        );
+
+        // fix mistake
+        assert!(tracker.backspace()); // cursor = 8
+
+        // complete the wrod
+        assert!(tracker.type_char('o')); // cursor = 9
+        assert!(tracker.type_char(' ')); // cursor = 10
+
+        assert!(
+            !tracker.is_word_wrong(6),
+            "Word 'too' should NOT be marked wrong after correction. Wrong words: {:?}",
+            tracker.wrong_words_start_indexes
+        );
     }
 }
