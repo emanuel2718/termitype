@@ -29,11 +29,10 @@
 </div>
 
 <br />
-<div align="center">
+<p align="center">
+  <img src="https://raw.githubusercontent.com/emanuel2718/termitype/main/assets/demo.gif" alt="Termitype demo" width="600">
+</p>
 
-![Termitype Demo](https://github.com/user-attachments/assets/083d03ab-e021-4474-8ec1-4d122a826a86)
-
-</div>
 
 ## Installation
 
