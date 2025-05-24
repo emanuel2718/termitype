@@ -26,10 +26,14 @@
     <a href="#acknowledgments">Acknowledgments</a>
   </p>
 </p>
-
 </div>
 
-![Termitype Demo](https://github.com/user-attachments/assets/b4a86931-786e-46f7-89e9-3502c878f786)
+<br />
+<div align="center">
+
+![Termitype Demo](https://github.com/user-attachments/assets/083d03ab-e021-4474-8ec1-4d122a826a86)
+
+</div>
 
 ## Installation
 
