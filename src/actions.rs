@@ -58,6 +58,9 @@ pub enum TermiAction {
     TogglePunctuation,
     ToggleNumbers,
     ToggleSymbols,
+    ToggleFPS,
+    ToggleLiveWPM,
+    ToggleMonochromaticResults,
 
     // === Previews ===
     ApplyPreview(PreviewType),
@@ -108,6 +111,7 @@ pub enum MenuContext {
     Help,
     About,
     AsciiArt,
+    Options,
 }
 
 // ============== PREVIEW ==============
@@ -325,6 +329,18 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
             termi.config.toggle_symbols();
             termi.menu.sync_toggle_items(&termi.config);
             termi.start()
+        }
+        TermiAction::ToggleFPS => {
+            termi.config.toggle_fps();
+            termi.menu.sync_toggle_items(&termi.config);
+        }
+        TermiAction::ToggleLiveWPM => {
+            termi.config.toggle_live_wpm();
+            termi.menu.sync_toggle_items(&termi.config);
+        }
+        TermiAction::ToggleMonochromaticResults => {
+            termi.config.toggle_monochromatic_results();
+            termi.menu.sync_toggle_items(&termi.config);
         }
         TermiAction::ChangeTheme(name) => {
             termi.config.change_theme(&name);

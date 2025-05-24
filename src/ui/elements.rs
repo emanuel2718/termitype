@@ -196,15 +196,17 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
                 }
             };
             let wpm = format!(" {:>3.0} wpm", termi.tracker.wpm);
-            let spans = vec![
-                Span::styled(info, Style::default().fg(theme.highlight())),
-                Span::styled(
+            let mut spans = vec![Span::styled(info, Style::default().fg(theme.highlight()))];
+
+            // the live wpm is an option toggleable by the user
+            if !termi.config.hide_live_wpm {
+                spans.push(Span::styled(
                     wpm,
                     Style::default()
                         .fg(theme.muted())
                         .add_modifier(Modifier::DIM),
-                ),
-            ];
+                ));
+            }
             let line = Line::from(spans);
             let text = Text::from(line);
             TermiElement::new(text, false, None)

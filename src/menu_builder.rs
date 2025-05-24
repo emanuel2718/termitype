@@ -22,14 +22,13 @@ pub fn build_menu(ctx: MenuContext, config: &Config) -> Menu {
         MenuContext::Help => build_help_menu(),
         MenuContext::About => build_about_menu(),
         MenuContext::AsciiArt => build_ascii_art_menu(),
+        MenuContext::Options => build_options_menu(config),
     }
 }
 
 fn build_root_menu(config: &Config) -> Menu {
     let items = vec![
-        MenuItem::toggle("root/punctuation", "Punctuation", config.use_punctuation),
-        MenuItem::toggle("root/numbers", "Numbers", config.use_numbers),
-        MenuItem::toggle("root/symbols", "Symbols", config.use_symbols),
+        MenuItem::sub_menu("root/options", "Options...", MenuContext::Options),
         MenuItem::sub_menu("root/mode", "Mode...", MenuContext::Mode),
         MenuItem::sub_menu("root/time", "Time...", MenuContext::Time),
         MenuItem::sub_menu("root/words", "Words...", MenuContext::Words),
@@ -222,6 +221,31 @@ fn build_lines_count_menu() -> Menu {
         "Select Visible Lines".to_string(),
         items,
     )
+}
+
+/// Builds the Options menu with all toggleable settings
+fn build_options_menu(config: &Config) -> Menu {
+    let items = vec![
+        MenuItem::toggle("options/symbols", "Use Symbols", config.use_symbols),
+        MenuItem::toggle(
+            "options/punctuation",
+            "Use Punctuation",
+            config.use_punctuation,
+        ),
+        MenuItem::toggle("options/numbers", "Use Numbers", config.use_numbers),
+        MenuItem::toggle("options/fps", "Show FPS", config.show_fps),
+        MenuItem::toggle(
+            "options/show_live_wpm",
+            "Show Live WPM",
+            !config.hide_live_wpm,
+        ),
+        MenuItem::toggle(
+            "options/monochromatic",
+            "Monochromatic Results",
+            config.monocrhomatic_results,
+        ),
+    ];
+    Menu::new(MenuContext::Options, "Options".to_string(), items)
 }
 
 /// Builds the Help menu

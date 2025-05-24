@@ -109,6 +109,10 @@ pub struct Config {
     #[arg(long = "show-fps")]
     pub show_fps: bool,
 
+    /// Hides the live WPM progress
+    #[arg(long = "hide-live-wpm")]
+    pub hide_live_wpm: bool,
+
     /// Show results with only two colors
     #[arg(long = "monochromatic-results")]
     pub monocrhomatic_results: bool,
@@ -161,6 +165,7 @@ impl Default for Config {
             list_languages: false,
             version: false,
             show_fps: false,
+            hide_live_wpm: false,
             monocrhomatic_results: false,
             #[cfg(debug_assertions)]
             debug: false,
@@ -219,6 +224,7 @@ impl Config {
                 }
             }
 
+            // Current Mode
             if self.time.is_none() && self.words.is_none() {
                 // Mode and its value
                 let mode_type = persistence
@@ -244,7 +250,7 @@ impl Config {
                 }
             }
 
-            // symbols
+            // Symbols
             if !self.use_symbols {
                 if let Some(use_symbols) = persistence.get("use_symbols") {
                     let val = match use_symbols {
@@ -256,7 +262,7 @@ impl Config {
                 }
             }
 
-            // numbers
+            // Numbers
             if !self.use_numbers {
                 if let Some(use_numbers) = persistence.get("use_numbers") {
                     let val = match use_numbers {
@@ -268,7 +274,7 @@ impl Config {
                 }
             }
 
-            // punctuation
+            // Punctuation
             if !self.use_punctuation {
                 if let Some(use_punctuation) = persistence.get("use_punctuation") {
                     let val = match use_punctuation {
@@ -277,6 +283,14 @@ impl Config {
                         _ => false,
                     };
                     self.set_punctuation(val);
+                }
+            }
+
+            // Live WPM
+            if !self.hide_live_wpm {
+                if let Some(hide_live_wpm) = persistence.get("hide_live_wpm") {
+                    let val = matches!(hide_live_wpm, "true");
+                    self.set_live_wpm(val)
                 }
             }
 
@@ -486,6 +500,13 @@ impl Config {
         }
     }
 
+    fn set_live_wpm(&mut self, val: bool) {
+        self.hide_live_wpm = val;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("hide_live_wpm", val.to_string().as_str());
+        }
+    }
+
     /// Toggles the presence of numbers in the test word pool.
     pub fn toggle_numbers(&mut self) {
         let val = !self.use_numbers;
@@ -505,6 +526,32 @@ impl Config {
         let val = !self.use_symbols;
         self.use_symbols = val;
         self.set_symbols(val);
+    }
+
+    /// Toggles the FPS display.
+    pub fn toggle_fps(&mut self) {
+        self.show_fps = !self.show_fps;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("show_fps", self.show_fps.to_string().as_str());
+        }
+    }
+
+    /// Toggles the live WPM display.
+    pub fn toggle_live_wpm(&mut self) {
+        let val = !self.hide_live_wpm;
+        self.hide_live_wpm = val;
+        self.set_live_wpm(val);
+    }
+
+    /// Toggles the monochromatic results display.
+    pub fn toggle_monochromatic_results(&mut self) {
+        self.monocrhomatic_results = !self.monocrhomatic_results;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set(
+                "monocrhomatic_results",
+                self.monocrhomatic_results.to_string().as_str(),
+            );
+        }
     }
 
     /// Chesk if the current terminal has proper color support. Mainly used for themes
@@ -680,9 +727,24 @@ mod tests {
     #[test]
     fn test_config_toggles() {
         let mut config = create_config();
+        assert!(!config.use_numbers);
+        assert!(!config.use_punctuation);
+        assert!(!config.use_symbols);
+
         config.toggle_numbers();
+        assert!(config.use_numbers);
+
         config.toggle_punctuation();
+        assert!(config.use_punctuation);
+
         config.toggle_symbols();
+        assert!(config.use_symbols);
+    }
+
+    #[test]
+    fn test_config_live_wpm() {
+        let config = create_config();
+        assert!(!config.hide_live_wpm) // we default this to false (show live WPM)
     }
 
     #[test]

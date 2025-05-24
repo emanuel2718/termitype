@@ -161,12 +161,13 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
         }
         let now = Instant::now();
 
-        let current_frame_time =
-            if now.duration_since(last_keystroke) < Duration::from_secs(1) || config.show_fps {
-                typing_frame_time
-            } else {
-                idle_frame_time
-            };
+        let current_frame_time = if now.duration_since(last_keystroke) < Duration::from_secs(1)
+            || termi.config.show_fps
+        {
+            typing_frame_time
+        } else {
+            idle_frame_time
+        };
 
         let timeout = current_frame_time
             .checked_sub(last_tick.elapsed())
@@ -239,13 +240,13 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             }
         }
 
-        let fps_to_display = if config.show_fps {
+        let fps_to_display = if termi.config.show_fps {
             Some(current_fps)
         } else {
             None
         };
 
-        if config.show_fps
+        if termi.config.show_fps
             && !needs_redraw
             && now.duration_since(last_fps_update_time) >= fps_update_interval
         {
