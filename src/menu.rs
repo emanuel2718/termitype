@@ -290,6 +290,10 @@ impl MenuState {
         is_menu_context!(self, MenuContext::PickerStyle)
     }
 
+    pub fn is_options_menu(&self) -> bool {
+        is_menu_context!(self, MenuContext::Options)
+    }
+
     pub fn current_menu(&self) -> Option<&Menu> {
         self.stack.last()
     }
@@ -307,6 +311,7 @@ impl MenuState {
                     || self.is_help_menu()
                     || self.is_about_menu()
                     || self.is_ascii_art_menu()
+                    || self.is_options_menu()
                 {
                     self.close();
                 } else {
@@ -415,9 +420,13 @@ impl MenuState {
                     {
                         // TODO: maybe this ids need to be MenuItemId enum
                         let act = match id.as_str() {
-                            "root/punctuation" => TermiAction::TogglePunctuation,
-                            "root/numbers" => TermiAction::ToggleNumbers,
-                            "root/symbols" => TermiAction::ToggleSymbols,
+                            "options/symbols" => TermiAction::ToggleSymbols,
+                            "options/punctuation" => TermiAction::TogglePunctuation,
+                            "options/numbers" => TermiAction::ToggleNumbers,
+                            "options/fps" => TermiAction::ToggleFPS,
+                            "options/show_live_wpm" => TermiAction::ToggleLiveWPM,
+                            "options/monochromatic" => TermiAction::ToggleMonochromaticResults,
+                            "options/show_cursorline" => TermiAction::ToggleCursorline,
                             _ => TermiAction::NoOp,
                         };
                         return Some(act);
@@ -474,14 +483,44 @@ impl MenuState {
     pub fn sync_toggle_items(&mut self, config: &Config) {
         if let Some(menu) = self.stack.last_mut() {
             // TODO: there has to be a better way of doing this
-            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "root/punctuation") {
+            // FIXME: having to iterate throught the items to find every item and match to a toggle is not smart.
+            // Options menu - basically will contain all the toggles of the game
+            if let Some(item) = menu
+                ._items
+                .iter_mut()
+                .find(|i| i.id == "options/punctuation")
+            {
                 item.is_active = Some(config.use_punctuation);
             }
-            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "root/symbols") {
+            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "options/symbols") {
                 item.is_active = Some(config.use_symbols);
             }
-            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "root/numbers") {
+            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "options/numbers") {
                 item.is_active = Some(config.use_numbers);
+            }
+            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "options/fps") {
+                item.is_active = Some(config.show_fps);
+            }
+            if let Some(item) = menu
+                ._items
+                .iter_mut()
+                .find(|i| i.id == "options/show_live_wpm")
+            {
+                item.is_active = Some(!config.hide_live_wpm);
+            }
+            if let Some(item) = menu
+                ._items
+                .iter_mut()
+                .find(|i| i.id == "options/show_cursorline")
+            {
+                item.is_active = Some(!config.hide_cursorline);
+            }
+            if let Some(item) = menu
+                ._items
+                .iter_mut()
+                .find(|i| i.id == "options/monochromatic")
+            {
+                item.is_active = Some(config.monocrhomatic_results);
             }
         }
     }
@@ -546,7 +585,9 @@ impl MenuState {
                 }
             }
             MenuContext::LineCount => Some(format!("lines/{}", config.visible_lines)),
-            MenuContext::Root | MenuContext::About | MenuContext::Help => None,
+            MenuContext::Root | MenuContext::About | MenuContext::Help | MenuContext::Options => {
+                None
+            }
         };
 
         if let Some(id) = target_id {
@@ -616,16 +657,17 @@ mod tests {
         assert!(menu.is_open());
         config.use_punctuation = true;
         menu.sync_toggle_items(&config);
+        menu.handle_action(TermiAction::MenuOpen(MenuContext::Options), &config);
 
         if let Some(menu_ref) = menu.current_menu() {
             let current_items = menu_ref.items();
             let item = current_items
                 .iter()
-                .find(|i| i.label == "Punctuation")
+                .find(|i| i.label == "Use Punctuation")
                 .unwrap();
             assert_eq!(item.is_active, Some(true));
         } else {
-            panic!("We should have a menu opened by this point")
+            panic!("We should have a menu opened Options by this point")
         }
     }
 

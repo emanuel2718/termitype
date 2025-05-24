@@ -196,15 +196,17 @@ pub fn create_mode_bar(termi: &Termi) -> Vec<TermiElement> {
                 }
             };
             let wpm = format!(" {:>3.0} wpm", termi.tracker.wpm);
-            let spans = vec![
-                Span::styled(info, Style::default().fg(theme.highlight())),
-                Span::styled(
+            let mut spans = vec![Span::styled(info, Style::default().fg(theme.highlight()))];
+
+            // the live wpm is an option toggleable by the user
+            if !termi.config.hide_live_wpm {
+                spans.push(Span::styled(
                     wpm,
                     Style::default()
                         .fg(theme.muted())
                         .add_modifier(Modifier::DIM),
-                ),
-            ];
+                ));
+            }
             let line = Line::from(spans);
             let text = Text::from(line);
             TermiElement::new(text, false, None)
@@ -567,83 +569,102 @@ pub fn build_menu_items<'a>(
                 .chain(visible_items.iter().map(|item| {
                     let is_selected = item.id == current_item_id;
 
-                    let item_style = Style::default()
-                        .fg(if item.is_disabled {
-                            theme.muted()
-                        } else if item.is_active.is_some() {
-                            if item.is_active.unwrap() {
-                                theme.highlight()
-                            } else {
-                                theme.muted()
-                            }
-                        } else if is_selected {
-                            theme.selection_fg()
-                        } else {
-                            theme.fg()
-                        })
-                        .bg(if is_selected && !item.is_disabled {
-                            theme.selection_bg()
-                        } else {
-                            theme.bg()
-                        })
-                        .add_modifier(if item.is_active.is_some() && !item.is_active.unwrap() {
-                            Modifier::DIM
-                        } else {
-                            Modifier::empty()
-                        });
-
                     let supports_unicode = theme.supports_unicode();
                     let arrow_symbol = if supports_unicode { "❯ " } else { "> " };
                     let submenu_symbol = if supports_unicode { " →" } else { " >" };
 
+                    // determines if we should apply cursorline background to content spans or not
+                    let should_render_cursorline =
+                        is_selected && !item.is_disabled && !termi.config.hide_cursorline;
+                    let content_bg = if should_render_cursorline {
+                        theme.selection_bg()
+                    } else {
+                        theme.bg()
+                    };
+
                     let mut spans = vec![
-                        Span::styled("  ", Style::default()),
+                        Span::styled("  ", Style::default()), // in-house left padding
                         Span::styled(
                             if is_selected { arrow_symbol } else { "  " },
-                            Style::default().fg(theme.accent()),
+                            Style::default()
+                                .fg(if is_selected && should_render_cursorline {
+                                    // we have cursorline on
+                                    theme.selection_fg()
+                                } else {
+                                    theme.fg()
+                                })
+                                .bg(content_bg),
                         ),
                     ];
 
-                    // if we get `hide_description` this means we are folding the previews
-                    if hide_description {
-                        if let Some(key) = &item.key {
-                            let mut key_span_style = item_style;
-                            if !item.is_disabled {
-                                key_span_style = key_span_style.add_modifier(Modifier::BOLD);
-                                if !is_selected && item.is_active.is_none() {
-                                    key_span_style = key_span_style.fg(theme.accent());
-                                }
-                            } else {
-                                key_span_style = key_span_style.remove_modifier(Modifier::BOLD);
-                            }
-                            spans.push(Span::styled(key.clone(), key_span_style));
+                    if let Some(key_text) = &item.key {
+                        // info items shennanigans (about, help, etc.)
+                        let formatted_key = if hide_description {
+                            key_text.to_string()
                         } else {
-                            spans.push(Span::styled(item.label.clone(), item_style));
-                        }
+                            format!("{:<width$}", key_text, width = max_key_width + 2)
+                        };
+                        spans.push(Span::styled(
+                            formatted_key,
+                            Style::default()
+                                .fg(theme.accent())
+                                .bg(content_bg)
+                                .add_modifier(Modifier::BOLD),
+                        ));
+                        spans.push(Span::styled(
+                            item.label.clone(),
+                            Style::default().fg(theme.fg()).bg(content_bg),
+                        ));
                     } else {
-                        // pad items with <key> <description> structure
-                        if let Some(key) = &item.key {
-                            let key_text = format!("{:<width$}  ", key, width = max_key_width);
-                            spans.push(Span::styled(
-                                key_text,
-                                Style::default()
-                                    .fg(theme.accent())
-                                    .add_modifier(Modifier::BOLD),
-                            ));
-                            spans.push(Span::styled(item.label.clone(), item_style));
+                        let label_style = if is_selected && !should_render_cursorline {
+                            Style::default()
+                                .fg(theme.highlight())
+                                .add_modifier(Modifier::BOLD)
+                        } else if item.is_disabled {
+                            Style::default()
+                                .fg(theme.muted())
+                                .add_modifier(Modifier::DIM)
                         } else {
-                            if max_key_width > 0 {
-                                // +2 for the "  " separator
-                                spans.push(Span::raw(" ".repeat(max_key_width + 2)));
+                            match &item.result {
+                                MenuItemResult::OpenSubMenu(_) => Style::default().fg(theme.fg()),
+                                MenuItemResult::ToggleState => {
+                                    if item.is_active == Some(true) {
+                                        Style::default().fg(theme.success())
+                                    } else {
+                                        Style::default()
+                                            .fg(theme.muted())
+                                            .add_modifier(Modifier::DIM)
+                                    }
+                                }
+                                _ => Style::default().fg(theme.fg()),
                             }
-                            spans.push(Span::styled(item.label.clone(), item_style));
+                        };
+
+                        // toggleable items prefixes
+                        if let Some(is_active) = item.is_active {
+                            if is_active {
+                                spans.push(Span::styled(
+                                    "[✓] ",
+                                    Style::default().fg(theme.success()).bg(content_bg),
+                                ));
+                            } else {
+                                spans.push(Span::styled(
+                                    "[ ] ",
+                                    Style::default()
+                                        .fg(theme.border())
+                                        .bg(content_bg)
+                                        .add_modifier(Modifier::DIM),
+                                ));
+                            }
                         }
+
+                        spans.push(Span::styled(item.label.clone(), label_style.bg(content_bg)));
                     }
 
                     if matches!(item.result, MenuItemResult::OpenSubMenu(_)) {
                         spans.push(Span::styled(
                             submenu_symbol,
-                            Style::default().fg(theme.accent()),
+                            Style::default().fg(theme.accent()).bg(content_bg),
                         ));
                     }
 
