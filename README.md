@@ -129,37 +129,37 @@ EXAMPLES:
 
 1. **Clone the repository**:
 
-   ```sh
-   git clone https://github.com/emanuel2718/termitype.git
-   cd termitype
-   ```
+```sh
+git clone https://github.com/emanuel2718/termitype.git
+cd termitype
+```
 
 2. **Optional: Install theme pack** (development only):
 
-   ```sh
-   ./scripts/install-themes.sh
-   ```
+```sh
+./scripts/install-themes.sh
+```
 
-   _Note: In production builds, themes are automatically fetched and included._
+_Note: In production builds, themes are automatically fetched and included._
 
 3. **Run the application**:
 
-   ```sh
-   # Development build
-   cargo run
+```sh
+# Development build
+cargo run
 
-   # Release build
-   cargo run --release
+# Release build
+cargo run --release
 
-   # With debug logging
-   cargo run -- --debug
+# With debug logging
+cargo run -- --debug
 
-   # Tail logs with something like this (MacOS example)
-   tail -f ~/Library/Application\ Support/termitype/debug.log
+# Tail logs with something like this (MacOS example)
+tail -f ~/Library/Application\ Support/termitype/debug.log
 
-   # Tail logs with something like this (Linux example)
-   tail -f ~/.config/termitype/debug.log
-   ```
+# Tail logs with something like this (Linux example)
+tail -f ~/.config/termitype/debug.log
+```
 
 ## Themes
 
