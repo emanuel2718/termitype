@@ -28,19 +28,23 @@ pub fn build_menu(ctx: MenuContext, config: &Config) -> Menu {
 
 fn build_root_menu(config: &Config) -> Menu {
     let items = vec![
+        // === Configuration Group ===
         MenuItem::sub_menu("root/options", "Options...", MenuContext::Options),
         MenuItem::sub_menu("root/mode", "Mode...", MenuContext::Mode),
         MenuItem::sub_menu("root/time", "Time...", MenuContext::Time),
         MenuItem::sub_menu("root/words", "Words...", MenuContext::Words),
+        // === Appearance Group ===
         MenuItem::sub_menu("root/language", "Language...", MenuContext::Language),
         MenuItem::sub_menu("root/theme", "Theme...", MenuContext::Theme)
             .disabled(!config.term_has_color_support()),
-        MenuItem::sub_menu("root/picker", "Picker...", MenuContext::PickerStyle),
-        MenuItem::sub_menu("root/ascii", "Art...", MenuContext::AsciiArt),
-        MenuItem::sub_menu("root/cursor", "Cursor...", MenuContext::Cursor),
+        MenuItem::sub_menu("root/picker", "Picker Style...", MenuContext::PickerStyle),
+        MenuItem::sub_menu("root/ascii", "ASCII Art...", MenuContext::AsciiArt),
+        MenuItem::sub_menu("root/cursor", "Cursor Style...", MenuContext::Cursor),
         MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
+        // === Information Group ===
         MenuItem::sub_menu("root/about", "About...", MenuContext::About),
         MenuItem::sub_menu("root/help", "Help...", MenuContext::Help),
+        // === Action ===
         MenuItem::action("root/quit", "Exit", TermiAction::Quit),
     ];
     Menu::new(MenuContext::Root, "Main Menu".to_string(), items)
@@ -240,6 +244,11 @@ fn build_options_menu(config: &Config) -> Menu {
             !config.hide_live_wpm,
         ),
         MenuItem::toggle(
+            "options/show_cursorline",
+            "Show Cursorline",
+            !config.hide_cursorline,
+        ),
+        MenuItem::toggle(
             "options/monochromatic",
             "Monochromatic Results",
             config.monocrhomatic_results,
@@ -259,22 +268,18 @@ fn build_help_menu() -> Menu {
         "[all] ctrl-z -> Quit (alt)",
         "[all] tab-enter -> Restart Test",
         // === Menu Nav ===
-        "[menu] up -> Navigate Up",
-        "[menu] <down> -> Navigate Down",
-        "[menu] k -> Navigate Up",
-        "[menu] j -> Navigate Down",
-        "[menu] gg-> Home",
-        "[menu] shift-g -> End",
+        "[menu] ↑/k -> Navigate Up",
+        "[menu] ↓/j -> Navigate Down",
+        "[menu] gg -> Go to Top",
+        "[menu] shift-g -> Go to Bottom",
         "[menu] ctrl-u -> Half Page Up",
         "[menu] ctrl-d -> Half Page Down",
-        "[menu] l -> Select Item / Open Submenu",
-        "[menu] h -> Go Back / Close Menu",
-        "[menu] enter -> Select Item / Open Submenu",
-        "[menu] esc -> Go Back / Close Menu",
+        "[menu] l/enter -> Select Item / Open Submenu",
+        "[menu] h/esc -> Go Back / Close Menu",
         "[menu] ctrl-y -> Select Item / Open Submenu",
         "[menu] space -> Toggle Option",
         "[menu] / -> Start Search Mode",
-        // === Menu Serach ===
+        // === Menu Search ===
         "[search] enter -> Confirm Search/Select",
         "[search] esc -> Exit Search mode",
         "[search] ctrl-p -> Navigate Up",

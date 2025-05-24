@@ -426,6 +426,7 @@ impl MenuState {
                             "options/fps" => TermiAction::ToggleFPS,
                             "options/show_live_wpm" => TermiAction::ToggleLiveWPM,
                             "options/monochromatic" => TermiAction::ToggleMonochromaticResults,
+                            "options/show_cursorline" => TermiAction::ToggleCursorline,
                             _ => TermiAction::NoOp,
                         };
                         return Some(act);
@@ -506,6 +507,13 @@ impl MenuState {
                 .find(|i| i.id == "options/show_live_wpm")
             {
                 item.is_active = Some(!config.hide_live_wpm);
+            }
+            if let Some(item) = menu
+                ._items
+                .iter_mut()
+                .find(|i| i.id == "options/show_cursorline")
+            {
+                item.is_active = Some(!config.hide_cursorline);
             }
             if let Some(item) = menu
                 ._items

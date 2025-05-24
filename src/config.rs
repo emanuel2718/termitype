@@ -113,6 +113,10 @@ pub struct Config {
     #[arg(long = "hide-live-wpm")]
     pub hide_live_wpm: bool,
 
+    /// Hide menu cursor line
+    #[arg(long = "hide-cursorline")]
+    pub hide_cursorline: bool,
+
     /// Show results with only two colors
     #[arg(long = "monochromatic-results")]
     pub monocrhomatic_results: bool,
@@ -166,6 +170,7 @@ impl Default for Config {
             version: false,
             show_fps: false,
             hide_live_wpm: false,
+            hide_cursorline: false,
             monocrhomatic_results: false,
             #[cfg(debug_assertions)]
             debug: false,
@@ -291,6 +296,14 @@ impl Config {
                 if let Some(hide_live_wpm) = persistence.get("hide_live_wpm") {
                     let val = matches!(hide_live_wpm, "true");
                     self.set_live_wpm(val)
+                }
+            }
+
+            // Cursorline
+            if !self.hide_cursorline {
+                if let Some(hide_cursorline) = persistence.get("hide_cursorline") {
+                    let val = matches!(hide_cursorline, "true");
+                    self.set_cursorline(val)
                 }
             }
 
@@ -507,6 +520,13 @@ impl Config {
         }
     }
 
+    fn set_cursorline(&mut self, val: bool) {
+        self.hide_cursorline = val;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("hide_cursorline", val.to_string().as_str());
+        }
+    }
+
     /// Toggles the presence of numbers in the test word pool.
     pub fn toggle_numbers(&mut self) {
         let val = !self.use_numbers;
@@ -551,6 +571,14 @@ impl Config {
                 "monocrhomatic_results",
                 self.monocrhomatic_results.to_string().as_str(),
             );
+        }
+    }
+
+    /// Toggles the cursorline display in menus.
+    pub fn toggle_cursorline(&mut self) {
+        self.hide_cursorline = !self.hide_cursorline;
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set("hide_cursorline", self.hide_cursorline.to_string().as_str());
         }
     }
 
