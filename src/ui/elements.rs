@@ -520,6 +520,43 @@ pub fn create_menu_footer_text(termi: &Termi) -> Line {
     }
 }
 
+pub fn create_results_footer_text(theme: &Theme) -> Line {
+    Line::from(vec![
+        Span::styled("[N]", Style::default().fg(theme.warning())),
+        Span::styled(
+            "ew",
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        ),
+        Span::styled(" ", Style::default()),
+        Span::styled("[R]", Style::default().fg(theme.warning())),
+        Span::styled(
+            "edo",
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        ),
+        Span::styled(" ", Style::default()),
+        Span::styled("[Q]", Style::default().fg(theme.warning())),
+        Span::styled(
+            "uit",
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        ),
+        Span::styled(" ", Style::default()),
+        Span::styled("[ESC]", Style::default().fg(theme.warning())),
+        Span::styled(
+            " menu",
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM),
+        ),
+    ])
+    .alignment(Alignment::Center)
+}
+
 pub fn build_menu_items<'a>(
     termi: &'a Termi,
     scroll_offset: usize,

@@ -24,7 +24,7 @@ use super::{
     elements::{
         build_menu_items, create_action_bar, create_command_bar, create_footer, create_header,
         create_menu_footer_text, create_minimal_size_warning, create_mode_bar,
-        create_show_menu_button, create_typing_area, TermiElement,
+        create_results_footer_text, create_show_menu_button, create_typing_area, TermiElement,
     },
     layout::create_layout,
     utils::{
@@ -882,7 +882,7 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
 
     match results_style {
         crate::config::ResultsStyle::Neofetch => {
-            render_art_results_screen(frame, termi, area, is_small)
+            render_neofetch_results_screen(frame, termi, area, is_small)
         }
         crate::config::ResultsStyle::Graph => {
             render_graph_results_screen(frame, termi, area, is_small)
@@ -890,7 +890,12 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     }
 }
 
-fn render_art_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
+fn render_neofetch_results_screen(
+    frame: &mut Frame,
+    termi: &mut Termi,
+    area: Rect,
+    is_small: bool,
+) {
     let tracker = &termi.tracker;
     let theme = termi.current_theme();
     let config = &termi.config;
@@ -911,12 +916,6 @@ fn render_art_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         theme.muted()
     } else {
         theme.fg()
-    };
-
-    let color_muted = if is_monochromatic {
-        theme.fg()
-    } else {
-        theme.muted()
     };
 
     let color_warning = if is_monochromatic {
@@ -1107,26 +1106,7 @@ fn render_art_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
 
     // only show footer if we have enough space
     if !is_small {
-        let footer_line = Line::from(vec![
-            Span::styled("[N]", Style::default().fg(color_warning)),
-            Span::styled(
-                "ew",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-            Span::styled(" ", Style::default()),
-            Span::styled("[R]", Style::default().fg(color_warning)),
-            Span::styled(
-                "edo",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-            Span::styled(" ", Style::default()),
-            Span::styled("[Q]", Style::default().fg(color_warning)),
-            Span::styled(
-                "uit",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-        ])
-        .alignment(Alignment::Center);
+        let footer_line = create_results_footer_text(theme);
 
         let restart_height: u16 = 4;
         if area.height > restart_height {
@@ -1163,11 +1143,6 @@ fn render_graph_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect,
     } else {
         theme.muted()
     };
-    let color_warning = if is_monochromatic {
-        theme.highlight()
-    } else {
-        theme.warning()
-    };
 
     // folds the results: graph top, stats mid, footer bottom
     let main_layout = Layout::default()
@@ -1203,35 +1178,8 @@ fn render_graph_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect,
         color_muted,
     );
 
-    // TODO: this is repeated verbatim in the neofetch style results. extract it
     if let Some(footer_area) = footer_area {
-        let footer_line = Line::from(vec![
-            Span::styled("[N]", Style::default().fg(color_warning)),
-            Span::styled(
-                "ew",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-            Span::styled(" ", Style::default()),
-            Span::styled("[R]", Style::default().fg(color_warning)),
-            Span::styled(
-                "edo",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-            Span::styled(" ", Style::default()),
-            Span::styled("[Q]", Style::default().fg(color_warning)),
-            Span::styled(
-                "uit",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-            Span::styled("  ", Style::default()),
-            Span::styled("[ESC]", Style::default().fg(color_warning)),
-            Span::styled(
-                " menu",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-        ])
-        .alignment(Alignment::Center);
-
+        let footer_line = create_results_footer_text(theme);
         frame.render_widget(Paragraph::new(footer_line), footer_area);
     }
 }
