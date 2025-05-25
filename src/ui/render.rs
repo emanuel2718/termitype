@@ -1151,9 +1151,9 @@ fn render_graph_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect,
             [Constraint::Percentage(100)].as_ref()
         } else {
             [
-                Constraint::Percentage(60),
-                Constraint::Percentage(38),
-                Constraint::Length(2),
+                Constraint::Percentage(60), // graph
+                Constraint::Percentage(38), // stats
+                Constraint::Length(2),      // footer
             ]
             .as_ref()
         })
@@ -1165,7 +1165,7 @@ fn render_graph_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect,
 
     // if there's space show the graph
     if !is_small && !tracker.wpm_samples.is_empty() {
-        render_wpm_graph(frame, tracker, theme, graph_area);
+        render_wpm_graph(frame, termi, graph_area);
     }
 
     render_graph_stats(
@@ -1184,22 +1184,20 @@ fn render_graph_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect,
     }
 }
 
-fn render_wpm_graph(
-    frame: &mut Frame,
-    tracker: &crate::tracker::Tracker,
-    theme: &crate::theme::Theme,
-    area: Rect,
-) {
-    let wpm_data: Vec<(f64, f64)> = tracker
+fn render_wpm_graph(frame: &mut Frame, termi: &Termi, area: Rect) {
+    let theme = termi.current_theme();
+
+    if termi.tracker.wpm_samples.is_empty() {
+        return;
+    }
+
+    let wpm_data: Vec<(f64, f64)> = termi
+        .tracker
         .wpm_samples
         .iter()
         .enumerate()
-        .map(|(i, &wpm)| (i as f64, wpm as f64))
+        .map(|(i, &wpm)| ((i + 1) as f64, wpm as f64))
         .collect();
-
-    if wpm_data.is_empty() {
-        return;
-    }
 
     // clear with bg
     frame.render_widget(
@@ -1207,9 +1205,13 @@ fn render_wpm_graph(
         area,
     );
 
-    let max_wpm = tracker.wpm_samples.iter().max().copied().unwrap_or(0) as f64;
-    let min_wpm = tracker.wpm_samples.iter().min().copied().unwrap_or(0) as f64;
-    let max_time = (tracker.wpm_samples.len() - 1) as f64;
+    let max_wpm = termi.tracker.wpm_samples.iter().max().copied().unwrap_or(0) as f64;
+    let min_wpm = termi.tracker.wpm_samples.iter().min().copied().unwrap_or(0) as f64;
+    let max_time = if let Mode::Time { duration } = termi.config.current_mode() {
+        (duration as f64).floor()
+    } else {
+        termi.tracker.wpm_samples.len() as f64
+    };
 
     // padding
     let y_max = (max_wpm * 1.1).max(max_wpm + 10.0);
@@ -1239,11 +1241,11 @@ fn render_wpm_graph(
             Axis::default()
                 .title("Time (seconds)")
                 .style(Style::default().fg(theme.muted()))
-                .bounds([0.0, max_time])
+                .bounds([1.0, max_time])
                 .labels(vec![
-                    Span::styled("0", Style::default().fg(theme.muted())),
+                    Span::styled("1", Style::default().fg(theme.muted())),
                     Span::styled(
-                        format!("{:.0}", max_time / 2.0),
+                        format!("{:.0}", (1.0 + max_time) / 2.0),
                         Style::default().fg(theme.muted()),
                     ),
                     Span::styled(
@@ -1375,12 +1377,11 @@ fn render_graph_stats(
         crate::config::Mode::Words { count } => format!("Words ({})", count),
     };
 
-    let duration = if let Some(time) = tracker.completion_time {
-        format!("{:.1}s", time)
-    } else if let Mode::Time { duration } = config.current_mode() {
+    let duration = if let Mode::Time { duration } = config.current_mode() {
         format!("{}s", duration)
     } else {
-        "N/A".to_string()
+        let time = tracker.completion_time.unwrap_or(0.0);
+        format!("{:.1}s", time)
     };
 
     let mut details_lines = vec![
