@@ -3,8 +3,8 @@ use ratatui::{
     style::{Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{
-        Block, BorderType, Borders, Clear, List, Padding, Paragraph, Scrollbar,
-        ScrollbarOrientation, ScrollbarState, Wrap,
+        Axis, Block, BorderType, Borders, Chart, Clear, Dataset, GraphType, List, Padding,
+        Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
     },
     Frame,
 };
@@ -878,6 +878,19 @@ fn render_ascii_art_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
 }
 
 pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
+    let results_style = termi.config.resolve_results_style();
+
+    match results_style {
+        crate::config::ResultsStyle::Neofetch => {
+            render_art_results_screen(frame, termi, area, is_small)
+        }
+        crate::config::ResultsStyle::Graph => {
+            render_graph_results_screen(frame, termi, area, is_small)
+        }
+    }
+}
+
+fn render_art_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
     let tracker = &termi.tracker;
     let theme = termi.current_theme();
     let config = &termi.config;
@@ -1126,6 +1139,378 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
             frame.render_widget(Paragraph::new(footer_line), restart_area);
         }
     }
+}
+
+fn render_graph_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
+    let tracker = &termi.tracker;
+    let theme = termi.current_theme();
+    let _config = &termi.config;
+
+    let is_monochromatic = termi.config.monocrhomatic_results;
+
+    let color_success = if is_monochromatic {
+        theme.highlight()
+    } else {
+        theme.success()
+    };
+    let color_fg = if is_monochromatic {
+        theme.muted()
+    } else {
+        theme.fg()
+    };
+    let color_muted = if is_monochromatic {
+        theme.fg()
+    } else {
+        theme.muted()
+    };
+    let color_warning = if is_monochromatic {
+        theme.highlight()
+    } else {
+        theme.warning()
+    };
+
+    // folds the results: graph top, stats mid, footer bottom
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(if is_small {
+            [Constraint::Percentage(100)].as_ref()
+        } else {
+            [
+                Constraint::Percentage(60),
+                Constraint::Percentage(38),
+                Constraint::Length(2),
+            ]
+            .as_ref()
+        })
+        .split(area);
+
+    let graph_area = main_layout[0];
+    let stats_area = if is_small { area } else { main_layout[1] };
+    let footer_area = if is_small { None } else { Some(main_layout[2]) };
+
+    // if there's space show the graph
+    if !is_small && !tracker.wpm_samples.is_empty() {
+        render_wpm_graph(frame, tracker, theme, graph_area);
+    }
+
+    render_graph_stats(
+        frame,
+        termi,
+        stats_area,
+        is_small,
+        color_success,
+        color_fg,
+        color_muted,
+    );
+
+    // TODO: this is repeated verbatim in the neofetch style results. extract it
+    if let Some(footer_area) = footer_area {
+        let footer_line = Line::from(vec![
+            Span::styled("[N]", Style::default().fg(color_warning)),
+            Span::styled(
+                "ew",
+                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
+            ),
+            Span::styled(" ", Style::default()),
+            Span::styled("[R]", Style::default().fg(color_warning)),
+            Span::styled(
+                "edo",
+                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
+            ),
+            Span::styled(" ", Style::default()),
+            Span::styled("[Q]", Style::default().fg(color_warning)),
+            Span::styled(
+                "uit",
+                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
+            ),
+            Span::styled("  ", Style::default()),
+            Span::styled("[ESC]", Style::default().fg(color_warning)),
+            Span::styled(
+                " menu",
+                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
+            ),
+        ])
+        .alignment(Alignment::Center);
+
+        frame.render_widget(Paragraph::new(footer_line), footer_area);
+    }
+}
+
+fn render_wpm_graph(
+    frame: &mut Frame,
+    tracker: &crate::tracker::Tracker,
+    theme: &crate::theme::Theme,
+    area: Rect,
+) {
+    let wpm_data: Vec<(f64, f64)> = tracker
+        .wpm_samples
+        .iter()
+        .enumerate()
+        .map(|(i, &wpm)| (i as f64, wpm as f64))
+        .collect();
+
+    if wpm_data.is_empty() {
+        return;
+    }
+
+    // clear with bg
+    frame.render_widget(
+        Block::default().style(Style::default().bg(theme.bg())),
+        area,
+    );
+
+    let max_wpm = tracker.wpm_samples.iter().max().copied().unwrap_or(0) as f64;
+    let min_wpm = tracker.wpm_samples.iter().min().copied().unwrap_or(0) as f64;
+    let max_time = (tracker.wpm_samples.len() - 1) as f64;
+
+    // padding
+    let y_max = (max_wpm * 1.1).max(max_wpm + 10.0);
+    let y_min = (min_wpm * 0.9).min(min_wpm - 10.0).max(0.0);
+
+    let dataset = Dataset::default()
+        .marker(ratatui::symbols::Marker::Braille)
+        .graph_type(GraphType::Line)
+        .style(Style::default().fg(theme.success()))
+        .data(&wpm_data);
+
+    let chart = Chart::new(vec![dataset])
+        .style(Style::default().bg(theme.bg()))
+        .block(
+            Block::default()
+                .title(" WPM Over Time ")
+                .title_alignment(Alignment::Center)
+                .borders(Borders::ALL)
+                .border_style(
+                    Style::default()
+                        .fg(theme.border())
+                        .add_modifier(Modifier::DIM),
+                )
+                .style(Style::default().bg(theme.bg())),
+        )
+        .x_axis(
+            Axis::default()
+                .title("Time (seconds)")
+                .style(Style::default().fg(theme.muted()))
+                .bounds([0.0, max_time])
+                .labels(vec![
+                    Span::styled("0", Style::default().fg(theme.muted())),
+                    Span::styled(
+                        format!("{:.0}", max_time / 2.0),
+                        Style::default().fg(theme.muted()),
+                    ),
+                    Span::styled(
+                        format!("{:.0}", max_time),
+                        Style::default().fg(theme.muted()),
+                    ),
+                ]),
+        )
+        .y_axis(
+            Axis::default()
+                .title("WPM")
+                .style(Style::default().fg(theme.muted()))
+                .bounds([y_min, y_max])
+                .labels(vec![
+                    Span::styled(format!("{:.0}", y_min), Style::default().fg(theme.muted())),
+                    Span::styled(
+                        format!("{:.0}", (y_min + y_max) / 2.0),
+                        Style::default().fg(theme.muted()),
+                    ),
+                    Span::styled(format!("{:.0}", y_max), Style::default().fg(theme.muted())),
+                ]),
+        );
+
+    frame.render_widget(chart, area);
+}
+
+fn render_graph_stats(
+    frame: &mut Frame,
+    termi: &crate::termi::Termi,
+    area: Rect,
+    is_small: bool,
+    color_success: ratatui::style::Color,
+    color_fg: ratatui::style::Color,
+    color_muted: ratatui::style::Color,
+) {
+    let tracker = &termi.tracker;
+    let config = &termi.config;
+    let theme = termi.current_theme();
+
+    // smart folds based on available space
+    let layout = if is_small {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(area)
+    } else {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(area)
+    };
+
+    let perf_stats_area = layout[0];
+    let details_stats_area = layout[1];
+
+    // === Performance Stats ===
+    let mut perf_lines = vec![
+        Line::from(vec![
+            Span::styled("WPM: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{:.0}", tracker.wpm),
+                Style::default()
+                    .fg(color_success)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Accuracy: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}%", tracker.accuracy),
+                Style::default()
+                    .fg(color_success)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Raw WPM: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{:.0}", tracker.raw_wpm),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Consistency: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{:.0}%", tracker.calculate_consistency()),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+    ];
+
+    if let Some(time) = tracker.completion_time {
+        perf_lines.push(Line::from(vec![
+            Span::styled("Duration: ", Style::default().fg(color_muted)),
+            Span::styled(format!("{:.1}s", time), Style::default().fg(color_fg)),
+        ]));
+    }
+
+    let perf_block = Block::default()
+        .title(" Performance ")
+        .title_alignment(Alignment::Left)
+        .borders(Borders::ALL)
+        .border_style(
+            Style::default()
+                .fg(theme.border())
+                .add_modifier(Modifier::DIM),
+        )
+        .style(Style::default().bg(theme.bg()));
+
+    let perf_paragraph = Paragraph::new(perf_lines)
+        .block(perf_block)
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(perf_paragraph, perf_stats_area);
+
+    // === Details Stats ===
+    let errors = tracker
+        .total_keystrokes
+        .saturating_sub(tracker.correct_keystrokes);
+    let (min_wpm, max_wpm) = tracker
+        .wpm_samples
+        .iter()
+        .fold((u32::MAX, 0), |(min, max), &val| {
+            (min.min(val), max.max(val))
+        });
+
+    let mode_str = match config.current_mode() {
+        crate::config::Mode::Time { duration } => format!("Time ({}s)", duration),
+        crate::config::Mode::Words { count } => format!("Words ({})", count),
+    };
+
+    let duration = if let Some(time) = tracker.completion_time {
+        format!("{:.1}s", time)
+    } else if let Mode::Time { duration } = config.current_mode() {
+        format!("{}s", duration)
+    } else {
+        "N/A".to_string()
+    };
+
+    let mut details_lines = vec![
+        Line::from(vec![
+            Span::styled("Mode: ", Style::default().fg(color_muted)),
+            Span::styled(mode_str, Style::default().fg(color_fg)),
+        ]),
+        Line::from(vec![
+            Span::styled("Language: ", Style::default().fg(color_muted)),
+            Span::styled(
+                config.language.clone().unwrap_or_default(),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Duration: ", Style::default().fg(color_muted)),
+            Span::styled(duration, Style::default().fg(color_fg)),
+        ]),
+        Line::from(vec![
+            Span::styled("Keystrokes: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", tracker.total_keystrokes),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Correct: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", tracker.correct_keystrokes),
+                Style::default().fg(color_success),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Errors: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", errors),
+                Style::default().fg(if errors > 0 {
+                    termi.current_theme().error()
+                } else {
+                    color_fg
+                }),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Backspaces: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", tracker.backspace_count),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+    ];
+
+    if min_wpm != u32::MAX {
+        details_lines.push(Line::from(vec![
+            Span::styled("WPM Range: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}-{}", min_wpm, max_wpm),
+                Style::default().fg(color_fg),
+            ),
+        ]));
+    }
+
+    let details_block = Block::default()
+        .title(" Details ")
+        .title_alignment(Alignment::Left)
+        .borders(Borders::ALL)
+        .border_style(
+            Style::default()
+                .fg(theme.border())
+                .add_modifier(Modifier::DIM),
+        )
+        .style(Style::default().bg(theme.bg()));
+
+    let details_paragraph = Paragraph::new(details_lines)
+        .block(details_block)
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(details_paragraph, details_stats_area);
 }
 
 #[cfg(test)]

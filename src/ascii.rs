@@ -282,6 +282,27 @@ pub const AVAILABLE_ASCII_ARTS: &[AsciiArt] = &[
         "#,
     },
     AsciiArt {
+        name: "Linux",
+        art: r#"
+         _nnnn_
+        dGGGGMMb     ,"""""""""""""".
+       @p~qp~~qMb    |  Linux FTW!  |
+       M|@||@) M|   _;..............'
+       @,----.JM| -'
+      JS^\__/  qKL
+     dZP        qKRb
+    dZP          qKKb
+   fZP            SMMb
+   HZM            MMMM
+   FqM            MMMM
+ __| ".        |\dS"qML
+ |    `.       | `' \Zq
+_)      \.___.,|     .'
+\____   )MMMMMM|   .'
+     `-'       `--'
+        "#,
+    },
+    AsciiArt {
         name: "Macintosh",
         art: r#"
         ______________

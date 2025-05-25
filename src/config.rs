@@ -8,7 +8,8 @@ use crate::{
     builder::Builder,
     constants::{
         DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_PICKER_STYLE,
-        DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT, WPS_TARGET,
+        DEFAULT_RESULTS_STYLE, DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT,
+        WPS_TARGET,
     },
     persistence::Persistence,
     theme::{ColorSupport, Theme, ThemeLoader},
@@ -92,14 +93,32 @@ pub struct Config {
     )]
     pub ascii: Option<String>,
 
-    /// Menu style
+    /// Menu Picker style
     #[arg(
-        long = "picker",
+        long = "picker-style",
         value_name = "STYLE",
         value_parser = ["quake", "telescope", "ivy", "minimal"],
         help = "Menu style"
     )]
     pub picker_style: Option<String>,
+
+    /// Results display style
+    #[arg(
+        long = "results-style",
+        value_name = "STYLE",
+        value_parser = ["graph", "neofetch"],
+        help = "Results display style"
+    )]
+    pub results_style: Option<String>,
+
+    /// Cursor style
+    #[arg(
+        long = "cursor-style",
+        value_name = "STYLE",
+        value_parser = ["beam", "block", "underline", "blinking-beam", "blinking-block", "blinking-underline"],
+        help = "Cursor style"
+    )]
+    pub cursor_style: Option<String>,
 
     /// List all available themes
     #[arg(long = "list-themes", help = "List all available themes")]
@@ -145,15 +164,6 @@ pub struct Config {
         help = "Color support"
     )]
     pub color_mode: Option<String>,
-
-    /// Cursor style
-    #[arg(
-        long = "cursor-style",
-        value_name = "STYLE",
-        value_parser = ["beam", "block", "underline", "blinking-beam", "blinking-block", "blinking-underline"],
-        help = "Cursor style"
-    )]
-    pub cursor_style: Option<String>,
 
     /// Number of visible text lines
     #[arg(
@@ -226,6 +236,7 @@ impl Default for Config {
             language: Some(DEFAULT_LANGUAGE.to_string()),
             cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
             picker_style: Some(DEFAULT_PICKER_STYLE.to_string()),
+            results_style: Some(DEFAULT_RESULTS_STYLE.to_string()),
             visible_lines: DEFAULT_LINE_COUNT,
             color_mode: None,
             list_ascii: false,
@@ -367,6 +378,17 @@ impl Config {
                 if let Some(hide_cursorline) = persistence.get("hide_cursorline") {
                     let val = matches!(hide_cursorline, "true");
                     self.set_cursorline(val)
+                }
+            }
+
+            // Results Style
+            if self.results_style.is_none() {
+                if let Some(results_style) = persistence.get("results_style") {
+                    if results_style.parse::<ResultsStyle>().is_ok() {
+                        self.results_style = Some(results_style.to_string());
+                    }
+                } else {
+                    self.results_style = Some(DEFAULT_RESULTS_STYLE.to_string())
                 }
             }
 
@@ -554,7 +576,7 @@ impl Config {
             "Not found."
         }
     }
-
+    /// FIXME(ema): this setter are getting out of hand. This must be refactored ASAP
     fn set_numbers(&mut self, val: bool) {
         self.use_numbers = val;
         if let Some(persistence) = &mut self.persistent {
@@ -680,6 +702,24 @@ impl Config {
             .and_then(|s| s.parse().ok())
             .unwrap_or_default()
     }
+
+    /// Changes the results style for the results screen.
+    pub fn change_results_style(&mut self, style: &str) {
+        if style.parse::<ResultsStyle>().is_ok() {
+            self.results_style = Some(style.to_string());
+            if let Some(persistence) = &mut self.persistent {
+                let _ = persistence.set("results_style", style);
+            }
+        }
+    }
+
+    /// Resolves the current results style.
+    pub fn resolve_results_style(&self) -> ResultsStyle {
+        self.results_style
+            .as_deref()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_default()
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -751,6 +791,72 @@ impl PickerStyle {
 impl Default for PickerStyle {
     fn default() -> Self {
         Self::Quake
+    }
+}
+
+// TODO: is annoying having to recreate this over and over again. Will probablly be best
+// to have some of `style.rs` that takes care of the boiiler plate. It's mostly the same for all styles
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ResultsStyle {
+    Graph,
+    Neofetch,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResultsStyleParseError {
+    pub invalid_input: String,
+}
+
+impl std::fmt::Display for ResultsStyleParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Invalid results style: '{}'. Valid options are: neofetch, graph",
+            self.invalid_input
+        )
+    }
+}
+
+impl std::error::Error for ResultsStyleParseError {}
+
+impl FromStr for ResultsStyle {
+    type Err = ResultsStyleParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "graph" => Ok(Self::Graph),
+            "neofetch" => Ok(Self::Neofetch),
+            _ => Err(ResultsStyleParseError {
+                invalid_input: s.to_string(),
+            }),
+        }
+    }
+}
+
+impl ResultsStyle {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Graph => "graph",
+            Self::Neofetch => "neofetch",
+        }
+    }
+
+    pub fn all() -> &'static [&'static str] {
+        &["graph", "neofetch"]
+    }
+
+    pub fn label_from_str(label: &str) -> &'static str {
+        match label {
+            "graph" => "Graph",
+            "neofetch" => "Neofetch",
+            _ => "Unknown style",
+        }
+    }
+}
+
+impl Default for ResultsStyle {
+    fn default() -> Self {
+        Self::Graph
     }
 }
 
