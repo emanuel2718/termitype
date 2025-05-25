@@ -23,10 +23,11 @@ use crate::{
                   termitype -t 60                        Run a 60-second typing test\n  \
                   termitype --word-count 100             Test will contain exactly 100 words\n  \
                   termitype -T \"catppuccin-mocha\"        Use cattpuccin-mocha theme\n  \
-                  termitype -l spanish                   Spanish test words\n  \
+                  termitype -l spanish                   Use Spanish test words\n  \
                   termitype -spn                         Enable symbols, punctuation, and numbers\n  \
                   termitype --list-themes                Show all available themes\n  \
-                  termitype --picker telescope           Use floating menu style\n\n\
+                  termitype --results-style neofetch     Use neofetch inspired results\n  \
+                  termitype --picker-style telescope     Use floating menu style\n\n\
                   Note that all of the options can also be changed at runtime as well via the menu\n\
                   Visit https://github.com/emanuel2718/termitype for more information.",
     version

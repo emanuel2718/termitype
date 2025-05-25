@@ -90,7 +90,9 @@ Options:
       --word-count <COUNT>         Number of words to type
   -T, --theme <THEME_NAME>         Color theme to use
       --ascii <ART_NAME>           ASCII art for results screen
-      --picker <STYLE>             Menu style [possible values: quake, telescope, ivy, minimal]
+      --picker-style <STYLE>       Menu style [possible values: quake, telescope, ivy, minimal]
+      --results-style <STYLE>      Results display style [possible values: graph, neofetch]
+      --cursor-style <STYLE>       Cursor style [possible values: beam, block, underline, blinking-beam, blinking-block, blinking-underline]
       --list-themes                List all available themes
       --list-languages             List all available languages
       --list-ascii                 List all available ASCII arts
@@ -98,7 +100,6 @@ Options:
   -p, --use-punctuation            Include punctuation in test words
   -n, --use-numbers                Include numbers in test words
       --color-mode <MODE>          Color support [possible values: basic, extended, truecolor]
-      --cursor-style <STYLE>       Cursor style [possible values: beam, block, underline, blinking-beam, blinking-block, blinking-underline]
       --lines <COUNT>              Number of visible text lines [default: 3]
   -d, --debug                      Enable debug mode
       --show-fps                   Display FPS counter
@@ -112,10 +113,11 @@ EXAMPLES:
   termitype -t 60                        Run a 60-second typing test
   termitype --word-count 100             Test will contain exactly 100 words
   termitype -T "catppuccin-mocha"        Use cattpuccin-mocha theme
-  termitype -l spanish                   Use spanish test words
+  termitype -l spanish                   Use Spanish test words
   termitype -spn                         Enable symbols, punctuation, and numbers
   termitype --list-themes                Show all available themes
-  termitype --picker telescope           Use floating menu style
+  termitype --results-style neofetch     Use neofetch inspired results
+  termitype --picker-style telescope     Use floating menu style
 ```
 
 ## Development
@@ -178,8 +180,8 @@ Termitype includes a curated collection of themes sourced from the [iTerm2 Ghost
 - [ ] **User config file**: Have a user editable config file in `$XDG_CONFIG_HOME/termitype/config.toml`
 - [ ] **Custom ascii arts**: Allow usage of custom ascii arts
 - [ ] **Custom theme**: Allow setting custom themes with names
-- [ ] **Advanced Analytics**: Detailed typing pattern analysis and options for graph mode results
-- [ ] **Local Statistics Tracking**: SQLite-based stats with opt-out option
+- [ ] **Wordlist Improvements**: Improve the quality and distribution of words
+- [ ] **Local Results Tracking**: Track test results over time (best use case is to track highest WPM on specific modes) with opt-out option
 
 ## License
 
