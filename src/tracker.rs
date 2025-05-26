@@ -105,7 +105,8 @@ impl Tracker {
         if let Some(duration) = self.time_remaining {
             let seconds = duration.as_secs();
             self.time_remaining = Some(Duration::from_secs(seconds));
-            self.time_end = Some(now + Duration::from_secs(seconds));
+            // NOTE(ema): must add a buffer of 500 to now have time jump from N to N-1 when test starts
+            self.time_end = Some(now + Duration::from_secs(seconds) + Duration::from_millis(500));
         }
 
         self.wpm = 0.0;

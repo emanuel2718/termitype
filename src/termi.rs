@@ -218,6 +218,30 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             needs_redraw = true;
         }
 
+        // with this we ensure that on time mode we update the time regardless of user input
+        if termi.tracker.status == Status::Typing {
+            if let Some(end_time) = termi.tracker.time_end {
+                let new_time_remaining = if now >= end_time {
+                    Duration::from_secs(0)
+                } else {
+                    end_time.duration_since(now)
+                };
+
+                // only update `time_remaining` if seconds have changed
+                let current_seconds = termi
+                    .tracker
+                    .time_remaining
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let new_seconds = new_time_remaining.as_secs();
+
+                if current_seconds != new_seconds {
+                    termi.tracker.time_remaining = Some(new_time_remaining);
+                    needs_redraw = true;
+                }
+            }
+        }
+
         if now.duration_since(last_metrics_update) >= Duration::from_millis(500) {
             termi.tracker.update_metrics();
             last_metrics_update = now;
