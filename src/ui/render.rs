@@ -1245,7 +1245,7 @@ fn render_wpm_graph(frame: &mut Frame, termi: &Termi, area: Rect) {
                 .labels(vec![
                     Span::styled("1", Style::default().fg(theme.muted())),
                     Span::styled(
-                        format!("{:.0}", (1.0 + max_time) / 2.0),
+                        format!("{:.0}", max_time / 2.0),
                         Style::default().fg(theme.muted()),
                     ),
                     Span::styled(
