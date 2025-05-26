@@ -1302,7 +1302,7 @@ fn render_graph_stats(
     let details_stats_area = layout[1];
 
     // === Performance Stats ===
-    let mut perf_lines = vec![
+    let perf_lines = vec![
         Line::from(vec![
             Span::styled("WPM: ", Style::default().fg(color_muted)),
             Span::styled(
@@ -1337,16 +1337,10 @@ fn render_graph_stats(
         ]),
     ];
 
-    if let Some(time) = tracker.completion_time {
-        perf_lines.push(Line::from(vec![
-            Span::styled("Duration: ", Style::default().fg(color_muted)),
-            Span::styled(format!("{:.1}s", time), Style::default().fg(color_fg)),
-        ]));
-    }
-
     let perf_block = Block::default()
         .title(" Performance ")
         .title_alignment(Alignment::Left)
+        .padding(Padding::horizontal(1))
         .borders(Borders::ALL)
         .border_style(
             Style::default()
@@ -1447,6 +1441,7 @@ fn render_graph_stats(
     let details_block = Block::default()
         .title(" Details ")
         .title_alignment(Alignment::Left)
+        .padding(Padding::horizontal(1))
         .borders(Borders::ALL)
         .border_style(
             Style::default()
