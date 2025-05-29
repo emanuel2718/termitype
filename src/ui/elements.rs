@@ -100,7 +100,6 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
     let num_symbol = if supports_unicode { "#" } else { "N" };
     let symbol_symbol = if supports_unicode { "@" } else { "S" };
     let divider = if supports_unicode { "│" } else { "|" };
-    let time_symbol = if supports_unicode { "⏱" } else { "T" };
     let custom_symbol = if supports_unicode { "⚙" } else { "<c>" };
 
     let elements = vec![
@@ -121,7 +120,7 @@ pub fn create_action_bar(termi: &Termi) -> Vec<TermiElement> {
         ),
         TermiElement::new(format!("{} ", divider), false, None),
         TermiElement::new(
-            format!("{} time ", time_symbol),
+            "T time ",
             is_time_mode,
             Some(TermiClickAction::SwitchMode(ModeType::Time)),
         ),
