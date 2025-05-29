@@ -234,12 +234,18 @@ pub fn create_typing_area<'a>(
     let first_line_to_render = scroll_offset;
     let last_line_to_render = scroll_offset + visible_line_count;
 
-    let mut current_line_spans = Vec::new();
+    let mut current_line_spans = Vec::with_capacity(100);
     let mut current_line_idx_in_full_text = 0;
 
     if let Some(first_pos) = word_positions.first() {
         current_line_idx_in_full_text = first_pos.line;
     }
+
+    let cursor_pos = termi.tracker.cursor_position;
+    let supports_themes = theme.color_support.supports_themes();
+    let success_style = Style::default().fg(theme.success());
+    let error_style = Style::default().fg(theme.error());
+    let dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
 
     for (i, pos) in word_positions.iter().enumerate() {
         if pos.line > current_line_idx_in_full_text {
@@ -248,6 +254,7 @@ pub fn create_typing_area<'a>(
             {
                 if !current_line_spans.is_empty() {
                     lines.push(Line::from(std::mem::take(&mut current_line_spans)));
+                    current_line_spans.reserve(100);
                 }
             } else {
                 current_line_spans.clear();
@@ -264,18 +271,16 @@ pub fn create_typing_area<'a>(
             let word_start = pos.start_index;
             let word_len = word.chars().count();
 
-            let cursor_pos = termi.tracker.cursor_position;
             let is_word_wrong = termi.tracker.is_word_wrong(word_start);
             let is_past_word = cursor_pos > word_start + word_len;
-            let should_underline_word =
-                is_word_wrong && is_past_word && theme.color_support.supports_themes();
+            let should_underline_word = is_word_wrong && is_past_word && supports_themes;
 
             for (char_i, c) in word.chars().enumerate() {
                 let char_idx = word_start + char_i;
                 let base_style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
-                    Some(input) if input == c => Style::default().fg(theme.success()),
-                    Some(_) => Style::default().fg(theme.error()),
-                    None => Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
+                    Some(input) if input == c => success_style,
+                    Some(_) => error_style,
+                    None => dim_style,
                 };
 
                 let style = if should_underline_word {
