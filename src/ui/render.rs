@@ -272,11 +272,10 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     }
 
     let current_word_pos = word_positions
-        .iter()
-        .filter(|pos| cursor_idx >= pos.start_index)
-        .next_back()
-        .unwrap_or_else(|| word_positions.first().unwrap());
+        .binary_search_by(|pos| pos.start_index.cmp(&cursor_idx))
+        .unwrap_or_else(|i| i.saturating_sub(1));
 
+    let current_word_pos = &word_positions[current_word_pos];
     let current_line = current_word_pos.line;
 
     let scroll_offset = if line_count <= 1 {
@@ -306,15 +305,12 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
     frame.render_widget(paragraph, render_area);
 
-    // Menu overlap check logic
-    let estimated_menu_area = calculate_menu_area(termi, frame.area());
     let show_cursor = (termi.tracker.status == Status::Idle
         || termi.tracker.status == Status::Typing)
-        && (!termi.menu.is_open() || !estimated_menu_area.intersects(render_area))
         && termi.modal.is_none()
         && !termi.menu.is_theme_menu();
 
-    if show_cursor {
+    if show_cursor && !termi.menu.is_open() {
         let offset_x = cursor_idx.saturating_sub(current_word_pos.start_index);
         let cursor_x = render_area.x + current_word_pos.col.saturating_add(offset_x) as u16;
         let cursor_y = render_area.y + current_line.saturating_sub(scroll_offset) as u16;
@@ -329,6 +325,25 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
                 x: cursor_x,
                 y: cursor_y,
             });
+        }
+    } else if show_cursor {
+        // only check for menu overlap when the menu is open
+        let estimated_menu_area = calculate_menu_area(termi, frame.area());
+        if !estimated_menu_area.intersects(render_area) {
+            let offset_x = cursor_idx.saturating_sub(current_word_pos.start_index);
+            let cursor_x = render_area.x + current_word_pos.col.saturating_add(offset_x) as u16;
+            let cursor_y = render_area.y + current_line.saturating_sub(scroll_offset) as u16;
+
+            if cursor_x >= render_area.left()
+                && cursor_x < render_area.right()
+                && cursor_y >= render_area.top()
+                && cursor_y < render_area.top() + text_height as u16
+            {
+                frame.set_cursor_position(Position {
+                    x: cursor_x,
+                    y: cursor_y,
+                });
+            }
         }
     }
 }
