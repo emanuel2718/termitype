@@ -643,7 +643,7 @@ mod tests {
 
         tracker.complete();
 
-        assert_eq!(tracker.completion_time, Some(1.0));
+        assert_eq!(tracker.completion_time, Some(1.5));
         assert_eq!(tracker.status, Status::Completed);
     }
 

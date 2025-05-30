@@ -1054,32 +1054,51 @@ fn render_neofetch_results_screen(
         .max()
         .unwrap_or(0) as u16;
 
+    let footer_height = if is_small { 0 } else { 2 };
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(if is_small {
+            vec![Constraint::Percentage(100)]
+        } else {
+            vec![
+                Constraint::Min(0),                // content
+                Constraint::Length(footer_height), // footer
+            ]
+        })
+        .split(area);
+
+    let content_area = main_layout[0];
+    let footer_area = if is_small { None } else { Some(main_layout[1]) };
+
     if is_small {
         let centered_rect = Rect {
-            x: area.x + area.width.saturating_sub(stats_width) / 2,
-            y: area.y + area.height.saturating_sub(stats_height) / 2,
-            width: stats_width.min(area.width),
-            height: stats_height.min(area.height),
+            x: content_area.x + content_area.width.saturating_sub(stats_width) / 2,
+            y: content_area.y + content_area.height.saturating_sub(stats_height) / 2,
+            width: stats_width.min(content_area.width),
+            height: stats_height.min(content_area.height),
         };
         frame.render_widget(Paragraph::new(stats_text), centered_rect);
     } else {
         let total_needed_width = art_width + stats_width + 5;
-        let horizontal_padding = area.width.saturating_sub(total_needed_width) / 2;
-        let vertical_padding = area.height.saturating_sub(stats_height.max(art_height)) / 2;
+        let horizontal_padding = content_area.width.saturating_sub(total_needed_width) / 2;
+        let vertical_padding = content_area
+            .height
+            .saturating_sub(stats_height.max(art_height))
+            / 2;
 
         let layout_area = Rect {
-            x: area.x + horizontal_padding,
-            y: area.y + vertical_padding,
-            width: total_needed_width.min(area.width),
-            height: stats_height.max(art_height).min(area.height),
+            x: content_area.x + horizontal_padding,
+            y: content_area.y + vertical_padding,
+            width: total_needed_width.min(content_area.width),
+            height: stats_height.max(art_height).min(content_area.height),
         };
 
-        if layout_area.right() > area.right() || layout_area.width == 0 {
+        if layout_area.right() > content_area.right() || layout_area.width == 0 {
             let centered_rect = Rect {
-                x: area.x + area.width.saturating_sub(stats_width) / 2,
-                y: area.y + area.height.saturating_sub(stats_height) / 2,
-                width: stats_width.min(area.width),
-                height: stats_height.min(area.height),
+                x: content_area.x + content_area.width.saturating_sub(stats_width) / 2,
+                y: content_area.y + content_area.height.saturating_sub(stats_height) / 2,
+                width: stats_width.min(content_area.width),
+                height: stats_height.min(content_area.height),
             };
             frame.render_widget(Paragraph::new(stats_text), centered_rect);
         } else {
@@ -1119,20 +1138,10 @@ fn render_neofetch_results_screen(
         }
     }
 
-    // only show footer if we have enough space
-    if !is_small {
+    // do the actual rendering of the footer
+    if let Some(footer_area) = footer_area {
         let footer_line = create_results_footer_text(theme);
-
-        let restart_height: u16 = 4;
-        if area.height > restart_height {
-            let restart_area = Rect {
-                x: area.x,
-                y: area.bottom().saturating_sub(restart_height),
-                width: area.width,
-                height: restart_height,
-            };
-            frame.render_widget(Paragraph::new(footer_line), restart_area);
-        }
+        frame.render_widget(Paragraph::new(footer_line), footer_area);
     }
 }
 
