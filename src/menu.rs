@@ -294,6 +294,10 @@ impl MenuState {
         is_menu_context!(self, MenuContext::Options)
     }
 
+    pub fn is_results_menu(&self) -> bool {
+        is_menu_context!(self, MenuContext::Results)
+    }
+
     pub fn current_menu(&self) -> Option<&Menu> {
         self.stack.last()
     }
@@ -585,6 +589,10 @@ impl MenuState {
                 }
             }
             MenuContext::LineCount => Some(format!("lines/{}", config.visible_lines)),
+            MenuContext::Results => {
+                let results_style = config.resolve_results_style();
+                Some(format!("results/{}", results_style.as_str()))
+            }
             MenuContext::Root | MenuContext::About | MenuContext::Help | MenuContext::Options => {
                 None
             }

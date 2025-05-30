@@ -3,8 +3,8 @@ use ratatui::{
     style::{Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{
-        Block, BorderType, Borders, Clear, List, Padding, Paragraph, Scrollbar,
-        ScrollbarOrientation, ScrollbarState, Wrap,
+        Axis, Block, BorderType, Borders, Chart, Clear, Dataset, GraphType, List, Padding,
+        Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
     },
     Frame,
 };
@@ -24,7 +24,7 @@ use super::{
     elements::{
         build_menu_items, create_action_bar, create_command_bar, create_footer, create_header,
         create_menu_footer_text, create_minimal_size_warning, create_mode_bar,
-        create_show_menu_button, create_typing_area, TermiElement,
+        create_results_footer_text, create_show_menu_button, create_typing_area, TermiElement,
     },
     layout::create_layout,
     utils::{
@@ -272,11 +272,10 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     }
 
     let current_word_pos = word_positions
-        .iter()
-        .filter(|pos| cursor_idx >= pos.start_index)
-        .next_back()
-        .unwrap_or_else(|| word_positions.first().unwrap());
+        .binary_search_by(|pos| pos.start_index.cmp(&cursor_idx))
+        .unwrap_or_else(|i| i.saturating_sub(1));
 
+    let current_word_pos = &word_positions[current_word_pos];
     let current_line = current_word_pos.line;
 
     let scroll_offset = if line_count <= 1 {
@@ -306,15 +305,12 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
     let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
     frame.render_widget(paragraph, render_area);
 
-    // Menu overlap check logic
-    let estimated_menu_area = calculate_menu_area(termi, frame.area());
     let show_cursor = (termi.tracker.status == Status::Idle
         || termi.tracker.status == Status::Typing)
-        && (!termi.menu.is_open() || !estimated_menu_area.intersects(render_area))
         && termi.modal.is_none()
         && !termi.menu.is_theme_menu();
 
-    if show_cursor {
+    if show_cursor && !termi.menu.is_open() {
         let offset_x = cursor_idx.saturating_sub(current_word_pos.start_index);
         let cursor_x = render_area.x + current_word_pos.col.saturating_add(offset_x) as u16;
         let cursor_y = render_area.y + current_line.saturating_sub(scroll_offset) as u16;
@@ -329,6 +325,25 @@ fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
                 x: cursor_x,
                 y: cursor_y,
             });
+        }
+    } else if show_cursor {
+        // only check for menu overlap when the menu is open
+        let estimated_menu_area = calculate_menu_area(termi, frame.area());
+        if !estimated_menu_area.intersects(render_area) {
+            let offset_x = cursor_idx.saturating_sub(current_word_pos.start_index);
+            let cursor_x = render_area.x + current_word_pos.col.saturating_add(offset_x) as u16;
+            let cursor_y = render_area.y + current_line.saturating_sub(scroll_offset) as u16;
+
+            if cursor_x >= render_area.left()
+                && cursor_x < render_area.right()
+                && cursor_y >= render_area.top()
+                && cursor_y < render_area.top() + text_height as u16
+            {
+                frame.set_cursor_position(Position {
+                    x: cursor_x,
+                    y: cursor_y,
+                });
+            }
         }
     }
 }
@@ -878,6 +893,24 @@ fn render_ascii_art_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
 }
 
 pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
+    let results_style = termi.config.resolve_results_style();
+
+    match results_style {
+        crate::config::ResultsStyle::Neofetch => {
+            render_neofetch_results_screen(frame, termi, area, is_small)
+        }
+        crate::config::ResultsStyle::Graph => {
+            render_graph_results_screen(frame, termi, area, is_small)
+        }
+    }
+}
+
+fn render_neofetch_results_screen(
+    frame: &mut Frame,
+    termi: &mut Termi,
+    area: Rect,
+    is_small: bool,
+) {
     let tracker = &termi.tracker;
     let theme = termi.current_theme();
     let config = &termi.config;
@@ -898,12 +931,6 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         theme.muted()
     } else {
         theme.fg()
-    };
-
-    let color_muted = if is_monochromatic {
-        theme.fg()
-    } else {
-        theme.muted()
     };
 
     let color_warning = if is_monochromatic {
@@ -1027,32 +1054,51 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         .max()
         .unwrap_or(0) as u16;
 
+    let footer_height = if is_small { 0 } else { 2 };
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(if is_small {
+            vec![Constraint::Percentage(100)]
+        } else {
+            vec![
+                Constraint::Min(0),                // content
+                Constraint::Length(footer_height), // footer
+            ]
+        })
+        .split(area);
+
+    let content_area = main_layout[0];
+    let footer_area = if is_small { None } else { Some(main_layout[1]) };
+
     if is_small {
         let centered_rect = Rect {
-            x: area.x + area.width.saturating_sub(stats_width) / 2,
-            y: area.y + area.height.saturating_sub(stats_height) / 2,
-            width: stats_width.min(area.width),
-            height: stats_height.min(area.height),
+            x: content_area.x + content_area.width.saturating_sub(stats_width) / 2,
+            y: content_area.y + content_area.height.saturating_sub(stats_height) / 2,
+            width: stats_width.min(content_area.width),
+            height: stats_height.min(content_area.height),
         };
         frame.render_widget(Paragraph::new(stats_text), centered_rect);
     } else {
         let total_needed_width = art_width + stats_width + 5;
-        let horizontal_padding = area.width.saturating_sub(total_needed_width) / 2;
-        let vertical_padding = area.height.saturating_sub(stats_height.max(art_height)) / 2;
+        let horizontal_padding = content_area.width.saturating_sub(total_needed_width) / 2;
+        let vertical_padding = content_area
+            .height
+            .saturating_sub(stats_height.max(art_height))
+            / 2;
 
         let layout_area = Rect {
-            x: area.x + horizontal_padding,
-            y: area.y + vertical_padding,
-            width: total_needed_width.min(area.width),
-            height: stats_height.max(art_height).min(area.height),
+            x: content_area.x + horizontal_padding,
+            y: content_area.y + vertical_padding,
+            width: total_needed_width.min(content_area.width),
+            height: stats_height.max(art_height).min(content_area.height),
         };
 
-        if layout_area.right() > area.right() || layout_area.width == 0 {
+        if layout_area.right() > content_area.right() || layout_area.width == 0 {
             let centered_rect = Rect {
-                x: area.x + area.width.saturating_sub(stats_width) / 2,
-                y: area.y + area.height.saturating_sub(stats_height) / 2,
-                width: stats_width.min(area.width),
-                height: stats_height.min(area.height),
+                x: content_area.x + content_area.width.saturating_sub(stats_width) / 2,
+                y: content_area.y + content_area.height.saturating_sub(stats_height) / 2,
+                width: stats_width.min(content_area.width),
+                height: stats_height.min(content_area.height),
             };
             frame.render_widget(Paragraph::new(stats_text), centered_rect);
         } else {
@@ -1092,40 +1138,347 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
         }
     }
 
-    // only show footer if we have enough space
-    if !is_small {
-        let footer_line = Line::from(vec![
-            Span::styled("[N]", Style::default().fg(color_warning)),
-            Span::styled(
-                "ew",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-            Span::styled(" ", Style::default()),
-            Span::styled("[R]", Style::default().fg(color_warning)),
-            Span::styled(
-                "edo",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-            Span::styled(" ", Style::default()),
-            Span::styled("[Q]", Style::default().fg(color_warning)),
-            Span::styled(
-                "uit",
-                Style::default().fg(color_muted).add_modifier(Modifier::DIM),
-            ),
-        ])
-        .alignment(Alignment::Center);
-
-        let restart_height: u16 = 4;
-        if area.height > restart_height {
-            let restart_area = Rect {
-                x: area.x,
-                y: area.bottom().saturating_sub(restart_height),
-                width: area.width,
-                height: restart_height,
-            };
-            frame.render_widget(Paragraph::new(footer_line), restart_area);
-        }
+    // do the actual rendering of the footer
+    if let Some(footer_area) = footer_area {
+        let footer_line = create_results_footer_text(theme);
+        frame.render_widget(Paragraph::new(footer_line), footer_area);
     }
+}
+
+fn render_graph_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
+    let tracker = &termi.tracker;
+    let theme = termi.current_theme();
+    let _config = &termi.config;
+
+    let is_monochromatic = termi.config.monocrhomatic_results;
+
+    let color_success = if is_monochromatic {
+        theme.highlight()
+    } else {
+        theme.success()
+    };
+    let color_fg = if is_monochromatic {
+        theme.muted()
+    } else {
+        theme.fg()
+    };
+    let color_muted = if is_monochromatic {
+        theme.fg()
+    } else {
+        theme.muted()
+    };
+
+    // folds the results: graph top, stats mid, footer bottom
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(if is_small {
+            [Constraint::Percentage(100)].as_ref()
+        } else {
+            [
+                Constraint::Percentage(60), // graph
+                Constraint::Percentage(38), // stats
+                Constraint::Length(2),      // footer
+            ]
+            .as_ref()
+        })
+        .split(area);
+
+    let graph_area = main_layout[0];
+    let stats_area = if is_small { area } else { main_layout[1] };
+    let footer_area = if is_small { None } else { Some(main_layout[2]) };
+
+    // if there's space show the graph
+    if !is_small && !tracker.wpm_samples.is_empty() {
+        render_wpm_graph(frame, termi, graph_area);
+    }
+
+    render_graph_stats(
+        frame,
+        termi,
+        stats_area,
+        is_small,
+        color_success,
+        color_fg,
+        color_muted,
+    );
+
+    if let Some(footer_area) = footer_area {
+        let footer_line = create_results_footer_text(theme);
+        frame.render_widget(Paragraph::new(footer_line), footer_area);
+    }
+}
+
+fn render_wpm_graph(frame: &mut Frame, termi: &Termi, area: Rect) {
+    let theme = termi.current_theme();
+
+    if termi.tracker.wpm_samples.is_empty() {
+        return;
+    }
+
+    let wpm_data: Vec<(f64, f64)> = termi
+        .tracker
+        .wpm_samples
+        .iter()
+        .enumerate()
+        .map(|(i, &wpm)| ((i + 1) as f64, wpm as f64))
+        .collect();
+
+    // clear with bg
+    frame.render_widget(
+        Block::default().style(Style::default().bg(theme.bg())),
+        area,
+    );
+
+    let max_wpm = termi.tracker.wpm_samples.iter().max().copied().unwrap_or(0) as f64;
+    let min_wpm = termi.tracker.wpm_samples.iter().min().copied().unwrap_or(0) as f64;
+    let max_time = if let Mode::Time { duration } = termi.config.current_mode() {
+        (duration as f64).floor()
+    } else {
+        termi.tracker.wpm_samples.len() as f64
+    };
+
+    // padding
+    let y_max = (max_wpm * 1.1).max(max_wpm + 10.0);
+    let y_min = (min_wpm * 0.9).min(min_wpm - 10.0).max(0.0);
+
+    let dataset = Dataset::default()
+        .marker(ratatui::symbols::Marker::Braille)
+        .graph_type(GraphType::Line)
+        .style(Style::default().fg(theme.success()))
+        .data(&wpm_data);
+
+    let chart = Chart::new(vec![dataset])
+        .style(Style::default().bg(theme.bg()))
+        .block(
+            Block::default()
+                .title(" WPM Over Time ")
+                .title_alignment(Alignment::Center)
+                .borders(Borders::ALL)
+                .border_style(
+                    Style::default()
+                        .fg(theme.border())
+                        .add_modifier(Modifier::DIM),
+                )
+                .style(Style::default().bg(theme.bg())),
+        )
+        .x_axis(
+            Axis::default()
+                .title("Time (seconds)")
+                .style(Style::default().fg(theme.muted()))
+                .bounds([1.0, max_time])
+                .labels(vec![
+                    Span::styled("1", Style::default().fg(theme.muted())),
+                    Span::styled(
+                        format!("{:.0}", max_time / 2.0),
+                        Style::default().fg(theme.muted()),
+                    ),
+                    Span::styled(
+                        format!("{:.0}", max_time),
+                        Style::default().fg(theme.muted()),
+                    ),
+                ]),
+        )
+        .y_axis(
+            Axis::default()
+                .title("WPM")
+                .style(Style::default().fg(theme.muted()))
+                .bounds([y_min, y_max])
+                .labels(vec![
+                    Span::styled(format!("{:.0}", y_min), Style::default().fg(theme.muted())),
+                    Span::styled(
+                        format!("{:.0}", (y_min + y_max) / 2.0),
+                        Style::default().fg(theme.muted()),
+                    ),
+                    Span::styled(format!("{:.0}", y_max), Style::default().fg(theme.muted())),
+                ]),
+        );
+
+    frame.render_widget(chart, area);
+}
+
+fn render_graph_stats(
+    frame: &mut Frame,
+    termi: &crate::termi::Termi,
+    area: Rect,
+    is_small: bool,
+    color_success: ratatui::style::Color,
+    color_fg: ratatui::style::Color,
+    color_muted: ratatui::style::Color,
+) {
+    let tracker = &termi.tracker;
+    let config = &termi.config;
+    let theme = termi.current_theme();
+
+    // smart folds based on available space
+    let layout = if is_small {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(area)
+    } else {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(area)
+    };
+
+    let perf_stats_area = layout[0];
+    let details_stats_area = layout[1];
+
+    // === Performance Stats ===
+    let perf_lines = vec![
+        Line::from(vec![
+            Span::styled("WPM: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{:.0}", tracker.wpm),
+                Style::default()
+                    .fg(color_success)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Accuracy: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}%", tracker.accuracy),
+                Style::default()
+                    .fg(color_success)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Raw WPM: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{:.0}", tracker.raw_wpm),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Consistency: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{:.0}%", tracker.calculate_consistency()),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+    ];
+
+    let perf_block = Block::default()
+        .title(" Performance ")
+        .title_alignment(Alignment::Left)
+        .padding(Padding::horizontal(1))
+        .borders(Borders::ALL)
+        .border_style(
+            Style::default()
+                .fg(theme.border())
+                .add_modifier(Modifier::DIM),
+        )
+        .style(Style::default().bg(theme.bg()));
+
+    let perf_paragraph = Paragraph::new(perf_lines)
+        .block(perf_block)
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(perf_paragraph, perf_stats_area);
+
+    // === Details Stats ===
+    let errors = tracker
+        .total_keystrokes
+        .saturating_sub(tracker.correct_keystrokes);
+    let (min_wpm, max_wpm) = tracker
+        .wpm_samples
+        .iter()
+        .fold((u32::MAX, 0), |(min, max), &val| {
+            (min.min(val), max.max(val))
+        });
+
+    let mode_str = match config.current_mode() {
+        crate::config::Mode::Time { duration } => format!("Time ({}s)", duration),
+        crate::config::Mode::Words { count } => format!("Words ({})", count),
+    };
+
+    let duration = if let Mode::Time { duration } = config.current_mode() {
+        format!("{}s", duration)
+    } else {
+        let time = tracker.completion_time.unwrap_or(0.0);
+        format!("{:.1}s", time)
+    };
+
+    let mut details_lines = vec![
+        Line::from(vec![
+            Span::styled("Mode: ", Style::default().fg(color_muted)),
+            Span::styled(mode_str, Style::default().fg(color_fg)),
+        ]),
+        Line::from(vec![
+            Span::styled("Language: ", Style::default().fg(color_muted)),
+            Span::styled(
+                config.language.clone().unwrap_or_default(),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Duration: ", Style::default().fg(color_muted)),
+            Span::styled(duration, Style::default().fg(color_fg)),
+        ]),
+        Line::from(vec![
+            Span::styled("Keystrokes: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", tracker.total_keystrokes),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Correct: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", tracker.correct_keystrokes),
+                Style::default().fg(color_success),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Errors: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", errors),
+                Style::default().fg(if errors > 0 {
+                    termi.current_theme().error()
+                } else {
+                    color_fg
+                }),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Backspaces: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", tracker.backspace_count),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+    ];
+
+    if min_wpm != u32::MAX {
+        details_lines.push(Line::from(vec![
+            Span::styled("WPM Range: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}-{}", min_wpm, max_wpm),
+                Style::default().fg(color_fg),
+            ),
+        ]));
+    }
+
+    let details_block = Block::default()
+        .title(" Details ")
+        .title_alignment(Alignment::Left)
+        .padding(Padding::horizontal(1))
+        .borders(Borders::ALL)
+        .border_style(
+            Style::default()
+                .fg(theme.border())
+                .add_modifier(Modifier::DIM),
+        )
+        .style(Style::default().bg(theme.bg()));
+
+    let details_paragraph = Paragraph::new(details_lines)
+        .block(details_block)
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(details_paragraph, details_stats_area);
 }
 
 #[cfg(test)]

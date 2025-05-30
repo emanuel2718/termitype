@@ -48,6 +48,12 @@ pub enum Status {
     Completed,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+struct TypingSpeed {
+    wpm: f64,
+    raw_wpm: f64,
+}
+
 impl Tracker {
     pub fn new(config: &Config, target_text: String) -> Self {
         let mode = config.current_mode();
@@ -99,7 +105,8 @@ impl Tracker {
         if let Some(duration) = self.time_remaining {
             let seconds = duration.as_secs();
             self.time_remaining = Some(Duration::from_secs(seconds));
-            self.time_end = Some(now + Duration::from_secs(seconds));
+            // NOTE(ema): must add a buffer of 500 to now have time jump from N to N-1 when test starts
+            self.time_end = Some(now + Duration::from_secs(seconds) + Duration::from_millis(500));
         }
 
         self.wpm = 0.0;
@@ -279,27 +286,33 @@ impl Tracker {
             0
         };
 
+        if let Some(speed) = self.calculate_typing_speed(start_time) {
+            self.wpm = speed.wpm;
+            self.raw_wpm = speed.raw_wpm;
+            self.update_wpm_samples(speed.wpm, false);
+        }
+    }
+
+    /// Calculates the current typing speed
+    fn calculate_typing_speed(&self, start_time: Instant) -> Option<TypingSpeed> {
         let elapsed_seconds = start_time.elapsed().as_secs_f64();
         let elapsed_minutes = elapsed_seconds / 60.0;
 
         // no division by 0 on my watch - don't allow wpm calculation to reach levels over 9000
         if elapsed_seconds < 0.5 {
-            return;
+            return None;
         }
+        // for the wpm's
+        let correct_words = (self.correct_keystrokes as f64) / 5.0;
 
+        // for the raw wpm's
         let chars_typed = self.user_input.len() as f64;
         let words_typed = chars_typed / 5.0;
 
-        self.raw_wpm = words_typed / elapsed_minutes;
-
-        let correct_words = (self.correct_keystrokes as f64) / 5.0;
-        self.wpm = (correct_words / elapsed_minutes).max(0.0);
-
-        let now = Instant::now();
-        if now.duration_since(self.last_sample_time) >= Duration::from_secs(1) {
-            self.wpm_samples.push(self.wpm.round() as u32);
-            self.last_sample_time = now;
-        }
+        Some(TypingSpeed {
+            wpm: (correct_words / elapsed_minutes).max(0.0),
+            raw_wpm: words_typed / elapsed_minutes,
+        })
     }
 
     /// Calculate typing consistency as a percentage.
@@ -317,6 +330,14 @@ impl Tracker {
         let std_dev = variance.sqrt();
 
         (1.0 - (std_dev / mean)).clamp(0.0, 1.0) * 100.0
+    }
+
+    pub fn update_wpm_samples(&mut self, wpm: f64, force: bool) {
+        let now = Instant::now();
+        if force || now.duration_since(self.last_sample_time) >= Duration::from_secs(1) {
+            self.wpm_samples.push(wpm.round() as u32);
+            self.last_sample_time = now;
+        }
     }
 
     fn check_completion(&mut self) -> bool {
@@ -347,6 +368,9 @@ impl Tracker {
         let end_time = self.time_end.unwrap_or(Instant::now());
         self.time_remaining = Some(Duration::from_secs(0));
         self.completion_time = Some(end_time.duration_since(start_time).as_secs_f64());
+        if let Some(speed) = self.calculate_typing_speed(start_time) {
+            self.update_wpm_samples(speed.wpm, true);
+        }
         self.status = Status::Completed;
     }
 
@@ -619,7 +643,7 @@ mod tests {
 
         tracker.complete();
 
-        assert_eq!(tracker.completion_time, Some(1.0));
+        assert_eq!(tracker.completion_time, Some(1.5));
         assert_eq!(tracker.status, Status::Completed);
     }
 

@@ -53,6 +53,7 @@ pub enum TermiAction {
     ChangeVisibleLines(u64),
     ChangeWordCount(usize),
     ChangeAsciiArt(String),
+    ChangeResultsStyle(String),
 
     // === Toggles ===
     TogglePunctuation,
@@ -113,6 +114,7 @@ pub enum MenuContext {
     About,
     AsciiArt,
     Options,
+    Results,
 }
 
 // ============== PREVIEW ==============
@@ -314,6 +316,10 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
             .change_visible_lines(line_count.try_into().unwrap_or(DEFAULT_LINE_COUNT)),
         TermiAction::ChangeAsciiArt(art) => {
             termi.config.change_ascii_art(&art);
+            termi.menu.close();
+        }
+        TermiAction::ChangeResultsStyle(style) => {
+            termi.config.change_results_style(&style);
             termi.menu.close();
         }
         TermiAction::TogglePunctuation => {

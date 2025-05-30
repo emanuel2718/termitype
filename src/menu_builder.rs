@@ -23,6 +23,7 @@ pub fn build_menu(ctx: MenuContext, config: &Config) -> Menu {
         MenuContext::About => build_about_menu(),
         MenuContext::AsciiArt => build_ascii_art_menu(),
         MenuContext::Options => build_options_menu(config),
+        MenuContext::Results => build_results_style_menu(),
     }
 }
 
@@ -38,6 +39,7 @@ fn build_root_menu(config: &Config) -> Menu {
         MenuItem::sub_menu("root/theme", "Theme...", MenuContext::Theme)
             .disabled(!config.term_has_color_support()),
         MenuItem::sub_menu("root/picker", "Picker Style...", MenuContext::PickerStyle),
+        MenuItem::sub_menu("root/results", "Results Style...", MenuContext::Results),
         MenuItem::sub_menu("root/ascii", "ASCII Art...", MenuContext::AsciiArt),
         MenuItem::sub_menu("root/cursor", "Cursor Style...", MenuContext::Cursor),
         MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
@@ -350,4 +352,20 @@ fn build_about_menu() -> Menu {
         ),
     ];
     Menu::new(MenuContext::About, "About Termitype".to_string(), items)
+}
+
+/// Builds the Results menu
+fn build_results_style_menu() -> Menu {
+    let styles = crate::config::ResultsStyle::all();
+    let items = styles
+        .iter()
+        .map(|&style| {
+            MenuItem::action(
+                &format!("results/{}", style),
+                crate::config::ResultsStyle::label_from_str(style),
+                TermiAction::ChangeResultsStyle(style.to_string()),
+            )
+        })
+        .collect();
+    Menu::new(MenuContext::Results, "Results Style".to_string(), items)
 }
