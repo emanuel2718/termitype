@@ -39,8 +39,8 @@ fn build_root_menu(config: &Config) -> Menu {
         MenuItem::sub_menu("root/theme", "Theme...", MenuContext::Theme)
             .disabled(!config.term_has_color_support()),
         MenuItem::sub_menu("root/ascii", "Art...", MenuContext::AsciiArt),
-        MenuItem::sub_menu("root/picker", "Picker...", MenuContext::PickerStyle),
         MenuItem::sub_menu("root/results", "Results...", MenuContext::Results),
+        MenuItem::sub_menu("root/picker", "Picker...", MenuContext::PickerStyle),
         MenuItem::sub_menu("root/cursor", "Cursor...", MenuContext::Cursor),
         MenuItem::sub_menu("root/lines", "Lines...", MenuContext::LineCount),
         // === Information Group ===
