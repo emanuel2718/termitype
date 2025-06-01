@@ -5,6 +5,19 @@ pub struct AsciiArt {
 
 pub const DEFAULT_ASCII_ART_NAME: &str = "Termitype";
 
+/// Returns OS dependent ASCII art.
+pub fn get_os_default_ascii_art() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "Apple"
+    } else if cfg!(target_os = "windows") {
+        "Windows7"
+    } else if cfg!(target_os = "linux") {
+        "Linux"
+    } else {
+        DEFAULT_ASCII_ART_NAME
+    }
+}
+
 pub fn get_ascii_art_by_name(name: &str) -> Option<&'static str> {
     AVAILABLE_ASCII_ARTS
         .iter()
@@ -285,10 +298,10 @@ pub const AVAILABLE_ASCII_ARTS: &[AsciiArt] = &[
         name: "Linux",
         art: r#"
          _nnnn_
-        dGGGGMMb     ,"""""""""""""".
-       @p~qp~~qMb    |  Linux FTW!  |
-       M|@||@) M|   _;..............'
-       @,----.JM| -'
+        dGGGGMMb
+       @p~qp~~qMb
+       M|@||@) M|
+       @,----.JM|
       JS^\__/  qKL
      dZP        qKRb
     dZP          qKKb

@@ -4,7 +4,7 @@ use clap::{ArgGroup, Parser};
 use crossterm::cursor::SetCursorStyle;
 
 use crate::{
-    ascii::DEFAULT_ASCII_ART_NAME,
+    ascii::get_os_default_ascii_art,
     builder::Builder,
     constants::{
         DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_PICKER_STYLE,
@@ -233,7 +233,7 @@ impl Default for Config {
             use_numbers: false,
             use_punctuation: false,
             theme: None,
-            ascii: Some(DEFAULT_ASCII_ART_NAME.to_string()),
+            ascii: Some(get_os_default_ascii_art().to_string()),
             language: Some(DEFAULT_LANGUAGE.to_string()),
             cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
             picker_style: Some(DEFAULT_PICKER_STYLE.to_string()),
@@ -263,7 +263,7 @@ impl Config {
     }
 
     fn override_with_persistence(&mut self) {
-        if let Ok(persistence) = Persistence::new() {
+        if let Ok(mut persistence) = Persistence::new() {
             // Theme
             if self.theme.is_none() {
                 if let Some(theme) = persistence.get("theme") {
@@ -280,7 +280,9 @@ impl Config {
                 if let Some(art_name) = persistence.get("ascii") {
                     self.ascii = Some(art_name.to_string());
                 } else {
-                    self.ascii = Some(DEFAULT_ASCII_ART_NAME.to_string());
+                    let os_default = get_os_default_ascii_art();
+                    self.ascii = Some(os_default.to_string());
+                    let _ = persistence.set("ascii", os_default);
                 }
             }
 
