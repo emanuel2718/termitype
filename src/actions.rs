@@ -292,7 +292,6 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         }
         TermiAction::ChangePickerStyle(style) => {
             termi.config.change_picker_style(&style);
-            termi.menu.close();
         }
         TermiAction::ChangeMode(mode_type, val) => {
             termi.config.change_mode(mode_type, val);
