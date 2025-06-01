@@ -1,7 +1,4 @@
-use std::{
-    collections::VecDeque,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use crossterm::{
     cursor::SetCursorStyle,
@@ -16,6 +13,7 @@ use crate::{
     builder::Builder,
     config::Config,
     input::InputHandler,
+    log_debug,
     menu::MenuState,
     modal::InputModal,
     theme::Theme,
@@ -91,6 +89,7 @@ impl Termi {
             self.config.reset_words_flag();
         }
 
+        log_debug!("Test started: Generating new words (should trigger UI cache miss)");
         self.words = self.builder.generate_test(&self.config);
         self.tracker = Tracker::new(&self.config, self.words.clone());
 
@@ -110,6 +109,7 @@ impl Termi {
         let menu = self.menu.clone();
         let words = self.words.clone();
 
+        log_debug!("Test redo: Resetting tracker (UI cache should remain valid if same words)");
         self.tracker = Tracker::new(&self.config, words);
         self.menu = menu;
     }
@@ -141,17 +141,17 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     let mut input_handler = InputHandler::new();
     let mut click_regions = TermiClickableRegions::default();
 
-    let mut frame_times: VecDeque<Instant> = VecDeque::with_capacity(60);
-    let typing_frame_time = Duration::from_micros(6944); // ~144 FPS (1000000/144)
-    let idle_frame_time = Duration::from_millis(100); // slower refresh when IDLE
+    let typing_frame_time = Duration::from_micros(2778); // ~360 FPS for extreme responsiveness
+    let idle_frame_time = Duration::from_millis(33); // ~30 FPS when idle (energy efficient)
 
-    let mut last_tick = Instant::now();
-    let mut last_metrics_update = Instant::now();
+    // FPS tracking
     let mut last_keystroke = Instant::now();
+    let fps_update_interval = Duration::from_millis(500);
 
     let mut current_fps: f64 = 0.0;
     let mut last_fps_update_time = Instant::now();
-    let fps_update_interval = Duration::from_millis(500);
+    let mut frame_count = 0u32;
+    let mut last_frame_time = Instant::now();
 
     let mut needs_redraw = true;
 
@@ -161,18 +161,38 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
         }
         let now = Instant::now();
 
-        let current_frame_time = if now.duration_since(last_keystroke) < Duration::from_secs(1)
-            || termi.config.show_fps
-        {
+        // update fps if we are showing them
+        if termi.config.show_fps {
+            frame_count += 1;
+            if now.duration_since(last_fps_update_time) >= fps_update_interval {
+                let elapsed = now.duration_since(last_fps_update_time).as_secs_f64();
+                current_fps = frame_count as f64 / elapsed;
+                frame_count = 0;
+                last_fps_update_time = now;
+                needs_redraw = true;
+            }
+        }
+
+        // adaptive frame rate
+        let is_actively_typing = now.duration_since(last_keystroke) < Duration::from_millis(1500);
+        let is_active_state =
+            termi.tracker.status == Status::Typing || termi.menu.is_open() || termi.modal.is_some();
+
+        let target_frame_time = if is_actively_typing || is_active_state {
             typing_frame_time
         } else {
             idle_frame_time
         };
 
-        let timeout = current_frame_time
-            .checked_sub(last_tick.elapsed())
-            .unwrap_or_else(|| Duration::from_secs(0));
+        // frame rate limit to avoid wutututututu
+        let frame_elapsed = now.duration_since(last_frame_time);
+        if frame_elapsed < target_frame_time {
+            let sleep_time = target_frame_time - frame_elapsed;
+            std::thread::sleep(sleep_time);
+        }
+        last_frame_time = Instant::now();
 
+        let timeout = Duration::from_millis(1);
         if event::poll(timeout)? {
             match event::read()? {
                 Event::Key(event) => {
@@ -187,7 +207,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
                             break 'main_loop;
                         }
 
-                        last_keystroke = now;
+                        last_keystroke = Instant::now();
 
                         // process all the actions that are not quit as is the only inmediate action atm
                         process_action(action, &mut termi);
@@ -218,13 +238,13 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             needs_redraw = true;
         }
 
-        // with this we ensure that on time mode we update the time regardless of user input
+        // `Time` mode time tracking shennaningans
         if termi.tracker.status == Status::Typing {
             if let Some(end_time) = termi.tracker.time_end {
-                let new_time_remaining = if now >= end_time {
+                let new_time_remaining = if Instant::now() >= end_time {
                     Duration::from_secs(0)
                 } else {
-                    end_time.duration_since(now)
+                    end_time.duration_since(Instant::now())
                 };
 
                 // only update `time_remaining` if seconds have changed
@@ -242,25 +262,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             }
         }
 
-        if now.duration_since(last_metrics_update) >= Duration::from_millis(500) {
+        // lazyly update metrics
+        if termi.tracker.needs_metrics_update() || termi.tracker.status == Status::Typing {
             termi.tracker.update_metrics();
-            last_metrics_update = now;
-        }
-
-        frame_times.push_back(now);
-        if frame_times.len() > 60 {
-            frame_times.pop_front();
-        }
-
-        if frame_times.len() > 1 {
-            if let (Some(newest), Some(oldest)) = (frame_times.back(), frame_times.front()) {
-                let duration = newest.duration_since(*oldest);
-                if duration > Duration::ZERO {
-                    let avg_frame_time = duration.as_secs_f64() / (frame_times.len() - 1) as f64;
-                    if avg_frame_time > 0.0 {
-                        current_fps = 1.0 / avg_frame_time;
-                    }
-                }
+            if termi.tracker.status == Status::Typing {
+                needs_redraw = true;
             }
         }
 
@@ -270,22 +276,13 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             None
         };
 
-        if termi.config.show_fps
-            && !needs_redraw
-            && now.duration_since(last_fps_update_time) >= fps_update_interval
-        {
-            needs_redraw = true;
-            last_fps_update_time = now;
-        }
-
+        // render if we need to render
         if needs_redraw {
             terminal.draw(|frame| {
                 click_regions = draw_ui(frame, &mut termi, fps_to_display);
             })?;
             needs_redraw = false;
         }
-
-        last_tick = Instant::now();
     }
 
     Ok(())

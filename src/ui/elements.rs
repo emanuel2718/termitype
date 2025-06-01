@@ -20,6 +20,27 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::ListItem,
 };
+use std::collections::VecDeque;
+
+// PERF: pre-allocate span pools
+thread_local! {
+    static SPAN_POOL: std::cell::RefCell<VecDeque<String>> =
+        std::cell::RefCell::new({
+            let mut pool = VecDeque::with_capacity(1000);
+            for _ in 0..1000 {
+                pool.push_back(String::with_capacity(4)); // UTF-8 chars
+            }
+            pool
+        });
+}
+
+fn get_pooled_string() -> String {
+    SPAN_POOL.with(|pool| {
+        pool.borrow_mut()
+            .pop_front()
+            .unwrap_or_else(|| String::with_capacity(4))
+    })
+}
 
 #[derive(Debug)]
 pub struct TermiElement<'a> {
@@ -233,7 +254,7 @@ pub fn create_typing_area<'a>(
     let first_line_to_render = scroll_offset;
     let last_line_to_render = scroll_offset + visible_line_count;
 
-    let mut current_line_spans = Vec::with_capacity(100);
+    let mut current_line_spans = Vec::with_capacity(200);
     let mut current_line_idx_in_full_text = 0;
 
     if let Some(first_pos) = word_positions.first() {
@@ -242,9 +263,24 @@ pub fn create_typing_area<'a>(
 
     let cursor_pos = termi.tracker.cursor_position;
     let supports_themes = theme.color_support.supports_themes();
+
     let success_style = Style::default().fg(theme.success());
     let error_style = Style::default().fg(theme.error());
     let dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
+    let underline_error_style = if supports_themes {
+        error_style
+            .add_modifier(Modifier::UNDERLINED)
+            .underline_color(theme.error())
+    } else {
+        error_style
+    };
+    let underline_success_style = if supports_themes {
+        success_style
+            .add_modifier(Modifier::UNDERLINED)
+            .underline_color(theme.error())
+    } else {
+        success_style
+    };
 
     for (i, pos) in word_positions.iter().enumerate() {
         if pos.line > current_line_idx_in_full_text {
@@ -253,7 +289,7 @@ pub fn create_typing_area<'a>(
             {
                 if !current_line_spans.is_empty() {
                     lines.push(Line::from(std::mem::take(&mut current_line_spans)));
-                    current_line_spans.reserve(100);
+                    current_line_spans.reserve(200);
                 }
             } else {
                 current_line_spans.clear();
@@ -276,21 +312,30 @@ pub fn create_typing_area<'a>(
 
             for (char_i, c) in word.chars().enumerate() {
                 let char_idx = word_start + char_i;
-                let base_style = match termi.tracker.user_input.get(char_idx).copied().flatten() {
-                    Some(input) if input == c => success_style,
-                    Some(_) => error_style,
-                    None => dim_style,
+
+                let is_correct =
+                    termi.tracker.user_input.get(char_idx).copied().flatten() == Some(c);
+                let has_input = termi.tracker.user_input.get(char_idx).is_some();
+
+                let style = if !has_input {
+                    dim_style
+                } else if is_correct {
+                    if should_underline_word {
+                        underline_success_style
+                    } else {
+                        success_style
+                    }
+                } else if should_underline_word {
+                    underline_error_style
+                } else {
+                    error_style
                 };
 
-                let style = if should_underline_word {
-                    base_style
-                        .add_modifier(Modifier::UNDERLINED)
-                        .underline_color(theme.error())
-                } else {
-                    base_style
-                };
-                current_line_spans.push(Span::styled(String::from(c), style));
+                let mut char_string = get_pooled_string();
+                char_string.push(c);
+                current_line_spans.push(Span::styled(char_string, style));
             }
+
             if i < words.len() - 1
                 && word_positions
                     .get(i + 1)
