@@ -262,6 +262,18 @@ impl Config {
         config
     }
 
+    /// Generic method to update a field and persist it automatically
+    fn update_and_persist<T, F>(&mut self, key: &str, value: &T, update_fn: F)
+    where
+        T: ToString + ?Sized,
+        F: FnOnce(&mut Self, &T),
+    {
+        update_fn(self, value);
+        if let Some(persistence) = &mut self.persistent {
+            let _ = persistence.set(key, &value.to_string());
+        }
+    }
+
     fn override_with_persistence(&mut self) {
         if let Ok(mut persistence) = Persistence::new() {
             // Theme
@@ -340,7 +352,7 @@ impl Config {
                         "true" => true,
                         _ => false,
                     };
-                    self.set_symbols(val);
+                    self.use_symbols = val;
                 }
             }
 
@@ -352,7 +364,7 @@ impl Config {
                         "true" => true,
                         _ => false,
                     };
-                    self.set_numbers(val);
+                    self.use_numbers = val;
                 }
             }
 
@@ -364,7 +376,7 @@ impl Config {
                         "true" => true,
                         _ => false,
                     };
-                    self.set_punctuation(val);
+                    self.use_punctuation = val;
                 }
             }
 
@@ -372,7 +384,7 @@ impl Config {
             if !self.hide_live_wpm {
                 if let Some(hide_live_wpm) = persistence.get("hide_live_wpm") {
                     let val = matches!(hide_live_wpm, "true");
-                    self.set_live_wpm(val)
+                    self.hide_live_wpm = val;
                 }
             }
 
@@ -380,7 +392,7 @@ impl Config {
             if !self.hide_cursorline {
                 if let Some(hide_cursorline) = persistence.get("hide_cursorline") {
                     let val = matches!(hide_cursorline, "true");
-                    self.set_cursorline(val)
+                    self.hide_cursorline = val;
                 }
             }
 
@@ -392,6 +404,22 @@ impl Config {
                     }
                 } else {
                     self.results_style = Some(DEFAULT_RESULTS_STYLE.to_string())
+                }
+            }
+
+            // Show FPS
+            if !self.show_fps {
+                if let Some(show_fps) = persistence.get("show_fps") {
+                    let val = matches!(show_fps, "true");
+                    self.show_fps = val;
+                }
+            }
+
+            // Monochromatic Results
+            if !self.monocrhomatic_results {
+                if let Some(monocrhomatic_results) = persistence.get("monocrhomatic_results") {
+                    let val = matches!(monocrhomatic_results, "true");
+                    self.monocrhomatic_results = val;
                 }
             }
 
@@ -434,42 +462,38 @@ impl Config {
     pub fn change_mode(&mut self, mode: ModeType, value: Option<usize>) {
         match mode {
             ModeType::Time => {
-                self.word_count = None;
-                self.time = Some(value.unwrap_or(DEFAULT_TIME_MODE_DURATION) as u64);
-                if let Some(persistence) = &mut self.persistent {
-                    let _ = persistence.set("mode", "Time");
-                    let _ = persistence.set("mode_value", &value.unwrap_or(30).to_string());
-                }
+                let duration = value.unwrap_or(DEFAULT_TIME_MODE_DURATION) as u64;
+                self.update_and_persist("mode", "Time", |config, _mode_str| {
+                    config.word_count = None;
+                    config.time = Some(duration);
+                });
+                let mode_value = value.unwrap_or(30);
+                self.update_and_persist("mode_value", &mode_value, |_, _| {});
             }
             ModeType::Words => {
-                self.time = None;
-                self.word_count = Some(value.unwrap_or(DEFAULT_WORD_MODE_COUNT));
-                if let Some(persistence) = &mut self.persistent {
-                    let _ = persistence.set("mode", "Words");
-                    let _ = persistence.set(
-                        "mode_value",
-                        &value.unwrap_or(DEFAULT_WORD_MODE_COUNT).to_string(),
-                    );
-                }
+                let count = value.unwrap_or(DEFAULT_WORD_MODE_COUNT);
+                self.update_and_persist("mode", "Words", |config, _mode_str| {
+                    config.time = None;
+                    config.word_count = Some(count);
+                });
+                self.update_and_persist("mode_value", &count, |_, _| {});
             }
         }
     }
 
     /// Chages the current theme of the game.
     pub fn change_theme(&mut self, theme_name: &str) {
-        self.theme = Some(theme_name.to_string());
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("theme", theme_name);
-        }
+        self.update_and_persist("theme", theme_name, |config, theme| {
+            config.theme = Some(theme.to_string());
+        });
     }
 
     /// Changes the language if available.
     pub fn change_language(&mut self, lang: &str) -> bool {
         if Builder::has_language(lang) {
-            self.language = Some(lang.to_string());
-            if let Some(persistence) = &mut self.persistent {
-                let _ = persistence.set("language", lang);
-            }
+            self.update_and_persist("language", lang, |config, language| {
+                config.language = Some(language.to_string());
+            });
             true
         } else {
             false
@@ -483,11 +507,9 @@ impl Config {
 
     /// Chages the current style of the cursor.
     pub fn change_cursor_style(&mut self, style: &str) {
-        self.cursor_style = Some(style.to_string());
-        // TODO: there must be a better way to do this
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("cursor", style);
-        }
+        self.update_and_persist("cursor", style, |config, cursor_style| {
+            config.cursor_style = Some(cursor_style.to_string());
+        });
     }
 
     /// Resets the words flag after a test has been run with it.
@@ -501,9 +523,7 @@ impl Config {
             Mode::Time { .. } => self.time = Some(value as u64),
             Mode::Words { .. } => self.word_count = Some(value),
         }
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("mode_value", &value.to_string());
-        }
+        self.update_and_persist("mode_value", &value, |_, _| {});
     }
 
     fn resolve_mode_from_str(&self, mode: &str) -> Option<ModeType> {
@@ -579,95 +599,61 @@ impl Config {
             "Not found."
         }
     }
-    /// FIXME(ema): this setter are getting out of hand. This must be refactored ASAP
-    fn set_numbers(&mut self, val: bool) {
-        self.use_numbers = val;
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("use_numbers", val.to_string().as_str());
-        }
-    }
-
-    fn set_symbols(&mut self, val: bool) {
-        self.use_symbols = val;
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("use_symbols", val.to_string().as_str());
-        }
-    }
-
-    fn set_punctuation(&mut self, val: bool) {
-        self.use_punctuation = val;
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("use_punctuation", val.to_string().as_str());
-        }
-    }
-
-    fn set_live_wpm(&mut self, val: bool) {
-        self.hide_live_wpm = val;
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("hide_live_wpm", val.to_string().as_str());
-        }
-    }
-
-    fn set_cursorline(&mut self, val: bool) {
-        self.hide_cursorline = val;
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("hide_cursorline", val.to_string().as_str());
-        }
-    }
 
     /// Toggles the presence of numbers in the test word pool.
     pub fn toggle_numbers(&mut self) {
-        let val = !self.use_numbers;
-        self.use_numbers = val;
-        self.set_numbers(val);
+        let use_numbers = !self.use_numbers;
+        self.update_and_persist("use_numbers", &use_numbers, |config, &val| {
+            config.use_numbers = val;
+        });
     }
 
     /// Toggles the presence of punctuation in the test word pool.
     pub fn toggle_punctuation(&mut self) {
-        let val = !self.use_punctuation;
-        self.use_punctuation = val;
-        self.set_punctuation(val);
+        let use_punctuation = !self.use_punctuation;
+        self.update_and_persist("use_punctuation", &use_punctuation, |config, &val| {
+            config.use_punctuation = val;
+        });
     }
 
     /// Toggles the presence of symbols in the test word pool.
     pub fn toggle_symbols(&mut self) {
-        let val = !self.use_symbols;
-        self.use_symbols = val;
-        self.set_symbols(val);
+        let use_symbols = !self.use_symbols;
+        self.update_and_persist("use_symbols", &use_symbols, |config, &val| {
+            config.use_symbols = val;
+        });
     }
 
     /// Toggles the FPS display.
     pub fn toggle_fps(&mut self) {
-        self.show_fps = !self.show_fps;
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("show_fps", self.show_fps.to_string().as_str());
-        }
+        let show_fps = !self.show_fps;
+        self.update_and_persist("show_fps", &show_fps, |config, &val| {
+            config.show_fps = val;
+        });
     }
 
     /// Toggles the live WPM display.
     pub fn toggle_live_wpm(&mut self) {
-        let val = !self.hide_live_wpm;
-        self.hide_live_wpm = val;
-        self.set_live_wpm(val);
+        let hide_live_wpm = !self.hide_live_wpm;
+        self.update_and_persist("hide_live_wpm", &hide_live_wpm, |config, &val| {
+            config.hide_live_wpm = val;
+        });
     }
 
     /// Toggles the monochromatic results display.
     pub fn toggle_monochromatic_results(&mut self) {
-        self.monocrhomatic_results = !self.monocrhomatic_results;
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set(
-                "monocrhomatic_results",
-                self.monocrhomatic_results.to_string().as_str(),
-            );
-        }
+        let monochromatic = !self.monocrhomatic_results;
+        self.update_and_persist("monocrhomatic_results", &monochromatic, |config, &val| {
+            config.monocrhomatic_results = val;
+        });
     }
 
     /// Toggles the cursorline display in menus.
     pub fn toggle_cursorline(&mut self) {
-        self.hide_cursorline = !self.hide_cursorline;
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("hide_cursorline", self.hide_cursorline.to_string().as_str());
-        }
+        let hide_cursorline = !self.hide_cursorline;
+        self.update_and_persist("hide_cursorline", &hide_cursorline, |config, &val| {
+            config.hide_cursorline = val;
+        });
     }
 
     /// Chesk if the current terminal has proper color support. Mainly used for themes
@@ -682,19 +668,17 @@ impl Config {
 
     /// Changes the ascii art shown on the results screen.
     pub fn change_ascii_art(&mut self, art_name: &str) {
-        self.ascii = Some(art_name.to_string());
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set("ascii", art_name.to_string().as_str());
-        }
+        self.update_and_persist("ascii", art_name, |config, art| {
+            config.ascii = Some(art.to_string());
+        });
     }
 
     /// Changes the picker style for menus.
     pub fn change_picker_style(&mut self, style: &str) {
         if style.parse::<PickerStyle>().is_ok() {
-            self.picker_style = Some(style.to_string());
-            if let Some(persistence) = &mut self.persistent {
-                let _ = persistence.set("picker_style", style);
-            }
+            self.update_and_persist("picker_style", style, |config, picker_style| {
+                config.picker_style = Some(picker_style.to_string());
+            });
         }
     }
 
@@ -709,10 +693,9 @@ impl Config {
     /// Changes the results style for the results screen.
     pub fn change_results_style(&mut self, style: &str) {
         if style.parse::<ResultsStyle>().is_ok() {
-            self.results_style = Some(style.to_string());
-            if let Some(persistence) = &mut self.persistent {
-                let _ = persistence.set("results_style", style);
-            }
+            self.update_and_persist("results_style", style, |config, results_style| {
+                config.results_style = Some(results_style.to_string());
+            });
         }
     }
 
