@@ -520,6 +520,7 @@ mod tests {
             palette6 = #00ffff
             palette7 = #888888
             palette8 = #008888
+            palette10 = #008888
             palette14 = #00ffff
         "#;
 
@@ -549,6 +550,7 @@ mod tests {
             palette5 = #ff00ff
             palette6 = #00ffff
             palette8 = #888888
+            palette10 = #008888
         "#;
 
         create_test_theme(&temp_dir, "test_theme", test_theme_content);
@@ -576,6 +578,7 @@ mod tests {
             palette5 = #ff00ff
             palette6 = #00ffff
             palette8 = #888888
+            palette10 = #008888
         "#;
 
         let result = ThemeLoader::parse_theme_file(content, "test");
@@ -598,6 +601,7 @@ mod tests {
             palette5 = #ff00ff
             palette6 = #00ffff
             palette8 = #888888
+            palette10 = #008888
         "#;
 
         let result = ThemeLoader::parse_theme_file(content, "test");
