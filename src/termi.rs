@@ -146,6 +146,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
 
     // FPS tracking
     let mut last_keystroke = Instant::now();
+    let mut last_touch = Instant::now();
     let fps_update_interval = Duration::from_millis(500);
 
     let mut current_fps: f64 = 0.0;
@@ -175,10 +176,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
 
         // adaptive frame rate
         let is_actively_typing = now.duration_since(last_keystroke) < Duration::from_millis(1500);
+        let is_dirty = now.duration_since(last_touch) < Duration::from_millis(1500);
         let is_active_state =
             termi.tracker.status == Status::Typing || termi.menu.is_open() || termi.modal.is_some();
 
-        let target_frame_time = if is_actively_typing || is_active_state {
+        let target_frame_time = if is_actively_typing || is_dirty || is_active_state {
             typing_frame_time
         } else {
             idle_frame_time
@@ -208,6 +210,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
                         }
 
                         last_keystroke = Instant::now();
+                        last_touch = Instant::now();
 
                         // process all the actions that are not quit as is the only inmediate action atm
                         process_action(action, &mut termi);
@@ -225,6 +228,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
                         process_action(action, &mut termi);
                         needs_redraw = true;
                     }
+                    last_touch = Instant::now();
                 }
                 Event::Resize(_width, _height) => {
                     needs_redraw = true;
