@@ -47,6 +47,7 @@ pub struct Tracker {
     dirty_metrics: bool,
     cached_elapsed_seconds: f64,
     cached_elapsed_time: Instant,
+    space_jump_stack: Vec<(usize, usize)>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -111,6 +112,7 @@ impl Tracker {
             dirty_metrics: false,
             cached_elapsed_seconds: 0.0,
             cached_elapsed_time: now,
+            space_jump_stack: Vec::new(),
         }
     }
 
@@ -143,6 +145,7 @@ impl Tracker {
         self.dirty_metrics = true;
         self.cached_elapsed_time = now;
         self.cached_elapsed_seconds = 0.0;
+        self.space_jump_stack.clear();
     }
 
     // TODO: maybe mmove this elsewhere. not sure if it makes sense here.
@@ -188,6 +191,36 @@ impl Tracker {
         // SIMD-like character comparison, we already checked boudaries above so is safe to do the unsafe call here i guess
         let target_char = unsafe { *self.target_chars.get_unchecked(self.cursor_position) };
         let is_correct = target_char == c;
+
+        // mimic space jump logic from monketype
+        if is_space && target_char != ' ' {
+            self.wrong_words_start_indexes
+                .insert(self.current_word_start);
+
+            let mut next_space_pos = self.cursor_position;
+            while next_space_pos < self.target_chars.len()
+                && self.target_chars[next_space_pos] != ' '
+            {
+                next_space_pos += 1;
+            }
+
+            if next_space_pos < self.target_chars.len() {
+                let target_pos = next_space_pos + 1;
+
+                self.space_jump_stack
+                    .push((self.cursor_position, target_pos));
+
+                self.cursor_position = target_pos;
+                self.current_word_start = self.cursor_position;
+                self.current_word_is_correct_so_far = true;
+
+                while self.user_input.len() < self.cursor_position {
+                    self.user_input.push(None);
+                }
+
+                return true;
+            }
+        }
 
         if !is_correct & (target_char == ' ') {
             self.register_keystroke(false);
@@ -291,6 +324,27 @@ impl Tracker {
         if self.cursor_position == 0 {
             return false;
         }
+
+        // backward space jump check
+        if let Some(&(prev_source_pos, prev_target_pos)) = self.space_jump_stack.last() {
+            if self.cursor_position == prev_target_pos {
+                self.cursor_position = prev_source_pos;
+                self.user_input.truncate(self.cursor_position);
+                self.space_jump_stack.pop();
+                self.current_word_start = 0;
+
+                for i in (0..self.cursor_position).rev() {
+                    if i < self.user_input.len() && self.user_input[i] == Some(' ') {
+                        self.current_word_start = i + 1;
+                        break;
+                    }
+                }
+
+                self.backspace_count += 1;
+                return true;
+            }
+        }
+
         self.backspace_count += 1;
 
         // just typed a space
@@ -1233,5 +1287,66 @@ mod tests {
             "Word 'too' should NOT be marked wrong after correction. Wrong words: {:?}",
             tracker.wrong_words_start_indexes
         );
+    }
+
+    #[test]
+    fn test_space_beyond_first_letter_should_skip_to_next_word() {
+        let mut tracker = create_tracker(); // will be `hello world`
+        tracker.start_typing();
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 0);
+        tracker.type_char('h');
+        assert_eq!(tracker.cursor_position, 1);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6);
+    }
+
+    #[test]
+    fn test_space_in_boundary_shouldnt_skip() {
+        let mut tracker = create_tracker(); // will be `hello world`
+        tracker.start_typing();
+        for c in "hello".chars() {
+            tracker.type_char(c);
+        }
+        assert_eq!(tracker.cursor_position, 5);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6);
+    }
+
+    #[test]
+    fn test_backspace_after_space_beyond_first_letter() {
+        let mut tracker = create_tracker(); // will be `hello world`
+        tracker.start_typing();
+        tracker.type_char('h');
+        assert_eq!(tracker.cursor_position, 1);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6);
+        // should take you back after a space jump
+        tracker.backspace();
+        assert_eq!(tracker.cursor_position, 1);
+    }
+
+    #[test]
+    fn test_backspace_after_multiple_chained_spaces() {
+        let config = Config::default();
+        let target_text = String::from("hello there termitype hope you doing good");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+        tracker.type_char('h');
+        assert_eq!(tracker.cursor_position, 1);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6); // just before "there"
+        tracker.type_char('t');
+        assert_eq!(tracker.cursor_position, 7);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 12); // just before "termitype"
+        tracker.backspace();
+        assert_eq!(tracker.cursor_position, 7);
+        tracker.backspace();
+        assert_eq!(tracker.cursor_position, 6);
+        tracker.backspace();
+        assert_eq!(tracker.cursor_position, 1);
     }
 }
