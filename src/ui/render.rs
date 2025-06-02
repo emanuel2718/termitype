@@ -797,14 +797,15 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
                     .fg(theme.highlight())
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" + ", Style::default().fg(theme.muted())),
+            Span::styled(" + ", Style::default().fg(theme.muted())).add_modifier(Modifier::DIM),
             Span::styled(
                 "enter",
                 Style::default()
                     .fg(theme.highlight())
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" - restart test", Style::default().fg(theme.muted())),
+            Span::styled(" - restart test", Style::default().fg(theme.muted()))
+                .add_modifier(Modifier::DIM),
             // Span::styled(
             //     "esc",
             //     Style::default()
@@ -1063,7 +1064,7 @@ fn render_neofetch_results_screen(
             theme.success(),
             theme.warning(),
             theme.info(),
-            theme.accent(),
+            theme.primary(),
             theme.highlight(),
             theme.fg(),
         ] {

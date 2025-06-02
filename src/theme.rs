@@ -12,7 +12,7 @@ use crate::{assets, config::Config, constants::DEFAULT_THEME};
 
 static THEME_LOADER: OnceLock<RwLock<ThemeLoader>> = OnceLock::new();
 
-const NUM_COLORS: usize = 13;
+const NUM_COLORS: usize = 14;
 
 #[derive(Debug)]
 pub struct ThemeLoader {
@@ -34,6 +34,7 @@ pub enum ThemeColor {
     Muted,          // Dimmed Text
     Accent,         // Carets and Arrows
     Info,           // Information
+    Primary,        // Primary
     Highlight,      // Selected items
     Success,        // Correct Words
     Error,          // Wrong Words
@@ -167,19 +168,20 @@ impl Theme {
         Self {
             id: "Fallback".to_string(),
             colors: [
-                Color::Black,       // Background
-                Color::White,       // Foreground
-                Color::Gray,        // Muted
-                Color::Cyan,        // Accent
-                Color::LightCyan,   // Info
-                Color::LightGreen,  // Highlight
-                Color::Green,       // Success
-                Color::Red,         // Error
-                Color::LightYellow, // Warning
-                Color::White,       // Cursor
-                Color::Black,       // CursorText
-                Color::DarkGray,    // SelectionBg
-                Color::White,       // SelectionFg
+                Color::Black,        // Background
+                Color::White,        // Foreground
+                Color::Gray,         // Muted
+                Color::Cyan,         // Accent
+                Color::LightCyan,    // Info
+                Color::LightMagenta, // Primary
+                Color::LightGreen,   // Highlight
+                Color::Green,        // Success
+                Color::Red,          // Error
+                Color::LightYellow,  // Warning
+                Color::White,        // Cursor
+                Color::Black,        // CursorText
+                Color::DarkGray,     // SelectionBg
+                Color::White,        // SelectionFg
             ],
             color_support: ColorSupport::Basic,
         }
@@ -283,6 +285,10 @@ impl Theme {
 
     pub fn info(&self) -> Color {
         self.colors[ThemeColor::Info as usize]
+    }
+
+    pub fn primary(&self) -> Color {
+        self.colors[ThemeColor::Primary as usize]
     }
 
     pub fn highlight(&self) -> Color {
@@ -423,10 +429,16 @@ impl ThemeLoader {
         let mut colors = [Color::Black; NUM_COLORS];
         colors[ThemeColor::Background as usize] = parse_color("background")?;
         colors[ThemeColor::Foreground as usize] = parse_color("foreground")?;
-        colors[ThemeColor::Muted as usize] = parse_color("palette7")?;
+        // colors[ThemeColor::Muted as usize] = parse_color("palette0")?;
+        colors[ThemeColor::Muted as usize] = parse_color("foreground")?;
+        // colors[ThemeColor::Muted as usize] = parse_color("cursor-color")?;
+        // colors[ThemeColor::Muted as usize] = parse_color("palette12")?;
+        // colors[ThemeColor::Muted as usize] = parse_color("selection-foreground")?;
+        // colors[ThemeColor::Muted as usize] = parse_color("palette15")?;
         colors[ThemeColor::Warning as usize] = parse_color("palette3")?;
-        colors[ThemeColor::Accent as usize] = parse_color("palette5")?;
+        colors[ThemeColor::Accent as usize] = parse_color("palette10")?;
         colors[ThemeColor::Info as usize] = parse_color("palette4")?;
+        colors[ThemeColor::Primary as usize] = parse_color("palette5")?;
         colors[ThemeColor::Highlight as usize] = parse_color("palette6")?;
         colors[ThemeColor::Success as usize] = parse_color("palette2")?;
         colors[ThemeColor::Error as usize] = parse_color("palette1")?;
