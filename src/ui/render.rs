@@ -310,6 +310,7 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
         let element = &elements[0];
         let alignment = element.content.alignment.unwrap_or(Alignment::Left);
         let text_height = element.content.height() as u16;
+        let text_width = element.content.width() as u16;
 
         let centered_area = Rect {
             x: area.x,
@@ -322,7 +323,34 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
         f.render_widget(paragraph, centered_area);
 
         if let Some(action) = element.action {
-            cr.add(centered_area, action);
+            // area will be just as wide and tall as the clickable text + tiny offset
+            let clickable_area = match alignment {
+                Alignment::Center => {
+                    let start_x = area.x + (area.width.saturating_sub(text_width)) / 2;
+                    Rect {
+                        x: start_x,
+                        y: centered_area.y,
+                        width: text_width.min(area.width) + 1,
+                        height: text_height.min(area.height),
+                    }
+                }
+                Alignment::Right => {
+                    let start_x = area.x + area.width.saturating_sub(text_width);
+                    Rect {
+                        x: start_x,
+                        y: centered_area.y,
+                        width: text_width.min(area.width) + 1,
+                        height: text_height.min(area.height),
+                    }
+                }
+                Alignment::Left => Rect {
+                    x: area.x,
+                    y: centered_area.y,
+                    width: text_width.min(area.width) + 1,
+                    height: text_height.min(area.height),
+                },
+            };
+            cr.add(clickable_area, action);
         }
     } else {
         let mut spans = Vec::new();
