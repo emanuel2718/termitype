@@ -21,27 +21,6 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::ListItem,
 };
-use std::collections::VecDeque;
-
-// PERF: pre-allocate span pools
-thread_local! {
-    static SPAN_POOL: std::cell::RefCell<VecDeque<String>> =
-        std::cell::RefCell::new({
-            let mut pool = VecDeque::with_capacity(1000);
-            for _ in 0..1000 {
-                pool.push_back(String::with_capacity(4)); // UTF-8 chars
-            }
-            pool
-        });
-}
-
-fn get_pooled_string() -> String {
-    SPAN_POOL.with(|pool| {
-        pool.borrow_mut()
-            .pop_front()
-            .unwrap_or_else(|| String::with_capacity(4))
-    })
-}
 
 #[derive(Debug)]
 pub struct TermiElement<'a> {
@@ -332,9 +311,7 @@ pub fn create_typing_area<'a>(
                     error_style
                 };
 
-                let mut char_string = get_pooled_string();
-                char_string.push(c);
-                current_line_spans.push(Span::styled(char_string, style));
+                current_line_spans.push(Span::styled(c.to_string(), style));
             }
 
             if i < words.len() - 1
