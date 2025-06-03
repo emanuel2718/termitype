@@ -141,10 +141,13 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     let mut input_handler = InputHandler::new();
     let mut click_regions = TermiClickableRegions::default();
 
-    const TYPING_FRAME_TIME: Duration = Duration::from_millis(4); // 240 FPS
-    const IDLE_FRAME_TIME: Duration = Duration::from_millis(33); // 30 Locked
+    const TYPING_FRAME_TIME: Duration = Duration::from_millis(4); // ~240 FPS
+    const IDLE_FRAME_TIME: Duration = Duration::from_millis(300); // ~30 FPS when idle
 
     let mut last_input_at = Instant::now();
+    let mut last_tick = Instant::now();
+    let mut last_metrics_update = Instant::now();
+    let mut last_time_update = Instant::now();
     let mut needs_render = true;
 
     loop {
@@ -165,13 +168,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             needs_render = true;
         }
 
-        let event_timeout = if is_active {
-            Duration::from_millis(4) // 240
-        } else {
-            Duration::from_millis(33)
-        };
+        let timeout = target_frame_time
+            .checked_sub(last_tick.elapsed())
+            .unwrap_or_else(|| Duration::from_secs(0));
 
-        if event::poll(event_timeout)? {
+        if event::poll(timeout)? {
             match event::read()? {
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
                     let last_event = termi.last_event;
@@ -208,21 +209,26 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             }
         }
 
-        // check for time completion
-        if termi.tracker.should_time_complete() {
-            termi.tracker.complete();
-            needs_render = true;
+        if frame_start.duration_since(last_time_update) >= Duration::from_millis(100) {
+            // check for time completion
+            if termi.tracker.should_time_complete() {
+                termi.tracker.complete();
+                needs_render = true;
+            }
+
+            if termi.tracker.update_time_remaining() {
+                needs_render = true;
+            }
+
+            last_time_update = frame_start;
         }
 
-        if termi.tracker.update_time_remaining() {
-            needs_render = true;
-        }
-
-        if termi.tracker.needs_metrics_update() {
+        if frame_start.duration_since(last_metrics_update) >= Duration::from_millis(500) {
             termi.tracker.update_metrics();
             if termi.tracker.status == Status::Typing && !termi.config.hide_live_wpm {
                 needs_render = true;
             }
+            last_metrics_update = frame_start;
         }
 
         // re-render if needed
@@ -240,15 +246,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             needs_render = false;
         }
 
-        // frame limit
-        let elapsed = frame_start.elapsed();
-        if elapsed < target_frame_time {
-            let sleep_time = target_frame_time - elapsed;
-            // only go to sleep if we have enought time
-            if sleep_time > Duration::from_micros(100) {
-                std::thread::sleep(sleep_time);
-            }
-        }
+        last_tick = frame_start;
     }
 
     Ok(())

@@ -3,11 +3,7 @@ use std::time::{Duration, Instant};
 
 use crate::config::{Config, Mode};
 
-// try to avoid allocations during typing, all we do for perfomance...
-thread_local! {
-    static CHAR_BUFFER_POOL: std::cell::RefCell<Vec<String>> =
-        std::cell::RefCell::new(Vec::with_capacity(10));
-}
+const MAX_WMP_SAMPLES: usize = 300; // ~5 minutes at 1 sample per second
 
 #[derive(Debug)]
 pub struct Tracker {
@@ -226,9 +222,8 @@ impl Tracker {
             return false;
         }
 
-        // check for grow before doing anything
         if self.user_input.len() == self.user_input.capacity() {
-            let new_capacity = (self.user_input.capacity() * 3) / 2;
+            let new_capacity = self.user_input.capacity() * 2;
             self.user_input
                 .reserve_exact(new_capacity - self.user_input.capacity());
             self.max_user_input_length = self.user_input.capacity();
@@ -494,6 +489,10 @@ impl Tracker {
     pub fn update_wpm_samples(&mut self, wpm: f64, force: bool) {
         let now = Instant::now();
         if force || now.duration_since(self.last_wpm_update) >= Duration::from_secs(1) {
+            if self.wpm_samples.len() >= MAX_WMP_SAMPLES {
+                let remove_count = MAX_WMP_SAMPLES / 10;
+                self.wpm_samples.drain(0..remove_count);
+            }
             self.wpm_samples.push(wpm.round() as u32);
             self.last_wpm_update = now;
         }
