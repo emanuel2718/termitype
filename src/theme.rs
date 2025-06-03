@@ -172,8 +172,8 @@ impl Theme {
                 Color::White,        // Foreground
                 Color::Gray,         // Muted
                 Color::Cyan,         // Accent
-                Color::LightCyan,    // Info
-                Color::LightMagenta, // Primary
+                Color::LightMagenta, // Info
+                Color::LightCyan,    // Primary
                 Color::LightGreen,   // Highlight
                 Color::Green,        // Success
                 Color::Red,          // Error

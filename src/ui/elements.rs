@@ -262,6 +262,18 @@ pub fn create_typing_area<'a>(
         success_style
     };
 
+    // skipped characters are ones skipped by the space jumps
+    let skipped_style = if supports_themes {
+        Style::default()
+            .fg(theme.muted())
+            .add_modifier(Modifier::UNDERLINED | Modifier::DIM)
+            .underline_color(theme.error())
+    } else {
+        Style::default()
+            .fg(theme.muted())
+            .add_modifier(Modifier::DIM)
+    };
+
     for (i, pos) in word_positions.iter().enumerate() {
         if pos.line > current_line_idx_in_full_text {
             if current_line_idx_in_full_text >= first_line_to_render
@@ -297,7 +309,12 @@ pub fn create_typing_area<'a>(
                     termi.tracker.user_input.get(char_idx).copied().flatten() == Some(c);
                 let has_input = termi.tracker.user_input.get(char_idx).is_some();
 
-                let style = if !has_input {
+                let is_skipped_by_space_jump =
+                    termi.tracker.user_input.get(char_idx) == Some(&None);
+
+                let style = if is_skipped_by_space_jump {
+                    skipped_style
+                } else if !has_input {
                     dim_style
                 } else if is_correct {
                     if should_underline_word {
@@ -654,9 +671,10 @@ fn create_item_spans(
     hide_cursorline: bool,
     theme: &Theme,
 ) -> Vec<Span<'static>> {
-    let supports_unicode = theme.supports_unicode();
-    let arrow_symbol = if supports_unicode { "❯ " } else { "> " };
-    let submenu_symbol = if supports_unicode { " →" } else { " >" };
+    // let supports_unicode = theme.supports_unicode();
+    // let arrow_symbol = if supports_unicode { "❯ " } else { "> " };
+    let arrow_symbol = "❯ ";
+    let submenu_symbol = " →";
 
     let should_render_cursorline = is_selected && !item.is_disabled && !hide_cursorline;
     let content_bg = get_content_bg(is_selected, item.is_disabled, hide_cursorline, theme);
