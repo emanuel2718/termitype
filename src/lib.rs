@@ -8,8 +8,10 @@ use crossterm::{
     execute,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use helpers::get_config_dir;
 use ratatui::{prelude::CrosstermBackend, Terminal};
-use utils::get_config_dir;
+
+use crate::helpers::should_print_to_console;
 
 pub mod actions;
 pub mod ascii;
@@ -18,6 +20,7 @@ pub mod builder;
 pub mod config;
 pub mod constants;
 pub mod error;
+pub mod helpers;
 pub mod input;
 pub mod log;
 pub mod macros;
@@ -30,7 +33,6 @@ pub mod theme;
 pub mod tracker;
 #[path = "ui/ui.rs"]
 pub mod ui;
-pub mod utils;
 pub mod version;
 
 pub fn run() -> anyhow::Result<()> {
@@ -83,22 +85,4 @@ pub fn run() -> anyhow::Result<()> {
     )?;
     terminal.show_cursor()?;
     result
-}
-
-fn should_print_to_console(config: &Config) -> bool {
-    if config.list_themes {
-        theme::print_theme_list();
-        return true;
-    }
-
-    if config.list_languages {
-        builder::print_language_list();
-        return true;
-    }
-
-    if config.list_ascii {
-        ascii::print_ascii_list();
-        return true;
-    }
-    false
 }
