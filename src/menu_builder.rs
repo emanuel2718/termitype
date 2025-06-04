@@ -343,8 +343,8 @@ fn build_about_menu() -> Menu {
     let items = vec![
         MenuItem::info("about/name", "Name", "termitype"),
         MenuItem::info("about/version", "Version", VERSION),
-        MenuItem::info("about/desc", "Description", "TUI typing game"),
         MenuItem::info("about/license", "License", env!("CARGO_PKG_LICENSE")),
+        MenuItem::info("about/desc", "Description", "TUI typing game"),
         MenuItem::info(
             "about/source",
             "Source",
