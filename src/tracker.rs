@@ -3,6 +3,8 @@ use std::time::{Duration, Instant};
 
 use crate::config::{Config, Mode};
 
+const MAX_WMP_SAMPLES: usize = 300; // ~5 minutes at 1 sample per second
+
 #[derive(Debug)]
 pub struct Tracker {
     // metrics
@@ -31,13 +33,55 @@ pub struct Tracker {
     pub backspace_count: usize,
     pub wrong_words_start_indexes: HashSet<usize>,
 
+    pub fps: FpsTracker,
     pub current_word_start: usize,
     pub last_metrics_update: Instant,
 
-    // Smart word tracking for performance
+    // internal stufff
     current_word_is_correct_so_far: bool,
-
     max_user_input_length: usize,
+    last_wpm_update: Instant,
+    dirty_metrics: bool,
+    cached_elapsed_seconds: f64,
+    cached_elapsed_time: Instant,
+    space_jump_stack: Vec<(usize, usize)>,
+}
+
+#[derive(Debug)]
+pub struct FpsTracker {
+    current_fps: f64,
+    frame_count: u32,
+    last_update: Instant,
+    interval: Duration,
+}
+
+impl FpsTracker {
+    fn new() -> Self {
+        Self {
+            current_fps: 0.0,
+            frame_count: 0,
+            last_update: Instant::now(),
+            interval: Duration::from_millis(500),
+        }
+    }
+
+    pub fn get(&self) -> f64 {
+        self.current_fps
+    }
+
+    pub fn update(&mut self) -> bool {
+        self.frame_count += 1;
+        let now = Instant::now();
+        if now.duration_since(self.last_update) >= self.interval {
+            let elapsed = now.duration_since(self.last_update).as_secs_f64();
+            self.current_fps = self.frame_count as f64 / elapsed;
+            self.frame_count = 0;
+            self.last_update = now;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -68,18 +112,23 @@ impl Tracker {
             Mode::Words { .. } => None,
         };
 
+        // try avoid re-allocations during typing at the cost of memory but worht it question mark
+        let estimated_capacity = (target_length * 2).max(2048);
+
+        let now = Instant::now();
+
         Self {
             wpm: 0.0,
             raw_wpm: 0.0,
             accuracy: 0,
-            wpm_samples: Vec::with_capacity(100), // Pre-allocate space for samples
-            last_sample_time: Instant::now(),
+            wpm_samples: Vec::with_capacity(100),
+            last_sample_time: now,
             time_remaining,
             time_started: None,
             time_paused: None,
             time_end: None,
             completion_time: None,
-            user_input: Vec::with_capacity(target_length),
+            user_input: Vec::with_capacity(estimated_capacity),
             cursor_position: 0,
             target_text,
             target_chars,
@@ -88,11 +137,17 @@ impl Tracker {
             total_keystrokes: 0,
             backspace_count: 0,
             correct_keystrokes: 0,
-            wrong_words_start_indexes: HashSet::with_capacity(word_count / 5), // guesstimate
+            wrong_words_start_indexes: HashSet::with_capacity(word_count / 3),
             current_word_start: 0,
-            last_metrics_update: Instant::now(),
+            last_metrics_update: now,
+            fps: FpsTracker::new(),
             current_word_is_correct_so_far: true,
-            max_user_input_length: target_length,
+            max_user_input_length: estimated_capacity,
+            last_wpm_update: now,
+            dirty_metrics: false,
+            cached_elapsed_seconds: 0.0,
+            cached_elapsed_time: now,
+            space_jump_stack: Vec::new(),
         }
     }
 
@@ -100,6 +155,7 @@ impl Tracker {
         let now = Instant::now();
         self.time_started = Some(now);
         self.last_sample_time = now;
+        self.last_wpm_update = now;
         self.wpm_samples.clear();
 
         if let Some(duration) = self.time_remaining {
@@ -121,6 +177,10 @@ impl Tracker {
         self.wrong_words_start_indexes.clear();
         self.current_word_start = 0;
         self.current_word_is_correct_so_far = true;
+        self.dirty_metrics = true;
+        self.cached_elapsed_time = now;
+        self.cached_elapsed_seconds = 0.0;
+        self.space_jump_stack.clear();
     }
 
     // TODO: maybe mmove this elsewhere. not sure if it makes sense here.
@@ -147,15 +207,9 @@ impl Tracker {
         }
     }
 
+    #[inline(always)]
     pub fn type_char(&mut self, c: char) -> bool {
         if self.status == Status::Completed {
-            return false;
-        }
-
-        // compatibility with that monkey famous game we are simulating...
-        // first char is <space> and we are at the start of a word? Do nothing
-        let is_space = c == ' ';
-        if is_space && self.cursor_position == self.current_word_start {
             return false;
         }
 
@@ -163,61 +217,166 @@ impl Tracker {
             return false;
         }
 
-        if self.should_complete() {
+        if self.should_time_complete() {
             self.complete();
             return false;
         }
 
-        let is_correct = self.cursor_position < self.target_chars.len()
-            && self.target_chars[self.cursor_position] == c;
+        if self.user_input.len() == self.user_input.capacity() {
+            let new_capacity = self.user_input.capacity() * 2;
+            self.user_input
+                .reserve_exact(new_capacity - self.user_input.capacity());
+            self.max_user_input_length = self.user_input.capacity();
+        }
 
-        let current_char = self.target_chars[self.cursor_position];
-
-        if !is_correct
+        // fast pass for correctly typed characters
+        if self.status == Status::Typing
             && self.cursor_position < self.target_chars.len()
-            && self.target_chars[self.cursor_position] == ' '
+            && unsafe { *self.target_chars.get_unchecked(self.cursor_position) } == c
+            && c != ' '
+            && self.cursor_position != self.current_word_start
         {
-            self.register_keystroke(is_correct);
+            self.total_keystrokes += 1;
+            self.correct_keystrokes += 1;
+
+            self.user_input.push(Some(c));
+            self.cursor_position += 1;
+            self.dirty_metrics = true;
+
+            // check for completion in `Word` mode to terminate test as soon as possible
+            if self.time_remaining.is_none() && self.cursor_position >= self.target_chars.len() {
+                self.check_completion();
+            }
+
+            return true;
+        }
+
+        let is_space = c == ' ';
+        // don't allow space to EVER input a character on the first character of a word.
+        // when was the last time you saw a `<space>` char be the first char of a word?
+        //  wheere does a word start at?
+        if is_space && self.cursor_position == self.current_word_start {
+            return false;
+        }
+
+        // MAXIMUM PERFORMANCEEEEEEEEEEEEEEEEE!
+        let target_char = unsafe { *self.target_chars.get_unchecked(self.cursor_position) };
+        let is_correct = target_char == c;
+
+        // mimic space jump logic from monketype
+        if is_space && target_char != ' ' {
+            self.wrong_words_start_indexes
+                .insert(self.current_word_start);
+
+            let mut next_space_pos = self.cursor_position;
+            while next_space_pos < self.target_chars.len()
+                && self.target_chars[next_space_pos] != ' '
+            {
+                next_space_pos += 1;
+            }
+
+            if next_space_pos < self.target_chars.len() {
+                let target_pos = next_space_pos + 1;
+
+                self.space_jump_stack
+                    .push((self.cursor_position, target_pos));
+
+                self.cursor_position = target_pos;
+                self.current_word_start = self.cursor_position;
+                self.current_word_is_correct_so_far = true;
+
+                while self.user_input.len() < self.cursor_position {
+                    self.user_input.push(None);
+                }
+
+                return true;
+            }
+        }
+
+        if !is_correct && target_char == ' ' {
+            self.register_keystroke(false);
             return true;
         }
 
         self.register_keystroke(is_correct);
 
-        // Memory management: Ensure we have capacity to avoid reallocations during fast typing
-        if self.user_input.len() >= self.user_input.capacity() {
-            let additional = std::cmp::max(100, self.user_input.capacity() / 2);
-            self.user_input.reserve(additional);
-            self.max_user_input_length = self.user_input.capacity();
-        }
-
         self.user_input.push(Some(c));
 
-        // lazyly track the correctnes of the current word
-        if !is_correct && self.current_word_is_correct_so_far {
-            self.current_word_is_correct_so_far = false;
+        // word-correctness check
+        let was_correct = self.current_word_is_correct_so_far;
+        self.current_word_is_correct_so_far = was_correct & is_correct;
+
+        if !self.current_word_is_correct_so_far & was_correct {
             self.wrong_words_start_indexes
                 .insert(self.current_word_start);
         }
 
         self.cursor_position += 1;
 
-        // only validate correctnes of word at the boundaries
-        if is_space && current_char == ' ' {
+        // boundary detection
+        if is_space && target_char == ' ' {
             if self
                 .wrong_words_start_indexes
                 .contains(&self.current_word_start)
             {
                 self.validate_completed_word(self.current_word_start, self.cursor_position - 1);
             }
-
             self.current_word_start = self.cursor_position;
             self.current_word_is_correct_so_far = true;
         }
 
+        // check for completion in `Word` mode
         if self.time_remaining.is_none() && self.cursor_position >= self.target_chars.len() {
             self.check_completion();
         }
+
+        self.dirty_metrics = true;
         true
+    }
+
+    #[inline(always)]
+    fn register_keystroke(&mut self, is_correct: bool) {
+        self.total_keystrokes += 1;
+        self.correct_keystrokes += is_correct as usize;
+    }
+
+    pub fn needs_metrics_update(&self) -> bool {
+        self.dirty_metrics && self.status == Status::Typing
+    }
+
+    pub fn update_metrics(&mut self) {
+        if self.status == Status::Completed || self.status == Status::Paused {
+            return;
+        }
+
+        let Some(start_time) = self.time_started else {
+            return;
+        };
+
+        let now = Instant::now();
+
+        if let Some(end_time) = self.time_end {
+            self.time_remaining = Some(end_time.duration_since(now));
+        }
+
+        self.accuracy = if self.total_keystrokes > 0 {
+            ((self.correct_keystrokes * 100) / self.total_keystrokes).min(100) as u8
+        } else {
+            0
+        };
+
+        // limit the times we update the wpm to avoid jittery wpm updates
+        let should_update_wpm = now.duration_since(self.last_wpm_update) >= Duration::from_secs(1);
+        if should_update_wpm {
+            if let Some(speed) = self.calculate_typing_speed(start_time) {
+                self.wpm = speed.wpm;
+                self.raw_wpm = speed.raw_wpm;
+                self.update_wpm_samples(speed.wpm, false);
+                self.last_wpm_update = now;
+            }
+        }
+
+        self.dirty_metrics = false;
     }
 
     pub fn backspace(&mut self) -> bool {
@@ -228,6 +387,27 @@ impl Tracker {
         if self.cursor_position == 0 {
             return false;
         }
+
+        // backward space jump check
+        if let Some(&(prev_source_pos, prev_target_pos)) = self.space_jump_stack.last() {
+            if self.cursor_position == prev_target_pos {
+                self.cursor_position = prev_source_pos;
+                self.user_input.truncate(self.cursor_position);
+                self.space_jump_stack.pop();
+                self.current_word_start = 0;
+
+                for i in (0..self.cursor_position).rev() {
+                    if i < self.user_input.len() && self.user_input[i] == Some(' ') {
+                        self.current_word_start = i + 1;
+                        break;
+                    }
+                }
+
+                self.backspace_count += 1;
+                return true;
+            }
+        }
+
         self.backspace_count += 1;
 
         // just typed a space
@@ -267,32 +447,6 @@ impl Tracker {
         true
     }
 
-    pub fn update_metrics(&mut self) {
-        if self.status == Status::Completed || self.status == Status::Paused {
-            return;
-        }
-
-        let Some(start_time) = self.time_started else {
-            return;
-        };
-
-        if let Some(end_time) = self.time_end {
-            self.time_remaining = Some(end_time.duration_since(Instant::now()));
-        }
-
-        self.accuracy = if self.total_keystrokes > 0 {
-            ((self.correct_keystrokes as f64 / self.total_keystrokes as f64) * 100.0).round() as u8
-        } else {
-            0
-        };
-
-        if let Some(speed) = self.calculate_typing_speed(start_time) {
-            self.wpm = speed.wpm;
-            self.raw_wpm = speed.raw_wpm;
-            self.update_wpm_samples(speed.wpm, false);
-        }
-    }
-
     /// Calculates the current typing speed
     fn calculate_typing_speed(&self, start_time: Instant) -> Option<TypingSpeed> {
         let elapsed_seconds = start_time.elapsed().as_secs_f64();
@@ -303,11 +457,11 @@ impl Tracker {
             return None;
         }
         // for the wpm's
-        let correct_words = (self.correct_keystrokes as f64) / 5.0;
+        let correct_words = (self.correct_keystrokes as f64) * 0.2;
 
         // for the raw wpm's
         let chars_typed = self.user_input.len() as f64;
-        let words_typed = chars_typed / 5.0;
+        let words_typed = chars_typed * 0.2;
 
         Some(TypingSpeed {
             wpm: (correct_words / elapsed_minutes).max(0.0),
@@ -334,9 +488,13 @@ impl Tracker {
 
     pub fn update_wpm_samples(&mut self, wpm: f64, force: bool) {
         let now = Instant::now();
-        if force || now.duration_since(self.last_sample_time) >= Duration::from_secs(1) {
+        if force || now.duration_since(self.last_wpm_update) >= Duration::from_secs(1) {
+            if self.wpm_samples.len() >= MAX_WMP_SAMPLES {
+                let remove_count = MAX_WMP_SAMPLES / 10;
+                self.wpm_samples.drain(0..remove_count);
+            }
             self.wpm_samples.push(wpm.round() as u32);
-            self.last_sample_time = now;
+            self.last_wpm_update = now;
         }
     }
 
@@ -354,13 +512,6 @@ impl Tracker {
             self.status = Status::Completed;
         }
         is_complete
-    }
-
-    fn register_keystroke(&mut self, is_correct: bool) {
-        self.total_keystrokes += 1;
-        if is_correct {
-            self.correct_keystrokes += 1;
-        }
     }
 
     pub fn complete(&mut self) {
@@ -389,9 +540,9 @@ impl Tracker {
     }
 
     /// Validates the last complete typed word and marks the word as correct/incorrect
+    #[inline(always)]
     fn validate_completed_word(&mut self, word_start: usize, word_end: usize) {
         let mut target_end = word_start;
-        // TODO: need to improve the way we store things
         while target_end < self.target_chars.len() && self.target_chars[target_end] != ' ' {
             target_end += 1;
         }
@@ -417,7 +568,7 @@ impl Tracker {
     }
 
     /// Checks if the test has reached its conclusion. Only applicable in Time mode
-    pub fn should_complete(&self) -> bool {
+    pub fn should_time_complete(&self) -> bool {
         if self.status != Status::Typing {
             return false;
         }
@@ -426,6 +577,24 @@ impl Tracker {
         } else {
             false
         }
+    }
+
+    /// Smartly updates the time remaining for `Time` mode.
+    pub fn update_time_remaining(&mut self) -> bool {
+        if self.status != Status::Typing {
+            return false;
+        }
+        // this means that we are in time mode...but we should have a better way to determine this
+        if let Some(end_time) = self.time_end {
+            let new_rem = end_time.saturating_duration_since(Instant::now());
+            let curr_seconds = self.time_remaining.map(|t| t.as_secs()).unwrap_or(0);
+            let new_seconds = new_rem.as_secs();
+            // only if the seconds differ we update the time remaining
+            if curr_seconds != new_seconds {
+                self.time_remaining = Some(new_rem);
+            }
+        }
+        true
     }
 }
 
@@ -1067,17 +1236,22 @@ mod tests {
 
         assert!(tracker.wpm_samples.is_empty());
 
-        tracker.last_sample_time -= Duration::from_secs(1);
-        tracker.time_started = Some(tracker.time_started.unwrap() - Duration::from_secs(1));
-        tracker.update_metrics();
+        // Ensure at least 0.5 seconds have elapsed for calculate_typing_speed
+        tracker.time_started = Some(Instant::now() - Duration::from_millis(600));
+        if let Some(speed) = tracker.calculate_typing_speed(tracker.time_started.unwrap()) {
+            tracker.update_wpm_samples(speed.wpm, true); // Force collection
+        }
         assert_eq!(tracker.wpm_samples.len(), 1);
 
         for c in " world".chars() {
             tracker.type_char(c);
         }
-        tracker.last_sample_time -= Duration::from_secs(1);
-        tracker.time_started = Some(tracker.time_started.unwrap() - Duration::from_secs(1));
-        tracker.update_metrics();
+
+        // Force another sample collection
+        tracker.time_started = Some(Instant::now() - Duration::from_millis(700));
+        if let Some(speed) = tracker.calculate_typing_speed(tracker.time_started.unwrap()) {
+            tracker.update_wpm_samples(speed.wpm, true); // Force collection
+        }
         assert_eq!(tracker.wpm_samples.len(), 2);
 
         assert!(tracker.wpm_samples[0] != tracker.wpm_samples[1]);
@@ -1091,20 +1265,23 @@ mod tests {
         for c in "hello world".chars() {
             tracker.type_char(c);
         }
-        tracker.last_sample_time = Instant::now() - Duration::from_secs(1);
 
-        tracker.time_started = Some(tracker.time_started.unwrap() - Duration::from_secs(1));
-        tracker.update_metrics();
+        // Ensure at least 0.5 seconds have elapsed for calculate_typing_speed
+        tracker.time_started = Some(Instant::now() - Duration::from_millis(600));
+        if let Some(speed) = tracker.calculate_typing_speed(tracker.time_started.unwrap()) {
+            tracker.update_wpm_samples(speed.wpm, true); // Force collection
+        }
         assert_eq!(
             tracker.wpm_samples.len(),
             1,
             "Should have collected first sample"
         );
 
-        tracker.last_sample_time = Instant::now() - Duration::from_secs(2);
-
-        tracker.time_started = Some(tracker.time_started.unwrap() - Duration::from_secs(1));
-        tracker.update_metrics();
+        // Force another sample collection
+        tracker.time_started = Some(Instant::now() - Duration::from_millis(700));
+        if let Some(speed) = tracker.calculate_typing_speed(tracker.time_started.unwrap()) {
+            tracker.update_wpm_samples(speed.wpm, true); // Force collection
+        }
         assert_eq!(
             tracker.wpm_samples.len(),
             2,
@@ -1194,6 +1371,105 @@ mod tests {
             !tracker.is_word_wrong(6),
             "Word 'too' should NOT be marked wrong after correction. Wrong words: {:?}",
             tracker.wrong_words_start_indexes
+        );
+    }
+
+    #[test]
+    fn test_space_beyond_first_letter_should_skip_to_next_word() {
+        let mut tracker = create_tracker(); // will be `hello world`
+        tracker.start_typing();
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 0);
+        tracker.type_char('h');
+        assert_eq!(tracker.cursor_position, 1);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6);
+    }
+
+    #[test]
+    fn test_space_in_boundary_shouldnt_skip() {
+        let mut tracker = create_tracker(); // will be `hello world`
+        tracker.start_typing();
+        for c in "hello".chars() {
+            tracker.type_char(c);
+        }
+        assert_eq!(tracker.cursor_position, 5);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6);
+    }
+
+    #[test]
+    fn test_backspace_after_space_beyond_first_letter() {
+        let mut tracker = create_tracker(); // will be `hello world`
+        tracker.start_typing();
+        tracker.type_char('h');
+        assert_eq!(tracker.cursor_position, 1);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6);
+        // should take you back after a space jump
+        tracker.backspace();
+        assert_eq!(tracker.cursor_position, 1);
+    }
+
+    #[test]
+    fn test_backspace_after_multiple_chained_spaces() {
+        let config = Config::default();
+        let target_text = String::from("hello there termitype hope you doing good");
+        let mut tracker = Tracker::new(&config, target_text);
+        tracker.start_typing();
+        tracker.type_char('h');
+        assert_eq!(tracker.cursor_position, 1);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 6); // just before "there"
+        tracker.type_char('t');
+        assert_eq!(tracker.cursor_position, 7);
+        tracker.type_char(' ');
+        assert_eq!(tracker.cursor_position, 12); // just before "termitype"
+        tracker.backspace();
+        assert_eq!(tracker.cursor_position, 7);
+        tracker.backspace();
+        assert_eq!(tracker.cursor_position, 6);
+        tracker.backspace();
+        assert_eq!(tracker.cursor_position, 1);
+    }
+
+    #[test]
+    fn test_word_mode_completion() {
+        let config = Config::default();
+        let target_text = String::from("hello world test end");
+        let mut tracker = Tracker::new(&config, target_text);
+
+        tracker.time_remaining = None;
+        tracker.start_typing();
+
+        for c in "hello world test end".chars() {
+            assert!(tracker.type_char(c), "Should accept character '{}'", c);
+
+            if tracker.cursor_position >= tracker.target_chars.len() {
+                assert_eq!(
+                    tracker.status,
+                    Status::Completed,
+                    "Test should be completed when all characters are typed"
+                );
+                break;
+            }
+        }
+
+        assert_eq!(
+            tracker.status,
+            Status::Completed,
+            "Test should be completed after typing all words"
+        );
+        assert_eq!(
+            tracker.cursor_position,
+            tracker.target_chars.len(),
+            "Cursor should be at end of text"
+        );
+        assert!(
+            tracker.completion_time.is_some(),
+            "Completion time should be set"
         );
     }
 }

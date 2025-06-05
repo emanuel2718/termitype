@@ -1,4 +1,7 @@
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 use crate::{
     config,
@@ -12,6 +15,19 @@ pub struct WordPosition {
     pub start_index: usize,
     pub line: usize,
     pub col: usize,
+}
+
+// PERF: cache for word positions
+thread_local! {
+    static WORD_POSITION_CACHE: std::cell::RefCell<HashMap<u64, Vec<WordPosition>>> =
+        std::cell::RefCell::new(HashMap::new());
+}
+
+fn calculate_cache_key(text: &str, available_width: usize) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    text.hash(&mut hasher);
+    available_width.hash(&mut hasher);
+    hasher.finish()
 }
 
 pub fn center_div(width: u16, height: u16, parent: Rect) -> Rect {
@@ -40,46 +56,63 @@ pub fn apply_horizontal_centering(area: Rect, width_percent: u16) -> Rect {
 }
 
 pub fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordPosition> {
+    let cache_key = calculate_cache_key(text, available_width);
+
+    WORD_POSITION_CACHE.with(|cache| {
+        let mut cache_ref = cache.borrow_mut();
+
+        if let Some(cached_positions) = cache_ref.get(&cache_key) {
+            return cached_positions.clone();
+        }
+
+        let positions = _calculate_positions(text, available_width);
+
+        if cache_ref.len() > 20 {
+            cache_ref.clear();
+        }
+        cache_ref.insert(cache_key, positions.clone());
+
+        positions
+    })
+}
+
+fn _calculate_positions(text: &str, available_width: usize) -> Vec<WordPosition> {
     if text.is_empty() || available_width == 0 {
         return vec![];
     }
 
-    let word_count = text.split_whitespace().count();
-    let mut positions = Vec::with_capacity(word_count);
-    let mut current_line = 0;
-    let mut current_col = 0;
-    let mut current_index = 0;
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let mut positions = Vec::with_capacity(words.len());
+    let mut char_index = 0;
+    let mut line = 0;
+    let mut col = 0;
 
-    for word in text.split_whitespace() {
-        let word_len = word.chars().count();
-
-        // does this word exceeds `available_width` and this is not the start of the line?
-        if current_col > 0
-            && (current_col + word_len >= available_width || current_col + 1 >= available_width)
-        {
-            current_line += 1;
-            current_col = 0;
+    for (word_idx, word) in words.iter().enumerate() {
+        // start position of the original text
+        while char_index < text.len() && !text[char_index..].starts_with(word) {
+            char_index += 1;
         }
 
-        // words longer than `available_width`
-        if word_len >= available_width && current_col > 0 {
-            current_line += 1;
-            current_col = 0;
+        let word_len = word.chars().count();
+
+        // does the word fit in the current line question mark
+        if col > 0 && col + word_len > available_width {
+            line += 1;
+            col = 0;
         }
 
         positions.push(WordPosition {
-            start_index: current_index,
-            line: current_line,
-            col: current_col,
+            start_index: char_index,
+            line,
+            col,
         });
 
-        current_index += word_len + 1; // word + <space>
-        current_col += word_len + 1;
+        char_index += word.len();
+        col += word_len;
 
-        // force the wrapping after long words
-        if current_col >= available_width {
-            current_line += 1;
-            current_col = 0;
+        if word_idx < words.len() - 1 && col < available_width {
+            col += 1;
+            char_index += 1;
         }
     }
 

@@ -5,12 +5,31 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use crate::config::Config;
 use crate::{
     constants::{
         APPNAME, DAYS_PER_MONTH, DAYS_PER_YEAR, SECS_PER_DAY, SECS_PER_HOUR, SECS_PER_MIN,
     },
     error::{TError, TResult},
 };
+
+pub fn should_print_to_console(config: &Config) -> bool {
+    if config.list_themes {
+        crate::theme::print_theme_list();
+        return true;
+    }
+
+    if config.list_languages {
+        crate::builder::print_language_list();
+        return true;
+    }
+
+    if config.list_ascii {
+        crate::ascii::print_ascii_list();
+        return true;
+    }
+    false
+}
 
 /// Grabs the intenal config dir where the logger and persitant state files live
 pub fn get_config_dir() -> TResult<PathBuf> {

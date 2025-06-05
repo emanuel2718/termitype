@@ -1,7 +1,4 @@
-use std::{
-    collections::VecDeque,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use crossterm::{
     cursor::SetCursorStyle,
@@ -16,6 +13,7 @@ use crate::{
     builder::Builder,
     config::Config,
     input::InputHandler,
+    log_debug,
     menu::MenuState,
     modal::InputModal,
     theme::Theme,
@@ -91,6 +89,7 @@ impl Termi {
             self.config.reset_words_flag();
         }
 
+        log_debug!("Test started: Generating new words (should trigger UI cache miss)");
         self.words = self.builder.generate_test(&self.config);
         self.tracker = Tracker::new(&self.config, self.words.clone());
 
@@ -110,6 +109,7 @@ impl Termi {
         let menu = self.menu.clone();
         let words = self.words.clone();
 
+        log_debug!("Test redo: Resetting tracker (UI cache should remain valid if same words)");
         self.tracker = Tracker::new(&self.config, words);
         self.menu = menu;
     }
@@ -141,58 +141,52 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     let mut input_handler = InputHandler::new();
     let mut click_regions = TermiClickableRegions::default();
 
-    let mut frame_times: VecDeque<Instant> = VecDeque::with_capacity(60);
-    let typing_frame_time = Duration::from_micros(6944); // ~144 FPS (1000000/144)
-    let idle_frame_time = Duration::from_millis(100); // slower refresh when IDLE
+    const TYPING_FRAME_TIME: Duration = Duration::from_millis(4); // ~240 FPS
+    const IDLE_FRAME_TIME: Duration = Duration::from_millis(300); // ~30 FPS when idle
 
+    let mut last_input_at = Instant::now();
     let mut last_tick = Instant::now();
     let mut last_metrics_update = Instant::now();
-    let mut last_keystroke = Instant::now();
+    let mut last_time_update = Instant::now();
+    let mut needs_render = true;
 
-    let mut current_fps: f64 = 0.0;
-    let mut last_fps_update_time = Instant::now();
-    let fps_update_interval = Duration::from_millis(500);
+    loop {
+        let frame_start = Instant::now();
 
-    let mut needs_redraw = true;
-
-    'main_loop: loop {
         if termi.should_quit {
-            break 'main_loop;
+            break;
         }
-        let now = Instant::now();
 
-        let current_frame_time = if now.duration_since(last_keystroke) < Duration::from_secs(1)
-            || termi.config.show_fps
-        {
-            typing_frame_time
+        let is_active = frame_start.duration_since(last_input_at) < Duration::from_secs(2);
+        let target_frame_time = if is_active {
+            TYPING_FRAME_TIME
         } else {
-            idle_frame_time
+            IDLE_FRAME_TIME
         };
 
-        let timeout = current_frame_time
+        if termi.config.show_fps && termi.tracker.fps.update() {
+            needs_render = true;
+        }
+
+        let timeout = target_frame_time
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
 
         if event::poll(timeout)? {
             match event::read()? {
-                Event::Key(event) => {
-                    if event.kind == KeyEventKind::Press {
-                        let last_event = termi.last_event;
-                        termi.last_event = Some(event);
-                        let input_mode = input_handler.resolve_input_mode(&termi);
-                        let action = input_handler.handle_input(event, last_event, input_mode);
+                Event::Key(event) if event.kind == KeyEventKind::Press => {
+                    let last_event = termi.last_event;
+                    termi.last_event = Some(event);
+                    let input_mode = input_handler.resolve_input_mode(&termi);
+                    let action = input_handler.handle_input(event, last_event, input_mode);
 
-                        // inmediate actions
-                        if action == TermiAction::Quit {
-                            break 'main_loop;
-                        }
-
-                        last_keystroke = now;
-
-                        // process all the actions that are not quit as is the only inmediate action atm
-                        process_action(action, &mut termi);
-                        needs_redraw = true;
+                    if action == TermiAction::Quit {
+                        break;
                     }
+
+                    last_input_at = frame_start;
+                    process_action(action, &mut termi);
+                    needs_render = true;
                 }
                 Event::Mouse(MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),
@@ -200,92 +194,59 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
                     row,
                     ..
                 }) => {
-                    let click_action = handle_click_action(&mut termi, &click_regions, column, row);
-                    if let Some(action) = click_action {
+                    if let Some(action) =
+                        handle_click_action(&mut termi, &click_regions, column, row)
+                    {
                         process_action(action, &mut termi);
-                        needs_redraw = true;
+                        last_input_at = frame_start;
+                        needs_render = true;
                     }
                 }
-                Event::Resize(_width, _height) => {
-                    needs_redraw = true;
+                Event::Resize(_, _) => {
+                    needs_render = true;
                 }
                 _ => {}
             }
         }
 
-        if termi.tracker.should_complete() {
-            termi.tracker.complete();
-            needs_redraw = true;
-        }
-
-        // with this we ensure that on time mode we update the time regardless of user input
-        if termi.tracker.status == Status::Typing {
-            if let Some(end_time) = termi.tracker.time_end {
-                let new_time_remaining = if now >= end_time {
-                    Duration::from_secs(0)
-                } else {
-                    end_time.duration_since(now)
-                };
-
-                // only update `time_remaining` if seconds have changed
-                let current_seconds = termi
-                    .tracker
-                    .time_remaining
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0);
-                let new_seconds = new_time_remaining.as_secs();
-
-                if current_seconds != new_seconds {
-                    termi.tracker.time_remaining = Some(new_time_remaining);
-                    needs_redraw = true;
-                }
+        if frame_start.duration_since(last_time_update) >= Duration::from_millis(100) {
+            // check for time completion
+            if termi.tracker.should_time_complete() {
+                termi.tracker.complete();
+                needs_render = true;
             }
+
+            if termi.tracker.update_time_remaining() {
+                needs_render = true;
+            }
+
+            last_time_update = frame_start;
         }
 
-        if now.duration_since(last_metrics_update) >= Duration::from_millis(500) {
+        if frame_start.duration_since(last_metrics_update) >= Duration::from_millis(500) {
             termi.tracker.update_metrics();
-            last_metrics_update = now;
-        }
-
-        frame_times.push_back(now);
-        if frame_times.len() > 60 {
-            frame_times.pop_front();
-        }
-
-        if frame_times.len() > 1 {
-            if let (Some(newest), Some(oldest)) = (frame_times.back(), frame_times.front()) {
-                let duration = newest.duration_since(*oldest);
-                if duration > Duration::ZERO {
-                    let avg_frame_time = duration.as_secs_f64() / (frame_times.len() - 1) as f64;
-                    if avg_frame_time > 0.0 {
-                        current_fps = 1.0 / avg_frame_time;
-                    }
-                }
+            if termi.tracker.status == Status::Typing && !termi.config.hide_live_wpm {
+                needs_render = true;
             }
+            last_metrics_update = frame_start;
         }
 
-        let fps_to_display = if termi.config.show_fps {
-            Some(current_fps)
-        } else {
-            None
-        };
+        // re-render if needed
+        if needs_render {
+            let fps_display = if termi.config.show_fps {
+                Some(termi.tracker.fps.get())
+            } else {
+                None
+            };
 
-        if termi.config.show_fps
-            && !needs_redraw
-            && now.duration_since(last_fps_update_time) >= fps_update_interval
-        {
-            needs_redraw = true;
-            last_fps_update_time = now;
-        }
-
-        if needs_redraw {
             terminal.draw(|frame| {
-                click_regions = draw_ui(frame, &mut termi, fps_to_display);
+                click_regions = draw_ui(frame, &mut termi, fps_display);
             })?;
-            needs_redraw = false;
+
+            needs_render = false;
         }
 
-        last_tick = Instant::now();
+        last_tick = frame_start;
     }
 
     Ok(())

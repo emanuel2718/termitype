@@ -47,7 +47,28 @@ impl TermiClickableRegions {
     }
 }
 
-/// Main entry point for the rendering
+// PERF: Cache for UI components
+thread_local! {
+    static UI_CACHE: std::cell::RefCell<UiCache> = std::cell::RefCell::new(UiCache::new());
+}
+
+struct UiCache {
+    last_word_positions: Option<Vec<super::utils::WordPosition>>,
+    last_text_hash: u64,
+    last_width: usize,
+}
+
+impl UiCache {
+    fn new() -> Self {
+        Self {
+            last_word_positions: None,
+            last_text_hash: 0,
+            last_width: 0,
+        }
+    }
+}
+
+/// Main entry point for the rendering - now with advanced caching
 pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiClickableRegions {
     let mut regions = TermiClickableRegions::default();
 
@@ -181,6 +202,105 @@ pub fn draw_ui(frame: &mut Frame, termi: &mut Termi, fps: Option<f64>) -> TermiC
     regions
 }
 
+fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
+    let available_width = area.width.min(TYPING_AREA_WIDTH) as usize;
+    let line_count = termi.config.visible_lines as usize;
+    let cursor_idx = termi.tracker.cursor_position;
+
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    termi.words.hash(&mut hasher);
+    let text_hash = hasher.finish();
+
+    let word_positions = UI_CACHE.with(|cache| {
+        let mut cache_ref = cache.borrow_mut();
+
+        if cache_ref.last_text_hash == text_hash && cache_ref.last_width == available_width {
+            if let Some(ref positions) = cache_ref.last_word_positions {
+                return positions.clone();
+            }
+        }
+
+        let positions = calculate_word_positions(&termi.words, available_width);
+
+        cache_ref.last_word_positions = Some(positions.clone());
+        cache_ref.last_text_hash = text_hash;
+        cache_ref.last_width = available_width;
+
+        positions
+    });
+
+    if word_positions.is_empty() {
+        frame.render_widget(Paragraph::new(Text::raw("")), area);
+        return;
+    }
+
+    // cursor position calc
+    let current_word_pos_idx =
+        match word_positions.binary_search_by(|pos| pos.start_index.cmp(&cursor_idx)) {
+            Ok(idx) => idx,
+            Err(idx) => idx.saturating_sub(1),
+        };
+
+    let current_word_pos = &word_positions[current_word_pos_idx];
+    let current_line = current_word_pos.line;
+
+    // scroll calculation logic
+    let scroll_offset = if line_count <= 1 {
+        current_line
+    } else {
+        let half_visible = line_count >> 1; // we do bitshifts around here
+        current_line.saturating_sub(half_visible)
+    };
+
+    let typing_text = create_typing_area(termi, scroll_offset, line_count, &word_positions);
+    let text_height = typing_text.height();
+
+    let area_width = available_width as u16;
+    let area_padding = (area.width - area_width) >> 1; // better looking than division by 2
+    let render_area = Rect {
+        x: area.x + area_padding,
+        y: area.y,
+        width: area_width,
+        height: area.height,
+    };
+
+    let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
+    frame.render_widget(paragraph, render_area);
+
+    // cursor rendering logic
+    let should_show_cursor = (termi.tracker.status == Status::Idle
+        || termi.tracker.status == Status::Typing)
+        && termi.modal.is_none()
+        && !termi.menu.is_theme_menu();
+
+    if should_show_cursor {
+        let menu_obscures_cursor = termi.menu.is_open() && {
+            let estimated_menu_area = calculate_menu_area(termi, frame.area());
+            estimated_menu_area.intersects(render_area)
+        };
+
+        if !menu_obscures_cursor {
+            let offset_x = cursor_idx - current_word_pos.start_index;
+            let cursor_x = render_area.x + current_word_pos.col as u16 + offset_x as u16;
+            let cursor_y = render_area.y + (current_line - scroll_offset) as u16;
+
+            let in_bounds = cursor_x >= render_area.left()
+                && cursor_x < render_area.right()
+                && cursor_y >= render_area.top()
+                && cursor_y < render_area.top() + text_height as u16;
+
+            if in_bounds {
+                frame.set_cursor_position(Position {
+                    x: cursor_x,
+                    y: cursor_y,
+                });
+            }
+        }
+    }
+}
+
 fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElement>, area: Rect) {
     if elements.is_empty() {
         return;
@@ -190,6 +310,7 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
         let element = &elements[0];
         let alignment = element.content.alignment.unwrap_or(Alignment::Left);
         let text_height = element.content.height() as u16;
+        let text_width = element.content.width() as u16;
 
         let centered_area = Rect {
             x: area.x,
@@ -202,7 +323,34 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
         f.render_widget(paragraph, centered_area);
 
         if let Some(action) = element.action {
-            cr.add(centered_area, action);
+            // area will be just as wide and tall as the clickable text + tiny offset
+            let clickable_area = match alignment {
+                Alignment::Center => {
+                    let start_x = area.x + (area.width.saturating_sub(text_width)) / 2;
+                    Rect {
+                        x: start_x,
+                        y: centered_area.y,
+                        width: text_width.min(area.width) + 1,
+                        height: text_height.min(area.height),
+                    }
+                }
+                Alignment::Right => {
+                    let start_x = area.x + area.width.saturating_sub(text_width);
+                    Rect {
+                        x: start_x,
+                        y: centered_area.y,
+                        width: text_width.min(area.width) + 1,
+                        height: text_height.min(area.height),
+                    }
+                }
+                Alignment::Left => Rect {
+                    x: area.x,
+                    y: centered_area.y,
+                    width: text_width.min(area.width) + 1,
+                    height: text_height.min(area.height),
+                },
+            };
+            cr.add(clickable_area, action);
         }
     } else {
         let mut spans = Vec::new();
@@ -255,95 +403,6 @@ fn render(f: &mut Frame, cr: &mut TermiClickableRegions, elements: Vec<TermiElem
 
         for (rect, action) in clickable_regions_to_add {
             cr.add(rect, action);
-        }
-    }
-}
-
-fn render_typing_area(frame: &mut Frame, termi: &Termi, area: Rect) {
-    let available_width = area.width.min(TYPING_AREA_WIDTH) as usize;
-    let line_count = termi.config.visible_lines as usize;
-    let cursor_idx = termi.tracker.cursor_position;
-
-    let word_positions = calculate_word_positions(&termi.words, available_width);
-
-    if word_positions.is_empty() {
-        frame.render_widget(Paragraph::new(Text::raw("")), area);
-        return;
-    }
-
-    let current_word_pos = word_positions
-        .binary_search_by(|pos| pos.start_index.cmp(&cursor_idx))
-        .unwrap_or_else(|i| i.saturating_sub(1));
-
-    let current_word_pos = &word_positions[current_word_pos];
-    let current_line = current_word_pos.line;
-
-    let scroll_offset = if line_count <= 1 {
-        current_line
-    } else {
-        let half_visible = line_count / 2;
-        if current_line < half_visible {
-            0
-        } else {
-            current_line.saturating_sub(half_visible)
-        }
-    };
-
-    let typing_text = create_typing_area(termi, scroll_offset, line_count, &word_positions);
-
-    let text_height = typing_text.height();
-
-    let area_width = available_width as u16;
-    let area_padding = area.width.saturating_sub(area_width) / 2;
-    let render_area = Rect {
-        x: area.x + area_padding,
-        y: area.y,
-        width: area_width,
-        height: area.height,
-    };
-
-    let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
-    frame.render_widget(paragraph, render_area);
-
-    let show_cursor = (termi.tracker.status == Status::Idle
-        || termi.tracker.status == Status::Typing)
-        && termi.modal.is_none()
-        && !termi.menu.is_theme_menu();
-
-    if show_cursor && !termi.menu.is_open() {
-        let offset_x = cursor_idx.saturating_sub(current_word_pos.start_index);
-        let cursor_x = render_area.x + current_word_pos.col.saturating_add(offset_x) as u16;
-        let cursor_y = render_area.y + current_line.saturating_sub(scroll_offset) as u16;
-
-        // boundary check
-        if cursor_x >= render_area.left()
-            && cursor_x < render_area.right()
-            && cursor_y >= render_area.top()
-            && cursor_y < render_area.top() + text_height as u16
-        {
-            frame.set_cursor_position(Position {
-                x: cursor_x,
-                y: cursor_y,
-            });
-        }
-    } else if show_cursor {
-        // only check for menu overlap when the menu is open
-        let estimated_menu_area = calculate_menu_area(termi, frame.area());
-        if !estimated_menu_area.intersects(render_area) {
-            let offset_x = cursor_idx.saturating_sub(current_word_pos.start_index);
-            let cursor_x = render_area.x + current_word_pos.col.saturating_add(offset_x) as u16;
-            let cursor_y = render_area.y + current_line.saturating_sub(scroll_offset) as u16;
-
-            if cursor_x >= render_area.left()
-                && cursor_x < render_area.right()
-                && cursor_y >= render_area.top()
-                && cursor_y < render_area.top() + text_height as u16
-            {
-                frame.set_cursor_position(Position {
-                    x: cursor_x,
-                    y: cursor_y,
-                });
-            }
         }
     }
 }
@@ -766,14 +825,15 @@ fn render_theme_preview(frame: &mut Frame, termi: &Termi, area: Rect) {
                     .fg(theme.highlight())
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" + ", Style::default().fg(theme.muted())),
+            Span::styled(" + ", Style::default().fg(theme.muted())).add_modifier(Modifier::DIM),
             Span::styled(
                 "enter",
                 Style::default()
                     .fg(theme.highlight())
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" - restart test", Style::default().fg(theme.muted())),
+            Span::styled(" - restart test", Style::default().fg(theme.muted()))
+                .add_modifier(Modifier::DIM),
             // Span::styled(
             //     "esc",
             //     Style::default()
@@ -1032,7 +1092,7 @@ fn render_neofetch_results_screen(
             theme.success(),
             theme.warning(),
             theme.info(),
-            theme.accent(),
+            theme.primary(),
             theme.highlight(),
             theme.fg(),
         ] {

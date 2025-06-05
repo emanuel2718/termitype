@@ -8,15 +8,15 @@ palette = 6=#e2b714
 palette = 7=#a9aab0
 palette = 8=#646669
 palette = 9=#ca4754
-palette = 10=#d1d0c5
-palette = 11=#e2b714
+palette = 10=#e2b714
+palette = 11=#d1d0c5
 palette = 12=#646669
 palette = 13=#e2b714
 palette = 14=#56b6c2
 palette = 15=#ffffff
 background = #323437
 foreground = #d1d0c5
-cursor-color = #e2b714
+cursor-color =#646669
 cursor-text = #323437
 selection-background = #2c2e31
 selection-foreground = #d1d0c5

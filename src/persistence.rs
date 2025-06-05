@@ -7,8 +7,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{constants::STATE_FILE, error::TResult, log_error, log_info, utils::get_config_dir};
-use crate::{error::TError, utils::create_file};
+use crate::{constants::STATE_FILE, error::TResult, helpers::get_config_dir, log_error, log_info};
+use crate::{error::TError, helpers::create_file};
 
 // TOOD: Evaluate when done with the settings to ensure we set a sane default here
 const DEFAULT_CAPACITY: usize = 10;

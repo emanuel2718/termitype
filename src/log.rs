@@ -11,7 +11,7 @@ use std::{
 
 use once_cell::sync::OnceCell;
 
-use crate::utils::format_timestamp;
+use crate::helpers::format_timestamp;
 
 static LOGGER: OnceCell<Mutex<Logger>> = OnceCell::new();
 static LOG_LEVEL: OnceCell<Mutex<Level>> = OnceCell::new();

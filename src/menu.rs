@@ -3,9 +3,9 @@ use crate::{
     ascii::DEFAULT_ASCII_ART_NAME,
     config::Config,
     constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_TIME_MODE_DURATION},
+    helpers::fuzzy_match,
     log_debug,
     menu_builder::build_menu,
-    utils::fuzzy_match,
 };
 
 /// Represents the resulting action of selecting a menu item
