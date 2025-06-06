@@ -107,7 +107,7 @@ pub struct Config {
     #[arg(
         long = "results-style",
         value_name = "STYLE",
-        value_parser = ["graph", "neofetch"],
+        value_parser = ["graph", "minimal", "neofetch"],
         help = "Results display style"
     )]
     pub results_style: Option<String>,
@@ -786,6 +786,7 @@ impl Default for PickerStyle {
 pub enum ResultsStyle {
     Graph,
     Neofetch,
+    Minimal,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -797,7 +798,7 @@ impl std::fmt::Display for ResultsStyleParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Invalid results style: '{}'. Valid options are: neofetch, graph",
+            "Invalid results style: '{}'. Valid options are: neofetch, graph, minimal",
             self.invalid_input
         )
     }
@@ -811,6 +812,7 @@ impl FromStr for ResultsStyle {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "graph" => Ok(Self::Graph),
+            "minimal" => Ok(Self::Minimal),
             "neofetch" => Ok(Self::Neofetch),
             _ => Err(ResultsStyleParseError {
                 invalid_input: s.to_string(),
@@ -823,17 +825,19 @@ impl ResultsStyle {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Graph => "graph",
+            Self::Minimal => "minimal",
             Self::Neofetch => "neofetch",
         }
     }
 
     pub fn all() -> &'static [&'static str] {
-        &["graph", "neofetch"]
+        &["graph", "minimal", "neofetch"]
     }
 
     pub fn label_from_str(label: &str) -> &'static str {
         match label {
             "graph" => "Graph",
+            "minimal" => "Minimal",
             "neofetch" => "Neofetch",
             _ => "Unknown style",
         }

@@ -91,7 +91,7 @@ Options:
   -T, --theme <THEME_NAME>         Color theme to use
       --ascii <ART_NAME>           ASCII art for results screen
       --picker-style <STYLE>       Menu style [possible values: quake, telescope, ivy, minimal]
-      --results-style <STYLE>      Results display style [possible values: graph, neofetch]
+      --results-style <STYLE>      Results display style [possible values: graph, minimal, neofetch]
       --cursor-style <STYLE>       Cursor style [possible values: beam, block, underline, blinking-beam, blinking-block, blinking-underline]
       --list-themes                List all available themes
       --list-languages             List all available languages

@@ -956,11 +956,14 @@ pub fn render_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, i
     let results_style = termi.config.resolve_results_style();
 
     match results_style {
-        crate::config::ResultsStyle::Neofetch => {
-            render_neofetch_results_screen(frame, termi, area, is_small)
-        }
         crate::config::ResultsStyle::Graph => {
             render_graph_results_screen(frame, termi, area, is_small)
+        }
+        crate::config::ResultsStyle::Minimal => {
+            render_minimal_results_screen(frame, termi, area, is_small)
+        }
+        crate::config::ResultsStyle::Neofetch => {
+            render_neofetch_results_screen(frame, termi, area, is_small)
         }
     }
 }
@@ -1539,6 +1542,135 @@ fn render_graph_stats(
         .wrap(Wrap { trim: false });
 
     frame.render_widget(details_paragraph, details_stats_area);
+}
+
+fn render_minimal_results_screen(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
+    let tracker = &termi.tracker;
+    let config = &termi.config;
+    let theme = termi.current_theme();
+
+    let is_monochromatic = termi.config.monocrhomatic_results;
+
+    let color_success = if is_monochromatic {
+        theme.highlight()
+    } else {
+        theme.success()
+    };
+    let color_fg = if is_monochromatic {
+        theme.muted()
+    } else {
+        theme.fg()
+    };
+    let color_muted = if is_monochromatic {
+        theme.fg()
+    } else {
+        theme.muted()
+    };
+
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(if is_small {
+            [Constraint::Percentage(100)].as_ref()
+        } else {
+            [
+                Constraint::Min(0),    // content
+                Constraint::Length(2), // footer
+            ]
+            .as_ref()
+        })
+        .split(area);
+
+    let content_area = main_layout[0];
+    let footer_area = if is_small { None } else { Some(main_layout[1]) };
+
+    let mode_str = match config.current_mode() {
+        crate::config::Mode::Time { duration } => format!("Time ({}s)", duration),
+        crate::config::Mode::Words { count } => format!("Words ({})", count),
+    };
+
+    let duration = if let crate::config::Mode::Time { duration } = config.current_mode() {
+        format!("{}s", duration)
+    } else {
+        let time = tracker.completion_time.unwrap_or(0.0);
+        format!("{:.1}s", time)
+    };
+
+    let errors = tracker
+        .total_keystrokes
+        .saturating_sub(tracker.correct_keystrokes);
+
+    let stats_lines = vec![
+        Line::from(vec![
+            Span::styled("WPM: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{:.0}", tracker.wpm),
+                Style::default()
+                    .fg(color_success)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Accuracy: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}%", tracker.accuracy),
+                Style::default()
+                    .fg(color_success)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Raw WPM: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{:.0}", tracker.raw_wpm),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Language: ", Style::default().fg(color_muted)),
+            Span::styled(
+                config.language.clone().unwrap_or_default(),
+                Style::default().fg(color_fg),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Mode: ", Style::default().fg(color_muted)),
+            Span::styled(mode_str, Style::default().fg(color_fg)),
+        ]),
+        Line::from(vec![
+            Span::styled("Duration: ", Style::default().fg(color_muted)),
+            Span::styled(duration, Style::default().fg(color_fg)),
+        ]),
+        Line::from(vec![
+            Span::styled("Errors: ", Style::default().fg(color_muted)),
+            Span::styled(
+                format!("{}", errors),
+                Style::default().fg(if errors > 0 { theme.error() } else { color_fg }),
+            ),
+        ]),
+    ];
+
+    let stats_text = Text::from(stats_lines);
+    let stats_height = stats_text.height() as u16;
+    let stats_width = stats_text
+        .lines
+        .iter()
+        .map(|line| line.width())
+        .max()
+        .unwrap_or(0) as u16;
+
+    let centered_rect = Rect {
+        x: content_area.x + content_area.width.saturating_sub(stats_width) / 2,
+        y: content_area.y + content_area.height.saturating_sub(stats_height) / 2,
+        width: stats_width.min(content_area.width),
+        height: stats_height.min(content_area.height),
+    };
+
+    frame.render_widget(Paragraph::new(stats_text), centered_rect);
+
+    if let Some(footer_area) = footer_area {
+        let footer_line = create_results_footer_text(theme);
+        frame.render_widget(Paragraph::new(footer_line), footer_area);
+    }
 }
 
 #[cfg(test)]
