@@ -337,30 +337,7 @@ pub fn create_typing_area<'a>(
                     .get(i + 1)
                     .is_some_and(|next_pos| next_pos.line == pos.line)
             {
-                let space_char_idx = word_start + word_len;
-
-                let is_correct = termi
-                    .tracker
-                    .user_input
-                    .get(space_char_idx)
-                    .copied()
-                    .flatten()
-                    == Some(' ');
-                let has_input = termi.tracker.user_input.get(space_char_idx).is_some();
-                let is_skipped_by_space_jump =
-                    termi.tracker.user_input.get(space_char_idx) == Some(&None);
-
-                let space_style = if is_skipped_by_space_jump {
-                    skipped_style
-                } else if !has_input {
-                    dim_style
-                } else if is_correct {
-                    success_style
-                } else {
-                    error_style
-                };
-
-                current_line_spans.push(Span::styled(" ".to_string(), space_style));
+                current_line_spans.push(Span::styled(" ".to_string(), Style::default()));
             }
         }
     }
@@ -888,12 +865,7 @@ mod tests {
             assert_eq!(style.fg, expected_success_style.fg,);
         }
 
-        // Space should be dim
-        let (space_char, space_style) = chars_and_styles[5];
-        assert_eq!(space_char, ' ');
         let expected_dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
-        assert_eq!(space_style.fg, expected_dim_style.fg);
-        assert!(space_style.add_modifier.contains(Modifier::DIM));
 
         #[allow(clippy::needless_range_loop)]
         for i in 6..chars_and_styles.len() {
@@ -957,12 +929,6 @@ mod tests {
 
         // <space>
         termi.tracker.type_char(' ');
-        let typing_text = create_typing_area(&termi, 0, 3, &positions);
-        let chars_and_styles = get_all_chars_and_styles(&typing_text);
-
-        let (space_char, space_style) = chars_and_styles[2];
-        assert_eq!(space_char, ' ');
-        assert_eq!(space_style.fg, expected_success_style.fg,);
 
         // 'p'
         termi.tracker.type_char('p');
@@ -998,7 +964,7 @@ mod tests {
         let expected_success_style = Style::default().fg(theme.success());
 
         #[allow(clippy::needless_range_loop)]
-        for i in 0..5 {
+        for i in 0..4 {
             let (ui_char, ui_style) = chars_and_styles[i];
             let target_char = termi.tracker.target_chars[i];
 
