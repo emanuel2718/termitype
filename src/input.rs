@@ -19,15 +19,11 @@ pub enum InputMode {
 #[derive(Default)]
 pub struct InputHandler {
     last_keycode: Option<KeyCode>,
-    pending_accent: Option<char>,
 }
 
 impl InputHandler {
     pub fn new() -> Self {
-        InputHandler {
-            last_keycode: None,
-            pending_accent: None,
-        }
+        InputHandler { last_keycode: None }
     }
 
     pub fn resolve_input_mode(&self, termi: &Termi) -> InputMode {
@@ -97,27 +93,9 @@ impl InputHandler {
 
     fn handle_typing_input(&mut self, event: KeyEvent) -> TermiAction {
         match (event.code, event.modifiers) {
-            (KeyCode::Esc, KeyModifiers::NONE) => {
-                self.pending_accent = None;
-                TermiAction::TogglePause
-            }
-            (KeyCode::Backspace, KeyModifiers::NONE) => {
-                self.pending_accent = None;
-                TermiAction::Backspace
-            }
-            (KeyCode::Char(c), KeyModifiers::ALT) => {
-                self.pending_accent = Some(c);
-                TermiAction::NoOp
-            }
-            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
-                if self.pending_accent.take().is_some() {
-                    // TODO: improve composition. This will only work with spanish
-                    let composed = self.compose_accent(c).unwrap_or(c);
-                    TermiAction::Input(composed)
-                } else {
-                    TermiAction::Input(c)
-                }
-            }
+            (KeyCode::Esc, KeyModifiers::NONE) => TermiAction::TogglePause,
+            (KeyCode::Backspace, KeyModifiers::NONE) => TermiAction::Backspace,
+            (KeyCode::Char(c), _) => TermiAction::Input(c),
             _ => TermiAction::NoOp,
         }
     }
@@ -127,10 +105,7 @@ impl InputHandler {
             (KeyCode::Char('r'), KeyModifiers::NONE) => TermiAction::Redo,
             (KeyCode::Char('n'), KeyModifiers::NONE) => TermiAction::Start,
             (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::Quit,
-            (KeyCode::Esc, KeyModifiers::NONE) => {
-                self.pending_accent = None;
-                TermiAction::TogglePause
-            }
+            (KeyCode::Esc, KeyModifiers::NONE) => TermiAction::TogglePause,
             _ => TermiAction::NoOp,
         }
     }
@@ -228,19 +203,6 @@ impl InputHandler {
     fn is_restart_sequence(&self, current_key: &KeyCode, last_key: &KeyCode) -> bool {
         matches!(last_key, KeyCode::Tab) && matches!(current_key, KeyCode::Enter)
     }
-
-    // TODO: this is dumb, i think (?). There has to be a better way to handle this
-    fn compose_accent(&self, c: char) -> Option<char> {
-        match c {
-            'e' => Some('é'),
-            'a' => Some('á'),
-            'i' => Some('í'),
-            'o' => Some('ó'),
-            'u' => Some('ú'),
-            'n' => Some('ñ'),
-            _ => None,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -256,7 +218,6 @@ mod tests {
     fn test_default_state() {
         let handler = InputHandler::new();
         assert!(handler.last_keycode.is_none());
-        assert!(handler.pending_accent.is_none());
     }
 
     #[test]
