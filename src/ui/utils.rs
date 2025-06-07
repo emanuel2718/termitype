@@ -83,13 +83,20 @@ fn _calculate_positions(text: &str, available_width: usize) -> Vec<WordPosition>
 
     let words: Vec<&str> = text.split_whitespace().collect();
     let mut positions = Vec::with_capacity(words.len());
+    let text_chars: Vec<char> = text.chars().collect();
     let mut char_index = 0;
     let mut line = 0;
     let mut col = 0;
 
     for (word_idx, word) in words.iter().enumerate() {
-        // start position of the original text
-        while char_index < text.len() && !text[char_index..].starts_with(word) {
+        // start position of the word in char indexes
+        let word_chars: Vec<char> = word.chars().collect();
+        while char_index < text_chars.len() {
+            if char_index + word_chars.len() <= text_chars.len()
+                && text_chars[char_index..char_index + word_chars.len()] == word_chars
+            {
+                break;
+            }
             char_index += 1;
         }
 
@@ -107,12 +114,12 @@ fn _calculate_positions(text: &str, available_width: usize) -> Vec<WordPosition>
             col,
         });
 
-        char_index += word.len();
+        char_index += word_len;
         col += word_len;
 
         if word_idx < words.len() - 1 && col < available_width {
             col += 1;
-            char_index += 1;
+            char_index += 1; // skip the character space
         }
     }
 

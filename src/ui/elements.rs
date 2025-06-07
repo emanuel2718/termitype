@@ -331,12 +331,36 @@ pub fn create_typing_area<'a>(
                 current_line_spans.push(Span::styled(c.to_string(), style));
             }
 
+            // space in between words handling
             if i < words.len() - 1
                 && word_positions
                     .get(i + 1)
                     .is_some_and(|next_pos| next_pos.line == pos.line)
             {
-                current_line_spans.push(Span::raw(" "));
+                let space_char_idx = word_start + word_len;
+
+                let is_correct = termi
+                    .tracker
+                    .user_input
+                    .get(space_char_idx)
+                    .copied()
+                    .flatten()
+                    == Some(' ');
+                let has_input = termi.tracker.user_input.get(space_char_idx).is_some();
+                let is_skipped_by_space_jump =
+                    termi.tracker.user_input.get(space_char_idx) == Some(&None);
+
+                let space_style = if is_skipped_by_space_jump {
+                    skipped_style
+                } else if !has_input {
+                    dim_style
+                } else if is_correct {
+                    success_style
+                } else {
+                    error_style
+                };
+
+                current_line_spans.push(Span::styled(" ".to_string(), space_style));
             }
         }
     }
@@ -808,4 +832,204 @@ pub fn build_menu_items<'a>(
         .collect();
 
     (list_items, total_items)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        config::Config, termi::Termi, tracker::Tracker, ui::utils::calculate_word_positions,
+    };
+    use ratatui::style::{Modifier, Style};
+
+    fn init(target_text: &str) -> Termi {
+        let config = Config::default();
+        let mut termi = Termi::new(&config);
+        termi.words = target_text.to_string();
+        termi.tracker = Tracker::new(&config, target_text.to_string());
+        termi
+    }
+
+    fn simulate_typing(termi: &mut Termi, input: &str) {
+        termi.tracker.start_typing();
+        for c in input.chars() {
+            termi.tracker.type_char(c);
+        }
+    }
+
+    fn get_all_chars_and_styles(text: &ratatui::text::Text) -> Vec<(char, Style)> {
+        let mut result = Vec::new();
+        for line in &text.lines {
+            for span in &line.spans {
+                for ch in span.content.chars() {
+                    result.push((ch, span.style));
+                }
+            }
+        }
+        result
+    }
+
+    #[test]
+    fn test_ui_handles_correctly_typed_chars() {
+        let mut termi = init("hello world");
+        simulate_typing(&mut termi, "hello");
+
+        let positions = calculate_word_positions(&termi.words, 50);
+        let typing_text = create_typing_area(&termi, 0, 3, &positions);
+        let chars_and_styles = get_all_chars_and_styles(&typing_text);
+
+        let theme = termi.current_theme();
+        let expected_success_style = Style::default().fg(theme.success());
+
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..5 {
+            let (ch, style) = chars_and_styles[i];
+            assert_eq!(ch, "hello".chars().nth(i).unwrap());
+            assert_eq!(style.fg, expected_success_style.fg,);
+        }
+
+        // Space should be dim
+        let (space_char, space_style) = chars_and_styles[5];
+        assert_eq!(space_char, ' ');
+        let expected_dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
+        assert_eq!(space_style.fg, expected_dim_style.fg);
+        assert!(space_style.add_modifier.contains(Modifier::DIM));
+
+        #[allow(clippy::needless_range_loop)]
+        for i in 6..chars_and_styles.len() {
+            let (_, style) = chars_and_styles[i];
+            assert_eq!(style.fg, expected_dim_style.fg,);
+        }
+    }
+
+    #[test]
+    fn test_ui_handles_wrongly_typed_chars() {
+        let mut termi = init("hello world");
+        simulate_typing(&mut termi, "hallo"); // Wrong: 'a' instead of 'e'
+
+        let positions = calculate_word_positions(&termi.words, 50);
+        let typing_text = create_typing_area(&termi, 0, 3, &positions);
+        let chars_and_styles = get_all_chars_and_styles(&typing_text);
+
+        let theme = termi.current_theme();
+        let expected_success_style = Style::default().fg(theme.success());
+        let expected_error_style = Style::default().fg(theme.error());
+
+        // 'h' should be correct
+        let (h_char, h_style) = chars_and_styles[0];
+        assert_eq!(h_char, 'h');
+        assert_eq!(h_style.fg, expected_success_style.fg);
+
+        // 'a' should be wrong
+        let (a_char, a_style) = chars_and_styles[1];
+        assert_eq!(a_char, 'e');
+        assert_eq!(a_style.fg, expected_error_style.fg,);
+    }
+
+    #[test]
+    fn test_ui_char_desync_with_accented_chars() {
+        let mut termi = init("sí prueba");
+
+        termi.tracker.start_typing();
+
+        // Type 's'
+        termi.tracker.type_char('s');
+        let positions = calculate_word_positions(&termi.words, 50);
+        let typing_text = create_typing_area(&termi, 0, 3, &positions);
+        let chars_and_styles = get_all_chars_and_styles(&typing_text);
+
+        let theme = termi.current_theme();
+        let expected_success_style = Style::default().fg(theme.success());
+
+        // 's'
+        let (s_char, s_style) = chars_and_styles[0];
+        assert_eq!(s_char, 's');
+        assert_eq!(s_style.fg, expected_success_style.fg,);
+
+        // 'í'
+        termi.tracker.type_char('í');
+        let typing_text = create_typing_area(&termi, 0, 3, &positions);
+        let chars_and_styles = get_all_chars_and_styles(&typing_text);
+
+        let (i_char, i_style) = chars_and_styles[1];
+        assert_eq!(i_char, 'í');
+        assert_eq!(i_style.fg, expected_success_style.fg,);
+
+        // <space>
+        termi.tracker.type_char(' ');
+        let typing_text = create_typing_area(&termi, 0, 3, &positions);
+        let chars_and_styles = get_all_chars_and_styles(&typing_text);
+
+        let (space_char, space_style) = chars_and_styles[2];
+        assert_eq!(space_char, ' ');
+        assert_eq!(space_style.fg, expected_success_style.fg,);
+
+        // 'p'
+        termi.tracker.type_char('p');
+        let typing_text = create_typing_area(&termi, 0, 3, &positions);
+        let chars_and_styles = get_all_chars_and_styles(&typing_text);
+
+        let (p_char, p_style) = chars_and_styles[3];
+        assert_eq!(p_char, 'p');
+        assert_eq!(p_style.fg, expected_success_style.fg);
+    }
+
+    #[test]
+    fn test_ui_and_tracker_sync() {
+        let mut termi = init("test word");
+        simulate_typing(&mut termi, "test ");
+
+        assert_eq!(termi.tracker.cursor_position, 5);
+        assert_eq!(termi.tracker.user_input.len(), 5);
+
+        // check tracker character positining
+        for i in 0..5 {
+            let tracker_char = termi.tracker.user_input[i];
+            let target_char = termi.tracker.target_chars[i];
+            assert_eq!(tracker_char, Some(target_char));
+        }
+
+        // check ui rendering matches tracker positions
+        let positions = calculate_word_positions(&termi.words, 50);
+        let typing_text = create_typing_area(&termi, 0, 3, &positions);
+        let chars_and_styles = get_all_chars_and_styles(&typing_text);
+
+        let theme = termi.current_theme();
+        let expected_success_style = Style::default().fg(theme.success());
+
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..5 {
+            let (ui_char, ui_style) = chars_and_styles[i];
+            let target_char = termi.tracker.target_chars[i];
+
+            assert_eq!(ui_char, target_char,);
+            assert_eq!(ui_style.fg, expected_success_style.fg,);
+        }
+    }
+
+    #[test]
+    fn test_ui_with_backspace_corrections() {
+        let mut termi = init("hello");
+
+        termi.tracker.start_typing();
+        termi.tracker.type_char('h');
+        termi.tracker.type_char('a'); // wrong
+        termi.tracker.backspace(); // fix
+        termi.tracker.type_char('e'); // correct
+
+        let positions = calculate_word_positions(&termi.words, 50);
+        let typing_text = create_typing_area(&termi, 0, 3, &positions);
+        let chars_and_styles = get_all_chars_and_styles(&typing_text);
+
+        let theme = termi.current_theme();
+        let expected_success_style = Style::default().fg(theme.success());
+
+        let (h_char, h_style) = chars_and_styles[0];
+        assert_eq!(h_char, 'h');
+        assert_eq!(h_style.fg, expected_success_style.fg);
+
+        let (e_char, e_style) = chars_and_styles[1];
+        assert_eq!(e_char, 'e');
+        assert_eq!(e_style.fg, expected_success_style.fg,);
+    }
 }
