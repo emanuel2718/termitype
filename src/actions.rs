@@ -8,7 +8,7 @@ use crate::{
     termi::Termi,
     theme::Theme,
     tracker::Status,
-    ui::render::TermiClickableRegions,
+    ui::components::elements::TermiClickableRegions,
 };
 
 /// Top-Level actions

@@ -31,7 +31,6 @@ pub mod persistence;
 pub mod termi;
 pub mod theme;
 pub mod tracker;
-#[path = "ui/ui.rs"]
 pub mod ui;
 pub mod version;
 

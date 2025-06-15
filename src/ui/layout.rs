@@ -7,7 +7,11 @@ use crate::{
     },
     termi::Termi,
 };
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
+    style::Style,
+    widgets::{Block, Padding},
+};
 
 #[derive(Debug, Clone)]
 pub struct TermiSection {
@@ -153,4 +157,21 @@ fn create_centered_rect_with_max_width(area: Rect, max_content_width: u16) -> Re
             Constraint::Percentage(padding),
         ])
         .split(area)[1] // centered chunk
+}
+
+/// Create the main container block.
+/// TODO: might need to move this elsewhere. Does not make sense here imo
+pub fn create_container_block<'a>(
+    layout: &super::layout::TermiLayout,
+    theme: &crate::theme::Theme,
+) -> Block<'a> {
+    Block::new()
+        .style(Style::default().bg(theme.bg()))
+        .padding(if layout.is_minimal() {
+            Padding::ZERO
+        } else if layout.w_small() {
+            Padding::uniform(1)
+        } else {
+            Padding::symmetric(2, 1)
+        })
 }

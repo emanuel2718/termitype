@@ -18,7 +18,7 @@ use crate::{
     modal::InputModal,
     theme::Theme,
     tracker::{Status, Tracker},
-    ui::{draw_ui, render::TermiClickableRegions},
+    ui::{components::elements::TermiClickableRegions, draw_ui},
 };
 
 pub struct Termi {
