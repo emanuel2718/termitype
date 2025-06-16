@@ -4,7 +4,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/termitype.svg)](https://crates.io/crates/termitype)
 [![Build Status](https://github.com/emanuel2718/termitype/workflows/CI/badge.svg)](https://github.com/emanuel2718/termitype/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3](https://img.shields.io/badge/License-GPL3-blue.svg)](https://opensource.org/license/GPL-3.0)
 
 **Feature-rich terminal typing test**
 
@@ -186,7 +186,7 @@ Termitype includes a curated collection of themes sourced from the [iTerm2 Ghost
 
 ## License
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+This project is licensed under the GPL-3.0 license - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
