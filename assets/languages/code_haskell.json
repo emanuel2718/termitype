@@ -1,6 +1,7 @@
 {
-  "title": "haskell",
-  "pool": [
+  "name": "code_haskell",
+  "source": "https://github.com/monkeytypegame/monkeytype/blob/63b63ffa9c3f39c7de3436c6155b59548488a9eb/frontend/static/languages/code_haskell.json",
+  "words": [
     "!",
     "'",
     "''",
