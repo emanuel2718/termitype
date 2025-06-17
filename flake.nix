@@ -1,5 +1,5 @@
 {
-  description = "Terminal-based typing test inspired by a certain typing test you might know.";
+  description = "Another TUI typing game, inspired by a certain typing test you might know.";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
@@ -34,8 +34,6 @@
 
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.openssl ];
-          
-          __noChroot = true;
         };
       });
 } 
