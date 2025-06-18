@@ -77,6 +77,39 @@ pub struct Config {
     )]
     pub word_count: Option<usize>,
 
+    /// Include symbols in test words
+    #[arg(
+        short = 's',
+        long = "use-symbols",
+        help = "Include symbols in test words"
+    )]
+    pub use_symbols: bool,
+
+    /// Include punctuation in test words
+    #[arg(
+        short = 'p',
+        long = "use-punctuation",
+        help = "Include punctuation in test words"
+    )]
+    pub use_punctuation: bool,
+
+    /// Include numbers in test words
+    #[arg(
+        short = 'n',
+        long = "use-numbers",
+        help = "Include numbers in test words"
+    )]
+    pub use_numbers: bool,
+
+    /// Number of visible text lines
+    #[arg(
+        long = "lines",
+        default_value_t = DEFAULT_LINE_COUNT,
+        value_name = "COUNT",
+        help = "Number of visible text lines"
+    )]
+    pub visible_lines: u8,
+
     /// Color theme to use
     #[arg(
         short = 'T',
@@ -121,65 +154,6 @@ pub struct Config {
     )]
     pub cursor_style: Option<String>,
 
-    /// List all available themes
-    #[arg(long = "list-themes", help = "List all available themes")]
-    pub list_themes: bool,
-
-    /// List all available languages
-    #[arg(long = "list-languages", help = "List all available languages")]
-    pub list_languages: bool,
-
-    /// List all available ASCII arts
-    #[arg(long = "list-ascii", help = "List all available ASCII arts")]
-    pub list_ascii: bool,
-
-    /// Include symbols in test words
-    #[arg(
-        short = 's',
-        long = "use-symbols",
-        help = "Include symbols in test words"
-    )]
-    pub use_symbols: bool,
-
-    /// Include punctuation in test words
-    #[arg(
-        short = 'p',
-        long = "use-punctuation",
-        help = "Include punctuation in test words"
-    )]
-    pub use_punctuation: bool,
-
-    /// Include numbers in test words
-    #[arg(
-        short = 'n',
-        long = "use-numbers",
-        help = "Include numbers in test words"
-    )]
-    pub use_numbers: bool,
-
-    /// Color support level
-    #[arg(
-        long = "color-mode",
-        value_name = "MODE",
-        value_parser = ["basic", "extended", "truecolor"],
-        help = "Color support"
-    )]
-    pub color_mode: Option<String>,
-
-    /// Number of visible text lines
-    #[arg(
-        long = "lines",
-        default_value_t = DEFAULT_LINE_COUNT,
-        value_name = "COUNT",
-        help = "Number of visible text lines"
-    )]
-    pub visible_lines: u8,
-
-    /// Enable debug mode
-    #[cfg(debug_assertions)]
-    #[arg(short = 'd', long = "debug", help = "Enable debug mode")]
-    pub debug: bool,
-
     /// Display FPS counter
     #[arg(long = "show-fps", help = "Display FPS counter")]
     pub show_fps: bool,
@@ -195,6 +169,32 @@ pub struct Config {
     /// Use simplified results colors
     #[arg(long = "monochromatic-results", help = "Use simplified results colors")]
     pub monocrhomatic_results: bool,
+
+    /// List all available themes
+    #[arg(long = "list-themes", help = "List all available themes")]
+    pub list_themes: bool,
+
+    /// List all available languages
+    #[arg(long = "list-languages", help = "List all available languages")]
+    pub list_languages: bool,
+
+    /// List all available ASCII arts
+    #[arg(long = "list-ascii", help = "List all available ASCII arts")]
+    pub list_ascii: bool,
+
+    /// Color support level
+    #[arg(
+        long = "color-mode",
+        value_name = "MODE",
+        value_parser = ["basic", "extended", "truecolor"],
+        help = "Color support"
+    )]
+    pub color_mode: Option<String>,
+
+    /// Enable debug mode
+    #[cfg(debug_assertions)]
+    #[arg(short = 'd', long = "debug", help = "Enable debug mode")]
+    pub debug: bool,
 
     /// Stores the persistence of the game. Set automatically.
     #[arg(skip)]

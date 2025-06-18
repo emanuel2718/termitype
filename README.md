@@ -33,7 +33,6 @@
   <img src="https://raw.githubusercontent.com/emanuel2718/termitype/main/assets/demo.gif" alt="Termitype demo" width="600">
 </p>
 
-
 ## Installation
 
 ### From Crates.io
@@ -80,44 +79,45 @@ termitype --help
 
 ## Options
 
-```
-Usage: termitype [OPTIONS]
+| Option                          | Description                                                                                          |
+| :------------------------------ | :--------------------------------------------------------------------------------------------------- |
+| `-l`, `--language <LANGUAGE>`   | Language dictionary to use                                                                           |
+| `-t`, `--time <SECONDS>`        | Test duration in seconds                                                                             |
+| `-w`, `--words <"WORD1 WORD2">` | Custom words for the test                                                                            |
+| `--word-count <COUNT>`          | Number of words to type                                                                              |
+| `-s`, `--use-symbols`           | Include symbols in test words                                                                        |
+| `-p`, `--use-punctuation`       | Include punctuation in test words                                                                    |
+| `-n`, `--use-numbers`           | Include numbers in test words                                                                        |
+| `--lines <COUNT>`               | Number of visible text lines (default: 3)                                                            |
+| `-T`, `--theme <THEME_NAME>`    | Color theme to use                                                                                   |
+| `--ascii <ART_NAME>`            | ASCII art for results screen                                                                         |
+| `--picker-style <STYLE>`        | Menu style (`quake`, `telescope`, `ivy`, `minimal`)                                                  |
+| `--results-style <STYLE>`       | Results display style (`graph`, `minimal`, `neofetch`)                                               |
+| `--cursor-style <STYLE>`        | Cursor style (`beam`, `block`, `underline`, `blinking-beam`, `blinking-block`, `blinking-underline`) |
+| `--show-fps`                    | Display FPS counter                                                                                  |
+| `--hide-live-wpm`               | Hide live WPM counter                                                                                |
+| `--hide-cursorline`             | Hide menu cursor highlight                                                                           |
+| `--monochromatic-results`       | Use simplified results colors                                                                        |
+| `--list-themes`                 | List all available themes                                                                            |
+| `--list-languages`              | List all available languages                                                                         |
+| `--list-ascii`                  | List all available ASCII arts                                                                        |
+| `--color-mode <MODE>`           | Color support (`basic`, `extended`, `truecolor`)                                                     |
+| `-d`, `--debug`                 | Enable debug mode                                                                                    |
+| `-h`, `--help`                  | Print help                                                                                           |
+| `-V`, `--version`               | Print version                                                                                        |
 
-Options:
-  -l, --language <LANGUAGE>        Language dictionary to use
-  -t, --time <SECONDS>             Test duration in seconds
-  -w, --words <"WORD1 WORD2 ...">  Custom words for the test
-      --word-count <COUNT>         Number of words to type
-  -T, --theme <THEME_NAME>         Color theme to use
-      --ascii <ART_NAME>           ASCII art for results screen
-      --picker-style <STYLE>       Menu style [possible values: quake, telescope, ivy, minimal]
-      --results-style <STYLE>      Results display style [possible values: graph, minimal, neofetch]
-      --cursor-style <STYLE>       Cursor style [possible values: beam, block, underline, blinking-beam, blinking-block, blinking-underline]
-      --list-themes                List all available themes
-      --list-languages             List all available languages
-      --list-ascii                 List all available ASCII arts
-  -s, --use-symbols                Include symbols in test words
-  -p, --use-punctuation            Include punctuation in test words
-  -n, --use-numbers                Include numbers in test words
-      --color-mode <MODE>          Color support [possible values: basic, extended, truecolor]
-      --lines <COUNT>              Number of visible text lines [default: 3]
-  -d, --debug                      Enable debug mode
-      --show-fps                   Display FPS counter
-      --hide-live-wpm              Hide live WPM counter
-      --hide-cursorline            Hide menu cursor highlight
-      --monochromatic-results      Use simplified results colors
-  -h, --help                       Print help
-  -V, --version                    Print version
+### Examples
 
-EXAMPLES:
-  termitype -t 60                        Run a 60-second typing test
-  termitype --word-count 100             Test will contain exactly 100 words
-  termitype -T "catppuccin-mocha"        Use cattpuccin-mocha theme
-  termitype -l spanish                   Use Spanish test words
-  termitype -spn                         Enable symbols, punctuation, and numbers
-  termitype --list-themes                Show all available themes
-  termitype --results-style neofetch     Use neofetch inspired results
-  termitype --picker-style telescope     Use floating menu style
+```sh
+# All of the options below can also be changed at runtime via the menu.
+termitype -t 60                        # Run a 60-second typing test
+termitype --word-count 100             # Test will contain exactly 100 words
+termitype -T "catppuccin-mocha"        # Use catppuccin-mocha theme
+termitype -l spanish                   # Use Spanish test words
+termitype -spn                         # Enable symbols, punctuation, and numbers
+termitype --list-themes                # Show all available themes
+termitype --results-style neofetch     # Use neofetch inspired results
+termitype --picker-style telescope     # Use floating menu style
 ```
 
 ## Development
