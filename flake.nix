@@ -21,8 +21,6 @@
               extensions = [ "clippy" "rustfmt" "rust-src" ];
             })
             rust-analyzer
-            openssl
-            pkg-config
           ];
         };
 
@@ -31,9 +29,6 @@
           version = "0.0.4";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
-
-          nativeBuildInputs = [ pkgs.pkg-config ];
-          buildInputs = [ pkgs.openssl ];
         };
       });
 } 
