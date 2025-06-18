@@ -29,24 +29,20 @@ pub fn build_menu(ctx: MenuContext, config: &Config) -> Menu {
 
 fn build_root_menu(config: &Config) -> Menu {
     let items = vec![
-        // === Configuration Group ===
-        MenuItem::sub_menu("root/options", "Options...", MenuContext::Options),
         MenuItem::sub_menu("root/mode", "Mode...", MenuContext::Mode),
         MenuItem::sub_menu("root/time", "Time...", MenuContext::Time),
         MenuItem::sub_menu("root/words", "Words...", MenuContext::Words),
-        // === Appearance Group ===
         MenuItem::sub_menu("root/language", "Language...", MenuContext::Language),
+        MenuItem::sub_menu("root/options", "Options...", MenuContext::Options),
         MenuItem::sub_menu("root/theme", "Theme...", MenuContext::Theme)
             .disabled(!config.term_has_color_support()),
-        MenuItem::sub_menu("root/ascii", "Art...", MenuContext::AsciiArt),
-        MenuItem::sub_menu("root/results", "Results...", MenuContext::Results),
-        MenuItem::sub_menu("root/picker", "Picker...", MenuContext::PickerStyle),
-        MenuItem::sub_menu("root/cursor", "Cursor...", MenuContext::Cursor),
-        MenuItem::sub_menu("root/lines", "Lines...", MenuContext::LineCount),
-        // === Information Group ===
-        MenuItem::sub_menu("root/about", "About...", MenuContext::About),
+        MenuItem::sub_menu("root/picker", "Picker Style...", MenuContext::PickerStyle),
+        MenuItem::sub_menu("root/results", "Result Style...", MenuContext::Results),
+        MenuItem::sub_menu("root/ascii", "Neofetch Art...", MenuContext::AsciiArt),
+        MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
+        MenuItem::sub_menu("root/cursor", "Cursor Style...", MenuContext::Cursor),
         MenuItem::sub_menu("root/help", "Help...", MenuContext::Help),
-        // === Action ===
+        MenuItem::sub_menu("root/about", "About...", MenuContext::About),
         MenuItem::action("root/quit", "Exit", TermiAction::Quit),
     ];
     Menu::new(MenuContext::Root, "Main Menu".to_string(), items)
@@ -232,6 +228,7 @@ fn build_lines_count_menu() -> Menu {
 /// Builds the Options menu with all toggleable settings
 fn build_options_menu(config: &Config) -> Menu {
     let items = vec![
+        // === Test Content ===
         MenuItem::toggle("options/symbols", "Use Symbols", config.use_symbols),
         MenuItem::toggle(
             "options/punctuation",
@@ -239,12 +236,13 @@ fn build_options_menu(config: &Config) -> Menu {
             config.use_punctuation,
         ),
         MenuItem::toggle("options/numbers", "Use Numbers", config.use_numbers),
-        MenuItem::toggle("options/fps", "Show FPS", config.show_fps),
+        // === Display Options ===
         MenuItem::toggle(
             "options/show_live_wpm",
             "Show Live WPM",
             !config.hide_live_wpm,
         ),
+        MenuItem::toggle("options/fps", "Show FPS", config.show_fps),
         MenuItem::toggle(
             "options/show_cursorline",
             "Show Menu Cursorline",
