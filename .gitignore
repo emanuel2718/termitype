@@ -1,13 +1,6 @@
 /target
 .direnv/*
 /docs/art.txt
-/assets/themes/*
-!/assets/themes/.gitkeep
-!/assets/themes/tokyonight
-!/assets/themes/Monketype Theme
-!/assets/themes/termitype-dark
-!/assets/themes/termitype-light
-
 
 flamegraph.svg
 .DS_Store
