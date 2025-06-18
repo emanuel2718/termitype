@@ -81,7 +81,7 @@ termitype --help
 
 | Option                          | Description                                                                                          |
 | :------------------------------ | :--------------------------------------------------------------------------------------------------- |
-| `-l`, `--language <LANGUAGE>`   | Language dictionary to use                                                                           |
+| `-l`, `--language <LANG>`       | Language dictionary to use                                                                           |
 | `-t`, `--time <SECONDS>`        | Test duration in seconds                                                                             |
 | `-w`, `--words <"WORD1 WORD2">` | Custom words for the test                                                                            |
 | `--word-count <COUNT>`          | Number of words to type                                                                              |
@@ -89,8 +89,8 @@ termitype --help
 | `-p`, `--use-punctuation`       | Include punctuation in test words                                                                    |
 | `-n`, `--use-numbers`           | Include numbers in test words                                                                        |
 | `--lines <COUNT>`               | Number of visible text lines (default: 3)                                                            |
-| `-T`, `--theme <THEME_NAME>`    | Color theme to use                                                                                   |
-| `--ascii <ART_NAME>`            | ASCII art for results screen                                                                         |
+| `-T`, `--theme <THEME>`         | Theme to use                                                                                   |
+| `--ascii <ART>`                 | ASCII art for results screen                                                                         |
 | `--picker-style <STYLE>`        | Menu style (`quake`, `telescope`, `ivy`, `minimal`)                                                  |
 | `--results-style <STYLE>`       | Results display style (`graph`, `minimal`, `neofetch`)                                               |
 | `--cursor-style <STYLE>`        | Cursor style (`beam`, `block`, `underline`, `blinking-beam`, `blinking-block`, `blinking-underline`) |

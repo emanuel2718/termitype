@@ -43,7 +43,7 @@ pub struct Config {
     #[arg(
         short = 'l',
         long,
-        value_name = "LANGUAGE",
+        value_name = "LANG",
         help = "Language dictionary to use"
     )]
     pub language: Option<String>,
@@ -110,19 +110,19 @@ pub struct Config {
     )]
     pub visible_lines: u8,
 
-    /// Color theme to use
+    /// Theme to use
     #[arg(
         short = 'T',
         long = "theme",
-        value_name = "THEME_NAME",
-        help = "Color theme to use"
+        value_name = "THEME",
+        help = "Theme to use"
     )]
     pub theme: Option<String>,
 
     /// ASCII art for results screen
     #[arg(
         long = "ascii",
-        value_name = "ART_NAME",
+        value_name = "ART",
         help = "ASCII art for results screen"
     )]
     pub ascii: Option<String>,
