@@ -136,15 +136,7 @@ git clone https://github.com/emanuel2718/termitype.git
 cd termitype
 ```
 
-2. **Optional: Install theme pack** (development only):
-
-```sh
-./scripts/install-themes.sh
-```
-
-_Note: In production builds, themes are automatically fetched and included._
-
-3. **Run the application**:
+2. **Run the application**:
 
 ```sh
 # Development build
