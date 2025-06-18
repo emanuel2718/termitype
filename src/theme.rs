@@ -575,6 +575,25 @@ mod tests {
     }
 
     #[test]
+    fn test_loading_incorrect_theme_with_truecolor() {
+        env::set_var("COLORTERM", "truecolor");
+        let mut config = Config::new();
+        config.theme = Some("random-theme-that-does-not-exists".to_string());
+        let theme = Theme::new(&config);
+        assert_eq!(theme.id, DEFAULT_THEME.to_string());
+    }
+
+    #[test]
+    fn test_loading_incorrect_theme_without_truecolor() {
+        env::remove_var("TERM");
+        env::remove_var("COLORTERM");
+        let mut config = Config::new();
+        config.theme = Some("random-theme-that-does-not-exists".to_string());
+        let theme = Theme::new(&config);
+        assert_eq!(theme.id, "Fallback".to_string());
+    }
+
+    #[test]
     fn test_invalid_theme_color() {
         let content = r#"
             background = #GGGGGG  # Invalid hex color
