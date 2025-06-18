@@ -95,14 +95,26 @@ impl Theme {
         let loader = ThemeLoader::init();
         let theme_name = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
 
-        let mut theme = match loader.write().unwrap().get_theme(theme_name) {
-            Ok(theme) => theme,
-            Err(_e) => loader
-                .write()
-                .unwrap()
-                .get_theme(DEFAULT_THEME)
-                .expect("Default theme must exist"),
+        let mut theme = match loader.write() {
+            Ok(mut loader_guard) => {
+                match loader_guard.get_theme(theme_name) {
+                    Ok(theme) => theme,
+                    Err(_) => {
+                        // if fail, then default to `DEFAULT_THEME`.
+                        // TOOD: in the future this will be a nice place to show a `notification`
+                        match loader_guard.get_theme(DEFAULT_THEME) {
+                            Ok(theme) => theme,
+                            Err(_) => {
+                                // if all else fails then use the fallback theme
+                                Self::fallback_theme_with_support(color_support)
+                            }
+                        }
+                    }
+                }
+            }
+            Err(_) => Self::fallback_theme_with_support(color_support),
         };
+
         theme.color_support = color_support;
         theme
     }
