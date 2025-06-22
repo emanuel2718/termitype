@@ -534,6 +534,22 @@ impl Config {
         }
     }
 
+    /// Resolves the current mode to a human-readable `String`
+    pub fn resolve_mode_type_to_str(&self) -> String {
+        if let Some(_) = self.words {
+            "Words".to_string()
+        } else {
+            "Time".to_string()
+        }
+    }
+
+    /// Resolves the current language to a `String`
+    pub fn resolve_language_to_str(&self) -> String {
+        self.language
+            .clone()
+            .unwrap_or(DEFAULT_LANGUAGE.to_string())
+    }
+
     /// Resolves the test word count based on current configuration.
     pub fn resolve_word_count(&self) -> usize {
         if let Some(word_count) = self.word_count {
