@@ -234,7 +234,11 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
                 Status::Idle => termi.tracker.start_typing(),
                 _ => {}
             }
+            let was_typing = termi.tracker.status == Status::Typing;
             termi.tracker.type_char(char);
+            if was_typing && termi.tracker.status == Status::Completed {
+                termi.save_results();
+            }
         }
         TermiAction::Backspace => {
             if termi.menu.is_open() {

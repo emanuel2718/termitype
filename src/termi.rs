@@ -12,8 +12,9 @@ use crate::{
     actions::{handle_click_action, process_action, TermiAction},
     builder::Builder,
     config::Config,
+    db::TermiDB,
     input::InputHandler,
-    log_debug,
+    log_debug, log_error,
     menu::MenuState,
     modal::InputModal,
     theme::Theme,
@@ -22,6 +23,7 @@ use crate::{
 };
 
 pub struct Termi {
+    pub db: TermiDB,
     pub config: Config,
     pub tracker: Tracker,
     pub theme: Theme,
@@ -62,8 +64,16 @@ impl Termi {
     pub fn new(config: &Config) -> Self {
         let mut builder = Builder::new();
         let words = builder.generate_test(config);
+        let db = match TermiDB::new() {
+            Ok(db) => db,
+            Err(err) => {
+                log_error!("DB: Failed to initialize database: {}", err);
+                TermiDB::new().unwrap_or_else(|_| panic!("Failed to create database"))
+            }
+        };
 
         Self {
+            db,
             config: config.clone(),
             tracker: Tracker::new(config, words.clone()),
             theme: Theme::new(config),
@@ -133,6 +143,18 @@ impl Termi {
             }
         }
         false
+    }
+
+    pub fn save_results(&mut self) {
+        if self.tracker.status != Status::Completed {
+            log_debug!("Attempted to save incomplete test result");
+            return;
+        }
+
+        match self.db.write(&self.config, &self.tracker) {
+            Err(err) => log_error!("DB: Failed to save test results: {err}"),
+            _ => {}
+        }
     }
 }
 
@@ -213,6 +235,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             // check for time completion
             if termi.tracker.should_time_complete() {
                 termi.tracker.complete();
+                termi.save_results();
                 needs_render = true;
             }
 
