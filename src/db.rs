@@ -2,7 +2,9 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
-use crate::{config::ModeType, error::TResult, helpers::get_config_dir, log_debug, log_info};
+use crate::{
+    config::Config, error::TResult, helpers::get_config_dir, log_debug, log_info, tracker::Tracker,
+};
 
 const DB_FILE: &str = "termitype.db";
 const SCHEMA_VERSION: i32 = 1;
@@ -10,12 +12,12 @@ const SCHEMA_VERSION: i32 = 1;
 // TODO: add more stuff to store
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypingTestResult {
-    pub id: i64,
-    pub mode_type: ModeType,
+    pub id: Option<i64>,
+    pub mode_type: String,
     pub mode_value: i32,
     pub language: String,
     pub wpm: u16,
-    pub create_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
 }
 
 pub struct TermiDB {
@@ -60,7 +62,7 @@ impl TermiDB {
             .unwrap_or(0);
 
         if current_version < SCHEMA_VERSION {
-            self.create_tables()?;
+            self.create()?;
             self.conn.execute(
                 "INSERT OR REPLACE INTO schema_version (version) VALUES (?1)",
                 params![SCHEMA_VERSION],
@@ -71,7 +73,7 @@ impl TermiDB {
         Ok(())
     }
 
-    fn create_tables(&mut self) -> anyhow::Result<()> {
+    fn create(&mut self) -> anyhow::Result<()> {
         // TODO: add more fields
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS test_results (
@@ -95,6 +97,34 @@ impl TermiDB {
         log_debug!("DB: tables created successfully");
 
         Ok(())
+    }
+
+    pub fn write(&mut self, config: &Config, tracker: &Tracker) -> TResult<i64> {
+        let result = TypingTestResult {
+            id: None,
+            mode_type: config.resolve_mode_type_to_str(),
+            mode_value: config.current_mode().value() as i32,
+            language: config.resolve_language_to_str(),
+            wpm: tracker.wpm as u16,
+            created_at: Utc::now(),
+        };
+
+        self.conn.execute(
+            "INSERT INTO test_results (
+                mode_type, mode_value, language, wpm, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                result.mode_type,
+                result.mode_value,
+                result.language,
+                result.wpm,
+                result.created_at
+            ],
+        )?;
+
+        let id = self.conn.last_insert_rowid();
+        log_debug!("DB: saved test result with ID: {id}");
+        Ok(id)
     }
 }
 
@@ -128,5 +158,18 @@ mod tests {
     #[test]
     fn test_database_creation() {
         let (_db, _temp) = setup_db();
+    }
+
+    #[test]
+    fn test_save_results() {
+        let (mut db, _tmp) = setup_db();
+        let config = Config::default();
+        let mut tracker = Tracker::new(&config, "test".to_string());
+
+        tracker.wpm = 50.0;
+        tracker.completion_time = Some(30.0);
+
+        let id = db.write(&config, &tracker).unwrap();
+        assert!(id > 0);
     }
 }
