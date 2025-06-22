@@ -42,7 +42,7 @@ impl TermiDB {
         Ok(db)
     }
 
-    pub fn init(&mut self) -> anyhow::Result<()> {
+    fn init(&mut self) -> anyhow::Result<()> {
         self.conn.execute("PRAGMA foreign_keys = ON", [])?;
 
         self.conn.execute(
