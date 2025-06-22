@@ -1,51 +1,22 @@
 {
   "version": "2.0.0",
   "tasks": [
-      {
-          "label": "cargo build",
-          "dependsOn": [
-              "cargo build"
-          ]
+    {
+      "label": "rust: cargo build",
+      "type": "process",
+      "command": "cargo",
+      "args": [
+        "build",
+        "--package",
+        "termitype"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
       },
-      {
-          "label": "cargo build release",
-          "dependsOn": [
-              "cargo build release"
-          ]
-      },
-
-      {
-          "label": "cargo build",
-          "type": "cargo",
-          "command": "build",
-          "args": [
-          ],
-          "env": {
-            "RUSTFLAGS": "-g"
-          },
-          "problemMatcher": [
-              "$rustc"
-          ],
-          "options": {
-              "cwd": "${workspaceFolder}"
-          },
-      },
-      {
-          "label": "cargo build",
-          "type": "cargo",
-          "command": "build",
-          "args": [
-              "--release"
-          ],
-          "env": {
-            "RUSTFLAGS": "-g"
-          },
-          "problemMatcher": [
-              "$rustc"
-          ],
-          "options": {
-              "cwd": "${workspaceFolder}"
-          },
-      }
+      "problemMatcher": [
+        "$rustc"
+      ]
+    }
   ]
 }

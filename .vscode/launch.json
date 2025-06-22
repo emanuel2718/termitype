@@ -1,34 +1,26 @@
 {
   "version": "0.2.0",
   "configurations": [
-      {
-          "name": "Debug",
-          "type": "lldb",
-          "request": "launch",
-          "env": {
-              "RUST_BACKTRACE": "1",
-              "RUSTFLAGS": "-g"
-          },
-          "program": "${workspaceFolder}/target/debug/termitype",
-          "args": [
-            "--color-mode",
-            "truecolor"
-
-          ],
-          "cwd": "${workspaceFolder}",
-          "preLaunchTask": "cargo build"
-      },
-      {
-          "name": "Release",
-          "type": "lldb",
-          "request": "launch",
-          "program": "${workspaceFolder}/target/release/termitype",
-          "args": [
-            "--color-mode",
-            "truecolor"
-          ],
-          "cwd": "${workspaceFolder}",
-          "preLaunchTask": "cargo build release"
+    {
+      "name": "Debug termitype",
+      "preLaunchTask": "rust: cargo build",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/termitype",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "console": "integratedTerminal",
+      "stopOnEntry": false,
+      "sourceLanguages": [
+        "rust"
+      ],
+      "initCommands": [
+        "settings set target.inline-breakpoint-strategy always",
+        "settings set target.load-script-from-symbol-file true"
+      ],
+      "env": {
+        "RUST_BACKTRACE": "1"
       }
+    }
   ]
 }
