@@ -28,7 +28,16 @@ incremental = true # better re-compile times
 
 
 [profile.dev]
-debug = true
+debug = 2
+opt-level = 0
+overflow-checks = true
+lto = false
+panic = "unwind"
+incremental = true
+codegen-units = 16
+
+[profile.dev.package."*"]
+opt-level = 0
 
 [dependencies]
 anyhow = "1.0.97"
