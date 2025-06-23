@@ -469,7 +469,7 @@ impl Tracker {
         })
     }
 
-    /// Calculate typing consistency as a percentage.
+    /// Calculate typing consistency as a percentage up to (2) decimal places.
     pub fn calculate_consistency(&self) -> f64 {
         if self.wpm_samples.len() < 2 {
             return 100.0;
@@ -478,12 +478,20 @@ impl Tracker {
         let samples: Vec<f64> = self.wpm_samples.iter().map(|&x| x as f64).collect();
         let mean = samples.iter().sum::<f64>() / samples.len() as f64;
 
-        // shotout school
+        // no division by 0 on my watch
+        if mean < 1.0 {
+            return 0.0;
+        }
+
         let variance =
             samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (samples.len() - 1) as f64;
         let std_dev = variance.sqrt();
 
-        (1.0 - (std_dev / mean)).clamp(0.0, 1.0) * 100.0
+        let cv = std_dev / mean; // coefficient of variation
+
+        let consistency = (1.0 - cv.clamp(0.0, 1.0)) * 100.0;
+
+        (consistency * 100.0).round() / 100.0
     }
 
     pub fn update_wpm_samples(&mut self, wpm: f64, force: bool) {
