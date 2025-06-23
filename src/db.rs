@@ -6,7 +6,7 @@ use crate::{
     config::Config, error::TResult, helpers::get_config_dir, log_debug, log_info, tracker::Tracker,
 };
 
-const DB_FILE: &str = "termitype.db";
+const DB_FILE: &str = ".termitype.db";
 const SCHEMA_VERSION: i32 = 1;
 
 // TODO: add more stuff to store
@@ -17,6 +17,14 @@ pub struct TypingTestResult {
     pub mode_value: i32,
     pub language: String,
     pub wpm: u16,
+    pub accuracy: u8,
+    pub consistency: f64,
+    pub total_keystrokes: u32,
+    pub correct_keystrokes: u32,
+    pub backspace_count: u32,
+    pub numbers: bool,
+    pub punctuation: bool,
+    pub symbols: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -74,7 +82,6 @@ impl TermiDB {
     }
 
     fn create(&mut self) -> anyhow::Result<()> {
-        // TODO: add more fields
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS test_results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,6 +89,14 @@ impl TermiDB {
                 mode_value INTEGER NOT NULL,
                 language TEXT NOT NULL,
                 wpm REAL NOT NULL,
+                accuracy INTEGER NOT NULL,
+                consistency REAL NOT NULL,
+                total_keystrokes INTEGER NOT NULL,
+                correct_keystrokes INTEGER NOT NULL,
+                backspace_count INTEGER NOT NULL,
+                numbers BOOLEAN NOT NULL,
+                punctuation BOOLEAN NOT NULL,
+                symbols BOOLEAN NOT NULL,
                 created_at TEXT NOT NULL
             )",
             [],
@@ -89,7 +104,7 @@ impl TermiDB {
         // TODO: add more indexes
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_test_config ON test_results (
-                mode_type, mode_value, language
+                mode_type, mode_value, language, numbers, punctuation, symbols
             )",
             [],
         )?;
@@ -106,18 +121,34 @@ impl TermiDB {
             mode_value: config.current_mode().value() as i32,
             language: config.resolve_language_to_str(),
             wpm: tracker.wpm as u16,
+            accuracy: tracker.accuracy,
+            consistency: tracker.calculate_consistency(),
+            total_keystrokes: tracker.total_keystrokes as u32,
+            correct_keystrokes: tracker.correct_keystrokes as u32,
+            backspace_count: tracker.backspace_count as u32,
+            numbers: config.use_numbers,
+            punctuation: config.use_punctuation,
+            symbols: config.use_symbols,
             created_at: Utc::now(),
         };
 
         self.conn.execute(
             "INSERT INTO test_results (
-                mode_type, mode_value, language, wpm, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5)",
+                mode_type, mode_value, language, wpm, accuracy, consistency, total_keystrokes, correct_keystrokes, backspace_count, numbers, punctuation, symbols, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 result.mode_type,
                 result.mode_value,
                 result.language,
                 result.wpm,
+                result.accuracy,
+                result.consistency,
+                result.total_keystrokes,
+                result.correct_keystrokes,
+                result.backspace_count,
+                result.numbers,
+                result.punctuation,
+                result.symbols,
                 result.created_at
             ],
         )?;
@@ -125,6 +156,48 @@ impl TermiDB {
         let id = self.conn.last_insert_rowid();
         log_debug!("DB: saved test result with ID: {id}");
         Ok(id)
+    }
+
+    pub fn get(&self, id: i64) -> Option<TypingTestResult> {
+        let result = self.conn.query_row(
+            "SELECT id, mode_type, mode_value, language, wpm, accuracy, consistency,
+                    total_keystrokes, correct_keystrokes, backspace_count,
+                    numbers, punctuation, symbols, created_at
+             FROM test_results WHERE id = ?1",
+            params![id],
+            |row| {
+                let created_at_str: String = row.get(13)?;
+                let created_at = created_at_str.parse::<DateTime<Utc>>().map_err(|_| {
+                    rusqlite::Error::InvalidColumnType(
+                        13,
+                        "datetime".to_string(),
+                        rusqlite::types::Type::Text,
+                    )
+                })?;
+
+                Ok(TypingTestResult {
+                    id: Some(row.get(0)?),
+                    mode_type: row.get(1)?,
+                    mode_value: row.get(2)?,
+                    language: row.get(3)?,
+                    wpm: row.get::<_, f64>(4)? as u16,
+                    accuracy: row.get(5)?,
+                    consistency: row.get(6)?,
+                    total_keystrokes: row.get(7)?,
+                    correct_keystrokes: row.get(8)?,
+                    backspace_count: row.get(9)?,
+                    numbers: row.get(10)?,
+                    punctuation: row.get(11)?,
+                    symbols: row.get(12)?,
+                    created_at,
+                })
+            },
+        );
+
+        match result {
+            Ok(test_result) => Some(test_result),
+            Err(_) => None,
+        }
     }
 }
 
@@ -171,5 +244,29 @@ mod tests {
 
         let id = db.write(&config, &tracker).unwrap();
         assert!(id > 0);
+    }
+
+    #[test]
+    fn test_get_saved_result_with_id() {
+        let (mut db, _tmp) = setup_db();
+        let config = Config::default();
+        let mut tracker = Tracker::new(&config, "test".to_string());
+
+        tracker.wpm = 10.0;
+        tracker.accuracy = 10;
+        tracker.total_keystrokes = 10;
+        tracker.correct_keystrokes = 10;
+        tracker.backspace_count = 10;
+        tracker.completion_time = Some(30.0);
+
+        let id = db.write(&config, &tracker).unwrap();
+
+        let result = db.get(id);
+        assert!(result.is_some());
+        assert_eq!(result.as_ref().unwrap().id, Some(id));
+        assert_eq!(result.as_ref().unwrap().wpm, 10);
+        assert_eq!(result.as_ref().unwrap().total_keystrokes, 10);
+        assert_eq!(result.as_ref().unwrap().correct_keystrokes, 10);
+        assert_eq!(result.as_ref().unwrap().backspace_count, 10);
     }
 }
