@@ -199,11 +199,32 @@ impl TermiDB {
             Err(_) => None,
         }
     }
+
+    pub fn is_high_score(&self, config: &Config, wpm: f64) -> bool {
+        let highest_wpm = self.conn.query_row("SELECT wpm FROM test_results WHERE mode_type = ?1 AND mode_value = ?2 AND language = ?3 AND numbers = ?4 AND punctuation = ?5 AND symbols = ?6 ORDER BY wpm DESC LIMIT 1",
+            params![
+                config.resolve_mode_type_to_str(),
+                config.current_mode().value() as i32,
+                config.resolve_language_to_str(),
+                config.use_numbers,
+                config.use_punctuation,
+                config.use_symbols,
+            ],
+            |row| row.get::<_, f64>(0),
+        );
+
+        match highest_wpm {
+            Ok(highest) => wpm > highest,
+            Err(_) => true,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
+
+    use crate::config::ModeType;
 
     use super::*;
 
@@ -268,5 +289,51 @@ mod tests {
         assert_eq!(result.as_ref().unwrap().total_keystrokes, 10);
         assert_eq!(result.as_ref().unwrap().correct_keystrokes, 10);
         assert_eq!(result.as_ref().unwrap().backspace_count, 10);
+    }
+
+    #[test]
+    fn test_is_high_score() {
+        let (mut db, _tmp) = setup_db();
+        let mut config = Config::default();
+        let mut tracker = Tracker::new(&config, "test".to_string());
+
+        config.language = Some("spanish".to_string());
+
+        // first run (should be high score)
+        tracker.wpm = 90.0;
+        tracker.completion_time = Some(30.0);
+        assert!(db.is_high_score(&config, tracker.wpm));
+
+        db.write(&config, &tracker).unwrap();
+
+        // second run (should NOT be high score)
+        tracker.start_typing();
+        tracker.wpm = 80.0;
+        tracker.completion_time = Some(30.0);
+        assert!(!db.is_high_score(&config, tracker.wpm));
+
+        db.write(&config, &tracker).unwrap();
+
+        // third run (should be high score)
+        tracker.start_typing();
+        tracker.wpm = 300.0;
+        tracker.completion_time = Some(30.0);
+        assert!(db.is_high_score(&config, tracker.wpm));
+
+        db.write(&config, &tracker).unwrap();
+
+        // changing language without a score so we expect a new high score regardgless of the score
+        config.language = Some("english".to_string());
+        tracker.start_typing();
+        tracker.wpm = 15.0;
+        tracker.completion_time = Some(30.0);
+        assert!(db.is_high_score(&config, tracker.wpm));
+
+        // change to spanish and change mode to Words as the default is Time (should be a new high score)
+        config.language = Some("spanish".to_string());
+        config.change_mode(ModeType::Words, Some(10));
+        tracker.wpm = 10.0;
+        tracker.completion_time = Some(30.0);
+        assert!(db.is_high_score(&config, tracker.wpm));
     }
 }
