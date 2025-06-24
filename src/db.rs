@@ -200,6 +200,12 @@ impl TermiDB {
         }
     }
 
+    pub fn reset(&self) -> TResult<usize> {
+        let affected_rows = self.conn.execute("DELETE FROM test_results", [])?;
+        log_info!("DB: reset database, deleted {} test results", affected_rows);
+        Ok(affected_rows)
+    }
+
     pub fn is_high_score(&self, config: &Config, wpm: f64) -> bool {
         let highest_wpm = self.conn.query_row("SELECT wpm FROM test_results WHERE mode_type = ?1 AND mode_value = ?2 AND language = ?3 AND numbers = ?4 AND punctuation = ?5 AND symbols = ?6 ORDER BY wpm DESC LIMIT 1",
             params![

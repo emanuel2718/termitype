@@ -191,6 +191,13 @@ pub struct Config {
     )]
     pub color_mode: Option<String>,
 
+    /// Reset and clears the content of the database
+    #[arg(
+        long = "reset-db",
+        help = "Reset and clears the content of the database"
+    )]
+    pub reset_db: bool,
+
     /// Enable debug mode
     #[cfg(debug_assertions)]
     #[arg(short = 'd', long = "debug", help = "Enable debug mode")]
@@ -247,6 +254,7 @@ impl Default for Config {
             hide_live_wpm: false,
             hide_cursorline: false,
             monocrhomatic_results: false,
+            reset_db: false,
             #[cfg(debug_assertions)]
             debug: false,
             persistent: None,

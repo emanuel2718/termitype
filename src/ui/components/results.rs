@@ -100,6 +100,12 @@ impl ResultsComponent {
             Mode::Words { count } => format!("Words ({})", count),
         };
 
+        let high_score_mark = if termi.tracker.is_high_score {
+            "(High Score)"
+        } else {
+            ""
+        };
+
         stats_lines.push(add_stat("OS", "termitype".to_string()));
         stats_lines.push(add_stat("Version", VERSION.to_string()));
         stats_lines.push(add_stat("Mode", mode_str));
@@ -107,7 +113,10 @@ impl ResultsComponent {
             "Lang",
             config.language.clone().unwrap_or_default(),
         ));
-        stats_lines.push(add_stat("WPM", format!("{:.0}", tracker.wpm)));
+        stats_lines.push(add_stat(
+            "WPM",
+            format!("{:.0} {}", tracker.wpm, high_score_mark),
+        ));
         stats_lines.push(add_stat("Raw WPM", format!("{:.0}", tracker.raw_wpm)));
 
         if let Some(time) = tracker.completion_time {
