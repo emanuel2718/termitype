@@ -151,6 +151,11 @@ impl Termi {
             return;
         }
 
+        let is_high_score = self.db.is_high_score(&self.config, self.tracker.wpm);
+        if is_high_score {
+            self.tracker.mark_high_score();
+        }
+
         match self.db.write(&self.config, &self.tracker) {
             Err(err) => log_error!("DB: Failed to save test results: {err}"),
             _ => {}
@@ -171,6 +176,15 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     let mut last_metrics_update = Instant::now();
     let mut last_time_update = Instant::now();
     let mut needs_render = true;
+
+    if config.reset_db {
+        let items_deleted = termi.db.reset();
+        match items_deleted {
+            Ok(count) => log_debug!("Removed {count} entries from the database"),
+            Err(err) => log_debug!("Something went wrong calling db.reset: {err}"),
+        }
+        log_debug!("Should reset the database");
+    }
 
     loop {
         let frame_start = Instant::now();

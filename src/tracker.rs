@@ -13,6 +13,7 @@ pub struct Tracker {
     pub accuracy: u8,
     pub wpm_samples: Vec<u32>,
     pub last_sample_time: Instant,
+    pub is_high_score: bool,
 
     // time
     pub time_started: Option<Instant>,
@@ -123,6 +124,7 @@ impl Tracker {
             accuracy: 0,
             wpm_samples: Vec::with_capacity(100),
             last_sample_time: now,
+            is_high_score: false,
             time_remaining,
             time_started: None,
             time_paused: None,
@@ -168,6 +170,7 @@ impl Tracker {
         self.wpm = 0.0;
         self.raw_wpm = 0.0;
         self.accuracy = 0;
+        self.is_high_score = false;
         self.total_keystrokes = 0;
         self.correct_keystrokes = 0;
         self.completion_time = None;
@@ -504,6 +507,10 @@ impl Tracker {
             self.wpm_samples.push(wpm.round() as u32);
             self.last_wpm_update = now;
         }
+    }
+
+    pub fn mark_high_score(&mut self) {
+        self.is_high_score = true;
     }
 
     fn check_completion(&mut self) -> bool {
@@ -1479,5 +1486,21 @@ mod tests {
             tracker.completion_time.is_some(),
             "Completion time should be set"
         );
+    }
+
+    #[test]
+    fn test_restarting_test_resets_high_score_flag() {
+        let config = Config::default();
+        let target_text = String::from("test");
+        let mut tracker = Tracker::new(&config, target_text);
+        assert!(!tracker.is_high_score);
+        tracker.start_typing();
+
+        tracker.is_high_score = true;
+
+        assert!(tracker.is_high_score);
+
+        tracker.start_typing();
+        assert!(!tracker.is_high_score);
     }
 }
