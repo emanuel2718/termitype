@@ -83,6 +83,7 @@ impl TypingAreaComponent {
         let should_show_cursor = (termi.tracker.status == Status::Idle
             || termi.tracker.status == Status::Typing)
             && termi.modal.is_none()
+            && !termi.leaderboard.is_open()
             && !termi.menu.is_theme_menu();
 
         if should_show_cursor {

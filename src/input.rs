@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{
-    actions::{MenuContext, MenuNavAction, MenuSearchAction, TermiAction},
+    actions::{LeaderboardAction, MenuContext, MenuNavAction, MenuSearchAction, TermiAction},
     log_debug,
     termi::Termi,
     tracker::Status,
@@ -13,6 +13,7 @@ pub enum InputMode {
     Typing,
     Results,
     Modal,
+    Leaderboard,
     Menu { is_searching: bool },
 }
 
@@ -36,6 +37,8 @@ impl InputHandler {
             }
         } else if termi.tracker.status == Status::Completed {
             InputMode::Results
+        } else if termi.leaderboard.is_open() {
+            InputMode::Leaderboard
         } else {
             InputMode::Typing
         }
@@ -72,6 +75,7 @@ impl InputHandler {
             InputMode::Typing => self.handle_typing_input(event),
             InputMode::Results => self.handle_results_input(event),
             InputMode::Modal => self.handle_modal_input(event),
+            InputMode::Leaderboard => self.handle_leaderboard_input(event),
             InputMode::Menu { is_searching } => self.handle_menu_input(event, is_searching),
         }
     }
@@ -106,6 +110,47 @@ impl InputHandler {
             (KeyCode::Char('n'), KeyModifiers::NONE) => TermiAction::Start,
             (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::Quit,
             (KeyCode::Esc, KeyModifiers::NONE) => TermiAction::TogglePause,
+            _ => TermiAction::NoOp,
+        }
+    }
+
+    fn handle_leaderboard_input(&self, event: KeyEvent) -> TermiAction {
+        match (event.code, event.modifiers) {
+            (KeyCode::Esc, _) => TermiAction::LeaderboardClose,
+            (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::LeaderboardClose,
+
+            (KeyCode::Up | KeyCode::Char('k'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::NavigateUp)
+            }
+            (KeyCode::Down | KeyCode::Char('j'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::NavigateDown)
+            }
+
+            (KeyCode::Char('w') | KeyCode::Char('W'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(0))
+            }
+            (KeyCode::Char('a') | KeyCode::Char('A'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(1))
+            }
+            (KeyCode::Char('c') | KeyCode::Char('C'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(2))
+            }
+            (KeyCode::Char('y') | KeyCode::Char('Y'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(3))
+            }
+            (KeyCode::Char('b') | KeyCode::Char('B'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(4))
+            }
+            (KeyCode::Char('m') | KeyCode::Char('M'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(5))
+            }
+            (KeyCode::Char('l') | KeyCode::Char('L'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(6))
+            }
+            (KeyCode::Char('d') | KeyCode::Char('D'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(7))
+            }
+
             _ => TermiAction::NoOp,
         }
     }

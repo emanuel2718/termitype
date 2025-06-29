@@ -298,6 +298,7 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
 
         // === Leaderboard Actions ===
         TermiAction::LeaderboardOpen => {
+            termi.tracker.pause();
             termi.menu.close();
             termi.leaderboard.open(&termi.db);
         }
