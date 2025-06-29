@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -26,6 +27,37 @@ pub struct TypingTestResult {
     pub punctuation: bool,
     pub symbols: bool,
     pub created_at: DateTime<Utc>,
+}
+
+pub enum SortOder {
+    Ascending,
+    Descending,
+}
+
+// === Leaderboards ===
+pub struct LeaderboardQuery {
+    pub limit: usize,
+    pub offset: usize,
+    pub sort_col: String,
+    pub sort_order: SortOder,
+}
+
+impl Default for LeaderboardQuery {
+    // TODO: move this magic numbers and strings to constants
+    fn default() -> Self {
+        Self {
+            limit: 25,
+            offset: 0,
+            sort_col: "wpm".to_string(),
+            sort_order: SortOder::Descending,
+        }
+    }
+}
+
+pub struct LeaderboardResult {
+    pub has_more: bool,
+    pub total_count: usize,
+    pub results: Vec<TypingTestResult>,
 }
 
 pub struct TermiDB {
@@ -223,6 +255,92 @@ impl TermiDB {
             Ok(highest) => wpm > highest,
             Err(_) => true,
         }
+    }
+
+    pub fn query_leaderboard(&self, query: &LeaderboardQuery) -> TResult<LeaderboardResult> {
+        let total_count: usize =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM test_results", [], |row| row.get(0))?;
+
+        if !self.is_valid_column(&query.sort_col) {
+            return Err(anyhow!("Invalid sort column: {}", query.sort_col).into());
+        }
+
+        let sort_direction = self.resolve_sort_direction(&query.sort_order);
+
+        let sql = format!(
+            "SELECT id, mode_type, mode_value, language, wpm, accuracy, consistency,
+                total_keystrokes, correct_keystrokes, backspace_count,
+                numbers, punctuation, symbols, created_at
+             FROM test_results
+             ORDER BY {} {}
+             LIMIT {} OFFSET {}",
+            query.sort_col, sort_direction, query.limit, query.offset
+        );
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let results: Result<Vec<TypingTestResult>, rusqlite::Error> = stmt
+            .query_map([], |row| {
+                let created_at_str: String = row.get(13)?;
+                let created_at = created_at_str.parse::<DateTime<Utc>>().map_err(|_| {
+                    rusqlite::Error::InvalidColumnType(
+                        13,
+                        "datetime".to_string(),
+                        rusqlite::types::Type::Text,
+                    )
+                })?;
+
+                Ok(TypingTestResult {
+                    id: Some(row.get(0)?),
+                    mode_type: row.get(1)?,
+                    mode_value: row.get(2)?,
+                    language: row.get(3)?,
+                    wpm: row.get::<_, f64>(4)? as u16,
+                    accuracy: row.get(5)?,
+                    consistency: row.get(6)?,
+                    total_keystrokes: row.get(7)?,
+                    correct_keystrokes: row.get(8)?,
+                    backspace_count: row.get(9)?,
+                    numbers: row.get(10)?,
+                    punctuation: row.get(11)?,
+                    symbols: row.get(12)?,
+                    created_at,
+                })
+            })?
+            .collect();
+
+        let results = results?;
+
+        let has_more = query.offset + results.len() < total_count;
+
+        Ok(LeaderboardResult {
+            has_more,
+            total_count,
+            results,
+        })
+    }
+
+    fn resolve_sort_direction(&self, order: &SortOder) -> &'static str {
+        match order {
+            SortOder::Ascending => "ASC",
+            SortOder::Descending => "DESC",
+        }
+    }
+
+    fn is_valid_column(&self, col: &String) -> bool {
+        let valid_cols = [
+            "wpm",
+            "accuracy",
+            // "consistency",
+            "mode_type",
+            "language",
+            "created_at",
+            "total_keystrokes",
+            "correct_keystrokes",
+            "backspace_count",
+        ];
+
+        !valid_cols.contains(&col.as_str())
     }
 }
 
