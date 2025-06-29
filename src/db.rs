@@ -30,7 +30,7 @@ pub struct TypingTestResult {
 }
 
 #[derive(Debug, Clone)]
-pub enum SortOder {
+pub enum SortOrder {
     Ascending,
     Descending,
 }
@@ -41,7 +41,7 @@ pub struct LeaderboardQuery {
     pub limit: usize,
     pub offset: usize,
     pub sort_col: String,
-    pub sort_order: SortOder,
+    pub sort_order: SortOrder,
 }
 
 impl Default for LeaderboardQuery {
@@ -51,7 +51,7 @@ impl Default for LeaderboardQuery {
             limit: 25,
             offset: 0,
             sort_col: "wpm".to_string(),
-            sort_order: SortOder::Descending,
+            sort_order: SortOrder::Descending,
         }
     }
 }
@@ -323,18 +323,18 @@ impl TermiDB {
         })
     }
 
-    fn resolve_sort_direction(&self, order: &SortOder) -> &'static str {
+    fn resolve_sort_direction(&self, order: &SortOrder) -> &'static str {
         match order {
-            SortOder::Ascending => "ASC",
-            SortOder::Descending => "DESC",
+            SortOrder::Ascending => "ASC",
+            SortOrder::Descending => "DESC",
         }
     }
 
-    fn is_valid_column(&self, col: &String) -> bool {
+    fn is_valid_column(&self, col: &str) -> bool {
         let valid_cols = [
             "wpm",
             "accuracy",
-            // "consistency",
+            "consistency",
             "mode_type",
             "language",
             "created_at",
@@ -343,7 +343,7 @@ impl TermiDB {
             "backspace_count",
         ];
 
-        !valid_cols.contains(&col.as_str())
+        valid_cols.contains(&col)
     }
 }
 

@@ -2,7 +2,7 @@ use ratatui::widgets::TableState;
 
 use crate::{
     actions::TermiAction,
-    db::{LeaderboardQuery, LeaderboardResult, SortOder, TermiDB, TypingTestResult},
+    db::{LeaderboardQuery, LeaderboardResult, SortOrder, TermiDB, TypingTestResult},
     log_debug,
 };
 
@@ -56,11 +56,15 @@ impl Leaderboard {
         &self.items
     }
 
+    pub fn table(&mut self) -> &mut TableState {
+        &mut self.table
+    }
+
     pub fn sort_col(&self) -> &str {
         &self.query.sort_col
     }
 
-    pub fn sort_order(&self) -> &SortOder {
+    pub fn sort_order(&self) -> &SortOrder {
         &self.query.sort_order
     }
 
@@ -229,7 +233,7 @@ impl Leaderboard {
                 self.toggle_sort(db);
             } else {
                 self.query.sort_col = name.to_string();
-                self.query.sort_order = SortOder::Descending;
+                self.query.sort_order = SortOrder::Descending;
                 self.reset(db);
             }
         }
@@ -237,8 +241,8 @@ impl Leaderboard {
 
     fn toggle_sort(&mut self, db: &TermiDB) {
         self.query.sort_order = match self.query.sort_order {
-            SortOder::Ascending => SortOder::Descending,
-            SortOder::Descending => SortOder::Ascending,
+            SortOrder::Ascending => SortOrder::Descending,
+            SortOrder::Descending => SortOrder::Ascending,
         };
         self.reset(db);
     }
@@ -261,10 +265,13 @@ impl Leaderboard {
     }
 }
 
-fn get_sortable_columns() -> Vec<(&'static str, &'static str)> {
+pub fn get_sortable_columns() -> Vec<(&'static str, &'static str)> {
     vec![
         ("wpm", "WPM"),
-        ("accuracy", "Accuracy"),
+        ("accuracy", "Acc"),
+        ("consistency", "Cons"),
+        ("total_keystrokes", "Keystrokes"),
+        ("backspace_count", "Backspaces"),
         ("mode_type", "Mode"),
         ("language", "Language"),
         ("created_at", "Date"),

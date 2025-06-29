@@ -65,7 +65,7 @@ impl<'a> TermiElement<'a> {
 
 #[derive(Debug, Default)]
 pub struct TermiClickableRegions {
-    pub regions: Vec<(Rect, TermiClickAction)>,
+    pub regions: Vec<(Rect, TermiClickAction)>, // TODO: change this to a struct { rect, action }
 }
 
 impl TermiClickableRegions {

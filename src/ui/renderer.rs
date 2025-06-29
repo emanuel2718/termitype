@@ -9,8 +9,8 @@ use crate::{
     termi::Termi,
     tracker::Status,
     ui::{
-        components::elements::TermiClickableRegions, layout::create_container_block,
-        layout::TermiLayout,
+        components::{elements::TermiClickableRegions, LeaderboardComponent},
+        layout::{create_container_block, TermiLayout},
     },
 };
 
@@ -210,6 +210,12 @@ fn render_overlays(
 
     if let Some(modal) = &termi.modal {
         if let Some(region) = ModalComponent::render(frame, termi, area, modal.clone()) {
+            regions.add(region.0, region.1);
+        }
+    }
+
+    if termi.leaderboard.is_open() {
+        if let Some(region) = LeaderboardComponent::render(frame, termi, area) {
             regions.add(region.0, region.1);
         }
     }
