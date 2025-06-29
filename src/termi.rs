@@ -14,6 +14,7 @@ use crate::{
     config::Config,
     db::TermiDB,
     input::InputHandler,
+    leaderboard::Leaderboard,
     log_debug, log_error,
     menu::MenuState,
     modal::InputModal,
@@ -31,6 +32,7 @@ pub struct Termi {
     pub words: String,
     pub menu: MenuState,
     pub modal: Option<InputModal>,
+    pub leaderboard: Leaderboard,
     pub preview_theme: Option<Theme>,
     pub preview_cursor: Option<SetCursorStyle>,
     pub preview_ascii_art: Option<String>,
@@ -55,6 +57,7 @@ impl std::fmt::Debug for Termi {
             .field("builder", &self.builder)
             .field("words", &self.words)
             .field("menu", &self.menu)
+            .field("leaderboard", &self.leaderboard)
             .field("modal", &self.modal);
         debug_struct.finish()
     }
@@ -81,6 +84,7 @@ impl Termi {
             builder,
             words,
             modal: None,
+            leaderboard: Leaderboard::new(),
             preview_theme: None,
             preview_cursor: None,
             preview_ascii_art: None,

@@ -23,6 +23,7 @@ pub mod db;
 pub mod error;
 pub mod helpers;
 pub mod input;
+pub mod leaderboard;
 pub mod log;
 pub mod macros;
 pub mod menu;

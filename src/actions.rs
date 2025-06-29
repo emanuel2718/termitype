@@ -42,6 +42,11 @@ pub enum TermiAction {
     ModalConfirm,
     ModalBackspace,
 
+    // === Modal ===
+    LeaderboardOpen,
+    LeaderboardClose,
+    LeaderboardInput(LeaderboardAction),
+
     // === Configuration/State Changes ===
     ChangeTheme(String),
     // ChangePreview(PreviewType),
@@ -71,6 +76,13 @@ pub enum TermiAction {
     // === Debug Helper Actions ===
     #[cfg(debug_assertions)]
     DebugToggleResults,
+}
+// ============== LEADERBOARD ==============
+#[derive(Debug, Clone, PartialEq)]
+pub enum LeaderboardAction {
+    NavigateUp,
+    NavigateDown,
+    SortBy(usize),
 }
 
 // ============== MENU ==============
@@ -115,6 +127,7 @@ pub enum MenuContext {
     AsciiArt,
     Options,
     Results,
+    Leaderboard,
 }
 
 // ============== PREVIEW ==============
@@ -141,6 +154,7 @@ pub enum TermiClickAction {
     ToggleAbout,
     ToggleModal(ModalContext),
     ModalConfirm,
+    LeaderboardClose,
 }
 pub fn handle_click_action(
     termi: &mut Termi,
@@ -196,6 +210,7 @@ pub fn handle_click_action(
                 }
             }
             TermiClickAction::ModalConfirm => Some(TermiAction::ModalConfirm),
+            TermiClickAction::LeaderboardClose => Some(TermiAction::LeaderboardClose),
         }
     } else {
         None
@@ -278,6 +293,20 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::ModalBackspace => {
             if let Some(modal) = termi.modal.as_mut() {
                 modal.handle_backspace();
+            }
+        }
+
+        // === Leaderboard Actions ===
+        TermiAction::LeaderboardOpen => {
+            termi.menu.close();
+            termi.leaderboard.open(&termi.db);
+        }
+        TermiAction::LeaderboardClose => {
+            termi.leaderboard.close();
+        }
+        TermiAction::LeaderboardInput(_) => {
+            if let Some(act) = termi.leaderboard.handle_action(action, &termi.db) {
+                process_action(act, termi);
             }
         }
         TermiAction::ChangeLanguage(lang) => {

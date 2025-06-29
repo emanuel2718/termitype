@@ -29,12 +29,14 @@ pub struct TypingTestResult {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone)]
 pub enum SortOder {
     Ascending,
     Descending,
 }
 
 // === Leaderboards ===
+#[derive(Debug, Clone)]
 pub struct LeaderboardQuery {
     pub limit: usize,
     pub offset: usize,
@@ -54,6 +56,7 @@ impl Default for LeaderboardQuery {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct LeaderboardResult {
     pub has_more: bool,
     pub total_count: usize,

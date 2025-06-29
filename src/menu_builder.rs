@@ -24,6 +24,7 @@ pub fn build_menu(ctx: MenuContext, config: &Config) -> Menu {
         MenuContext::AsciiArt => build_ascii_art_menu(),
         MenuContext::Options => build_options_menu(config),
         MenuContext::Results => build_results_style_menu(),
+        MenuContext::Leaderboard => build_leaderboard_menu(),
     }
 }
 
@@ -38,6 +39,11 @@ fn build_root_menu(config: &Config) -> Menu {
             .disabled(!config.term_has_color_support()),
         MenuItem::sub_menu("root/picker", "Picker Style...", MenuContext::PickerStyle),
         MenuItem::sub_menu("root/results", "Result Style...", MenuContext::Results),
+        MenuItem::action(
+            "root/leaderboard",
+            "Leaderboard...",
+            TermiAction::LeaderboardOpen,
+        ),
         MenuItem::sub_menu("root/ascii", "Neofetch Art...", MenuContext::AsciiArt),
         MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
         MenuItem::sub_menu("root/cursor", "Cursor Style...", MenuContext::Cursor),
@@ -366,4 +372,14 @@ fn build_results_style_menu() -> Menu {
         })
         .collect();
     Menu::new(MenuContext::Results, "Results Style".to_string(), items)
+}
+
+fn build_leaderboard_menu() -> Menu {
+    let items = vec![MenuItem::action(
+        "leaderboard/open",
+        "Open Leaderboard",
+        TermiAction::LeaderboardOpen,
+    )];
+
+    Menu::new(MenuContext::Leaderboard, "Leaderboard".to_string(), items)
 }

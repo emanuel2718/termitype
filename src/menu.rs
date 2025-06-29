@@ -593,9 +593,11 @@ impl MenuState {
                 let results_style = config.resolve_results_style();
                 Some(format!("results/{}", results_style.as_str()))
             }
-            MenuContext::Root | MenuContext::About | MenuContext::Help | MenuContext::Options => {
-                None
-            }
+            MenuContext::Root
+            | MenuContext::About
+            | MenuContext::Help
+            | MenuContext::Options
+            | MenuContext::Leaderboard => None,
         };
 
         if let Some(id) = target_id {
