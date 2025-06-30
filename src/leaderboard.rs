@@ -268,10 +268,11 @@ impl Leaderboard {
 pub fn get_sortable_columns() -> Vec<(&'static str, &'static str)> {
     vec![
         ("wpm", "WPM"),
-        ("accuracy", "Acc"),
-        ("consistency", "Cons"),
+        ("raw_wpm", "Raw"),
+        ("accuracy", "Accuracy"),
+        ("consistency", "Consistency"),
+        ("total_keystrokes", "Chars"),
         ("mode_type", "Mode"),
-        ("language", "Language"),
         ("created_at", "Date"),
     ]
 }
