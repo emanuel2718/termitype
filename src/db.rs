@@ -50,7 +50,7 @@ impl Default for LeaderboardQuery {
         Self {
             limit: 25,
             offset: 0,
-            sort_col: "wpm".to_string(),
+            sort_col: "created_at".to_string(),
             sort_order: SortOrder::Descending,
         }
     }
