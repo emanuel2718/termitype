@@ -112,8 +112,6 @@ impl LeaderboardComponent {
                         Cell::from(result.wpm.to_string()),
                         Cell::from(format!("{}%", result.accuracy)),
                         Cell::from(format!("{:.1}%", result.consistency)),
-                        Cell::from(result.total_keystrokes.to_string()),
-                        Cell::from(result.backspace_count.to_string()),
                         Cell::from(format!("{} {}", result.mode_type, result.mode_value)),
                         Cell::from(result.language.clone()),
                         Cell::from(result.created_at.format("%m/%d %H:%M").to_string()),
@@ -131,10 +129,8 @@ impl LeaderboardComponent {
 
             let constraints = [
                 Constraint::Fill(1), // WPM
-                Constraint::Fill(1), // Acc
-                Constraint::Fill(1), // Cons
-                Constraint::Fill(1), // Keystrokes
-                Constraint::Fill(1), // Backspaces
+                Constraint::Fill(1), // Accuraccy
+                Constraint::Fill(1), // Consistency
                 Constraint::Fill(1), // Mode
                 Constraint::Fill(1), // Language
                 Constraint::Fill(1), // Date
@@ -207,7 +203,7 @@ impl LeaderboardComponent {
             .alignment(Alignment::Center);
         frame.render_widget(header_info_paragraph, footer_chunks[0]);
 
-        let controls_text = "↑/j: Up  ↓/k: Down  W/A/C/Y/B/M/L/D: Sort  Esc/q: Close";
+        let controls_text = "↑/j: Up  ↓/k: Down  W/A/C/M/L/D: Sort  Esc/q: Close";
         let controls_paragraph = Paragraph::new(controls_text)
             .style(Style::default().fg(theme.muted()))
             .alignment(Alignment::Center);
@@ -219,8 +215,6 @@ impl LeaderboardComponent {
             "WPM" => ('W', "PM".to_string()),
             "Acc" => ('A', "cc".to_string()),
             "Cons" => ('C', "ons".to_string()),
-            "Keystrokes" => ('Y', "keystrokes".to_string()),
-            "Backspaces" => ('B', "ackspaces".to_string()),
             "Mode" => ('M', "ode".to_string()),
             "Language" => ('L', "anguage".to_string()),
             "Date" => ('D', "ate".to_string()),

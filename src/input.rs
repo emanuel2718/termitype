@@ -35,10 +35,10 @@ impl InputHandler {
             InputMode::Menu {
                 is_searching: termi.menu.is_searching(),
             }
-        } else if termi.tracker.status == Status::Completed {
-            InputMode::Results
         } else if termi.leaderboard.is_open() {
             InputMode::Leaderboard
+        } else if termi.tracker.status == Status::Completed {
+            InputMode::Results
         } else {
             InputMode::Typing
         }
@@ -135,20 +135,14 @@ impl InputHandler {
             (KeyCode::Char('c') | KeyCode::Char('C'), _) => {
                 TermiAction::LeaderboardInput(LeaderboardAction::SortBy(2))
             }
-            (KeyCode::Char('y') | KeyCode::Char('Y'), _) => {
+            (KeyCode::Char('m') | KeyCode::Char('M'), _) => {
                 TermiAction::LeaderboardInput(LeaderboardAction::SortBy(3))
             }
-            (KeyCode::Char('b') | KeyCode::Char('B'), _) => {
+            (KeyCode::Char('l') | KeyCode::Char('L'), _) => {
                 TermiAction::LeaderboardInput(LeaderboardAction::SortBy(4))
             }
-            (KeyCode::Char('m') | KeyCode::Char('M'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(5))
-            }
-            (KeyCode::Char('l') | KeyCode::Char('L'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(6))
-            }
             (KeyCode::Char('d') | KeyCode::Char('D'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(7))
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(5))
             }
 
             _ => TermiAction::NoOp,
