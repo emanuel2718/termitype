@@ -580,7 +580,9 @@ mod tests {
         let mut config = Config::new();
         config.theme = Some("random-theme-that-does-not-exists".to_string());
         let theme = Theme::new(&config);
-        assert_eq!(theme.id, DEFAULT_THEME.to_string());
+        // if the given theme does not exists, it will default to the `DEFAULT_THEME`,
+        // if that is not found it will default to `Fallbakck` as last measure.
+        assert!(theme.id == DEFAULT_THEME || theme.id == "Fallback");
     }
 
     #[test]
