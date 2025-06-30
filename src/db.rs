@@ -229,10 +229,7 @@ impl TermiDB {
             },
         );
 
-        match result {
-            Ok(test_result) => Some(test_result),
-            Err(_) => None,
-        }
+        result.ok()
     }
 
     pub fn reset(&self) -> TResult<usize> {

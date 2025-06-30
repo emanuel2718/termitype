@@ -160,9 +160,8 @@ impl Termi {
             self.tracker.mark_high_score();
         }
 
-        match self.db.write(&self.config, &self.tracker) {
-            Err(err) => log_error!("DB: Failed to save test results: {err}"),
-            _ => {}
+        if let Err(err) = self.db.write(&self.config, &self.tracker) {
+            log_error!("DB: Failed to save test results: {err}")
         }
     }
 }
