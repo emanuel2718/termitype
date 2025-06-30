@@ -126,23 +126,27 @@ impl InputHandler {
                 TermiAction::LeaderboardInput(LeaderboardAction::NavigateDown)
             }
 
+            // TODO: these SortBy are waaaaay to prone to mistakes and are annoying to maintain. Change this.
             (KeyCode::Char('w') | KeyCode::Char('W'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(0))
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(0)) // wpm
+            }
+            (KeyCode::Char('r') | KeyCode::Char('R'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(1)) // raw
             }
             (KeyCode::Char('a') | KeyCode::Char('A'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(1))
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(2)) // acc
             }
             (KeyCode::Char('c') | KeyCode::Char('C'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(2))
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(3)) // cons
+            }
+            (KeyCode::Char('h') | KeyCode::Char('H'), _) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(4)) // chars
             }
             (KeyCode::Char('m') | KeyCode::Char('M'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(3))
-            }
-            (KeyCode::Char('l') | KeyCode::Char('L'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(4))
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(5)) // mode
             }
             (KeyCode::Char('d') | KeyCode::Char('D'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(5))
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(6)) // date
             }
 
             _ => TermiAction::NoOp,

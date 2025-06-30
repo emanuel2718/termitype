@@ -70,20 +70,77 @@ impl LeaderboardComponent {
                 .iter()
                 .enumerate()
                 .map(|(i, (_, name))| {
-                    let mut spans = vec![];
+                    let mut spans = Vec::new();
 
-                    let (display_key, remaining_text) = Self::get_header_parts(name);
-
-                    spans.push(Span::styled(
-                        format!("[{}]", display_key.to_uppercase()),
-                        Style::default().fg(theme.accent()),
-                    ));
-
-                    if !remaining_text.is_empty() {
-                        spans.push(Span::styled(
-                            remaining_text,
-                            Style::default().fg(theme.muted()),
-                        ));
+                    // Create spans with highlighted sorting key
+                    match *name {
+                        "WPM" => {
+                            spans.push(Span::styled(
+                                "W",
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::UNDERLINED),
+                            ));
+                            spans.push(Span::styled("pm", Style::default().fg(theme.fg())));
+                        }
+                        "Raw" => {
+                            spans.push(Span::styled(
+                                "R",
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::UNDERLINED),
+                            ));
+                            spans.push(Span::styled("aw", Style::default().fg(theme.fg())));
+                        }
+                        "Accuracy" => {
+                            spans.push(Span::styled(
+                                "A",
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::UNDERLINED),
+                            ));
+                            spans.push(Span::styled("ccuracy", Style::default().fg(theme.fg())));
+                        }
+                        "Consistency" => {
+                            spans.push(Span::styled(
+                                "C",
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::UNDERLINED),
+                            ));
+                            spans.push(Span::styled("onsistency", Style::default().fg(theme.fg())));
+                        }
+                        "Chars" => {
+                            spans.push(Span::styled("C", Style::default().fg(theme.fg())));
+                            spans.push(Span::styled(
+                                "h",
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::UNDERLINED),
+                            ));
+                            spans.push(Span::styled("ars", Style::default().fg(theme.fg())));
+                        }
+                        "Mode" => {
+                            spans.push(Span::styled(
+                                "M",
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::UNDERLINED),
+                            ));
+                            spans.push(Span::styled("ode", Style::default().fg(theme.fg())));
+                        }
+                        "Date" => {
+                            spans.push(Span::styled(
+                                "D",
+                                Style::default()
+                                    .fg(theme.accent())
+                                    .add_modifier(Modifier::UNDERLINED),
+                            ));
+                            spans.push(Span::styled("ate", Style::default().fg(theme.fg())));
+                        }
+                        _ => {
+                            spans.push(Span::styled(*name, Style::default().fg(theme.fg())));
+                        }
                     }
 
                     if i == current_col_idx {
@@ -97,7 +154,8 @@ impl LeaderboardComponent {
                         ));
                     }
 
-                    Cell::from(Text::from(Line::from(spans)))
+                    let line = Line::from(spans);
+                    Cell::from(Text::from(line))
                         .style(Style::default().add_modifier(Modifier::BOLD))
                 })
                 .collect();
@@ -108,13 +166,22 @@ impl LeaderboardComponent {
                 .iter()
                 .enumerate()
                 .map(|(row_idx, result)| {
+                    let chars_text = format!(
+                        "{}/{}/0/0",
+                        result.correct_keystrokes,
+                        result
+                            .total_keystrokes
+                            .saturating_sub(result.correct_keystrokes)
+                    );
+
                     let cells = vec![
                         Cell::from(result.wpm.to_string()),
+                        Cell::from(result.raw_wpm.to_string()),
                         Cell::from(format!("{}%", result.accuracy)),
                         Cell::from(format!("{:.1}%", result.consistency)),
+                        Cell::from(chars_text),
                         Cell::from(format!("{} {}", result.mode_type, result.mode_value)),
-                        Cell::from(result.language.clone()),
-                        Cell::from(result.created_at.format("%m/%d %H:%M").to_string()),
+                        Cell::from(result.created_at.format("%d %b %Y %H:%M").to_string()),
                     ];
 
                     let row_style = if row_idx % 2 == 0 {
@@ -128,12 +195,13 @@ impl LeaderboardComponent {
                 .collect();
 
             let constraints = [
-                Constraint::Fill(1), // WPM
-                Constraint::Fill(1), // Accuraccy
-                Constraint::Fill(1), // Consistency
-                Constraint::Fill(1), // Mode
-                Constraint::Fill(1), // Language
-                Constraint::Fill(1), // Date
+                Constraint::Length(6), // WPM
+                Constraint::Length(6), // Raw WPM
+                Constraint::Fill(1),   // Accuracy
+                Constraint::Fill(1),   // Consistency
+                Constraint::Fill(1),   // Chars
+                Constraint::Fill(1),   // Mode
+                Constraint::Fill(1),   // Date
             ];
 
             let table = Table::new(rows, constraints)
@@ -203,27 +271,11 @@ impl LeaderboardComponent {
             .alignment(Alignment::Center);
         frame.render_widget(header_info_paragraph, footer_chunks[0]);
 
-        let controls_text = "↑/j: Up  ↓/k: Down  W/A/C/M/L/D: Sort  Esc/q: Close";
+        let controls_text = "↑/j: Up  ↓/k: Down  W/R/A/C/H/M/D: Sort  Esc/q: Close";
         let controls_paragraph = Paragraph::new(controls_text)
             .style(Style::default().fg(theme.muted()))
             .alignment(Alignment::Center);
         frame.render_widget(controls_paragraph, footer_chunks[1]);
-    }
-
-    fn get_header_parts(name: &str) -> (char, String) {
-        match name {
-            "WPM" => ('W', "PM".to_string()),
-            "Acc" => ('A', "cc".to_string()),
-            "Cons" => ('C', "ons".to_string()),
-            "Mode" => ('M', "ode".to_string()),
-            "Language" => ('L', "anguage".to_string()),
-            "Date" => ('D', "ate".to_string()),
-            _ => {
-                let first_char = name.chars().next().unwrap_or('?');
-                let remaining: String = name.chars().skip(1).collect();
-                (first_char, remaining)
-            }
-        }
     }
 
     fn render_close(frame: &mut Frame, area: Rect) -> Option<(Rect, TermiClickAction)> {
