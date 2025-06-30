@@ -258,13 +258,61 @@ mod tests {
         config::Config, termi::Termi, tracker::Tracker, ui::helpers::calculate_word_positions,
     };
     use ratatui::style::{Modifier, Style};
+    use std::sync::Mutex;
+    use tempfile::TempDir;
 
-    fn init(target_text: &str) -> Termi {
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+    fn setup_env() -> (TempDir, EnvGuard) {
+        let _guard = ENV_MUTEX.lock().unwrap();
+
+        let tmp_dir = TempDir::new().unwrap();
+        let tmp_path = tmp_dir.path().to_path_buf();
+
+        let env_guard = if cfg!(target_os = "macos") {
+            let original = std::env::var("HOME").ok();
+            std::env::set_var("HOME", &tmp_path);
+            EnvGuard::new("HOME", original)
+        } else if cfg!(target_os = "windows") {
+            let original = std::env::var("APPDATA").ok();
+            std::env::set_var("APPDATA", &tmp_path);
+            EnvGuard::new("APPDATA", original)
+        } else {
+            let original = std::env::var("XDG_CONFIG_HOME").ok();
+            std::env::set_var("XDG_CONFIG_HOME", &tmp_path);
+            EnvGuard::new("XDG_CONFIG_HOME", original)
+        };
+
+        (tmp_dir, env_guard)
+    }
+
+    struct EnvGuard {
+        key: &'static str,
+        og_val: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn new(key: &'static str, og_val: Option<String>) -> Self {
+            Self { key, og_val }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.og_val {
+                Some(val) => std::env::set_var(self.key, val),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    fn init(target_text: &str) -> (Termi, TempDir, EnvGuard) {
+        let (temp_dir, env_guard) = setup_env();
         let config = Config::default();
         let mut termi = Termi::new(&config);
         termi.words = target_text.to_string();
         termi.tracker = Tracker::new(&config, target_text.to_string());
-        termi
+        (termi, temp_dir, env_guard)
     }
 
     fn simulate_typing(termi: &mut Termi, input: &str) {
@@ -288,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_ui_handles_correctly_typed_chars() {
-        let mut termi = init("hello world");
+        let (mut termi, _temp_dir, _env_guard) = init("hello world");
         simulate_typing(&mut termi, "hello");
 
         let positions = calculate_word_positions(&termi.words, 50);
@@ -316,7 +364,7 @@ mod tests {
 
     #[test]
     fn test_ui_handles_wrongly_typed_chars() {
-        let mut termi = init("hello world");
+        let (mut termi, _temp_dir, _env_guard) = init("hello world");
         simulate_typing(&mut termi, "hallo"); // Wrong: 'a' instead of 'e'
 
         let positions = calculate_word_positions(&termi.words, 50);
@@ -340,7 +388,7 @@ mod tests {
 
     #[test]
     fn test_ui_char_desync_with_accented_chars() {
-        let mut termi = init("sí prueba");
+        let (mut termi, _temp_dir, _env_guard) = init("sí prueba");
 
         termi.tracker.start_typing();
 
@@ -382,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_ui_and_tracker_sync() {
-        let mut termi = init("test word");
+        let (mut termi, _temp_dir, _env_guard) = init("test word");
         simulate_typing(&mut termi, "test ");
 
         assert_eq!(termi.tracker.cursor_position, 5);
@@ -415,7 +463,7 @@ mod tests {
 
     #[test]
     fn test_ui_with_backspace_corrections() {
-        let mut termi = init("hello");
+        let (mut termi, _temp_dir, _env_guard) = init("hello");
 
         termi.tracker.start_typing();
         termi.tracker.type_char('h');
