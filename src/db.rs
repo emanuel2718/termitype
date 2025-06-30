@@ -8,7 +8,7 @@ use crate::{
 };
 
 const DB_FILE: &str = ".termitype.db";
-const SCHEMA_VERSION: i32 = 1;
+const SCHEMA_VERSION: i32 = 2;
 
 // TODO: add more stuff to store
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,6 +18,7 @@ pub struct TypingTestResult {
     pub mode_value: i32,
     pub language: String,
     pub wpm: u16,
+    pub raw_wpm: u16,
     pub accuracy: u8,
     pub consistency: f64,
     pub total_keystrokes: u32,
@@ -124,6 +125,7 @@ impl TermiDB {
                 mode_value INTEGER NOT NULL,
                 language TEXT NOT NULL,
                 wpm REAL NOT NULL,
+                raw_wpm REAL DEFAULT 0,
                 accuracy INTEGER NOT NULL,
                 consistency REAL NOT NULL,
                 total_keystrokes INTEGER NOT NULL,
@@ -136,6 +138,12 @@ impl TermiDB {
             )",
             [],
         )?;
+
+        let _ = self.conn.execute(
+            "ALTER TABLE test_results ADD COLUMN raw_wpm REAL DEFAULT 0",
+            [],
+        );
+
         // TODO: add more indexes
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_test_config ON test_results (
@@ -156,6 +164,7 @@ impl TermiDB {
             mode_value: config.current_mode().value() as i32,
             language: config.resolve_language_to_str(),
             wpm: tracker.wpm.round() as u16,
+            raw_wpm: tracker.raw_wpm.round() as u16,
             accuracy: tracker.accuracy,
             consistency: tracker.calculate_consistency(),
             total_keystrokes: tracker.total_keystrokes as u32,
@@ -169,13 +178,14 @@ impl TermiDB {
 
         self.conn.execute(
             "INSERT INTO test_results (
-                mode_type, mode_value, language, wpm, accuracy, consistency, total_keystrokes, correct_keystrokes, backspace_count, numbers, punctuation, symbols, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                mode_type, mode_value, language, wpm, raw_wpm, accuracy, consistency, total_keystrokes, correct_keystrokes, backspace_count, numbers, punctuation, symbols, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 result.mode_type,
                 result.mode_value,
                 result.language,
                 result.wpm,
+                result.raw_wpm,
                 result.accuracy,
                 result.consistency,
                 result.total_keystrokes,
@@ -195,16 +205,16 @@ impl TermiDB {
 
     pub fn get(&self, id: i64) -> Option<TypingTestResult> {
         let result = self.conn.query_row(
-            "SELECT id, mode_type, mode_value, language, wpm, accuracy, consistency,
+            "SELECT id, mode_type, mode_value, language, wpm, raw_wpm, accuracy, consistency,
                     total_keystrokes, correct_keystrokes, backspace_count,
                     numbers, punctuation, symbols, created_at
              FROM test_results WHERE id = ?1",
             params![id],
             |row| {
-                let created_at_str: String = row.get(13)?;
+                let created_at_str: String = row.get(14)?;
                 let created_at = created_at_str.parse::<DateTime<Utc>>().map_err(|_| {
                     rusqlite::Error::InvalidColumnType(
-                        13,
+                        14,
                         "datetime".to_string(),
                         rusqlite::types::Type::Text,
                     )
@@ -216,14 +226,15 @@ impl TermiDB {
                     mode_value: row.get(2)?,
                     language: row.get(3)?,
                     wpm: row.get::<_, f64>(4)?.round() as u16,
-                    accuracy: row.get(5)?,
-                    consistency: row.get(6)?,
-                    total_keystrokes: row.get(7)?,
-                    correct_keystrokes: row.get(8)?,
-                    backspace_count: row.get(9)?,
-                    numbers: row.get(10)?,
-                    punctuation: row.get(11)?,
-                    symbols: row.get(12)?,
+                    raw_wpm: row.get::<_, f64>(5).unwrap_or(0.0).round() as u16,
+                    accuracy: row.get(6)?,
+                    consistency: row.get(7)?,
+                    total_keystrokes: row.get(8)?,
+                    correct_keystrokes: row.get(9)?,
+                    backspace_count: row.get(10)?,
+                    numbers: row.get(11)?,
+                    punctuation: row.get(12)?,
+                    symbols: row.get(13)?,
                     created_at,
                 })
             },
@@ -269,7 +280,7 @@ impl TermiDB {
         let sort_direction = self.resolve_sort_direction(&query.sort_order);
 
         let sql = format!(
-            "SELECT id, mode_type, mode_value, language, wpm, accuracy, consistency,
+            "SELECT id, mode_type, mode_value, language, wpm, raw_wpm, accuracy, consistency,
                 total_keystrokes, correct_keystrokes, backspace_count,
                 numbers, punctuation, symbols, created_at
              FROM test_results
@@ -281,10 +292,10 @@ impl TermiDB {
         let mut stmt = self.conn.prepare(&sql)?;
         let results: Result<Vec<TypingTestResult>, rusqlite::Error> = stmt
             .query_map([], |row| {
-                let created_at_str: String = row.get(13)?;
+                let created_at_str: String = row.get(14)?;
                 let created_at = created_at_str.parse::<DateTime<Utc>>().map_err(|_| {
                     rusqlite::Error::InvalidColumnType(
-                        13,
+                        14,
                         "datetime".to_string(),
                         rusqlite::types::Type::Text,
                     )
@@ -296,14 +307,15 @@ impl TermiDB {
                     mode_value: row.get(2)?,
                     language: row.get(3)?,
                     wpm: row.get::<_, f64>(4)?.round() as u16,
-                    accuracy: row.get(5)?,
-                    consistency: row.get(6)?,
-                    total_keystrokes: row.get(7)?,
-                    correct_keystrokes: row.get(8)?,
-                    backspace_count: row.get(9)?,
-                    numbers: row.get(10)?,
-                    punctuation: row.get(11)?,
-                    symbols: row.get(12)?,
+                    raw_wpm: row.get::<_, f64>(5).unwrap_or(0.0).round() as u16,
+                    accuracy: row.get(6)?,
+                    consistency: row.get(7)?,
+                    total_keystrokes: row.get(8)?,
+                    correct_keystrokes: row.get(9)?,
+                    backspace_count: row.get(10)?,
+                    numbers: row.get(11)?,
+                    punctuation: row.get(12)?,
+                    symbols: row.get(13)?,
                     created_at,
                 })
             })?
@@ -330,6 +342,7 @@ impl TermiDB {
     fn is_valid_column(&self, col: &str) -> bool {
         let valid_cols = [
             "wpm",
+            "raw_wpm",
             "accuracy",
             "consistency",
             "mode_type",
