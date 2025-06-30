@@ -544,7 +544,7 @@ impl Config {
 
     /// Resolves the current mode to a human-readable `String`
     pub fn resolve_mode_type_to_str(&self) -> String {
-        if let Some(_) = self.words {
+        if self.words.is_some() {
             "Words".to_string()
         } else {
             "Time".to_string()
