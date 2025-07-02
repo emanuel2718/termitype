@@ -270,8 +270,8 @@ pub fn get_sortable_columns() -> Vec<(&'static str, &'static str)> {
         ("wpm", "WPM"),
         ("raw_wpm", "Raw"),
         ("accuracy", "Accuracy"),
-        ("consistency", "Consistency"),
         ("total_keystrokes", "Chars"),
+        ("language", "Language"),
         ("mode_type", "Mode"),
         ("created_at", "Date"),
     ]
