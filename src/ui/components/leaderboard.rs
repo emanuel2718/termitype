@@ -1,9 +1,10 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{
-        Block, BorderType, Borders, Cell, Clear, HighlightSpacing, Paragraph, Row, Table, Wrap,
+        Block, BorderType, Borders, Cell, Clear, HighlightSpacing, Padding, Paragraph, Row, Table,
+        Wrap,
     },
     Frame,
 };
@@ -36,6 +37,7 @@ impl LeaderboardComponent {
             .title(" Leaderboard ")
             .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
+            .padding(Padding::horizontal(1))
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(theme.border()))
             .style(Style::default().bg(theme.bg()));
@@ -70,78 +72,7 @@ impl LeaderboardComponent {
                 .iter()
                 .enumerate()
                 .map(|(i, (_, name))| {
-                    let mut spans = Vec::new();
-
-                    // Create spans with highlighted sorting key
-                    match *name {
-                        "WPM" => {
-                            spans.push(Span::styled(
-                                "W",
-                                Style::default()
-                                    .fg(theme.accent())
-                                    .add_modifier(Modifier::UNDERLINED),
-                            ));
-                            spans.push(Span::styled("pm", Style::default().fg(theme.fg())));
-                        }
-                        "Raw" => {
-                            spans.push(Span::styled(
-                                "R",
-                                Style::default()
-                                    .fg(theme.accent())
-                                    .add_modifier(Modifier::UNDERLINED),
-                            ));
-                            spans.push(Span::styled("aw", Style::default().fg(theme.fg())));
-                        }
-                        "Accuracy" => {
-                            spans.push(Span::styled(
-                                "A",
-                                Style::default()
-                                    .fg(theme.accent())
-                                    .add_modifier(Modifier::UNDERLINED),
-                            ));
-                            spans.push(Span::styled("ccuracy", Style::default().fg(theme.fg())));
-                        }
-                        "Consistency" => {
-                            spans.push(Span::styled(
-                                "C",
-                                Style::default()
-                                    .fg(theme.accent())
-                                    .add_modifier(Modifier::UNDERLINED),
-                            ));
-                            spans.push(Span::styled("onsistency", Style::default().fg(theme.fg())));
-                        }
-                        "Chars" => {
-                            spans.push(Span::styled("C", Style::default().fg(theme.fg())));
-                            spans.push(Span::styled(
-                                "h",
-                                Style::default()
-                                    .fg(theme.accent())
-                                    .add_modifier(Modifier::UNDERLINED),
-                            ));
-                            spans.push(Span::styled("ars", Style::default().fg(theme.fg())));
-                        }
-                        "Mode" => {
-                            spans.push(Span::styled(
-                                "M",
-                                Style::default()
-                                    .fg(theme.accent())
-                                    .add_modifier(Modifier::UNDERLINED),
-                            ));
-                            spans.push(Span::styled("ode", Style::default().fg(theme.fg())));
-                        }
-                        "Date" => {
-                            spans.push(Span::styled(
-                                "D",
-                                Style::default()
-                                    .fg(theme.accent())
-                                    .add_modifier(Modifier::UNDERLINED),
-                            ));
-                            spans.push(Span::styled("ate", Style::default().fg(theme.fg())));
-                        }
-                        _ => {
-                            spans.push(Span::styled(*name, Style::default().fg(theme.fg())));
-                        }
-                    }
+                    let mut spans = Self::create_header_labels(name, theme);
 
                     if i == current_col_idx {
                         let sort_symbol = match sort_order {
@@ -150,13 +81,11 @@ impl LeaderboardComponent {
                         };
                         spans.push(Span::styled(
                             sort_symbol,
-                            Style::default().fg(theme.highlight()),
+                            Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
                         ));
                     }
 
-                    let line = Line::from(spans);
-                    Cell::from(Text::from(line))
-                        .style(Style::default().add_modifier(Modifier::BOLD))
+                    Cell::from(Line::from(spans))
                 })
                 .collect();
 
@@ -164,8 +93,7 @@ impl LeaderboardComponent {
 
             let rows: Vec<Row> = items
                 .iter()
-                .enumerate()
-                .map(|(row_idx, result)| {
+                .map(|result| {
                     let chars_text = format!(
                         "{}/{}/0/0",
                         result.correct_keystrokes,
@@ -178,19 +106,13 @@ impl LeaderboardComponent {
                         Cell::from(result.wpm.to_string()),
                         Cell::from(result.raw_wpm.to_string()),
                         Cell::from(format!("{}%", result.accuracy)),
-                        Cell::from(format!("{:.1}%", result.consistency)),
                         Cell::from(chars_text),
+                        Cell::from(result.language.clone()),
                         Cell::from(format!("{} {}", result.mode_type, result.mode_value)),
                         Cell::from(result.created_at.format("%d %b %Y %H:%M").to_string()),
                     ];
 
-                    let row_style = if row_idx % 2 == 0 {
-                        Style::default()
-                    } else {
-                        Style::default().fg(theme.muted())
-                    };
-
-                    Row::new(cells).height(1).style(row_style)
+                    Row::new(cells).height(1)
                 })
                 .collect();
 
@@ -198,8 +120,8 @@ impl LeaderboardComponent {
                 Constraint::Length(6), // WPM
                 Constraint::Length(6), // Raw WPM
                 Constraint::Fill(1),   // Accuracy
-                Constraint::Fill(1),   // Consistency
                 Constraint::Fill(1),   // Chars
+                Constraint::Fill(1),   // Language
                 Constraint::Fill(1),   // Mode
                 Constraint::Fill(1),   // Date
             ];
@@ -209,7 +131,8 @@ impl LeaderboardComponent {
                 .row_highlight_style(
                     Style::default()
                         .bg(theme.selection_bg())
-                        .fg(theme.selection_fg()),
+                        .fg(theme.selection_fg())
+                        .add_modifier(Modifier::BOLD),
                 )
                 .highlight_spacing(HighlightSpacing::Always);
 
@@ -228,6 +151,103 @@ impl LeaderboardComponent {
 
             let loading_area = LayoutHelper::center_rect(area, 30, 3);
             frame.render_widget(loading_text, loading_area);
+        }
+    }
+
+    fn create_header_labels(name: &str, theme: &Theme) -> Vec<Span<'static>> {
+        match name {
+            "WPM" => vec![
+                Span::styled(
+                    "W",
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "PM",
+                    Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+                ),
+            ],
+            "Raw" => vec![
+                Span::styled(
+                    "R",
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "aw",
+                    Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+                ),
+            ],
+            "Accuracy" => vec![
+                Span::styled(
+                    "A",
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "ccuracy",
+                    Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+                ),
+            ],
+            "Chars" => vec![
+                Span::styled(
+                    "C",
+                    Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "h",
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "ars",
+                    Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+                ),
+            ],
+            "Language" => vec![
+                Span::styled(
+                    "L",
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "anguage",
+                    Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+                ),
+            ],
+            "Mode" => vec![
+                Span::styled(
+                    "M",
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "ode",
+                    Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+                ),
+            ],
+            "Date" => vec![
+                Span::styled(
+                    "D",
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "ate",
+                    Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+                ),
+            ],
+            _ => vec![Span::styled(
+                name.to_string(),
+                Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+            )],
         }
     }
 
@@ -269,13 +289,7 @@ impl LeaderboardComponent {
         let header_info_paragraph = Paragraph::new(header_info_text)
             .style(Style::default().fg(theme.muted()))
             .alignment(Alignment::Center);
-        frame.render_widget(header_info_paragraph, footer_chunks[0]);
-
-        let controls_text = "↑/j: Up  ↓/k: Down  W/R/A/C/H/M/D: Sort  Esc/q: Close";
-        let controls_paragraph = Paragraph::new(controls_text)
-            .style(Style::default().fg(theme.muted()))
-            .alignment(Alignment::Center);
-        frame.render_widget(controls_paragraph, footer_chunks[1]);
+        frame.render_widget(header_info_paragraph, footer_chunks[1]);
     }
 
     fn render_close(frame: &mut Frame, area: Rect) -> Option<(Rect, TermiClickAction)> {
