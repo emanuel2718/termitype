@@ -107,8 +107,10 @@ impl MenuComponent {
     fn render_menu_content(frame: &mut Frame, termi: &mut Termi, area: Rect, small_width: bool) {
         let theme = termi.current_theme().clone();
         let menu_state = &mut termi.menu;
+        let picker_style = termi.config.resolve_picker_style();
 
-        let hide_menu_footer = small_width && !menu_state.is_searching();
+        let hide_menu_footer = (small_width && !menu_state.is_searching())
+            || (picker_style == crate::config::PickerStyle::Minimal);
         let footer_len = if hide_menu_footer { 0 } else { 3 };
         let menu_layout = Layout::default()
             .direction(Direction::Vertical)
