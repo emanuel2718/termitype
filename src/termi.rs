@@ -11,7 +11,7 @@ use ratatui::{prelude::Backend, Terminal};
 use crate::{
     actions::{handle_click_action, process_action, TermiAction},
     builder::Builder,
-    config::Config,
+    config::{Config, ResultsStyle},
     db::TermiDB,
     input::InputHandler,
     leaderboard::Leaderboard,
@@ -36,6 +36,7 @@ pub struct Termi {
     pub preview_theme: Option<Theme>,
     pub preview_cursor: Option<SetCursorStyle>,
     pub preview_ascii_art: Option<String>,
+    pub preview_results_style: Option<ResultsStyle>,
     last_event: Option<KeyEvent>,
     should_quit: bool,
 }
@@ -54,6 +55,7 @@ impl std::fmt::Debug for Termi {
                     .resolve_cursor_name_from_style(&self.preview_cursor),
             )
             .field("preview_ascii_art", &self.preview_ascii_art)
+            .field("preview_results_style", &self.preview_results_style)
             .field("builder", &self.builder)
             .field("words", &self.words)
             .field("menu", &self.menu)
@@ -88,6 +90,7 @@ impl Termi {
             preview_theme: None,
             preview_cursor: None,
             preview_ascii_art: None,
+            preview_results_style: None,
             last_event: None,
             should_quit: false,
         }
@@ -130,6 +133,13 @@ impl Termi {
 
     pub fn current_theme(&self) -> &Theme {
         self.preview_theme.as_ref().unwrap_or(&self.theme)
+    }
+
+    pub fn current_results_style(&self) -> ResultsStyle {
+        self.preview_results_style
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| self.config.resolve_results_style())
     }
 
     fn handle_debounce(&self) -> bool {

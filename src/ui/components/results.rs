@@ -18,7 +18,7 @@ pub struct ResultsComponent;
 
 impl ResultsComponent {
     pub fn render(frame: &mut Frame, termi: &mut Termi, area: Rect, is_small: bool) {
-        let results_style = termi.config.resolve_results_style();
+        let results_style = termi.current_results_style();
 
         match results_style {
             ResultsStyle::Graph => Self::render_graph_results(frame, termi, area, is_small),

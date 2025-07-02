@@ -1,7 +1,7 @@
 use crate::{
     actions::{MenuContext, PreviewType, TermiAction},
     ascii,
-    config::{Config, ModeType, PickerStyle},
+    config::{Config, ModeType, PickerStyle, ResultsStyle},
     constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST},
     menu::{Menu, MenuItem},
     modal::ModalContext,
@@ -369,6 +369,9 @@ fn build_results_style_menu() -> Menu {
                 crate::config::ResultsStyle::label_from_str(style),
                 TermiAction::ChangeResultsStyle(style.to_string()),
             )
+            .with_preview(PreviewType::ResultsStyle(ResultsStyle::value_from_str(
+                style,
+            )))
         })
         .collect();
     Menu::new(MenuContext::Results, "Results Style".to_string(), items)

@@ -2,7 +2,7 @@ use crossterm::execute;
 use ratatui::layout::Position;
 
 use crate::{
-    config::ModeType,
+    config::{ModeType, ResultsStyle},
     constants::DEFAULT_LINE_COUNT,
     modal::{build_modal, handle_modal_confirm, ModalContext},
     termi::Termi,
@@ -137,6 +137,7 @@ pub enum PreviewType {
     Theme(String),
     Cursor(String),
     AsciiArt(String),
+    ResultsStyle(ResultsStyle),
 }
 
 // ============== CLICK ACTIONS ==============
@@ -303,6 +304,7 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
             termi.leaderboard.open(&termi.db);
         }
         TermiAction::LeaderboardClose => {
+            termi.tracker.resume();
             termi.leaderboard.close();
         }
         TermiAction::LeaderboardInput(_) => {
@@ -407,6 +409,7 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
             PreviewType::AsciiArt(name) => {
                 termi.preview_ascii_art = Some(name);
             }
+            PreviewType::ResultsStyle(style) => termi.preview_results_style = Some(style),
         },
         TermiAction::ClearPreview => {
             if termi.preview_theme.is_some() {
@@ -421,6 +424,10 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
             }
             if termi.preview_ascii_art.is_some() {
                 termi.preview_ascii_art = None;
+            }
+
+            if termi.preview_results_style.is_some() {
+                termi.preview_results_style = None;
             }
         }
         #[cfg(debug_assertions)]

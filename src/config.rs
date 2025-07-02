@@ -726,7 +726,7 @@ impl Config {
     /// Resolves the current results style.
     pub fn resolve_results_style(&self) -> ResultsStyle {
         self.results_style
-            .as_deref()
+            .as_ref()
             .and_then(|s| s.parse().ok())
             .unwrap_or_default()
     }
@@ -864,6 +864,15 @@ impl ResultsStyle {
             "minimal" => "Minimal",
             "neofetch" => "Neofetch",
             _ => "Unknown style",
+        }
+    }
+
+    pub fn value_from_str(s: &str) -> ResultsStyle {
+        match s {
+            "graph" => ResultsStyle::Graph,
+            "minimal" => ResultsStyle::Minimal,
+            "neofetch" => ResultsStyle::Neofetch,
+            _ => ResultsStyle::Minimal,
         }
     }
 }
