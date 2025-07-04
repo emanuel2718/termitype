@@ -10,7 +10,11 @@ use ratatui::{
 };
 
 use crate::{
-    actions::TermiClickAction, db::SortOrder, leaderboard::Leaderboard, termi::Termi, theme::Theme,
+    actions::TermiClickAction,
+    db::SortOrder,
+    leaderboard::{Leaderboard, SortColumn},
+    termi::Termi,
+    theme::Theme,
     ui::helpers::LayoutHelper,
 };
 
@@ -64,15 +68,15 @@ impl LeaderboardComponent {
     fn render_table(frame: &mut Frame, leaderboard: &mut Leaderboard, area: Rect, theme: &Theme) {
         let items = leaderboard.items();
         if leaderboard.has_results() {
-            let cols = crate::leaderboard::get_sortable_columns();
+            let cols = SortColumn::all();
             let current_col_idx = leaderboard.current_sort_col_idx();
             let sort_order = leaderboard.sort_order();
 
             let headers: Vec<Cell> = cols
                 .iter()
                 .enumerate()
-                .map(|(i, (_, name))| {
-                    let mut spans = Self::create_header_labels(name, theme);
+                .map(|(i, col)| {
+                    let mut spans = Self::create_header_labels(col.to_display_name(), theme);
 
                     if i == current_col_idx {
                         let sort_symbol = match sort_order {
@@ -117,13 +121,13 @@ impl LeaderboardComponent {
                 .collect();
 
             let constraints = [
-                Constraint::Length(6), // WPM
-                Constraint::Length(6), // Raw WPM
-                Constraint::Fill(1),   // Accuracy
-                Constraint::Fill(1),   // Chars
-                Constraint::Fill(1),   // Language
-                Constraint::Fill(1),   // Mode
-                Constraint::Fill(1),   // Date
+                Constraint::Length(6),  // WPM
+                Constraint::Length(6),  // Raw WPM
+                Constraint::Length(10), // Accuracy
+                Constraint::Length(12), // Chars
+                Constraint::Fill(1),    // Language
+                Constraint::Length(12), // Mode
+                Constraint::Fill(1),    // Date
             ];
 
             let table = Table::new(rows, constraints)
