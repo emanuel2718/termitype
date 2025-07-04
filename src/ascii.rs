@@ -43,11 +43,11 @@ pub fn print_ascii_list() {
     for ascii in arts {
         let is_default = ascii == DEFAULT_ASCII_ART_NAME;
         let name = if is_default {
-            format!("{} (default)", ascii)
+            format!("{ascii} (default)")
         } else {
             ascii
         };
-        println!("  • {}", name);
+        println!("  • {name}");
     }
 }
 

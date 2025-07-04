@@ -31,7 +31,7 @@ impl ModeBarComponent {
                         if let Some(rem) = termi.tracker.time_remaining {
                             format!("{:.0}", rem.as_secs())
                         } else {
-                            format!("{}", duration)
+                            format!("{duration}")
                         }
                     }
                     Mode::Words { count } => {
@@ -41,7 +41,7 @@ impl ModeBarComponent {
                             .iter()
                             .filter(|&&c| c == Some(' '))
                             .count();
-                        format!("{}/{}", completed, count)
+                        format!("{completed}/{count}")
                     }
                 };
                 let wpm = format!(" {:>3.0} wpm", termi.tracker.wpm);

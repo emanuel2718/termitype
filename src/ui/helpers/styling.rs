@@ -87,7 +87,7 @@ impl TermiStyle {
 pub fn create_key_value_line(key: &str, value: &str, theme: &Theme) -> Line<'static> {
     Line::from(vec![
         Span::styled(
-            format!("{}: ", key),
+            format!("{key}: "),
             Style::default()
                 .fg(theme.accent())
                 .add_modifier(Modifier::BOLD),
@@ -99,7 +99,7 @@ pub fn create_key_value_line(key: &str, value: &str, theme: &Theme) -> Line<'sta
 pub fn create_command_hint(key: &str, description: &str, theme: &Theme) -> Vec<Span<'static>> {
     vec![
         Span::styled(key.to_string(), TermiStyle::highlight(theme)),
-        Span::styled(format!(" {}", description), TermiStyle::muted(theme)),
+        Span::styled(format!(" {description}"), TermiStyle::muted(theme)),
     ]
 }
 

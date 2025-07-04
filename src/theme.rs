@@ -353,7 +353,7 @@ impl std::str::FromStr for ColorSupport {
             "basic" => Ok(Self::Basic),
             "256" | "extended" => Ok(Self::Extended),
             "true" | "truecolor" => Ok(Self::TrueColor),
-            _ => Err(format!("Invalid color support value: {}", s)),
+            _ => Err(format!("Invalid color support value: {s}")),
         }
     }
 }
@@ -423,7 +423,7 @@ impl ThemeLoader {
                 if parts.len() == 3 {
                     let index = parts[1].trim();
                     let color = parts[2].trim().trim_start_matches('#');
-                    color_map.insert(format!("palette{}", index), color.to_string());
+                    color_map.insert(format!("palette{index}"), color.to_string());
                 }
             } else if let Some((key, value)) = line.split_once('=') {
                 let key = key.trim();
@@ -433,9 +433,9 @@ impl ThemeLoader {
         }
 
         let parse_color = |key: &str| -> Result<Color, Box<dyn std::error::Error>> {
-            let value = color_map.get(key).ok_or(format!("Missing {}", key))?;
-            Color::from_str(&format!("#{}", value))
-                .map_err(|e| format!("Invalid color for {}: {}", key, e).into())
+            let value = color_map.get(key).ok_or(format!("Missing {key}"))?;
+            Color::from_str(&format!("#{value}"))
+                .map_err(|e| format!("Invalid color for {key}: {e}").into())
         };
 
         let mut colors = [Color::Black; NUM_COLORS];
@@ -488,11 +488,11 @@ pub fn print_theme_list() {
     for theme in themes {
         let is_default = theme == DEFAULT_THEME;
         let theme_name = if is_default {
-            format!("{} (default)", theme)
+            format!("{theme} (default)")
         } else {
             theme
         };
-        println!("  • {}", theme_name);
+        println!("  • {theme_name}");
     }
 
     println!("\nUsage:");

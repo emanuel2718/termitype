@@ -44,11 +44,11 @@ pub fn run() -> anyhow::Result<()> {
         let log_file = log_dir.join(LOG_FILE);
         #[cfg(debug_assertions)]
         if let Err(e) = log::init(log_file, config.debug) {
-            eprintln!("Failed to init termitype logger: {}", e);
+            eprintln!("Failed to init termitype logger: {e}");
         }
         #[cfg(not(debug_assertions))]
         if let Err(e) = log::init(log_file, false) {
-            eprintln!("Failed to init termitype logger: {}", e);
+            eprintln!("Failed to init termitype logger: {e}");
         }
     }
 

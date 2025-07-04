@@ -5,13 +5,13 @@ use include_dir::{include_dir, Dir};
 pub static ASSETS: Dir = include_dir!("assets");
 
 pub fn get_theme(name: &str) -> Option<String> {
-    let result = ASSETS.get_file(format!("themes/{}", name));
+    let result = ASSETS.get_file(format!("themes/{name}"));
     result.map(|f| f.contents_utf8().unwrap_or_default().to_string())
 }
 
 pub fn get_language(name: &str) -> Option<String> {
     ASSETS
-        .get_file(format!("languages/{}.json", name))
+        .get_file(format!("languages/{name}.json"))
         .map(|f| f.contents_utf8().unwrap_or_default().to_string())
 }
 

@@ -35,7 +35,7 @@ impl ResultsComponent {
         let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
         let hostname = "termitype";
 
-        let header = format!("{}@{}", username, hostname);
+        let header = format!("{username}@{hostname}");
         let separator = "─".repeat(header.chars().count());
 
         let is_monochromatic = termi.config.monocrhomatic_results;
@@ -75,7 +75,7 @@ impl ResultsComponent {
 
         let add_stat = |label: &str, value: String| -> Line {
             Line::from(vec![
-                Span::styled(format!("{}: ", label), Style::default().fg(color_warning)),
+                Span::styled(format!("{label}: "), Style::default().fg(color_warning)),
                 Span::styled(value, Style::default().fg(color_fg)),
             ])
         };
@@ -92,12 +92,12 @@ impl ResultsComponent {
         let wpm_range_str = if min_wpm == u32::MAX {
             None
         } else {
-            Some(format!("{}-{}", min_wpm, max_wpm))
+            Some(format!("{min_wpm}-{max_wpm}"))
         };
 
         let mode_str = match config.current_mode() {
-            Mode::Time { duration } => format!("Time ({}s)", duration),
-            Mode::Words { count } => format!("Words ({})", count),
+            Mode::Time { duration } => format!("Time ({duration}s)"),
+            Mode::Words { count } => format!("Words ({count})"),
         };
 
         let high_score_mark = if termi.tracker.is_high_score {
@@ -115,34 +115,30 @@ impl ResultsComponent {
         ));
         stats_lines.push(add_stat(
             "WPM",
-            format!("{:.0} {}", tracker.wpm, high_score_mark),
+            format!("{:.0} {high_score_mark}", tracker.wpm),
         ));
         stats_lines.push(add_stat("Raw WPM", format!("{:.0}", tracker.raw_wpm)));
 
         if let Some(time) = tracker.completion_time {
-            stats_lines.push(add_stat("Duration", format!("{:.1}s", time)));
+            stats_lines.push(add_stat("Duration", format!("{time:.1}s")));
         } else if let Mode::Time { duration } = config.current_mode() {
-            stats_lines.push(add_stat("Duration", format!("{}s", duration)));
+            stats_lines.push(add_stat("Duration", format!("{duration}s")));
         }
 
-        stats_lines.push(add_stat("Accuracy", format!("{}%", tracker.accuracy)));
-        stats_lines.push(add_stat(
-            "Consistency",
-            format!("{:.0}%", tracker.calculate_consistency()),
-        ));
+        let accuracy = tracker.accuracy;
+        stats_lines.push(add_stat("Accuracy", format!("{accuracy}%")));
+        let consistency = tracker.calculate_consistency();
+        stats_lines.push(add_stat("Consistency", format!("{consistency:.0}%")));
+        let total_keystrokes = tracker.total_keystrokes;
         stats_lines.push(add_stat(
             "Keystrokes",
-            format!("{} ({})", tracker.total_keystrokes, tracker.accuracy),
+            format!("{total_keystrokes} ({accuracy})"),
         ));
-        stats_lines.push(add_stat(
-            "Correct",
-            format!("{}", tracker.correct_keystrokes),
-        ));
-        stats_lines.push(add_stat("Errors", format!("{}", errors)));
-        stats_lines.push(add_stat(
-            "Backspaces",
-            format!("{}", tracker.backspace_count),
-        ));
+        let correct_keystrokes = tracker.correct_keystrokes;
+        stats_lines.push(add_stat("Correct", format!("{correct_keystrokes}")));
+        stats_lines.push(add_stat("Errors", format!("{errors}")));
+        let backspace_count = tracker.backspace_count;
+        stats_lines.push(add_stat("Backspaces", format!("{backspace_count}")));
         if let Some(wpm_range) = wpm_range_str {
             stats_lines.push(add_stat("WPM Range", wpm_range));
         }
@@ -400,10 +396,7 @@ impl ResultsComponent {
                             format!("{:.0}", max_time / 2.0),
                             Style::default().fg(theme.muted()),
                         ),
-                        Span::styled(
-                            format!("{:.0}", max_time),
-                            Style::default().fg(theme.muted()),
-                        ),
+                        Span::styled(format!("{max_time:.0}"), Style::default().fg(theme.muted())),
                     ]),
             )
             .y_axis(
@@ -412,12 +405,12 @@ impl ResultsComponent {
                     .style(Style::default().fg(theme.muted()))
                     .bounds([y_min, y_max])
                     .labels(vec![
-                        Span::styled(format!("{:.0}", y_min), Style::default().fg(theme.muted())),
+                        Span::styled(format!("{y_min:.0}"), Style::default().fg(theme.muted())),
                         Span::styled(
                             format!("{:.0}", (y_min + y_max) / 2.0),
                             Style::default().fg(theme.muted()),
                         ),
-                        Span::styled(format!("{:.0}", y_max), Style::default().fg(theme.muted())),
+                        Span::styled(format!("{y_max:.0}"), Style::default().fg(theme.muted())),
                     ]),
             );
 
@@ -518,15 +511,15 @@ impl ResultsComponent {
             });
 
         let mode_str = match config.current_mode() {
-            Mode::Time { duration } => format!("Time ({}s)", duration),
-            Mode::Words { count } => format!("Words ({})", count),
+            Mode::Time { duration } => format!("Time ({duration}s)"),
+            Mode::Words { count } => format!("Words ({count})"),
         };
 
         let duration = if let Mode::Time { duration } = config.current_mode() {
-            format!("{}s", duration)
+            format!("{duration}s")
         } else {
             let time = tracker.completion_time.unwrap_or(0.0);
-            format!("{:.1}s", time)
+            format!("{time:.1}s")
         };
 
         let mut details_lines = vec![
@@ -562,7 +555,7 @@ impl ResultsComponent {
             Line::from(vec![
                 Span::styled("Errors: ", Style::default().fg(color_muted)),
                 Span::styled(
-                    format!("{}", errors),
+                    format!("{errors}"),
                     Style::default().fg(if errors > 0 { theme.error() } else { color_fg }),
                 ),
             ]),
@@ -579,7 +572,7 @@ impl ResultsComponent {
             details_lines.push(Line::from(vec![
                 Span::styled("WPM Range: ", Style::default().fg(color_muted)),
                 Span::styled(
-                    format!("{}-{}", min_wpm, max_wpm),
+                    format!("{min_wpm}-{max_wpm}"),
                     Style::default().fg(color_fg),
                 ),
             ]));
@@ -645,15 +638,15 @@ impl ResultsComponent {
         let footer_area = if is_small { None } else { Some(main_layout[1]) };
 
         let mode_str = match config.current_mode() {
-            Mode::Time { duration } => format!("Time ({}s)", duration),
-            Mode::Words { count } => format!("Words ({})", count),
+            Mode::Time { duration } => format!("Time ({duration}s)"),
+            Mode::Words { count } => format!("Words ({count})"),
         };
 
         let duration = if let Mode::Time { duration } = config.current_mode() {
-            format!("{}s", duration)
+            format!("{duration}s")
         } else {
             let time = tracker.completion_time.unwrap_or(0.0);
-            format!("{:.1}s", time)
+            format!("{time:.1}s")
         };
 
         let errors = tracker
@@ -704,7 +697,7 @@ impl ResultsComponent {
             Line::from(vec![
                 Span::styled("Errors: ", Style::default().fg(color_muted)),
                 Span::styled(
-                    format!("{}", errors),
+                    format!("{errors}"),
                     Style::default().fg(if errors > 0 { theme.error() } else { color_fg }),
                 ),
             ]),

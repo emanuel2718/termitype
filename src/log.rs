@@ -111,9 +111,10 @@ impl Logger {
         let arch = std::env::consts::ARCH;
 
         self.write(Level::Info, "\n----------------------------------------");
-        self.write(Level::Info, &format!("Starting termitype v{}", version));
-        self.write(Level::Info, &format!("OS: {} ({})", os, arch));
-        self.write(Level::Info, &format!("PID: {}", process::id()));
+        self.write(Level::Info, &format!("Starting termitype v{version}"));
+        self.write(Level::Info, &format!("OS: {os} ({arch})"));
+        let pid = process::id();
+        self.write(Level::Info, &format!("PID: {pid}"));
         self.write(Level::Info, "----------------------------------------\n");
     }
 }
@@ -199,23 +200,19 @@ mod test {
         let content = fs::read_to_string(&log_path).expect("Failed to read temp log file");
         assert!(
             !content.contains("Debug message"),
-            "Content should not contain Debug: {}",
-            content
+            "Content should not contain Debug: {content}",
         );
         assert!(
             content.contains("Info message"),
-            "Content should contain Info: {}",
-            content
+            "Content should contain Info: {content}",
         );
         assert!(
             content.contains("Warn message"),
-            "Content should contain Warn: {}",
-            content
+            "Content should contain Warn: {content}",
         );
         assert!(
             content.contains("Error message"),
-            "Content should contain Error: {}",
-            content
+            "Content should contain Error: {content}",
         );
     }
 }

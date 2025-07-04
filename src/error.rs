@@ -14,12 +14,12 @@ pub enum TError {
 impl std::fmt::Display for TError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Io(err) => write!(f, "IO error: {}", err),
+            Self::Io(err) => write!(f, "IO error: {err}"),
             Self::ConfigDirNotFound => write!(f, "Could not find termitype config directory"),
-            Self::InvalidConfigData(msg) => write!(f, "Invalid configuration data: {}", msg),
-            Self::TermiDB(err) => write!(f, "TermiDB Error: {}", err),
-            Self::SqliteError(err) => write!(f, "Sqlite Error: {}", err),
-            Self::Other(err) => write!(f, "Error: {}", err),
+            Self::InvalidConfigData(msg) => write!(f, "Invalid configuration data: {msg}"),
+            Self::TermiDB(err) => write!(f, "TermiDB Error: {err}"),
+            Self::SqliteError(err) => write!(f, "Sqlite Error: {err}"),
+            Self::Other(err) => write!(f, "Error: {err}"),
         }
     }
 }

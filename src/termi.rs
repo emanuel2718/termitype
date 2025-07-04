@@ -74,7 +74,7 @@ impl Termi {
             false => match TermiDB::new() {
                 Ok(db) => Some(db),
                 Err(err) => {
-                    log_error!("DB: Failed to initialize database: {}", err);
+                    log_error!("DB: Failed to initialize database: {err}");
                     None
                 }
             },

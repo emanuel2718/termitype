@@ -329,7 +329,7 @@ fn render_termi_elements(
 
 /// Render FPS counter.
 fn render_fps_counter(frame: &mut Frame, area: Rect, fps: f64, theme: &crate::theme::Theme) {
-    let fps_text = format!("FPS: {:.0}", fps);
+    let fps_text = format!("FPS: {fps:.0}");
     let widget = Paragraph::new(fps_text)
         .style(TermiStyle::muted(theme))
         .alignment(Alignment::Right);
