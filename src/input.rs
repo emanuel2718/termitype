@@ -92,6 +92,7 @@ impl InputHandler {
         match (event.code, event.modifiers) {
             (KeyCode::F(1), _) => Some(TermiAction::MenuOpen(MenuContext::Help)),
             (KeyCode::F(2), _) => Some(TermiAction::MenuOpen(MenuContext::Theme)),
+            (KeyCode::F(3), _) => Some(TermiAction::LeaderboardToggle),
             _ => None,
         }
     }

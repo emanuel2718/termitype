@@ -43,9 +43,10 @@ pub enum TermiAction {
     ModalConfirm,
     ModalBackspace,
 
-    // === Modal ===
+    // === Leaderboard ===
     LeaderboardOpen,
     LeaderboardClose,
+    LeaderboardToggle,
     LeaderboardInput(LeaderboardAction),
 
     // === Configuration/State Changes ===
@@ -307,6 +308,13 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::LeaderboardClose => {
             termi.tracker.resume();
             termi.leaderboard.close();
+        }
+        TermiAction::LeaderboardToggle => {
+            if termi.leaderboard.is_open() {
+                termi.leaderboard.close();
+            } else {
+                termi.leaderboard.open(&termi.db);
+            }
         }
         TermiAction::LeaderboardInput(_) => {
             if let Some(act) = termi.leaderboard.handle_action(action, &termi.db) {

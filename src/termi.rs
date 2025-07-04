@@ -106,7 +106,6 @@ impl Termi {
             self.config.reset_words_flag();
         }
 
-        log_debug!("Test started: Generating new words (should trigger UI cache miss)");
         self.words = self.builder.generate_test(&self.config);
         self.tracker = Tracker::new(&self.config, self.words.clone());
 
