@@ -36,7 +36,7 @@ impl InputHandler {
             InputMode::Menu {
                 is_searching: termi.menu.is_searching(),
             }
-        } else if termi.leaderboard.is_open() {
+        } else if termi.leaderboard.is_some() && termi.leaderboard.as_ref().unwrap().is_open() {
             InputMode::Leaderboard
         } else if termi.tracker.status == Status::Completed {
             InputMode::Results
@@ -111,6 +111,7 @@ impl InputHandler {
             (KeyCode::Char('r'), KeyModifiers::NONE) => TermiAction::Redo,
             (KeyCode::Char('n'), KeyModifiers::NONE) => TermiAction::Start,
             (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::Quit,
+            (KeyCode::Char('l'), KeyModifiers::NONE) => TermiAction::LeaderboardToggle,
             (KeyCode::Esc, KeyModifiers::NONE) => TermiAction::TogglePause,
             _ => TermiAction::NoOp,
         }

@@ -89,7 +89,7 @@ termitype --help
 | `-p`, `--use-punctuation`       | Include punctuation in test words                                                                    |
 | `-n`, `--use-numbers`           | Include numbers in test words                                                                        |
 | `--lines <COUNT>`               | Number of visible text lines (default: 3)                                                            |
-| `-T`, `--theme <THEME>`         | Theme to use                                                                                   |
+| `-T`, `--theme <THEME>`         | Theme to use                                                                                         |
 | `--ascii <ART>`                 | ASCII art for results screen                                                                         |
 | `--picker-style <STYLE>`        | Menu style (`quake`, `telescope`, `ivy`, `minimal`)                                                  |
 | `--results-style <STYLE>`       | Results display style (`graph`, `minimal`, `neofetch`)                                               |
@@ -102,6 +102,8 @@ termitype --help
 | `--list-languages`              | List all available languages                                                                         |
 | `--list-ascii`                  | List all available ASCII arts                                                                        |
 | `--color-mode <MODE>`           | Color support (`basic`, `extended`, `truecolor`)                                                     |
+| `--no-track`                    | Do not locally track tests results nor stats                                                         |
+| `--reset-db`                    | Reset and clears the content of the local database                                                   |
 | `-d`, `--debug`                 | Enable debug mode                                                                                    |
 | `-h`, `--help`                  | Print help                                                                                           |
 | `-V`, `--version`               | Print version                                                                                        |
@@ -118,6 +120,7 @@ termitype -spn                         # Enable symbols, punctuation, and number
 termitype --list-themes                # Show all available themes
 termitype --results-style neofetch     # Use neofetch inspired results
 termitype --picker-style telescope     # Use floating menu style
+termitype --no-track                   # Do not locally track test results nor stats
 ```
 
 ## Development

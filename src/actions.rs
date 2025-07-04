@@ -303,22 +303,34 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         TermiAction::LeaderboardOpen => {
             termi.tracker.pause();
             termi.menu.close();
-            termi.leaderboard.open(&termi.db);
+            if let Some(leaderboard) = &mut termi.leaderboard {
+                if let Some(db) = &termi.db {
+                    leaderboard.open(db);
+                }
+            }
         }
         TermiAction::LeaderboardClose => {
             termi.tracker.resume();
-            termi.leaderboard.close();
+            if let Some(leaderboard) = &mut termi.leaderboard {
+                leaderboard.close();
+            }
         }
         TermiAction::LeaderboardToggle => {
-            if termi.leaderboard.is_open() {
-                termi.leaderboard.close();
-            } else {
-                termi.leaderboard.open(&termi.db);
+            if let Some(leaderboard) = &mut termi.leaderboard {
+                if leaderboard.is_open() {
+                    leaderboard.close();
+                } else if let Some(db) = &termi.db {
+                    leaderboard.open(db)
+                }
             }
         }
         TermiAction::LeaderboardInput(_) => {
-            if let Some(act) = termi.leaderboard.handle_action(action, &termi.db) {
-                process_action(act, termi);
+            if let Some(leaderboard) = &mut termi.leaderboard {
+                if let Some(db) = &termi.db {
+                    if let Some(act) = leaderboard.handle_action(action, db) {
+                        process_action(act, termi);
+                    }
+                }
             }
         }
         TermiAction::ChangeLanguage(lang) => {

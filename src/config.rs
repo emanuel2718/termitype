@@ -191,10 +191,17 @@ pub struct Config {
     )]
     pub color_mode: Option<String>,
 
-    /// Reset and clears the content of the database
+    /// Do not locally track tests results nor stats
+    #[arg(
+        long = "no-track",
+        help = "Do not locally track test results nor stats"
+    )]
+    pub no_track: bool,
+
+    /// Reset and clears the content of the local database
     #[arg(
         long = "reset-db",
-        help = "Reset and clears the content of the database"
+        help = "Reset and clears the content of the local database"
     )]
     pub reset_db: bool,
 
@@ -254,6 +261,7 @@ impl Default for Config {
             hide_live_wpm: false,
             hide_cursorline: false,
             monocrhomatic_results: false,
+            no_track: false,
             reset_db: false,
             #[cfg(debug_assertions)]
             debug: false,
@@ -1053,5 +1061,11 @@ mod tests {
         assert_eq!("minimal".parse::<PickerStyle>(), Ok(PickerStyle::Minimal));
         assert_eq!("QUAKE".parse::<PickerStyle>(), Ok(PickerStyle::Quake));
         assert!("invalid".parse::<PickerStyle>().is_err());
+    }
+
+    #[test]
+    fn test_no_track_flag() {
+        let mut config = create_config();
+        config.no_track = true;
     }
 }
