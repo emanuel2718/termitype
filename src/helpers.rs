@@ -102,10 +102,7 @@ pub fn format_timestamp(time: SystemTime) -> String {
     let hour = secs_in_day / SECS_PER_HOUR;
     let min = (secs_in_day % SECS_PER_HOUR) / SECS_PER_MIN;
     let sec = secs_in_day % SECS_PER_MIN;
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}",
-        year, month, day, hour, min, sec, ms
-    )
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{ms:03}")
 }
 
 // TODO: maybe we can improve this to be more performant. Using the most basic fuzzy search possible for now

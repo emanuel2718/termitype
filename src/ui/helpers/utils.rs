@@ -30,7 +30,8 @@ impl TermiUtils {
         } else if max_width <= 3 {
             "...".to_string()
         } else {
-            format!("{}...", &text[..max_width - 3])
+            let truncated_text = &text[..max_width - 3];
+            format!("{truncated_text}...")
         }
     }
 
@@ -454,8 +455,7 @@ mod tests {
                     .position(|p| p.start_index == current_pos.start_index)
                     .unwrap(),
                 expected_word_idx,
-                "{}",
-                description
+                "{description}",
             );
         }
     }

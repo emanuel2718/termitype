@@ -37,7 +37,7 @@ impl Drop for Persistence {
     fn drop(&mut self) {
         if self.has_pending_changes.load(Ordering::Relaxed) {
             if let Err(_e) = self.save() {
-                log_error!("Failed to save state on drop: {}", _e)
+                log_error!("Failed to save state on drop: {_e}")
             }
         }
     }
@@ -62,7 +62,7 @@ impl Persistence {
 
         if path.exists() {
             if let Err(e) = persistence.load() {
-                log_error!("Failed to load state file: {}", e);
+                log_error!("Failed to load state file: {e}");
             } else {
                 log_info!("Successfully loaded state file");
             }
@@ -118,12 +118,12 @@ impl Persistence {
                 values.insert(key.to_string(), value.to_string());
                 loaded_count += 1;
             } else {
-                let err = format!("Invalid format at line {}: {}", idx + 1, line);
-                log_error!("{}", err);
+                let err = format!("Invalid format at line {}: {line}", idx + 1);
+                log_error!("{err}");
                 return Err(TError::InvalidConfigData(err));
             }
         }
-        log_info!("Successfully loaded {} settings", loaded_count);
+        log_info!("Successfully loaded {loaded_count} settings");
         self.values = values;
         self.has_pending_changes.store(false, Ordering::Relaxed);
 
@@ -137,7 +137,7 @@ impl Persistence {
         let mut writer = BufWriter::new(file);
 
         for (k, v) in &self.values {
-            writeln!(writer, "{} = {}", k, v)?;
+            writeln!(writer, "{k} = {v}")?;
         }
 
         writer.flush()?;

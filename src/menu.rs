@@ -537,29 +537,30 @@ impl MenuState {
                     .theme
                     .as_deref()
                     .unwrap_or(crate::constants::DEFAULT_THEME);
-                Some(format!("themes/{}", theme_name))
+                Some(format!("themes/{theme_name}"))
             }
             MenuContext::Language => {
                 let lang_name = config
                     .language
                     .as_deref()
                     .unwrap_or(crate::constants::DEFAULT_LANGUAGE);
-                Some(format!("lang/{}", lang_name))
+                Some(format!("lang/{lang_name}"))
             }
             MenuContext::AsciiArt => {
                 let art_name = config.ascii.as_deref().unwrap_or(DEFAULT_ASCII_ART_NAME);
-                Some(format!("ascii/{}", art_name))
+                Some(format!("ascii/{art_name}"))
             }
             MenuContext::Cursor => {
                 let cursor_style = config
                     .cursor_style
                     .as_deref()
                     .unwrap_or(crate::constants::DEFAULT_CURSOR_STYLE);
-                Some(format!("cursor/{}", cursor_style))
+                Some(format!("cursor/{cursor_style}"))
             }
             MenuContext::PickerStyle => {
                 let picker_style = config.resolve_picker_style();
-                Some(format!("picker/{}", picker_style.as_str()))
+                let picker_style_str = picker_style.as_str();
+                Some(format!("picker/{picker_style_str}"))
             }
             MenuContext::Mode => Some(format!(
                 "mode/{}",
@@ -572,7 +573,7 @@ impl MenuState {
                 let presets = DEFAULT_TIME_DURATION_LIST;
                 let current_val = config.time.unwrap_or(DEFAULT_TIME_MODE_DURATION as u64);
                 if presets.contains(&(current_val as usize)) {
-                    Some(format!("time/{}", current_val))
+                    Some(format!("time/{current_val}"))
                 } else {
                     Some("time/custom".to_string())
                 }
@@ -583,15 +584,19 @@ impl MenuState {
                     .word_count
                     .unwrap_or(crate::constants::DEFAULT_WORD_MODE_COUNT);
                 if presets.contains(&current_val) {
-                    Some(format!("words/{}", current_val))
+                    Some(format!("words/{current_val}"))
                 } else {
                     Some("words/custom".to_string())
                 }
             }
-            MenuContext::LineCount => Some(format!("lines/{}", config.visible_lines)),
+            MenuContext::LineCount => {
+                let visible_lines = config.visible_lines;
+                Some(format!("lines/{visible_lines}"))
+            }
             MenuContext::Results => {
                 let results_style = config.resolve_results_style();
-                Some(format!("results/{}", results_style.as_str()))
+                let results_style_str = results_style.as_str();
+                Some(format!("results/{results_style_str}"))
             }
             MenuContext::Root
             | MenuContext::About

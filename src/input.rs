@@ -213,7 +213,8 @@ impl InputHandler {
                     // this is fugly
                     let mut phone_home = false;
                     if let Some(code) = self.last_keycode {
-                        log_debug!("Code: {}.... result = {}", code, code == KeyCode::Char('g'));
+                        let result = code == KeyCode::Char('g');
+                        log_debug!("Code: {code}.... result = {result}");
                         if code == KeyCode::Char('g') {
                             phone_home = true
                         }

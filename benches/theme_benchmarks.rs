@@ -31,7 +31,7 @@ impl BenchmarkStats {
     }
 
     fn report(&self, name: &str) {
-        eprintln!("\nBenchmark Results for {}", name);
+        eprintln!("\nBenchmark Results for {name}");
         eprintln!("---------------------------");
         eprintln!("Min:    {:?}", self.min);
         eprintln!("Max:    {:?}", self.max);
@@ -50,7 +50,7 @@ impl BenchmarkStats {
             .sum::<f64>()
             / self.samples.len() as f64;
         let std_dev = Duration::from_nanos(variance.sqrt() as u64);
-        eprintln!("StdDev: {:?}", std_dev);
+        eprintln!("StdDev: {std_dev:?}");
     }
 }
 

@@ -149,11 +149,11 @@ impl Builder {
     /// Loads the given language.
     fn load_language(&mut self, lang: &str) -> Result<(), Box<dyn std::error::Error>> {
         if !Self::has_language(lang) {
-            return Err(format!("Language '{}' is not available.", lang).into());
+            return Err(format!("Language '{lang}' is not available.").into());
         }
 
         let content =
-            assets::get_language(lang).ok_or_else(|| format!("Language '{}' not found", lang))?;
+            assets::get_language(lang).ok_or_else(|| format!("Language '{lang}' not found"))?;
 
         let language: Language = serde_json::from_str(&content)?;
         self.languages.insert(language.name, language.words);
@@ -178,11 +178,11 @@ pub fn print_language_list() {
     for language in languages {
         let is_default = language == DEFAULT_LANGUAGE;
         let language_name = if is_default {
-            format!("{} (default)", language)
+            format!("{language} (default)")
         } else {
             language
         };
-        println!("  • {}", language_name);
+        println!("  • {language_name}");
     }
     println!("\nUsage:");
     println!("  • Set language:    termitype --language <name>");

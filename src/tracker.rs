@@ -1226,8 +1226,7 @@ mod tests {
         let consistency = tracker.calculate_consistency();
         assert!(
             (89.0..91.0).contains(&consistency),
-            "Expected consistency around 90% for 10% variation, got {}%",
-            consistency
+            "Expected consistency around 90% for 10% variation, got {consistency}%",
         );
 
         // mean=50, std_dev=25 => variation would be 50% ==> consistentcy is 50%
@@ -1235,8 +1234,7 @@ mod tests {
         let consistency = tracker.calculate_consistency();
         assert!(
             (49.0..51.0).contains(&consistency),
-            "Expected consistency around 50% for 50% variation, got {}%",
-            consistency
+            "Expected consistency around 50% for 50% variation, got {consistency}%",
         );
     }
 
@@ -1460,7 +1458,7 @@ mod tests {
         tracker.start_typing();
 
         for c in "hello world test end".chars() {
-            assert!(tracker.type_char(c), "Should accept character '{}'", c);
+            assert!(tracker.type_char(c), "Should accept character '{c}'");
 
             if tracker.cursor_position >= tracker.target_chars.len() {
                 assert_eq!(

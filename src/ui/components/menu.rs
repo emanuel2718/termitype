@@ -478,7 +478,7 @@ impl MenuComponent {
 
         let ascii_art = ascii::get_ascii_art_by_name(art_name);
 
-        let title = format!(" Preview: {} ", art_name);
+        let title = format!(" Preview: {art_name} ");
         let preview_block = Block::default()
             .title(title)
             .title_alignment(Alignment::Left)
@@ -528,7 +528,7 @@ impl MenuComponent {
                 frame.render_widget(paragraph, content_area);
             }
         } else {
-            let not_found_text = Text::from(format!("Art '{}' not found", art_name))
+            let not_found_text = Text::from(format!("Art '{art_name}' not found"))
                 .style(Style::default().fg(theme.error()))
                 .alignment(Alignment::Center);
             let paragraph =

@@ -24,7 +24,7 @@ impl SizeWarningComponent {
             Line::from(vec![
                 Span::styled("Width = ", TermiStyle::muted(theme)),
                 Span::styled(
-                    format!("{}", width),
+                    format!("{width}"),
                     if width < MIN_TERM_WIDTH {
                         TermiStyle::error(theme)
                     } else {
@@ -33,7 +33,7 @@ impl SizeWarningComponent {
                 ),
                 Span::styled(" Height = ", TermiStyle::muted(theme)),
                 Span::styled(
-                    format!("{}", height),
+                    format!("{height}"),
                     if height < MIN_TERM_HEIGHT {
                         TermiStyle::error(theme)
                     } else {
@@ -46,9 +46,9 @@ impl SizeWarningComponent {
             Line::from(""),
             Line::from(vec![
                 Span::styled("Width = ", TermiStyle::muted(theme)),
-                Span::styled(format!("{}", MIN_TERM_WIDTH), TermiStyle::muted(theme)),
+                Span::styled(format!("{MIN_TERM_WIDTH}"), TermiStyle::muted(theme)),
                 Span::styled(" Height = ", TermiStyle::muted(theme)),
-                Span::styled(format!("{}", MIN_TERM_HEIGHT), TermiStyle::muted(theme)),
+                Span::styled(format!("{MIN_TERM_HEIGHT}"), TermiStyle::muted(theme)),
             ]),
         ];
         let text = Text::from(warning_lines).alignment(Alignment::Center);

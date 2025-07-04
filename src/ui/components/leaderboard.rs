@@ -288,7 +288,7 @@ impl LeaderboardComponent {
                 loading_text
             )
         } else if let Some(err) = leaderboard.error_message() {
-            format!("Error: {}", err)
+            format!("Error: {err}")
         } else {
             "Loading...".to_string()
         };

@@ -74,7 +74,7 @@ impl ActionBarComponent {
         // modes values
         for &preset in &presets {
             elements.push(TermiElement::new(
-                format!("{} ", preset),
+                format!("{preset} "),
                 current_value == preset,
                 Some(TermiClickAction::SetModeValue(preset)),
             ));

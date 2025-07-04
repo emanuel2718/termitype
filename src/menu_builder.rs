@@ -62,7 +62,7 @@ fn build_theme_menu() -> Menu {
         .iter()
         .map(|name| {
             MenuItem::action(
-                &format!("themes/{}", name),
+                &format!("themes/{name}"),
                 name,
                 TermiAction::ChangeTheme(name.to_string()),
             )
@@ -79,7 +79,7 @@ fn build_language_menu() -> Menu {
         .iter()
         .map(|lang| {
             MenuItem::action(
-                &format!("lang/{}", lang),
+                &format!("lang/{lang}"),
                 lang,
                 TermiAction::ChangeLanguage(lang.to_string()),
             )
@@ -102,7 +102,7 @@ fn build_cursor_menu() -> Menu {
         .iter()
         .map(|&style| {
             MenuItem::action(
-                &format!("cursor/{}", style),
+                &format!("cursor/{style}"),
                 style,
                 TermiAction::ChangeCursor(style.to_string()),
             )
@@ -123,7 +123,7 @@ fn build_picker_style_menu() -> Menu {
         .iter()
         .map(|&style| {
             MenuItem::action(
-                &format!("picker/{}", style),
+                &format!("picker/{style}"),
                 PickerStyle::label_from_str(style),
                 TermiAction::ChangePickerStyle(style.to_string()),
             )
@@ -160,7 +160,7 @@ fn build_time_menu() -> Menu {
         .iter()
         .map(|&t| {
             MenuItem::action(
-                &format!("time/{}", t),
+                &format!("time/{t}"),
                 &t.to_string(),
                 TermiAction::ChangeTime(t as u64),
             )
@@ -181,7 +181,7 @@ fn build_words_menu() -> Menu {
         .iter()
         .map(|&c| {
             MenuItem::action(
-                &format!("words/{}", c),
+                &format!("words/{c}"),
                 &c.to_string(),
                 TermiAction::ChangeWordCount(c),
             )
@@ -202,7 +202,7 @@ fn build_ascii_art_menu() -> Menu {
         .iter()
         .map(|name| {
             MenuItem::action(
-                &format!("ascii/{}", name),
+                &format!("ascii/{name}"),
                 name,
                 TermiAction::ChangeAsciiArt(name.to_string()),
             )
@@ -219,7 +219,7 @@ fn build_lines_count_menu() -> Menu {
         .iter()
         .map(|&line_count| {
             MenuItem::action(
-                &format!("lines/{}", line_count),
+                &format!("lines/{line_count}"),
                 &line_count.to_string(),
                 TermiAction::ChangeVisibleLines(line_count),
             )
@@ -332,10 +332,10 @@ fn build_help_menu() -> Menu {
         .iter()
         .enumerate()
         .map(|(idx, (context, keybind, description))| {
-            let total_key_part = format!("{}{}", context, keybind);
-            let formatted_key = format!("{:<width$}", total_key_part, width = max_total_width);
+            let total_key_part = format!("{context}{keybind}");
+            let formatted_key = format!("{total_key_part:<max_total_width$}");
 
-            let item_id = format!("help/{}", idx);
+            let item_id = format!("help/{idx}");
             MenuItem::info(&item_id, &formatted_key, description)
         })
         .collect();
@@ -366,7 +366,7 @@ fn build_results_style_menu() -> Menu {
         .iter()
         .map(|&style| {
             MenuItem::action(
-                &format!("results/{}", style),
+                &format!("results/{style}"),
                 crate::config::ResultsStyle::label_from_str(style),
                 TermiAction::ChangeResultsStyle(style.to_string()),
             )

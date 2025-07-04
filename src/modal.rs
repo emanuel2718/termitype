@@ -106,8 +106,10 @@ impl InputModal {
         if self.buffer.is_numeric {
             match self.buffer.input.parse::<u64>() {
                 Ok(value) => {
-                    let min_msg = format!("Value must be at least: {}", self.buffer.min_value);
-                    let max_msg = format!("Value must not exceed: {}", self.buffer.max_value);
+                    let min_value = self.buffer.min_value;
+                    let min_msg = format!("Value must be at least: {min_value}");
+                    let max_value = self.buffer.max_value;
+                    let max_msg = format!("Value must not exceed: {max_value}");
                     if value < self.buffer.min_value as u64 {
                         self.buffer.error_msg = Some(min_msg);
                     } else if value > self.buffer.max_value as u64 {
@@ -124,8 +126,8 @@ impl InputModal {
             let input_len = self.buffer.input.len();
             let min_len = self.buffer.min_value as usize;
             let max_len = self.buffer.max_value as usize;
-            let min_msg = format!("Input must be at least {}", min_len);
-            let max_msg = format!("Input must not exceed {}", max_len);
+            let min_msg = format!("Input must be at least {min_len}");
+            let max_msg = format!("Input must not exceed {max_len}");
             if input_len < min_len {
                 self.buffer.error_msg = Some(min_msg);
             } else if input_len > max_len {

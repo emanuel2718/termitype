@@ -224,12 +224,17 @@ impl Leaderboard {
                 }
                 match load_type {
                     LoadType::Initial => {
-                        log_debug!("Loaded {} initial items", self.items.len())
+                        let items_len = self.items.len();
+                        log_debug!("Loaded {items_len} initial items")
                     }
                     LoadType::More => {
-                        log_debug!("Loaded {} more items, total: {}", count, self.items.len())
+                        let total_items = self.items.len();
+                        log_debug!("Loaded {count} more items, total: {total_items}")
                     }
-                    LoadType::Refresh => log_debug!("Refreshed {} items", self.items.len()),
+                    LoadType::Refresh => {
+                        let items_len = self.items.len();
+                        log_debug!("Refreshed {items_len} items")
+                    }
                 }
             }
             Err(err) => {
@@ -238,14 +243,14 @@ impl Leaderboard {
                     LoadType::More => "Failed to load more data",
                     LoadType::Refresh => "Failed to refresh leaderboard",
                 };
-                self.err_msg = Some(format!("{}: {}", msg, err));
+                self.err_msg = Some(format!("{msg}: {err}"));
 
                 if matches!(load_type, LoadType::Initial) {
                     self.results = None;
                     self.items.clear();
                 }
 
-                log_debug!("{}: {}", msg, err);
+                log_debug!("{msg}: {err}");
             }
         }
 
