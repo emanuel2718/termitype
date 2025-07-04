@@ -165,6 +165,11 @@ impl Termi {
             return;
         }
 
+        if !self.should_save_results() {
+            log_debug!("Test does not meet the minimum requirements for saving results");
+            return;
+        }
+
         let is_high_score = self.db.is_high_score(&self.config, self.tracker.wpm);
         if is_high_score {
             self.tracker.mark_high_score();
@@ -172,6 +177,16 @@ impl Termi {
 
         if let Err(err) = self.db.write(&self.config, &self.tracker) {
             log_error!("DB: Failed to save test results: {err}")
+        }
+    }
+
+    /// Checks if the test meets the minimum requirements for saving the test results
+    fn should_save_results(&self) -> bool {
+        const MIN_TIME_FOR_SAVING: u64 = 15;
+        const MIN_WORDS_FOR_SAVING: usize = 10;
+        match self.config.current_mode() {
+            crate::config::Mode::Time { duration } => duration >= MIN_TIME_FOR_SAVING,
+            crate::config::Mode::Words { count } => count >= MIN_WORDS_FOR_SAVING,
         }
     }
 }
