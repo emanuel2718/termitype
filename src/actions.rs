@@ -4,6 +4,7 @@ use ratatui::layout::Position;
 use crate::{
     config::{ModeType, ResultsStyle},
     constants::DEFAULT_LINE_COUNT,
+    leaderboard::SortColumn,
     modal::{build_modal, handle_modal_confirm, ModalContext},
     termi::Termi,
     theme::Theme,
@@ -82,7 +83,7 @@ pub enum TermiAction {
 pub enum LeaderboardAction {
     NavigateUp,
     NavigateDown,
-    SortBy(usize),
+    SortBy(SortColumn),
 }
 
 // ============== MENU ==============

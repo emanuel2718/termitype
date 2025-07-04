@@ -2,6 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{
     actions::{LeaderboardAction, MenuContext, MenuNavAction, MenuSearchAction, TermiAction},
+    leaderboard::SortColumn,
     log_debug,
     termi::Termi,
     tracker::Status,
@@ -125,28 +126,26 @@ impl InputHandler {
             (KeyCode::Down | KeyCode::Char('j'), _) => {
                 TermiAction::LeaderboardInput(LeaderboardAction::NavigateDown)
             }
-
-            // TODO: these SortBy are waaaaay to prone to mistakes and are annoying to maintain. Change this.
             (KeyCode::Char('w') | KeyCode::Char('W'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(0)) // (W)pm
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Wpm))
             }
             (KeyCode::Char('r') | KeyCode::Char('R'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(1)) // (R)aw
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::RawWpm))
             }
             (KeyCode::Char('a') | KeyCode::Char('A'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(2)) // (A)cc
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Accuracy))
             }
             (KeyCode::Char('h') | KeyCode::Char('H'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(3)) // c(H)ars
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Chars))
             }
             (KeyCode::Char('l') | KeyCode::Char('L'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(4)) // (L)ang
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Language))
             }
             (KeyCode::Char('m') | KeyCode::Char('M'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(5)) // (M)ode
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Mode))
             }
             (KeyCode::Char('d') | KeyCode::Char('D'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(6)) // (D)ate
+                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Date))
             }
 
             _ => TermiAction::NoOp,

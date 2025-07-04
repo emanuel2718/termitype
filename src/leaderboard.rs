@@ -6,6 +6,63 @@ use crate::{
     log_debug,
 };
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum SortColumn {
+    Wpm,
+    RawWpm,
+    Accuracy,
+    Chars,
+    Language,
+    Mode,
+    Date,
+}
+
+impl SortColumn {
+    pub fn to_db_column(&self) -> &'static str {
+        match self {
+            SortColumn::Wpm => "wpm",
+            SortColumn::RawWpm => "raw_wpm",
+            SortColumn::Accuracy => "accuracy",
+            SortColumn::Chars => "total_keystrokes",
+            SortColumn::Language => "language",
+            SortColumn::Mode => "mode_type",
+            SortColumn::Date => "created_at",
+        }
+    }
+
+    pub fn to_display_name(&self) -> &'static str {
+        match self {
+            SortColumn::Wpm => "WPM",
+            SortColumn::RawWpm => "Raw",
+            SortColumn::Accuracy => "Accuracy",
+            SortColumn::Chars => "Chars",
+            SortColumn::Language => "Language",
+            SortColumn::Mode => "Mode",
+            SortColumn::Date => "Date",
+        }
+    }
+
+    pub fn all() -> Vec<SortColumn> {
+        vec![
+            SortColumn::Wpm,
+            SortColumn::RawWpm,
+            SortColumn::Accuracy,
+            SortColumn::Chars,
+            SortColumn::Language,
+            SortColumn::Mode,
+            SortColumn::Date,
+        ]
+    }
+
+    pub fn to_index(&self) -> usize {
+        Self::all().iter().position(|col| col == self).unwrap_or(0)
+    }
+
+    pub fn from_index(index: usize) -> Option<SortColumn> {
+        Self::all().get(index).cloned()
+    }
+}
+
 pub enum LoadType {
     Initial, // first load
     More,    // load more data
@@ -85,9 +142,9 @@ impl Leaderboard {
     }
 
     pub fn current_sort_col_idx(&self) -> usize {
-        let cols = get_sortable_columns();
+        let cols = SortColumn::all();
         cols.iter()
-            .position(|(col, _)| *col == self.query.sort_col)
+            .position(|col| col.to_db_column() == self.query.sort_col)
             .unwrap_or(0)
     }
 
@@ -110,8 +167,8 @@ impl Leaderboard {
                     self.down(db);
                     None
                 }
-                crate::actions::LeaderboardAction::SortBy(idx) => {
-                    self.sort_by_column(idx, db);
+                crate::actions::LeaderboardAction::SortBy(sort_col) => {
+                    self.sort_by_column(sort_col, db);
                     None
                 }
             },
@@ -225,17 +282,19 @@ impl Leaderboard {
         }
     }
 
-    fn sort_by_column(&mut self, idx: usize, db: &TermiDB) {
-        let cols = get_sortable_columns();
-        if idx < cols.len() {
-            let (name, _) = cols[idx];
-            if self.current_sort_col_idx() == idx {
-                self.toggle_sort(db);
-            } else {
-                self.query.sort_col = name.to_string();
-                self.query.sort_order = SortOrder::Descending;
-                self.reset(db);
-            }
+    fn sort_by_column(&mut self, sort_col: SortColumn, db: &TermiDB) {
+        let current_col_db_name = SortColumn::all()
+            .iter()
+            .find(|col| col.to_db_column() == self.query.sort_col)
+            .map(|col| col.to_db_column())
+            .unwrap_or("created_at");
+
+        if sort_col.to_db_column() == current_col_db_name {
+            self.toggle_sort(db);
+        } else {
+            self.query.sort_col = sort_col.to_db_column().to_string();
+            self.query.sort_order = SortOrder::Descending;
+            self.reset(db);
         }
     }
 
@@ -263,18 +322,6 @@ impl Leaderboard {
         self.err_msg = None;
         self.is_loading = false;
     }
-}
-
-pub fn get_sortable_columns() -> Vec<(&'static str, &'static str)> {
-    vec![
-        ("wpm", "WPM"),
-        ("raw_wpm", "Raw"),
-        ("accuracy", "Accuracy"),
-        ("total_keystrokes", "Chars"),
-        ("language", "Language"),
-        ("mode_type", "Mode"),
-        ("created_at", "Date"),
-    ]
 }
 
 #[cfg(test)]
@@ -324,5 +371,33 @@ mod tests {
         assert!(leaderboard.is_open());
         leaderboard.toggle(&db);
         assert!(!leaderboard.is_open());
+    }
+
+    #[test]
+    fn test_sort_column_index_mapping() {
+        let all_columns = SortColumn::all();
+        assert_eq!(all_columns.len(), 7);
+
+        for (i, column) in all_columns.iter().enumerate() {
+            assert_eq!(column.to_index(), i);
+            assert_eq!(SortColumn::from_index(i), Some(column.clone()));
+        }
+
+        // oob
+        assert_eq!(SortColumn::from_index(99), None);
+    }
+
+    #[test]
+    fn test_sort_column() {
+        let all_columns = SortColumn::all();
+        assert_eq!(all_columns.len(), 7);
+
+        assert!(all_columns.contains(&SortColumn::Wpm));
+        assert!(all_columns.contains(&SortColumn::RawWpm));
+        assert!(all_columns.contains(&SortColumn::Accuracy));
+        assert!(all_columns.contains(&SortColumn::Chars));
+        assert!(all_columns.contains(&SortColumn::Language));
+        assert!(all_columns.contains(&SortColumn::Mode));
+        assert!(all_columns.contains(&SortColumn::Date));
     }
 }
