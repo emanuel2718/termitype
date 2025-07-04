@@ -124,8 +124,8 @@ impl LeaderboardComponent {
                 Constraint::Length(6),  // WPM
                 Constraint::Length(6),  // Raw WPM
                 Constraint::Length(10), // Accuracy
-                Constraint::Length(12), // Chars
-                Constraint::Fill(1),    // Language
+                Constraint::Length(16), // Chars
+                Constraint::Length(20), // Language
                 Constraint::Length(12), // Mode
                 Constraint::Fill(1),    // Date
             ];
