@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +27,7 @@ pub struct TypingTestResult {
     pub numbers: bool,
     pub punctuation: bool,
     pub symbols: bool,
-    pub created_at: DateTime<Utc>,
+    pub created_at: DateTime<Local>,
 }
 
 #[derive(Debug, Clone)]
@@ -173,7 +173,7 @@ impl TermiDB {
             numbers: config.use_numbers,
             punctuation: config.use_punctuation,
             symbols: config.use_symbols,
-            created_at: Utc::now(),
+            created_at: Local::now(),
         };
 
         self.conn.execute(
@@ -212,7 +212,7 @@ impl TermiDB {
             params![id],
             |row| {
                 let created_at_str: String = row.get(14)?;
-                let created_at = created_at_str.parse::<DateTime<Utc>>().map_err(|_| {
+                let created_at = created_at_str.parse::<DateTime<Local>>().map_err(|_| {
                     rusqlite::Error::InvalidColumnType(
                         14,
                         "datetime".to_string(),
@@ -293,7 +293,7 @@ impl TermiDB {
         let results: Result<Vec<TypingTestResult>, rusqlite::Error> = stmt
             .query_map([], |row| {
                 let created_at_str: String = row.get(14)?;
-                let created_at = created_at_str.parse::<DateTime<Utc>>().map_err(|_| {
+                let created_at = created_at_str.parse::<DateTime<Local>>().map_err(|_| {
                     rusqlite::Error::InvalidColumnType(
                         14,
                         "datetime".to_string(),
