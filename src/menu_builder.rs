@@ -43,7 +43,8 @@ fn build_root_menu(config: &Config) -> Menu {
             "root/leaderboard",
             "Leaderboard...",
             TermiAction::LeaderboardOpen,
-        ),
+        )
+        .disabled(config.no_track),
         MenuItem::sub_menu("root/ascii", "Neofetch Art...", MenuContext::AsciiArt),
         MenuItem::sub_menu("root/lines", "Visible Lines...", MenuContext::LineCount),
         MenuItem::sub_menu("root/cursor", "Cursor Style...", MenuContext::Cursor),

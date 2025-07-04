@@ -26,7 +26,10 @@ impl LeaderboardComponent {
         termi: &mut Termi,
         area: Rect,
     ) -> Option<(Rect, TermiClickAction)> {
-        if !termi.leaderboard.is_open() {
+        let Some(leaderboard) = &mut termi.leaderboard.clone() else {
+            return None;
+        };
+        if !leaderboard.is_open() {
             return None;
         }
 
@@ -59,8 +62,8 @@ impl LeaderboardComponent {
             ])
             .split(inner_area);
 
-        Self::render_table(f, &mut termi.leaderboard, chunks[1], &theme);
-        Self::render_footer(f, &termi.leaderboard, chunks[3], &theme);
+        Self::render_table(f, leaderboard, chunks[1], &theme);
+        Self::render_footer(f, leaderboard, chunks[3], &theme);
 
         Self::render_close(f, container)
     }

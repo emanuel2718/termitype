@@ -79,11 +79,16 @@ impl TypingAreaComponent {
         let paragraph = Paragraph::new(typing_text).wrap(Wrap { trim: false });
         frame.render_widget(paragraph, render_area);
 
+        let leaderboard_is_open = match &termi.leaderboard {
+            Some(leaderboard) => leaderboard.is_open(),
+            None => false,
+        };
+
         // cursor rendering logic
         let should_show_cursor = (termi.tracker.status == Status::Idle
             || termi.tracker.status == Status::Typing)
             && termi.modal.is_none()
-            && !termi.leaderboard.is_open()
+            && !leaderboard_is_open
             && !termi.menu.is_theme_menu();
 
         if should_show_cursor {

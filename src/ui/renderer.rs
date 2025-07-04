@@ -214,7 +214,11 @@ fn render_overlays(
         }
     }
 
-    if termi.leaderboard.is_open() {
+    let leaderboard_is_open = match &termi.leaderboard {
+        Some(leaderboard) => leaderboard.is_open(),
+        None => false,
+    };
+    if leaderboard_is_open {
         if let Some(region) = LeaderboardComponent::render(frame, termi, area) {
             regions.add(region.0, region.1);
         }

@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub struct Termi {
-    pub db: TermiDB,
+    pub db: Option<TermiDB>,
     pub config: Config,
     pub tracker: Tracker,
     pub theme: Theme,
@@ -32,7 +32,7 @@ pub struct Termi {
     pub words: String,
     pub menu: MenuState,
     pub modal: Option<InputModal>,
-    pub leaderboard: Leaderboard,
+    pub leaderboard: Option<Leaderboard>,
     pub preview_theme: Option<Theme>,
     pub preview_cursor: Option<SetCursorStyle>,
     pub preview_ascii_art: Option<String>,
@@ -69,16 +69,25 @@ impl Termi {
     pub fn new(config: &Config) -> Self {
         let mut builder = Builder::new();
         let words = builder.generate_test(config);
-        let db = match TermiDB::new() {
-            Ok(db) => db,
-            Err(err) => {
-                log_error!("DB: Failed to initialize database: {}", err);
-                TermiDB::new().unwrap_or_else(|_| panic!("Failed to create database"))
-            }
+        let db = match config.no_track {
+            true => None,
+            false => match TermiDB::new() {
+                Ok(db) => Some(db),
+                Err(err) => {
+                    log_error!("DB: Failed to initialize database: {}", err);
+                    None
+                }
+            },
+        };
+
+        let leaderboard = match config.no_track {
+            true => None,
+            false => Some(Leaderboard::new()),
         };
 
         Self {
             db,
+            leaderboard,
             config: config.clone(),
             tracker: Tracker::new(config, words.clone()),
             theme: Theme::new(config),
@@ -86,7 +95,6 @@ impl Termi {
             builder,
             words,
             modal: None,
-            leaderboard: Leaderboard::new(),
             preview_theme: None,
             preview_cursor: None,
             preview_ascii_art: None,
@@ -158,25 +166,32 @@ impl Termi {
         false
     }
 
-    pub fn save_results(&mut self) {
+    pub fn save_results(&mut self) -> bool {
         if self.tracker.status != Status::Completed {
             log_debug!("Attempted to save incomplete test result");
-            return;
+            return false;
         }
 
         if !self.should_save_results() {
             log_debug!("Test does not meet the minimum requirements for saving results");
-            return;
+            return false;
         }
 
-        let is_high_score = self.db.is_high_score(&self.config, self.tracker.wpm);
+        let Some(db) = &mut self.db else {
+            log_debug!("No database available, skipping result save");
+            return false;
+        };
+
+        let is_high_score = db.is_high_score(&self.config, self.tracker.wpm);
         if is_high_score {
             self.tracker.mark_high_score();
         }
 
-        if let Err(err) = self.db.write(&self.config, &self.tracker) {
-            log_error!("DB: Failed to save test results: {err}")
+        if let Err(err) = db.write(&self.config, &self.tracker) {
+            log_error!("DB: Failed to save test results: {err}");
+            return false;
         }
+        true
     }
 
     /// Checks if the test meets the minimum requirements for saving the test results
@@ -205,12 +220,16 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     let mut needs_render = true;
 
     if config.reset_db {
-        let items_deleted = termi.db.reset();
-        match items_deleted {
-            Ok(count) => log_debug!("Removed {count} entries from the database"),
-            Err(err) => log_debug!("Something went wrong calling db.reset: {err}"),
-        }
-        log_debug!("Should reset the database");
+        if let Some(db) = &termi.db {
+            let items_deleted = db.reset();
+            match items_deleted {
+                Ok(count) => log_debug!("Removed {count} entries from the database"),
+                Err(err) => log_error!("Something went wrong calling db.reset: {err}"),
+            }
+            log_debug!("Should reset the database");
+        } else {
+            log_error!("Trying to reset database without having one in the first place");
+        };
     }
 
     loop {
@@ -314,4 +333,160 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+    fn setup_test_env() -> TempDir {
+        let _guard = ENV_MUTEX.lock().unwrap();
+
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.path().to_path_buf();
+
+        if cfg!(target_os = "macos") {
+            std::env::set_var("HOME", &temp_path);
+        } else if cfg!(target_os = "windows") {
+            std::env::set_var("APPDATA", &temp_path);
+        } else {
+            std::env::set_var("XDG_CONFIG_HOME", &temp_path);
+        }
+
+        temp_dir
+    }
+
+    fn create_config_with_tracking(no_track: bool) -> Config {
+        let mut config = Config::default();
+        config.no_track = no_track;
+        config
+    }
+
+    #[test]
+    fn test_termi_with_tracking_enabled() {
+        let _ = setup_test_env();
+        let config = Config::default();
+        let mut termi = Termi::new(&config);
+
+        assert!(termi.db.is_some());
+        assert!(termi.leaderboard.is_some());
+
+        termi.tracker.status = Status::Completed;
+        termi.tracker.completion_time = Some(30.0);
+        termi.tracker.wpm = 50.0;
+
+        termi.save_results();
+
+        assert!(termi.db.is_some())
+    }
+
+    #[test]
+    fn test_termi_with_tracking_disabled() {
+        let _ = setup_test_env();
+        let mut config = Config::default();
+        config.no_track = true;
+        let mut termi = Termi::new(&config);
+
+        assert!(termi.db.is_none());
+        assert!(termi.leaderboard.is_none());
+
+        termi.tracker.status = Status::Completed;
+        termi.tracker.completion_time = Some(30.0);
+        termi.tracker.wpm = 50.0;
+
+        assert!(!termi.save_results());
+
+        assert!(termi.db.is_none());
+    }
+
+    #[test]
+    fn test_save_results_incomplete_test() {
+        let _temp = setup_test_env();
+        let config = create_config_with_tracking(false);
+        let mut termi = Termi::new(&config);
+
+        termi.tracker.status = Status::Typing;
+        termi.tracker.wpm = 50.0;
+
+        assert!(!termi.save_results());
+
+        assert_eq!(termi.tracker.status, Status::Typing);
+    }
+
+    #[test]
+    fn test_should_save_results_time_mode() {
+        let _temp = setup_test_env();
+        let mut config = create_config_with_tracking(false);
+        // we only save results for times greater than 15 seconds
+
+        config.time = Some(15);
+        let termi = Termi::new(&config);
+        assert!(termi.should_save_results());
+
+        config.time = Some(10);
+        let termi = Termi::new(&config);
+        assert!(!termi.should_save_results());
+    }
+
+    #[test]
+    fn test_should_save_results_words_mode() {
+        let _temp = setup_test_env();
+        let mut config = create_config_with_tracking(false);
+        // we only save results for tests with more than 10 words
+
+        config.time = None;
+        config.word_count = Some(10);
+        let termi = Termi::new(&config);
+        assert!(termi.should_save_results());
+
+        config.word_count = Some(5);
+        let termi = Termi::new(&config);
+        assert!(!termi.should_save_results());
+    }
+
+    #[test]
+    fn test_configuration_flag_consistency() {
+        let _temp = setup_test_env();
+
+        let config_with_tracking = create_config_with_tracking(false);
+        let config_no_tracking = create_config_with_tracking(true);
+
+        assert!(!config_with_tracking.no_track, "Tracking should be enabled");
+        assert!(config_no_tracking.no_track, "Tracking should be disabled");
+
+        let termi_with_tracking = Termi::new(&config_with_tracking);
+        let termi_no_tracking = Termi::new(&config_no_tracking);
+
+        assert!(termi_with_tracking.leaderboard.is_some());
+        assert!(termi_no_tracking.db.is_none() && termi_no_tracking.leaderboard.is_none());
+    }
+
+    #[test]
+    fn test_database_reset_with_no_database() {
+        let _temp = setup_test_env();
+        let config = create_config_with_tracking(true);
+        let termi = Termi::new(&config);
+
+        if let Some(db) = &termi.db {
+            let _items_deleted = db.reset();
+            panic!("Should not reach here when database is None");
+        }
+    }
+
+    #[test]
+    fn test_database_reset_with_database_available() {
+        let _temp = setup_test_env();
+        let config = create_config_with_tracking(false);
+        let termi = Termi::new(&config);
+
+        if let Some(db) = &termi.db {
+            let items_deleted = db.reset();
+            assert!(items_deleted.is_ok());
+        }
+    }
 }
