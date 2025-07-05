@@ -445,14 +445,21 @@ impl ResultsComponent {
         let perf_stats_area = layout[0];
         let details_stats_area = layout[1];
 
+        let is_high_score = termi.tracker.is_high_score;
+        let high_score_mark = if is_high_score { "(High Score)" } else { "" };
+
         // Performance Stats
         let perf_lines = vec![
             Line::from(vec![
                 Span::styled("WPM: ", Style::default().fg(color_muted)),
                 Span::styled(
-                    format!("{:.0}", tracker.wpm),
+                    format!("{:.0} {high_score_mark}", tracker.wpm),
                     Style::default()
-                        .fg(color_success)
+                        .fg(if is_high_score {
+                            color_success
+                        } else {
+                            color_muted
+                        })
                         .add_modifier(Modifier::BOLD),
                 ),
             ]),
@@ -649,6 +656,9 @@ impl ResultsComponent {
             format!("{time:.1}s")
         };
 
+        let is_high_score = termi.tracker.is_high_score;
+        let high_score_mark = if is_high_score { "(High Score)" } else { "" };
+
         let errors = tracker
             .total_keystrokes
             .saturating_sub(tracker.correct_keystrokes);
@@ -657,9 +667,13 @@ impl ResultsComponent {
             Line::from(vec![
                 Span::styled("WPM: ", Style::default().fg(color_muted)),
                 Span::styled(
-                    format!("{:.0}", tracker.wpm),
+                    format!("{:.0} {high_score_mark}", tracker.wpm),
                     Style::default()
-                        .fg(color_success)
+                        .fg(if is_high_score {
+                            color_success
+                        } else {
+                            color_muted
+                        })
                         .add_modifier(Modifier::BOLD),
                 ),
             ]),
@@ -668,7 +682,7 @@ impl ResultsComponent {
                 Span::styled(
                     format!("{}%", tracker.accuracy),
                     Style::default()
-                        .fg(color_success)
+                        .fg(color_muted)
                         .add_modifier(Modifier::BOLD),
                 ),
             ]),
