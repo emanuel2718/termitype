@@ -17,7 +17,7 @@ pub const DEFAULT_WORD_MODE_COUNT: usize = 50;
 pub const DEFAULT_WORD_COUNT_LIST: [usize; 4] = [10, 25, 50, 100];
 
 pub const STATE_FILE: &str = ".state";
-pub const LOG_FILE: &str = "debug.log";
+pub const LOG_FILE: &str = "termitype.log";
 
 pub const BACKSPACE_CHAR: char = '\x08';
 

@@ -152,10 +152,10 @@ cargo run --release
 cargo run -- --debug
 
 # Tail logs with something like this (MacOS example)
-tail -f ~/Library/Application\ Support/termitype/debug.log
+tail -f ~/Library/Application\ Support/termitype/termitype.log
 
 # Tail logs with something like this (Linux example)
-tail -f ~/.config/termitype/debug.log
+tail -f ~/.config/termitype/termitype.log
 ```
 
 ## Themes
