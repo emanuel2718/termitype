@@ -4,10 +4,10 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::Config, error::TResult, helpers::get_config_dir, log_debug, log_info, tracker::Tracker,
+    config::Config, constants::get_db_file, error::TResult, helpers::get_config_dir, log_debug,
+    log_info, tracker::Tracker,
 };
 
-const DB_FILE: &str = ".termitype.db";
 const SCHEMA_VERSION: i32 = 2;
 
 // TODO: add more stuff to store
@@ -75,7 +75,7 @@ impl TermiDB {
             std::fs::create_dir_all(&config_dir)?;
         }
 
-        let path = config_dir.join(DB_FILE);
+        let path = config_dir.join(get_db_file());
         let conn = Connection::open(&path)?;
 
         let mut db = Self { conn };

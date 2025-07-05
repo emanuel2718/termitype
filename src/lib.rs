@@ -1,7 +1,7 @@
 use std::io;
 
 use config::Config;
-use constants::LOG_FILE;
+use constants::get_log_file;
 use crossterm::{
     cursor::SetCursorStyle,
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -42,7 +42,7 @@ pub fn run() -> anyhow::Result<()> {
 
     // init logger
     if let Ok(log_dir) = get_config_dir() {
-        let log_file = log_dir.join(LOG_FILE);
+        let log_file = log_dir.join(get_log_file());
         #[cfg(debug_assertions)]
         if let Err(e) = log::init(log_file, config.debug) {
             eprintln!("Failed to init termitype logger: {e}");

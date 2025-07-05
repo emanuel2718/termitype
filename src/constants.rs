@@ -18,6 +18,31 @@ pub const DEFAULT_WORD_COUNT_LIST: [usize; 4] = [10, 25, 50, 100];
 
 pub const STATE_FILE: &str = ".state";
 pub const LOG_FILE: &str = "termitype.log";
+pub const DB_FILE: &str = ".termitype.db";
+
+/// Returns the log file name
+pub fn get_log_file() -> &'static str {
+    #[cfg(debug_assertions)]
+    {
+        "termitype-dev.log"
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        LOG_FILE
+    }
+}
+
+/// Returns the database file name
+pub fn get_db_file() -> &'static str {
+    #[cfg(debug_assertions)]
+    {
+        ".termitype-dev.db"
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        DB_FILE
+    }
+}
 
 pub const BACKSPACE_CHAR: char = '\x08';
 
