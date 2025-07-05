@@ -450,26 +450,40 @@ impl Tracker {
         true
     }
 
-    /// Calculates the current typing speed
-    fn calculate_typing_speed(&self, start_time: Instant) -> Option<TypingSpeed> {
-        let elapsed_seconds = start_time.elapsed().as_secs_f64();
-        let elapsed_minutes = elapsed_seconds / 60.0;
-
-        // no division by 0 on my watch - don't allow wpm calculation to reach levels over 9000
-        if elapsed_seconds < 0.5 {
+    /// Calculates typing speed based on elapsed time
+    fn calculate_speed_from_duration(&self, elapsed: f64, ensure_min: bool) -> Option<TypingSpeed> {
+        // avoids jittery WPM
+        if ensure_min && elapsed < 0.5 {
             return None;
         }
-        // for the wpm's
-        let correct_words = (self.correct_keystrokes as f64) * 0.2;
 
-        // for the raw wpm's
-        let chars_typed = self.user_input.len() as f64;
-        let words_typed = chars_typed * 0.2;
+        // no division by 0
+        let elapsed_seconds = elapsed.max(0.1);
+        let elapsed_minutes = elapsed_seconds / 60.0;
+
+        let correct_words = (self.correct_keystrokes as f64) * 0.2;
+        let total_chars = self.user_input.len() as f64;
+        let total_words = total_chars * 0.2;
 
         Some(TypingSpeed {
             wpm: (correct_words / elapsed_minutes).max(0.0),
-            raw_wpm: words_typed / elapsed_minutes,
+            raw_wpm: (total_words / elapsed_minutes).max(0.0),
         })
+    }
+
+    /// Calculates current typing speed for live updates
+    fn calculate_typing_speed(&self, start_time: Instant) -> Option<TypingSpeed> {
+        let elapsed_seconds = start_time.elapsed().as_secs_f64();
+        self.calculate_speed_from_duration(elapsed_seconds, true)
+    }
+
+    /// Sets final WPM metrics when test completes
+    fn set_final_wpm(&mut self, completion_time: f64) {
+        if let Some(final_speed) = self.calculate_speed_from_duration(completion_time, false) {
+            self.wpm = final_speed.wpm;
+            self.raw_wpm = final_speed.raw_wpm;
+            self.update_wpm_samples(final_speed.wpm, true);
+        }
     }
 
     /// Calculate typing consistency as a percentage up to (2) decimal places.
@@ -523,7 +537,14 @@ impl Tracker {
             _ => false,
         };
         if is_complete {
-            self.completion_time = self.time_started.map(|start| start.elapsed().as_secs_f64());
+            let completion_time = self
+                .time_started
+                .map(|start| start.elapsed().as_secs_f64())
+                .unwrap_or(0.0);
+            self.completion_time = Some(completion_time);
+
+            self.set_final_wpm(completion_time);
+
             self.status = Status::Completed;
         }
         is_complete
@@ -533,10 +554,11 @@ impl Tracker {
         let start_time = self.time_started.unwrap_or(Instant::now());
         let end_time = self.time_end.unwrap_or(Instant::now());
         self.time_remaining = Some(Duration::from_secs(0));
-        self.completion_time = Some(end_time.duration_since(start_time).as_secs_f64());
-        if let Some(speed) = self.calculate_typing_speed(start_time) {
-            self.update_wpm_samples(speed.wpm, true);
-        }
+        let completion_time = end_time.duration_since(start_time).as_secs_f64();
+        self.completion_time = Some(completion_time);
+
+        self.set_final_wpm(completion_time);
+
         self.status = Status::Completed;
     }
 
@@ -1500,5 +1522,29 @@ mod tests {
 
         tracker.start_typing();
         assert!(!tracker.is_high_score);
+    }
+
+    #[test]
+    fn test_fast_words_mode_wpm_calculation() {
+        let mut config = Config::default();
+        config.time = None;
+        config.word_count = Some(1);
+        let target_text = String::from("test");
+        let mut tracker = Tracker::new(&config, target_text);
+
+        tracker.start_typing();
+
+        tracker.time_started = Some(Instant::now() - Duration::from_millis(100)); // 0.1 seconds ago
+
+        for c in "test".chars() {
+            tracker.type_char(c);
+        }
+
+        assert_eq!(tracker.status, Status::Completed);
+        assert!(tracker.wpm > 0.0,);
+        assert!(tracker.raw_wpm > 0.0,);
+
+        // 4 chars = 0.8 words, in 0.1 seconds = 0.8 / (0.1/60) = 480 WPM
+        assert!(tracker.wpm > 400.0);
     }
 }
