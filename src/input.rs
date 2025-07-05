@@ -111,7 +111,6 @@ impl InputHandler {
             (KeyCode::Char('r'), KeyModifiers::NONE) => TermiAction::Redo,
             (KeyCode::Char('n'), KeyModifiers::NONE) => TermiAction::Start,
             (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::Quit,
-            (KeyCode::Char('l'), KeyModifiers::NONE) => TermiAction::LeaderboardToggle,
             (KeyCode::Esc, KeyModifiers::NONE) => TermiAction::TogglePause,
             _ => TermiAction::NoOp,
         }
