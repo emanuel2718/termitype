@@ -147,8 +147,10 @@ impl LeaderboardComponent {
         } else {
             let message = if leaderboard.error_message().is_some() {
                 "Failed to load data"
-            } else {
+            } else if leaderboard.is_loading() {
                 "Loading..."
+            } else {
+                "No results found"
             };
 
             let loading_text = Paragraph::new(message)
@@ -289,8 +291,10 @@ impl LeaderboardComponent {
             )
         } else if let Some(err) = leaderboard.error_message() {
             format!("Error: {err}")
-        } else {
+        } else if leaderboard.is_loading() {
             "Loading...".to_string()
+        } else {
+            "No results found".to_string()
         };
 
         let header_info_paragraph = Paragraph::new(header_info_text)
