@@ -6,6 +6,7 @@ use crate::{
     helpers::fuzzy_match,
     log_debug,
     menu_builder::build_menu,
+    styles::TermiStyle,
 };
 
 /// Represents the resulting action of selecting a menu item

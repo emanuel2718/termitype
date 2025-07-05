@@ -1,10 +1,11 @@
 use crate::{
     actions::{MenuContext, PreviewType, TermiAction},
     ascii,
-    config::{Config, ModeType, PickerStyle, ResultsStyle},
+    config::{Config, ModeType},
     constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_WORD_COUNT_LIST},
     menu::{Menu, MenuItem},
     modal::ModalContext,
+    styles::{PickerStyle, ResultsStyle, TermiStyle},
     version::VERSION,
 };
 
@@ -361,18 +362,20 @@ fn build_about_menu() -> Menu {
 
 /// Builds the Results menu
 fn build_results_style_menu() -> Menu {
-    let styles = crate::config::ResultsStyle::all();
+    let styles = ResultsStyle::all();
     let items = styles
         .iter()
         .map(|&style| {
             MenuItem::action(
                 &format!("results/{style}"),
-                crate::config::ResultsStyle::label_from_str(style),
+                ResultsStyle::label_from_str(style),
                 TermiAction::ChangeResultsStyle(style.to_string()),
             )
-            .with_preview(PreviewType::ResultsStyle(ResultsStyle::value_from_str(
-                style,
-            )))
+            .with_preview(PreviewType::ResultsStyle(
+                style
+                    .parse::<ResultsStyle>()
+                    .unwrap_or(ResultsStyle::default()),
+            ))
         })
         .collect();
     Menu::new(MenuContext::Results, "Results Style".to_string(), items)

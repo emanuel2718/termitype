@@ -13,6 +13,7 @@ use crate::{
     actions::TermiClickAction,
     ascii,
     constants::MIN_THEME_PREVIEW_WIDTH,
+    styles,
     termi::Termi,
     ui::helpers::{LayoutHelper, MenuHelpers, TermiUtils},
 };
@@ -43,7 +44,7 @@ impl MenuComponent {
         );
 
         //
-        let (menu_area, preview_area) = if picker_style == crate::config::PickerStyle::Minimal {
+        let (menu_area, preview_area) = if picker_style == styles::PickerStyle::Minimal {
             (base_rect, None)
         } else if (is_theme_picker || is_ascii_art_picker) && !small_width {
             let split = Layout::default()
@@ -110,7 +111,7 @@ impl MenuComponent {
         let picker_style = termi.config.resolve_picker_style();
 
         let hide_menu_footer = (small_width && !menu_state.is_searching())
-            || (picker_style == crate::config::PickerStyle::Minimal);
+            || (picker_style == styles::PickerStyle::Minimal);
         let footer_len = if hide_menu_footer { 0 } else { 3 };
         let menu_layout = Layout::default()
             .direction(Direction::Vertical)

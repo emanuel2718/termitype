@@ -7,10 +7,7 @@ use ratatui::{
 };
 
 use crate::{
-    ascii,
-    config::{Mode, ResultsStyle},
-    termi::Termi,
-    ui::helpers::TermiUtils,
+    ascii, config::Mode, styles::ResultsStyle, termi::Termi, ui::helpers::TermiUtils,
     version::VERSION,
 };
 

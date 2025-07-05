@@ -193,8 +193,8 @@ pub struct WordPosition {
     pub col: usize,
 }
 
+use crate::styles;
 use crate::{
-    config,
     constants::{MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH},
     termi::Termi,
 };
@@ -330,7 +330,7 @@ pub fn calculate_menu_area(termi: &Termi, area: Rect) -> Rect {
 }
 
 pub fn calculate_menu_area_from_parts(
-    picker_style: config::PickerStyle,
+    picker_style: styles::PickerStyle,
     is_theme_picker: bool,
     is_help_menu: bool,
     is_about_menu: bool,
@@ -348,14 +348,14 @@ pub fn calculate_menu_area_from_parts(
 
     match picker_style {
         // top
-        config::PickerStyle::Quake => Rect {
+        styles::PickerStyle::Quake => Rect {
             x: area.x,
             y: area.y,
             width: area.width,
             height: menu_height,
         },
         // floating
-        config::PickerStyle::Telescope => {
+        styles::PickerStyle::Telescope => {
             let menu_width = (area.width as f32 * 0.90).min(95.0) as u16;
             let menu_height = (area.height as f32 * 0.6).min(menu_height as f32) as u16;
             let x = area.x + (area.width.saturating_sub(menu_width)) / 2;
@@ -368,7 +368,7 @@ pub fn calculate_menu_area_from_parts(
             }
         }
         // floating, no preview folds
-        config::PickerStyle::Minimal => {
+        styles::PickerStyle::Minimal => {
             let menu_width = (area.width as f32 * 0.90).min(95.0) as u16;
             let menu_height = (area.height as f32 * 0.6).min(menu_height as f32) as u16;
             let x = area.x + (area.width.saturating_sub(menu_width)) / 2;
@@ -381,7 +381,7 @@ pub fn calculate_menu_area_from_parts(
             }
         }
         // bottom
-        config::PickerStyle::Ivy => {
+        styles::PickerStyle::Ivy => {
             let y = area.y + area.height.saturating_sub(menu_height);
             Rect {
                 x: area.x,

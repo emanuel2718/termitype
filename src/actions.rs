@@ -2,10 +2,11 @@ use crossterm::execute;
 use ratatui::layout::Position;
 
 use crate::{
-    config::{ModeType, ResultsStyle},
+    config::ModeType,
     constants::DEFAULT_LINE_COUNT,
     leaderboard::SortColumn,
     modal::{build_modal, handle_modal_confirm, ModalContext},
+    styles::ResultsStyle,
     termi::Termi,
     theme::Theme,
     tracker::Status,

@@ -30,6 +30,7 @@ pub mod menu;
 pub mod menu_builder;
 pub mod modal;
 pub mod persistence;
+pub mod styles;
 pub mod termi;
 pub mod theme;
 pub mod tracker;
