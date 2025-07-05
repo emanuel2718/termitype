@@ -141,6 +141,10 @@ impl Leaderboard {
         self.results.as_ref().map(|r| r.total_count).unwrap_or(0)
     }
 
+    pub fn current_row(&self) -> usize {
+        self.table.selected().unwrap_or(0) + 1
+    }
+
     pub fn current_sort_col_idx(&self) -> usize {
         let cols = SortColumn::all();
         cols.iter()
@@ -165,6 +169,14 @@ impl Leaderboard {
                 }
                 crate::actions::LeaderboardAction::NavigateDown => {
                     self.down(db);
+                    None
+                }
+                crate::actions::LeaderboardAction::NavigateHome => {
+                    self.home();
+                    None
+                }
+                crate::actions::LeaderboardAction::NavigateEnd => {
+                    self.end(db);
                     None
                 }
                 crate::actions::LeaderboardAction::SortBy(sort_col) => {
@@ -256,6 +268,26 @@ impl Leaderboard {
 
         if matches!(load_type, LoadType::More) {
             self.is_loading = false;
+        }
+    }
+
+    fn home(&mut self) {
+        if !self.items.is_empty() {
+            self.table.select(Some(0));
+        }
+    }
+
+    fn end(&mut self, db: &TermiDB) {
+        if !self.items.is_empty() && self.count() != self.current_row() {
+            let selected = self.table.selected().unwrap_or(0);
+            let max_idx = self.items.len() - 1;
+
+            if selected > 0 && selected == max_idx {
+                self.down(db);
+                self.end(db);
+            } else {
+                self.table.select(Some(max_idx));
+            }
         }
     }
 

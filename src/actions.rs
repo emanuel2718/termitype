@@ -84,6 +84,8 @@ pub enum TermiAction {
 pub enum LeaderboardAction {
     NavigateUp,
     NavigateDown,
+    NavigateHome,
+    NavigateEnd,
     SortBy(SortColumn),
 }
 

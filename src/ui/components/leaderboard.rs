@@ -280,10 +280,10 @@ impl LeaderboardComponent {
             };
 
             format!(
-                "Sorted by {} {} • Showing {} of {} results{}",
+                "Sorted by {} {} • Results {}/{} {}",
                 leaderboard.sort_col(),
                 sort_indicator,
-                leaderboard.items().len(),
+                leaderboard.current_row(),
                 leaderboard.count(),
                 loading_text
             )

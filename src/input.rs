@@ -128,6 +128,22 @@ impl InputHandler {
             (KeyCode::Down | KeyCode::Char('j'), _) => {
                 TermiAction::LeaderboardInput(LeaderboardAction::NavigateDown)
             }
+            (KeyCode::Char('G'), KeyModifiers::SHIFT) => {
+                TermiAction::LeaderboardInput(LeaderboardAction::NavigateEnd)
+            }
+            (KeyCode::Char('g'), KeyModifiers::NONE) => {
+                // TODO: re-think this... this is fugly
+                let mut phone_home = false;
+                if let Some(code) = self.last_keycode {
+                    if code == KeyCode::Char('g') {
+                        phone_home = true
+                    }
+                }
+                if !phone_home {
+                    return TermiAction::NoOp;
+                }
+                TermiAction::LeaderboardInput(LeaderboardAction::NavigateHome)
+            }
             (KeyCode::Char('w') | KeyCode::Char('W'), _) => {
                 TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Wpm))
             }
