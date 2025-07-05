@@ -131,14 +131,7 @@ impl InputHandler {
                 TermiAction::LeaderboardInput(LeaderboardAction::NavigateEnd)
             }
             (KeyCode::Char('g'), KeyModifiers::NONE) => {
-                // TODO: re-think this... this is fugly
-                let mut phone_home = false;
-                if let Some(code) = self.last_keycode {
-                    if code == KeyCode::Char('g') {
-                        phone_home = true
-                    }
-                }
-                if !phone_home {
+                if !self.is_vim_gg() {
                     return TermiAction::NoOp;
                 }
                 TermiAction::LeaderboardInput(LeaderboardAction::NavigateHome)
@@ -225,16 +218,7 @@ impl InputHandler {
                     TermiAction::MenuNavigate(MenuNavAction::End)
                 }
                 (KeyCode::Char('g'), KeyModifiers::NONE) => {
-                    // this is fugly
-                    let mut phone_home = false;
-                    if let Some(code) = self.last_keycode {
-                        let result = code == KeyCode::Char('g');
-                        log_debug!("Code: {code}.... result = {result}");
-                        if code == KeyCode::Char('g') {
-                            phone_home = true
-                        }
-                    }
-                    if !phone_home {
+                    if !self.is_vim_gg() {
                         return TermiAction::NoOp;
                     }
                     TermiAction::MenuNavigate(MenuNavAction::Home)
@@ -262,6 +246,11 @@ impl InputHandler {
 
     fn is_restart_sequence(&self, current_key: &KeyCode, last_key: &KeyCode) -> bool {
         matches!(last_key, KeyCode::Tab) && matches!(current_key, KeyCode::Enter)
+    }
+
+    /// Check for vim-style `gg` sequence. May be too hardcodey but I like the function name
+    fn is_vim_gg(&self) -> bool {
+        matches!(self.last_keycode, Some(KeyCode::Char('g')))
     }
 }
 
