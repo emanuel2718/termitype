@@ -176,8 +176,8 @@ Termitype includes a curated collection of themes sourced from the [iTerm2 Ghost
 - [ ] **Custom ascii arts**: Allow usage of custom ascii arts
 - [ ] **Custom theme**: Allow setting custom themes with names
 - [ ] **Wordlist Improvements**: Improve the quality and distribution of words
-- [ ] **Local Results Tracking**: Track test results over time (best use case is to track highest WPM on specific modes) with opt-out option
 - [ ] **Multiplayer**: Race other people in realtime with private rooms of sort (will use websockets for this)
+- [x] **Local Results Tracking**: Track test results over time (best use case is to track highest WPM on specific modes) with opt-out option
 
 ## License
 
