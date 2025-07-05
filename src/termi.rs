@@ -223,9 +223,8 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     if config.reset_db {
         if let Some(db) = &termi.db {
             let items_deleted = db.reset();
-            match items_deleted {
-                Ok(count) => log_debug!("Removed {count} entries from the database"),
-                Err(err) => log_error!("Something went wrong calling db.reset: {err}"),
+            if let Err(err) = items_deleted {
+                log_error!("Something went wrong calling db.reset: {err}")
             }
             log_debug!("Should reset the database");
         } else {

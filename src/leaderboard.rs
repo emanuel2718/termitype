@@ -209,7 +209,6 @@ impl Leaderboard {
 
         match db.query_leaderboard(&self.query) {
             Ok(res) => {
-                let count = res.results.len();
                 match load_type {
                     LoadType::Initial | LoadType::Refresh => {
                         self.items = res.results.clone();
@@ -232,20 +231,6 @@ impl Leaderboard {
                         self.table.select(None);
                     } else if self.table.selected().is_none() {
                         self.table.select(Some(0))
-                    }
-                }
-                match load_type {
-                    LoadType::Initial => {
-                        let items_len = self.items.len();
-                        log_debug!("Loaded {items_len} initial items")
-                    }
-                    LoadType::More => {
-                        let total_items = self.items.len();
-                        log_debug!("Loaded {count} more items, total: {total_items}")
-                    }
-                    LoadType::Refresh => {
-                        let items_len = self.items.len();
-                        log_debug!("Refreshed {items_len} items")
                     }
                 }
             }
