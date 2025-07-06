@@ -129,8 +129,13 @@ impl MenuHelpers {
                 Style::default().fg(theme.fg()).bg(content_bg),
             ));
         } else {
-            let label_style =
-                Self::get_label_style(item, is_selected, should_render_cursorline, theme);
+            let label_style = Self::get_label_style(
+                item,
+                is_selected,
+                should_render_cursorline,
+                item.is_disabled,
+                theme,
+            );
 
             // toggleable checkbox
             if let Some(is_active) = item.is_active {
@@ -173,13 +178,19 @@ impl MenuHelpers {
         }
     }
 
+    // TODO: all of this is messy. Refactor when you have the chance
     fn get_label_style(
         item: &MenuItem,
         is_selected: bool,
         should_render_cursorline: bool,
+        is_disabled: bool,
         theme: &Theme,
     ) -> Style {
-        if is_selected && !should_render_cursorline {
+        if is_disabled {
+            Style::default()
+                .fg(theme.muted())
+                .add_modifier(Modifier::DIM)
+        } else if is_selected && !should_render_cursorline {
             Style::default()
                 .fg(theme.success())
                 .add_modifier(Modifier::BOLD)
