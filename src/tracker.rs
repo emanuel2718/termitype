@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use crate::config::{Config, Mode};
 
-const MAX_WMP_SAMPLES: usize = 300; // ~5 minutes at 1 sample per second
+const MAX_WPM_SAMPLES: usize = 300; // ~5 minutes at 1 sample per second
 
 #[derive(Debug)]
 pub struct Tracker {
@@ -514,8 +514,8 @@ impl Tracker {
     pub fn update_wpm_samples(&mut self, wpm: f64, force: bool) {
         let now = Instant::now();
         if force || now.duration_since(self.last_wpm_update) >= Duration::from_secs(1) {
-            if self.wpm_samples.len() >= MAX_WMP_SAMPLES {
-                let remove_count = MAX_WMP_SAMPLES / 10;
+            if self.wpm_samples.len() >= MAX_WPM_SAMPLES {
+                let remove_count = MAX_WPM_SAMPLES / 10;
                 self.wpm_samples.drain(0..remove_count);
             }
             self.wpm_samples.push(wpm.round() as u32);

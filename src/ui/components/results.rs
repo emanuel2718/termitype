@@ -372,7 +372,7 @@ impl ResultsComponent {
             .style(Style::default().bg(theme.bg()))
             .block(
                 Block::default()
-                    .title(" WMP Over Time ")
+                    .title(" WPM Over Time ")
                     .title_alignment(Alignment::Center)
                     .borders(Borders::ALL)
                     .border_style(
@@ -398,7 +398,7 @@ impl ResultsComponent {
             )
             .y_axis(
                 Axis::default()
-                    .title("WMP")
+                    .title("WPM")
                     .style(Style::default().fg(theme.muted()))
                     .bounds([y_min, y_max])
                     .labels(vec![
