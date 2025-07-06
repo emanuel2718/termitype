@@ -1,7 +1,7 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
-    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Wrap},
     Frame,
 };
 
@@ -30,10 +30,16 @@ impl NotificationComponent {
         let position = NotificationPosition::default(); // TOOD: this needs to be configurable
         let symbols = TermiUtils::get_symbols(theme.supports_unicode());
 
-        // notification dimensions
         let notification_width = 35.min(area.width.saturating_sub(4));
-        let notification_height = 4;
         let margin = 1;
+
+        let mut total_height = 0;
+        let mut notification_heights = Vec::new();
+        for notification in &notifications {
+            let height = Self::calculate_notification_height(notification, notification_width);
+            notification_heights.push(height);
+            total_height += height + margin;
+        }
 
         let (start_x, start_y) = match position {
             NotificationPosition::TopLeft => (area.x + margin, area.y + margin),
@@ -43,25 +49,21 @@ impl NotificationComponent {
             ),
             NotificationPosition::BottomLeft => (
                 area.x + margin,
-                area.y
-                    + area.height.saturating_sub(
-                        (notification_height + margin) * notifications.len() as u16 + margin,
-                    ),
+                area.y + area.height.saturating_sub(total_height),
             ),
             NotificationPosition::BottomRight => (
                 area.x + area.width.saturating_sub(notification_width + margin),
-                area.y
-                    + area.height.saturating_sub(
-                        (notification_height + margin) * notifications.len() as u16 + margin,
-                    ),
+                area.y + area.height.saturating_sub(total_height),
             ),
         };
 
         // render the notifications
+        let mut current_y = start_y;
         for (i, notification) in notifications.iter().enumerate() {
+            let notification_height = notification_heights[i];
             let notification_area = Rect {
                 x: start_x,
-                y: start_y + (i as u16 * (notification_height + margin)),
+                y: current_y,
                 width: notification_width,
                 height: notification_height,
             };
@@ -74,7 +76,29 @@ impl NotificationComponent {
             }
 
             Self::render_notification(frame, notification, notification_area, theme, &symbols);
+            current_y += notification_height + margin;
         }
+    }
+
+    /// Calculate the height needed for a notification based on its content
+    fn calculate_notification_height(
+        notification: &crate::notifications::Notification,
+        notification_width: u16,
+    ) -> u16 {
+        let available_width = notification_width.saturating_sub(4);
+
+        let title_height = 1;
+
+        let message_lines = if notification.message.is_empty() {
+            1
+        } else {
+            (notification.message.len() as u16)
+                .div_ceil(available_width)
+                .clamp(1, 4)
+        };
+
+        // y-borders + title + message lines
+        2 + title_height + message_lines
     }
 
     /// Renders a single notification
@@ -102,7 +126,7 @@ impl NotificationComponent {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(1), // icon + title
-                Constraint::Length(1), // message
+                Constraint::Max(4),    // message
             ])
             .split(inner_area);
 
@@ -141,7 +165,8 @@ impl NotificationComponent {
         let message_style = Style::default().fg(theme.fg());
         let message_paragraph = Paragraph::new(notification.message.clone())
             .style(message_style)
-            .alignment(Alignment::Left);
+            .alignment(Alignment::Left)
+            .wrap(Wrap { trim: true });
         frame.render_widget(message_paragraph, vertical_layout[1]);
     }
 }

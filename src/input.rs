@@ -95,7 +95,6 @@ impl InputHandler {
             (KeyCode::F(3), _) => Some(TermiAction::LeaderboardToggle),
             (KeyCode::F(9), _) => {
                 notify_error!("test message");
-                notify_error!("Failed to initialize databasexx");
                 Some(TermiAction::NoOp)
             }
             _ => None,
