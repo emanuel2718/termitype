@@ -8,7 +8,6 @@ use crate::theme::Theme;
 const MAX_NOTIFICATION_COUNT: usize = 3;
 const DEFAULT_DURATION: Duration = Duration::from_secs(3);
 const ERROR_DURATION: Duration = Duration::from_secs(5);
-pub const MESSAGE_LEN_LIMIT: usize = 31;
 
 static GLOBAL_NOTIFICATIONS: OnceLock<Arc<Mutex<Vec<Notification>>>> = OnceLock::new();
 

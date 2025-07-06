@@ -90,8 +90,6 @@ macro_rules! log_error {
 
 /// Sends a notification of severity `NotificationSeverity::Info`.
 ///
-/// The message length is validated at compile time
-///
 /// # Examples
 ///
 /// ```
@@ -101,19 +99,11 @@ macro_rules! log_error {
 #[macro_export]
 macro_rules! notify_info {
     ($message:expr) => {{
-        const _: () = {
-            let msg = $message;
-            if msg.len() > $crate::notifications::MESSAGE_LEN_LIMIT {
-                panic!("notify_info message too long");
-            }
-        };
         $crate::notifications::_notify_info($message)
     }};
 }
 
 /// Sends a notification of severity `NotificationSeverity::Warning`.
-///
-/// The message length is validated at compile time
 ///
 /// # Examples
 ///
@@ -124,19 +114,11 @@ macro_rules! notify_info {
 #[macro_export]
 macro_rules! notify_warning {
     ($message:expr) => {{
-        const _: () = {
-            let msg = $message;
-            if msg.len() > $crate::notifications::MESSAGE_LEN_LIMIT {
-                panic!("notify_warning: message too long");
-            }
-        };
         $crate::notifications::_notify_warning($message)
     }};
 }
 
 /// Sends a notification of severity `NotificationSeverity::Error`.
-///
-/// The message length is validated at compile time
 ///
 /// # Examples
 ///
@@ -147,12 +129,6 @@ macro_rules! notify_warning {
 #[macro_export]
 macro_rules! notify_error {
     ($message:expr) => {{
-        const _: () = {
-            let msg = $message;
-            if msg.len() > $crate::notifications::MESSAGE_LEN_LIMIT {
-                panic!("notify_error: message too long");
-            }
-        };
         $crate::notifications::_notify_error($message)
     }};
 }
