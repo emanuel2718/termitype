@@ -1,6 +1,16 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::{Arc, Mutex, OnceLock},
+    time::{Duration, Instant},
+};
 
 use crate::theme::Theme;
+
+const MAX_NOTIFICATION_COUNT: usize = 3;
+const DEFAULT_DURATION: Duration = Duration::from_secs(3);
+const ERROR_DURATION: Duration = Duration::from_secs(5);
+pub const MESSAGE_LEN_LIMIT: usize = 31;
+
+static GLOBAL_NOTIFICATIONS: OnceLock<Arc<Mutex<Vec<Notification>>>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NotificationSeverity {
@@ -22,8 +32,6 @@ impl Default for NotificationPosition {
         Self::TopRight
     }
 }
-
-// TODO: all(), FromStr, etc
 
 impl NotificationPosition {
     pub fn label(&self) -> &'static str {
@@ -74,69 +82,70 @@ impl Notification {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct NotificationManager {
-    max_count: usize,
-    duration: Duration,
-    position: NotificationPosition,
-    notifications: Vec<Notification>,
+fn get_notifications() -> &'static Arc<Mutex<Vec<Notification>>> {
+    GLOBAL_NOTIFICATIONS.get_or_init(|| Arc::new(Mutex::new(Vec::new())))
 }
 
-impl NotificationManager {
-    pub fn new() -> Self {
-        const MAX_NOTIFICATION_COUNT: usize = 3;
-        const DEFAULT_DURATION: Duration = Duration::from_secs(3);
-        Self {
-            notifications: Vec::new(),
-            duration: DEFAULT_DURATION,
-            max_count: MAX_NOTIFICATION_COUNT,
-            position: NotificationPosition::default(),
+fn add_notification(notification: Notification) {
+    if let Ok(mut notifications) = get_notifications().lock() {
+        notifications.retain(|n| !n.is_expired());
+
+        if notifications.len() >= MAX_NOTIFICATION_COUNT {
+            notifications.remove(0);
         }
-    }
 
-    pub fn position(&self) -> NotificationPosition {
-        self.position
+        notifications.push(notification);
     }
+}
 
-    pub fn max_count(&self) -> usize {
-        self.max_count
+/// Non expired notifications
+pub fn get_active_notifications() -> Vec<Notification> {
+    if let Ok(mut notifications) = get_notifications().lock() {
+        notifications.retain(|n| !n.is_expired());
+        notifications.clone()
+    } else {
+        Vec::new()
     }
+}
 
-    pub fn clear(&mut self) {
-        self.notifications.clear();
+/// Clears all notifications
+pub fn clear_notifications() {
+    if let Ok(mut notifications) = get_notifications().lock() {
+        notifications.clear();
     }
+}
 
-    pub fn get_notifications(&mut self) -> &[Notification] {
-        self.cleanup();
-        &self.notifications
-    }
+/// Interna use only
+pub fn _notify_info(message: impl Into<String>) {
+    let notification = Notification::new(
+        "Notice",
+        message,
+        NotificationSeverity::Info,
+        DEFAULT_DURATION,
+    );
+    add_notification(notification);
+}
 
-    pub fn info(&mut self, title: impl Into<String>, message: impl Into<String>) {
-        let severity = NotificationSeverity::Info;
-        self.add(Notification::new(title, message, severity, self.duration));
-    }
+/// Interna use only
+pub fn _notify_warning(message: impl Into<String>) {
+    let notification = Notification::new(
+        "Warning",
+        message,
+        NotificationSeverity::Warning,
+        DEFAULT_DURATION,
+    );
+    add_notification(notification);
+}
 
-    pub fn warning(&mut self, title: impl Into<String>, message: impl Into<String>) {
-        let severity = NotificationSeverity::Warning;
-        self.add(Notification::new(title, message, severity, self.duration));
-    }
-
-    pub fn error(&mut self, title: impl Into<String>, message: impl Into<String>) {
-        let severity = NotificationSeverity::Error;
-        self.add(Notification::new(title, message, severity, self.duration));
-    }
-
-    fn add(&mut self, notification: Notification) {
-        self.cleanup();
-        if self.notifications.len() >= self.max_count {
-            self.notifications.remove(0);
-        }
-        self.notifications.push(notification);
-    }
-
-    fn cleanup(&mut self) {
-        self.notifications.retain(|n| !n.is_expired());
-    }
+/// Internal use only
+pub fn _notify_error(message: impl Into<String>) {
+    let notification = Notification::new(
+        "Error",
+        message,
+        NotificationSeverity::Error,
+        ERROR_DURATION,
+    );
+    add_notification(notification);
 }
 
 #[cfg(test)]
@@ -155,20 +164,18 @@ mod tests {
     }
 
     #[test]
-    fn test_notification_manager() {
-        let mut manager = NotificationManager::new();
-        assert_eq!(manager.notifications.len(), 0);
-        assert_eq!(manager.max_count(), 3);
+    fn test_global_notifications() {
+        clear_notifications();
 
-        manager.info("title", "msg");
+        _notify_info("msg");
+        _notify_warning("msg");
+        _notify_error("msg");
 
-        assert_eq!(manager.notifications.len(), 1);
-        manager.info("title", "msg"); // 2
-        manager.info("title", "msg"); // 3
-        manager.info("title", "msg"); // 4 (should not be added due to max_count = 3)
-        assert_eq!(manager.notifications.len(), 3);
+        let notifications = get_active_notifications();
+        assert_eq!(notifications.len(), 3);
 
-        manager.clear();
-        assert_eq!(manager.notifications.len(), 0);
+        clear_notifications();
+        let notifications = get_active_notifications();
+        assert_eq!(notifications.len(), 0);
     }
 }

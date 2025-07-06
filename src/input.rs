@@ -3,7 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::{
     actions::{LeaderboardAction, MenuContext, MenuNavAction, MenuSearchAction, TermiAction},
     leaderboard::SortColumn,
-    log_debug,
+    log_debug, notify_error,
     termi::Termi,
     tracker::Status,
 };
@@ -93,6 +93,11 @@ impl InputHandler {
             (KeyCode::F(1), _) => Some(TermiAction::MenuOpen(MenuContext::Help)),
             (KeyCode::F(2), _) => Some(TermiAction::MenuOpen(MenuContext::Theme)),
             (KeyCode::F(3), _) => Some(TermiAction::LeaderboardToggle),
+            (KeyCode::F(9), _) => {
+                notify_error!("test message");
+                notify_error!("Failed to initialize databasexx");
+                Some(TermiAction::NoOp)
+            }
             _ => None,
         }
     }

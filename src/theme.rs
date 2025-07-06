@@ -183,8 +183,8 @@ impl Theme {
                 Color::Black,        // Background
                 Color::White,        // Foreground
                 Color::Gray,         // Muted
-                Color::Cyan,         // Accent
-                Color::LightMagenta, // Info
+                Color::LightMagenta, // Accent
+                Color::Cyan,         // Info
                 Color::LightCyan,    // Primary
                 Color::LightGreen,   // Highlight
                 Color::Green,        // Success
