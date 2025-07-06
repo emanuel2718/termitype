@@ -193,6 +193,7 @@ pub struct WordPosition {
     pub col: usize,
 }
 
+use crate::actions::MenuContext;
 use crate::styles;
 use crate::{
     constants::{MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH},
@@ -314,10 +315,10 @@ pub fn calculate_menu_area(termi: &Termi, area: Rect) -> Rect {
     let picker_style = termi.config.resolve_picker_style();
     let menu_state = &termi.menu;
 
-    let is_theme_picker = menu_state.is_theme_menu();
-    let is_help_menu = menu_state.is_help_menu();
-    let is_about_menu = menu_state.is_about_menu();
-    let is_ascii_art_picker = menu_state.is_ascii_art_menu();
+    let is_theme_picker = menu_state.is_current_ctx(MenuContext::Theme);
+    let is_help_menu = menu_state.is_current_ctx(MenuContext::Help);
+    let is_about_menu = menu_state.is_current_ctx(MenuContext::About);
+    let is_ascii_art_picker = menu_state.is_current_ctx(MenuContext::AsciiArt);
 
     calculate_menu_area_from_parts(
         picker_style,

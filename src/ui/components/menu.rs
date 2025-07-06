@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::{
-    actions::TermiClickAction,
+    actions::{MenuContext, TermiClickAction},
     ascii,
     constants::MIN_THEME_PREVIEW_WIDTH,
     styles,
@@ -26,10 +26,10 @@ impl MenuComponent {
     pub fn render(frame: &mut Frame, termi: &mut Termi, area: Rect) {
         let menu_state = &mut termi.menu;
 
-        let is_theme_picker = menu_state.is_theme_menu();
-        let is_help_menu = menu_state.is_help_menu();
-        let is_about_menu = menu_state.is_about_menu();
-        let is_ascii_art_picker = menu_state.is_ascii_art_menu();
+        let is_theme_picker = menu_state.is_current_ctx(MenuContext::Theme);
+        let is_help_menu = menu_state.is_current_ctx(MenuContext::Help);
+        let is_about_menu = menu_state.is_current_ctx(MenuContext::About);
+        let is_ascii_art_picker = menu_state.is_current_ctx(MenuContext::AsciiArt);
 
         let small_width = area.width <= MIN_THEME_PREVIEW_WIDTH;
 
@@ -130,8 +130,9 @@ impl MenuComponent {
                 Self::calculate_scroll_offset(total_items, max_visible, current_menu);
             let menu_title = current_menu.title.clone();
 
-            let hide_description =
-                (menu_state.is_help_menu() || menu_state.is_about_menu()) && small_width;
+            let hide_description = (menu_state.is_current_ctx(MenuContext::Help)
+                || menu_state.is_current_ctx(MenuContext::About))
+                && small_width;
             let (list_items, total_items) =
                 MenuHelpers::build_menu_items(termi, scroll_offset, max_visible, hide_description);
 

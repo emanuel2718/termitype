@@ -1,6 +1,11 @@
 use ratatui::symbols::line::DOUBLE_VERTICAL_LEFT;
 
-use crate::{actions::TermiClickAction, termi::Termi, ui::helpers::TermiUtils, version::VERSION};
+use crate::{
+    actions::{MenuContext, TermiClickAction},
+    termi::Termi,
+    ui::helpers::TermiUtils,
+    version::VERSION,
+};
 
 use super::elements::TermiElement;
 
@@ -26,7 +31,7 @@ impl FooterComponent {
         let elements = vec![
             TermiElement::new(
                 format!("{} about", symbols.info),
-                termi.menu.is_about_menu(),
+                termi.menu.is_current_ctx(MenuContext::About),
                 Some(TermiClickAction::ToggleAbout),
             ),
             TermiElement::spacer(1),

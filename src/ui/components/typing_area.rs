@@ -10,6 +10,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use crate::{
+    actions::MenuContext,
     constants::TYPING_AREA_WIDTH,
     termi::Termi,
     tracker::Status,
@@ -89,7 +90,7 @@ impl TypingAreaComponent {
             || termi.tracker.status == Status::Typing)
             && termi.modal.is_none()
             && !leaderboard_is_open
-            && !termi.menu.is_theme_menu();
+            && !termi.menu.is_current_ctx(MenuContext::Theme);
 
         if should_show_cursor {
             let menu_obscures_cursor = termi.menu.is_open() && {

@@ -194,14 +194,16 @@ pub fn handle_click_action(
             TermiClickAction::ToggleSymbols => Some(TermiAction::ToggleSymbols),
             TermiClickAction::ToggleNumbers => Some(TermiAction::ToggleNumbers),
             TermiClickAction::ToggleThemePicker => {
-                if termi.theme.color_support.supports_themes() && termi.menu.is_theme_menu() {
+                if termi.theme.color_support.supports_themes()
+                    && termi.menu.is_current_ctx(MenuContext::Theme)
+                {
                     Some(TermiAction::MenuClose)
                 } else {
                     Some(TermiAction::MenuOpen(MenuContext::Theme))
                 }
             }
             TermiClickAction::ToggleLanguagePicker => {
-                if termi.menu.is_language_menu() {
+                if termi.menu.is_current_ctx(MenuContext::Language) {
                     Some(TermiAction::MenuClose)
                 } else {
                     Some(TermiAction::MenuOpen(MenuContext::Language))
