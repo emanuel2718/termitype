@@ -71,6 +71,7 @@ pub enum TermiAction {
     ToggleLiveWPM,
     ToggleMonochromaticResults,
     ToggleCursorline,
+    ToggleNotifications,
 
     // === Previews ===
     ApplyPreview(PreviewType),
@@ -412,6 +413,10 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         }
         TermiAction::ToggleCursorline => {
             termi.config.toggle_cursorline();
+            termi.menu.sync_toggle_items(&termi.config);
+        }
+        TermiAction::ToggleNotifications => {
+            termi.config.toggle_notifications();
             termi.menu.sync_toggle_items(&termi.config);
         }
         TermiAction::ChangeTheme(name) => {

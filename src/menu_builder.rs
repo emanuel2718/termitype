@@ -257,6 +257,11 @@ fn build_options_menu(config: &Config) -> Menu {
             !config.hide_cursorline,
         ),
         MenuItem::toggle(
+            "options/show_notifications",
+            "Show Notifications",
+            !config.hide_notifications,
+        ),
+        MenuItem::toggle(
             "options/monochromatic",
             "Monochromatic Results",
             config.monocrhomatic_results,

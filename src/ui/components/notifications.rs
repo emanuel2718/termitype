@@ -16,6 +16,10 @@ pub struct NotificationComponent;
 
 impl NotificationComponent {
     pub fn render(frame: &mut Frame, termi: &Termi, area: Rect) {
+        if termi.config.hide_notifications {
+            return;
+        }
+
         let notifications = get_active_notifications();
         if notifications.is_empty() {
             return;

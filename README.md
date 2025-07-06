@@ -97,6 +97,7 @@ termitype --help
 | `--show-fps`                    | Display FPS counter                                                                                  |
 | `--hide-live-wpm`               | Hide live WPM counter                                                                                |
 | `--hide-cursorline`             | Hide menu cursor highlight                                                                           |
+| `--hide-notifications`          | Hide notifications                                                                                   |
 | `--monochromatic-results`       | Use simplified results colors                                                                        |
 | `--list-themes`                 | List all available themes                                                                            |
 | `--list-languages`              | List all available languages                                                                         |
@@ -121,6 +122,7 @@ termitype --list-themes                # Show all available themes
 termitype --results-style neofetch     # Use neofetch inspired results
 termitype --picker-style telescope     # Use floating menu style
 termitype --no-track                   # Do not locally track test results nor stats
+termitype --hide-notifications         # Do not show notifications
 ```
 
 ## Development
