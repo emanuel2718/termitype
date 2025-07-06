@@ -29,6 +29,7 @@ pub mod macros;
 pub mod menu;
 pub mod menu_builder;
 pub mod modal;
+pub mod notifications;
 pub mod persistence;
 pub mod styles;
 pub mod termi;
