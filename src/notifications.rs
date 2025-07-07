@@ -7,7 +7,6 @@ use crate::theme::Theme;
 
 const MAX_NOTIFICATION_COUNT: usize = 3;
 const DEFAULT_DURATION: Duration = Duration::from_secs(3);
-const ERROR_DURATION: Duration = Duration::from_secs(5);
 
 static GLOBAL_NOTIFICATIONS: OnceLock<Arc<Mutex<Vec<Notification>>>> = OnceLock::new();
 
@@ -142,7 +141,7 @@ pub fn _notify_error(message: impl Into<String>) {
         "Error",
         message,
         NotificationSeverity::Error,
-        ERROR_DURATION,
+        DEFAULT_DURATION
     );
     add_notification(notification);
 }
