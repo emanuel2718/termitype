@@ -141,7 +141,7 @@ pub fn _notify_error(message: impl Into<String>) {
         "Error",
         message,
         NotificationSeverity::Error,
-        DEFAULT_DURATION
+        DEFAULT_DURATION,
     );
     add_notification(notification);
 }
