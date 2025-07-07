@@ -167,6 +167,10 @@ pub struct Config {
     #[arg(long = "hide-cursorline", help = "Hide menu cursor highlight")]
     pub hide_cursorline: bool,
 
+    /// Hide notifications
+    #[arg(long = "hide-notifications", help = "Hide notification")]
+    pub hide_notifications: bool,
+
     /// Use simplified results colors
     #[arg(long = "monochromatic-results", help = "Use simplified results colors")]
     pub monocrhomatic_results: bool,
@@ -261,6 +265,7 @@ impl Default for Config {
             show_fps: false,
             hide_live_wpm: false,
             hide_cursorline: false,
+            hide_notifications: false,
             monocrhomatic_results: false,
             no_track: false,
             reset_db: false,
@@ -397,6 +402,8 @@ impl Config {
                 }
             }
 
+            // TODO: refactor the way we do this. Going to get RSI from this...
+
             // Live WPM
             if !self.hide_live_wpm {
                 if let Some(hide_live_wpm) = persistence.get("hide_live_wpm") {
@@ -410,6 +417,14 @@ impl Config {
                 if let Some(hide_cursorline) = persistence.get("hide_cursorline") {
                     let val = matches!(hide_cursorline, "true");
                     self.hide_cursorline = val;
+                }
+            }
+
+            // Notifications
+            if !self.hide_notifications {
+                if let Some(hide_notifications) = persistence.get("hide_notifications") {
+                    let val = matches!(hide_notifications, "true");
+                    self.hide_notifications = val;
                 }
             }
 
@@ -686,6 +701,14 @@ impl Config {
         let hide_cursorline = !self.hide_cursorline;
         self.update_and_persist("hide_cursorline", &hide_cursorline, |config, &val| {
             config.hide_cursorline = val;
+        });
+    }
+
+    /// Toggles hide/show state of notifications
+    pub fn toggle_notifications(&mut self) {
+        let hide_notifications = !self.hide_notifications;
+        self.update_and_persist("hide_notifications", &hide_notifications, |config, &val| {
+            config.hide_notifications = val;
         });
     }
 

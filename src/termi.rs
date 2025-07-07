@@ -18,6 +18,7 @@ use crate::{
     log_debug, log_error,
     menu::MenuState,
     modal::InputModal,
+    notify_error, notify_info,
     styles::ResultsStyle,
     theme::Theme,
     tracker::{Status, Tracker},
@@ -76,6 +77,7 @@ impl Termi {
                 Ok(db) => Some(db),
                 Err(err) => {
                     log_error!("DB: Failed to initialize database: {err}");
+                    notify_error!("Failed to initialize database");
                     None
                 }
             },
@@ -134,7 +136,6 @@ impl Termi {
         let menu = self.menu.clone();
         let words = self.words.clone();
 
-        log_debug!("Test redo: Resetting tracker (UI cache should remain valid if same words)");
         self.tracker = Tracker::new(&self.config, words);
         self.menu = menu;
     }
@@ -174,7 +175,7 @@ impl Termi {
         }
 
         if !self.should_save_results() {
-            log_debug!("Test does not meet the minimum requirements for saving results");
+            notify_info!("Test invalid, too short");
             return false;
         }
 
@@ -190,6 +191,7 @@ impl Termi {
 
         if let Err(err) = db.write(&self.config, &self.tracker) {
             log_error!("DB: Failed to save test results: {err}");
+            notify_error!("Could not save test results");
             return false;
         }
         true
@@ -219,6 +221,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     let mut last_metrics_update = Instant::now();
     let mut last_time_update = Instant::now();
     let mut needs_render = true;
+    let mut last_notification_count = 0;
 
     if config.reset_db {
         if let Some(db) = &termi.db {
@@ -300,6 +303,13 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             }
 
             if termi.tracker.update_time_remaining() {
+                needs_render = true;
+            }
+
+            // check for expired notifications
+            let current_notification_count = crate::notifications::get_active_notifications().len();
+            if current_notification_count != last_notification_count {
+                last_notification_count = current_notification_count;
                 needs_render = true;
             }
 

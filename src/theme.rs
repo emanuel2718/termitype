@@ -8,7 +8,7 @@ use std::{
 
 use ratatui::style::Color;
 
-use crate::{assets, config::Config, constants::DEFAULT_THEME};
+use crate::{assets, config::Config, constants::DEFAULT_THEME, notify_warning};
 
 static THEME_LOADER: OnceLock<RwLock<ThemeLoader>> = OnceLock::new();
 
@@ -101,9 +101,11 @@ impl Theme {
                     Ok(theme) => theme,
                     Err(_) => {
                         // if fail, then default to `DEFAULT_THEME`.
-                        // TOOD: in the future this will be a nice place to show a `notification`
                         match loader_guard.get_theme(DEFAULT_THEME) {
-                            Ok(theme) => theme,
+                            Ok(theme) => {
+                                notify_warning!(format!("Could not find theme '{theme_name}'"));
+                                theme
+                            }
                             Err(_) => {
                                 // if all else fails then use the fallback theme
                                 Self::fallback_theme_with_support(color_support)
@@ -173,18 +175,15 @@ impl Theme {
     fn fallback_theme() -> Self {
         // TODO: detect system color (dark/light) and show a respective fallback theme.
         //      could use: https://crates.io/crates/terminal-light
-        // TODO: must notice the user somehow that we are defaulting to "default" theme
-        // if Self::detect_color_support() > ColorSupport::Extended {
-        //     return Self::default();
-        // }
+        notify_warning!("Using fallback theme");
         Self {
             id: "Fallback".to_string(),
             colors: [
                 Color::Black,        // Background
                 Color::White,        // Foreground
                 Color::Gray,         // Muted
-                Color::Cyan,         // Accent
-                Color::LightMagenta, // Info
+                Color::LightMagenta, // Accent
+                Color::Cyan,         // Info
                 Color::LightCyan,    // Primary
                 Color::LightGreen,   // Highlight
                 Color::Green,        // Success

@@ -17,8 +17,8 @@ use crate::{
 use super::{
     components::{
         ActionBarComponent, CommandBarComponent, FooterComponent, HeaderComponent, MenuComponent,
-        ModalComponent, ModeBarComponent, ResultsComponent, SizeWarningComponent, TermiElement,
-        TypingAreaComponent,
+        ModalComponent, ModeBarComponent, NotificationComponent, ResultsComponent,
+        SizeWarningComponent, TermiElement, TypingAreaComponent,
     },
     helpers::{LayoutHelper, TermiStyle},
     layout::create_layout,
@@ -223,6 +223,8 @@ fn render_overlays(
             regions.add(region.0, region.1);
         }
     }
+
+    NotificationComponent::render(frame, termi, area);
 }
 
 /// Renders TermiElement(s) with proper positioning and clickable region tracking.

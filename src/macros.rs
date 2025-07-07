@@ -87,3 +87,48 @@ macro_rules! log_error {
         )
     }};
 }
+
+/// Sends a notification of severity `NotificationSeverity::Info`.
+///
+/// # Examples
+///
+/// ```
+/// use termitype::notify_info;
+/// notify_info!("Test invalid - too short");
+/// ```
+#[macro_export]
+macro_rules! notify_info {
+    ($message:expr) => {{
+        $crate::notifications::_notify_info($message)
+    }};
+}
+
+/// Sends a notification of severity `NotificationSeverity::Warning`.
+///
+/// # Examples
+///
+/// ```
+/// use termitype::notify_warning;
+/// notify_warning!("Using fallback theme");
+/// ```
+#[macro_export]
+macro_rules! notify_warning {
+    ($message:expr) => {{
+        $crate::notifications::_notify_warning($message)
+    }};
+}
+
+/// Sends a notification of severity `NotificationSeverity::Error`.
+///
+/// # Examples
+///
+/// ```
+/// use termitype::notify_error;
+/// notify_error!("Could not load database");
+/// ```
+#[macro_export]
+macro_rules! notify_error {
+    ($message:expr) => {{
+        $crate::notifications::_notify_error($message)
+    }};
+}

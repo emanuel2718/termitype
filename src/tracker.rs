@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use crate::config::{Config, Mode};
+use crate::notifications;
 
 const MAX_WPM_SAMPLES: usize = 300; // ~5 minutes at 1 sample per second
 
@@ -184,6 +185,8 @@ impl Tracker {
         self.cached_elapsed_time = now;
         self.cached_elapsed_seconds = 0.0;
         self.space_jump_stack.clear();
+
+        notifications::clear_notifications();
     }
 
     // TODO: maybe mmove this elsewhere. not sure if it makes sense here.
