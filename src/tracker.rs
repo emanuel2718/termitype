@@ -26,7 +26,6 @@ pub struct Tracker {
     //  progress tracking
     pub user_input: Vec<Option<char>>,
     pub cursor_position: usize,
-    pub target_text: String,
     pub target_chars: Vec<char>,
     pub word_count: usize,
     pub status: Status,
@@ -105,9 +104,7 @@ impl Tracker {
         let mode = config.current_mode();
         let word_count = mode.value();
 
-        let target_length = target_text.len();
-        let mut target_chars = Vec::with_capacity(target_length);
-        target_chars.extend(target_text.chars());
+        let target_chars: Vec<char> = target_text.chars().collect();
 
         let time_remaining = match mode {
             Mode::Time { duration } => Some(Duration::from_secs(duration)),
@@ -115,7 +112,7 @@ impl Tracker {
         };
 
         // try avoid re-allocations during typing at the cost of memory but worht it question mark
-        let estimated_capacity = (target_length * 2).max(2048);
+        let estimated_capacity = (target_chars.len() * 2).max(2048);
 
         let now = Instant::now();
 
@@ -133,7 +130,6 @@ impl Tracker {
             completion_time: None,
             user_input: Vec::with_capacity(estimated_capacity),
             cursor_position: 0,
-            target_text,
             target_chars,
             word_count,
             status: Status::Idle,
