@@ -179,6 +179,18 @@ impl UiCache {
         self.last_text_hash = 0;
         self.last_width = 0;
     }
+
+    pub fn should_update(&self, hash: u64, width: usize) -> bool {
+        let res = self.last_text_hash != hash || self.last_width != width;
+        log_debug!("UI cache should update: {res}");
+        res
+    }
+
+    pub fn update(&mut self, new_pos: Vec<WordPosition>, hash: u64, width: usize) {
+        self.last_word_positions = Some(new_pos);
+        self.last_text_hash = hash;
+        self.last_width = width;
+    }
 }
 
 impl Default for UiCache {
@@ -200,18 +212,20 @@ pub struct WordPosition {
 }
 
 use crate::actions::MenuContext;
-use crate::styles;
 use crate::{
     constants::{MENU_HEIGHT, MIN_THEME_PREVIEW_WIDTH},
     termi::Termi,
 };
+use crate::{log_debug, styles};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use std::collections::HashMap;
 
 // PERF: cache for word positions
+
+const MAX_CACHE_SIZE: usize = 10;
 thread_local! {
     static WORD_POSITION_CACHE: std::cell::RefCell<HashMap<u64, Vec<WordPosition>>> =
-        std::cell::RefCell::new(HashMap::new());
+        std::cell::RefCell::new(HashMap::with_capacity(MAX_CACHE_SIZE));
 }
 
 fn calculate_cache_key(text: &str, available_width: usize) -> u64 {
@@ -258,8 +272,11 @@ pub fn calculate_word_positions(text: &str, available_width: usize) -> Vec<WordP
 
         let positions = _calculate_positions(text, available_width);
 
-        if cache_ref.len() > 20 {
-            cache_ref.clear();
+        if cache_ref.len() >= MAX_CACHE_SIZE {
+            let k_to_remove: Vec<_> = cache_ref.keys().take(MAX_CACHE_SIZE / 2).cloned().collect();
+            for k in k_to_remove {
+                cache_ref.remove(&k);
+            }
         }
         cache_ref.insert(cache_key, positions.clone());
 

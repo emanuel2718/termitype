@@ -27,12 +27,14 @@ impl TypingAreaComponent {
 
         let mut hasher = DefaultHasher::new();
         termi.words.hash(&mut hasher);
-        let text_hash = hasher.finish();
+        available_width.hash(&mut hasher);
+        let cache_key = hasher.finish();
 
         let word_positions = UI_CACHE.with(|cache| {
             let mut cache_ref = cache.borrow_mut();
 
-            if cache_ref.last_text_hash == text_hash && cache_ref.last_width == available_width {
+            // can we use the cached position question mark
+            if cache_ref.last_text_hash == cache_key {
                 if let Some(ref positions) = cache_ref.last_word_positions {
                     return positions.clone();
                 }
@@ -41,7 +43,7 @@ impl TypingAreaComponent {
             let positions = calculate_word_positions(&termi.words, available_width);
 
             cache_ref.last_word_positions = Some(positions.clone());
-            cache_ref.last_text_hash = text_hash;
+            cache_ref.last_text_hash = cache_key;
             cache_ref.last_width = available_width;
 
             positions
@@ -69,7 +71,9 @@ impl TypingAreaComponent {
         let text_height = typing_text.height();
 
         let area_width = available_width as u16;
-        let area_padding = (area.width - area_width) >> 1; // better looking than division by 2
+        // let area_padding = (area.width - area_width) >> 1; // better looking than division by 2
+        let area_padding = (area.width.saturating_sub(area_width)) / 2;
+
         let render_area = Rect {
             x: area.x + area_padding,
             y: area.y,
@@ -137,7 +141,8 @@ impl TypingAreaComponent {
         let first_line_to_render = scroll_offset;
         let last_line_to_render = scroll_offset + visible_line_count;
 
-        let mut current_line_spans = Vec::with_capacity(200);
+        let aprox_spans_per_line = 30; // this is a guesstimate, could be more could be less
+        let mut current_line_spans = Vec::with_capacity(aprox_spans_per_line);
         let mut current_line_idx_in_full_text = 0;
 
         if let Some(first_pos) = word_positions.first() {
@@ -177,78 +182,132 @@ impl TypingAreaComponent {
                 .add_modifier(Modifier::DIM)
         };
 
-        for (i, pos) in word_positions.iter().enumerate() {
-            if pos.line > current_line_idx_in_full_text {
+        let mut current_batch = String::with_capacity(64);
+        let mut current_batch_style: Option<Style> = None;
+
+        let flush_batch = |batch: &mut String, style: Option<Style>, spans: &mut Vec<Span>| {
+            if let Some(s) = style {
+                if !batch.is_empty() {
+                    spans.push(Span::styled(batch.clone(), s));
+                    batch.clear();
+                }
+            }
+        };
+
+        for (idx, word) in words.iter().enumerate() {
+            if idx >= word_positions.len() {
+                break;
+            }
+
+            let word_pos = &word_positions[idx];
+            let word_start = word_pos.start_index;
+            let word_len = word.chars().count();
+
+            if word_pos.line != current_line_idx_in_full_text {
+                // flush any pending batch before changing lines
+                flush_batch(
+                    &mut current_batch,
+                    current_batch_style,
+                    &mut current_line_spans,
+                );
+
                 if current_line_idx_in_full_text >= first_line_to_render
                     && current_line_idx_in_full_text < last_line_to_render
                 {
-                    if !current_line_spans.is_empty() {
-                        lines.push(Line::from(std::mem::take(&mut current_line_spans)));
-                        current_line_spans.reserve(200);
-                    }
-                } else {
-                    current_line_spans.clear();
+                    lines.push(Line::from(std::mem::take(&mut current_line_spans)));
                 }
-                current_line_idx_in_full_text = pos.line;
 
-                if lines.len() >= visible_line_count {
-                    break;
-                }
+                current_line_idx_in_full_text = word_pos.line;
+                current_line_spans.clear();
+                current_batch_style = None;
             }
 
-            if pos.line >= first_line_to_render && pos.line < last_line_to_render {
-                let word = words.get(i).unwrap_or(&"");
-                let word_start = pos.start_index;
-                let word_len = word.chars().count();
+            if current_line_idx_in_full_text < first_line_to_render
+                || current_line_idx_in_full_text >= last_line_to_render
+            {
+                continue;
+            }
 
-                let is_word_wrong = termi.tracker.is_word_wrong(word_start);
-                let is_past_word = cursor_pos > word_start + word_len;
-                let should_underline_word = is_word_wrong && is_past_word && supports_themes;
+            let is_word_wrong = termi.tracker.is_word_wrong(word_start);
+            let is_past_word = cursor_pos > word_start + word_len;
+            let should_underline_word = is_word_wrong && is_past_word && supports_themes;
 
-                for (char_i, c) in word.chars().enumerate() {
-                    let char_idx = word_start + char_i;
+            for (i, c) in word.chars().enumerate() {
+                let char_idx = word_start + i;
+                let is_correct =
+                    termi.tracker.user_input.get(char_idx).copied().flatten() == Some(c);
+                let has_input = termi.tracker.user_input.get(char_idx).is_some();
 
-                    let is_correct =
-                        termi.tracker.user_input.get(char_idx).copied().flatten() == Some(c);
-                    let has_input = termi.tracker.user_input.get(char_idx).is_some();
+                let is_skipped_by_space_jump =
+                    termi.tracker.user_input.get(char_idx) == Some(&None);
 
-                    let is_skipped_by_space_jump =
-                        termi.tracker.user_input.get(char_idx) == Some(&None);
-
-                    let style = if is_skipped_by_space_jump {
-                        skipped_style
-                    } else if !has_input {
-                        dim_style
-                    } else if is_correct {
-                        if should_underline_word {
-                            underline_success_style
-                        } else {
-                            success_style
-                        }
-                    } else if should_underline_word {
-                        underline_error_style
+                let style = if is_skipped_by_space_jump {
+                    skipped_style
+                } else if !has_input {
+                    dim_style
+                } else if is_correct {
+                    if should_underline_word {
+                        underline_success_style
                     } else {
-                        error_style
-                    };
+                        success_style
+                    }
+                } else if should_underline_word {
+                    underline_error_style
+                } else {
+                    error_style
+                };
 
-                    current_line_spans.push(Span::styled(c.to_string(), style));
+                if current_batch_style.is_some() && current_batch_style != Some(style) {
+                    flush_batch(
+                        &mut current_batch,
+                        current_batch_style,
+                        &mut current_line_spans,
+                    );
                 }
 
-                // space in between words handling
-                if i < words.len() - 1
-                    && word_positions
-                        .get(i + 1)
-                        .is_some_and(|next_pos| next_pos.line == pos.line)
-                {
-                    current_line_spans.push(Span::styled(" ".to_string(), Style::default()));
+                current_batch.push(c);
+                current_batch_style = Some(style);
+            }
+
+            flush_batch(
+                &mut current_batch,
+                current_batch_style,
+                &mut current_line_spans,
+            );
+
+            // space in between words handling
+            if idx < words.len() - 1 {
+                let space_idx = word_start + word.len();
+                let space_has_input = termi.tracker.user_input.get(space_idx).is_some();
+                let space_is_skipped = termi.tracker.user_input.get(space_idx) == Some(&None);
+
+                let space_style = if space_is_skipped {
+                    skipped_style
+                } else if space_has_input {
+                    success_style
+                } else {
+                    dim_style
+                };
+
+                if current_batch_style.is_some() && current_batch_style != Some(space_style) {
+                    flush_batch(
+                        &mut current_batch,
+                        current_batch_style,
+                        &mut current_line_spans,
+                    );
                 }
+                current_batch.push(' ');
+                current_batch_style = Some(space_style);
             }
         }
+        flush_batch(
+            &mut current_batch,
+            current_batch_style,
+            &mut current_line_spans,
+        );
 
-        if !current_line_spans.is_empty()
-            && current_line_idx_in_full_text >= first_line_to_render
+        if current_line_idx_in_full_text >= first_line_to_render
             && current_line_idx_in_full_text < last_line_to_render
-            && lines.len() < visible_line_count
         {
             lines.push(Line::from(current_line_spans));
         }
