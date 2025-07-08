@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::OnceLock};
 use rand::{seq::IndexedRandom, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{assets, config::Config, constants::DEFAULT_LANGUAGE};
+use crate::{assets, config::Config, constants::DEFAULT_LANGUAGE, log_debug};
 
 const SYMBOLS: &[char] = &[
     '@', '#', '$', '%', '&', '*', '(', ')', '+', '-', '/', '=', '?', '<', '>', '^', '_', '`', '{',
@@ -81,15 +81,12 @@ impl Builder {
         self.words_cache.reserve(word_count);
 
         if word_count <= base_words.len() {
-            let indices: Vec<usize> = (0..base_words.len()).collect();
-            let selected_indices = indices
+            let selected_words: Vec<_> = base_words
                 .choose_multiple(&mut self.rng_cache, word_count)
-                .copied()
-                .collect::<Vec<usize>>();
+                .collect();
 
-            for idx in selected_indices {
-                self.words_cache.push(base_words[idx].clone());
-            }
+            self.words_cache
+                .extend(selected_words.iter().map(|&word| word.clone()));
         } else {
             for _ in 0..word_count {
                 let idx = self.rng_cache.random_range(0..base_words.len());
@@ -112,6 +109,7 @@ impl Builder {
         }
 
         for (i, word) in self.words_cache.iter().enumerate() {
+            log_debug!("index: {i}, word: {word}");
             if i > 0 {
                 self.result_cache.push(' ');
             }
@@ -143,7 +141,9 @@ impl Builder {
 
     /// Checks if the given language is available.
     pub fn has_language(language: &str) -> bool {
-        Self::available_languages().contains(&language.to_string())
+        Self::available_languages()
+            .iter()
+            .any(|lang| lang == language)
     }
 
     /// Loads the given language.
