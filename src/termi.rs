@@ -175,7 +175,7 @@ impl Termi {
         }
 
         if !self.should_save_results() {
-            notify_info!("Test invalid, too short");
+            notify_info!("Test invalid - too short");
             return false;
         }
 
