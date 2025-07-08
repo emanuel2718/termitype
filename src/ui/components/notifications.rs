@@ -101,8 +101,8 @@ impl NotificationComponent {
                 .clamp(1, 4)
         };
 
-        // y-borders + title + message lines
-        2 + title_height + message_lines
+        // y-borders + title + lork space + message lines
+        2 + title_height + 1 + message_lines
     }
 
     /// Renders a single notification
@@ -129,7 +129,7 @@ impl NotificationComponent {
         let vertical_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1), // icon + title
+                Constraint::Length(2), // icon + title
                 Constraint::Max(4),    // message
             ])
             .split(inner_area);
@@ -139,7 +139,7 @@ impl NotificationComponent {
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Length(1), // icon
-                Constraint::Length(1), // spacing
+                Constraint::Length(2), // spacing
                 Constraint::Min(0),    // title
             ])
             .split(vertical_layout[0]);
