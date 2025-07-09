@@ -35,28 +35,29 @@ impl NotificationComponent {
         let symbols = TermiUtils::get_symbols(theme.supports_unicode());
 
         let notification_width = 35.min(area.width.saturating_sub(4));
-        let margin = 1;
+        let margin_left = 2;
+        let margin_right = 1;
 
         let mut total_height = 0;
         let mut notification_heights = Vec::new();
         for notification in &notifications {
             let height = Self::calculate_notification_height(notification, notification_width);
             notification_heights.push(height);
-            total_height += height + margin;
+            total_height += height;
         }
 
         let (start_x, start_y) = match position {
-            NotificationPosition::TopLeft => (area.x + margin, area.y + margin),
+            NotificationPosition::TopLeft => (area.x + margin_left, area.y),
             NotificationPosition::TopRight => (
-                area.x + area.width.saturating_sub(notification_width + margin),
-                area.y + margin,
+                area.x + area.width.saturating_sub(notification_width + margin_right),
+                area.y,
             ),
             NotificationPosition::BottomLeft => (
-                area.x + margin,
+                area.x + margin_left,
                 area.y + area.height.saturating_sub(total_height),
             ),
             NotificationPosition::BottomRight => (
-                area.x + area.width.saturating_sub(notification_width + margin),
+                area.x + area.width.saturating_sub(notification_width + margin_right),
                 area.y + area.height.saturating_sub(total_height),
             ),
         };
@@ -66,7 +67,7 @@ impl NotificationComponent {
         for (i, notification) in notifications.iter().enumerate() {
             let notification_height = notification_heights[i];
             let notification_area = Rect {
-                x: start_x,
+                x: start_x.saturating_sub(1),
                 y: current_y,
                 width: notification_width,
                 height: notification_height,
@@ -80,7 +81,7 @@ impl NotificationComponent {
             }
 
             Self::render_notification(frame, notification, notification_area, theme, &symbols);
-            current_y += notification_height + margin;
+            current_y += notification_height;
         }
     }
 
