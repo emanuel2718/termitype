@@ -17,8 +17,8 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum TermiAction {
     // === Global ===
-    Quit,
     NoOp, // input that results in no state change
+    Quit,
 
     // === State ===
     Start,
@@ -308,7 +308,6 @@ pub fn process_action(action: TermiAction, termi: &mut Termi) {
         // === Leaderboard Actions ===
         TermiAction::LeaderboardOpen => {
             termi.tracker.pause();
-            termi.menu.close();
             if let Some(leaderboard) = &mut termi.leaderboard {
                 if let Some(db) = &termi.db {
                     leaderboard.open(db);
