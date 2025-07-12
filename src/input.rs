@@ -191,6 +191,7 @@ impl InputHandler {
                 (KeyCode::Char(' '), KeyModifiers::NONE) => TermiAction::MenuSelect,
                 (KeyCode::Char('l') | KeyCode::Char(' '), _) => TermiAction::MenuSelect,
                 (KeyCode::Esc, _) => TermiAction::MenuNavigate(MenuNavAction::Back),
+                (KeyCode::Char('q'), _) => TermiAction::MenuClose,
                 (KeyCode::Char('h'), _) => TermiAction::MenuNavigate(MenuNavAction::Back),
 
                 // nav

@@ -281,6 +281,7 @@ fn build_help_menu() -> Menu {
         "[all] ctrl-z -> Quit (alt)",
         "[all] tab-enter -> Restart Test",
         // === Menu Nav ===
+        "[menu] q -> Close Menu",
         "[menu] ↑/k -> Navigate Up",
         "[menu] ↓/j -> Navigate Down",
         "[menu] gg -> Go to Top",
