@@ -410,7 +410,7 @@ impl ThemeLoader {
             .themes
             .get(theme_name)
             .cloned()
-            .unwrap_or_else(|| Theme::fallback_theme()))
+            .unwrap_or_else(Theme::fallback_theme))
     }
 
     fn parse_theme_file(content: &str, name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
