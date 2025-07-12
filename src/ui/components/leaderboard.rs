@@ -62,8 +62,8 @@ impl LeaderboardComponent {
             ])
             .split(inner_area);
 
-        Self::render_table(f, leaderboard, chunks[1], &theme);
-        Self::render_footer(f, leaderboard, chunks[3], &theme);
+        Self::render_table(f, leaderboard, chunks[1], theme);
+        Self::render_footer(f, leaderboard, chunks[3], theme);
 
         Self::render_close(f, container)
     }

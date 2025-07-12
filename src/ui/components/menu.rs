@@ -106,11 +106,9 @@ impl MenuComponent {
 
     /// Renders the main menu.
     fn render_menu_content(frame: &mut Frame, termi: &mut Termi, area: Rect, small_width: bool) {
-        let theme = termi.current_theme().clone();
-        let menu_state = &mut termi.menu;
         let picker_style = termi.config.resolve_picker_style();
 
-        let hide_menu_footer = (small_width && !menu_state.is_searching())
+        let hide_menu_footer = (small_width && !termi.menu.is_searching())
             || (picker_style == styles::PickerStyle::Minimal);
         let footer_len = if hide_menu_footer { 0 } else { 3 };
         let menu_layout = Layout::default()
@@ -120,9 +118,10 @@ impl MenuComponent {
         let content_area = menu_layout[0];
         let footer_area = menu_layout[1];
 
-        menu_state.ui_height = content_area.height.saturating_sub(2).max(1) as usize;
+        termi.menu.ui_height = content_area.height.saturating_sub(2).max(1) as usize;
 
-        if let Some(current_menu) = menu_state.current_menu() {
+        let theme = termi.current_theme();
+        if let Some(current_menu) = termi.menu.current_menu() {
             let max_visible = content_area.height.saturating_sub(3) as usize;
             let total_items = current_menu.items().len();
 
@@ -130,8 +129,8 @@ impl MenuComponent {
                 Self::calculate_scroll_offset(total_items, max_visible, current_menu);
             let menu_title = current_menu.title.clone();
 
-            let hide_description = (menu_state.is_current_ctx(MenuContext::Help)
-                || menu_state.is_current_ctx(MenuContext::About))
+            let hide_description = (termi.menu.is_current_ctx(MenuContext::Help)
+                || termi.menu.is_current_ctx(MenuContext::About))
                 && small_width;
             let (list_items, total_items) =
                 MenuHelpers::build_menu_items(termi, scroll_offset, max_visible, hide_description);
@@ -150,12 +149,12 @@ impl MenuComponent {
             frame.render_widget(menu_widget, content_area);
 
             if total_items > max_visible {
-                Self::render_scrollbar(frame, content_area, total_items, scroll_offset, &theme);
+                Self::render_scrollbar(frame, content_area, total_items, scroll_offset, theme);
             }
         }
 
         if !hide_menu_footer {
-            Self::render_menu_footer(frame, termi, footer_area, &theme);
+            Self::render_menu_footer(frame, termi, footer_area, theme);
         }
     }
 
@@ -335,7 +334,7 @@ impl MenuComponent {
             ])
             .split(header_layout[1]);
 
-        let header = Paragraph::new(theme.id.clone())
+        let header = Paragraph::new(theme.id.as_ref())
             .style(Style::default().fg(theme.highlight()))
             .alignment(Alignment::Left);
 

@@ -21,7 +21,7 @@ pub struct ThemeLoader {
 
 #[derive(Debug, Clone)]
 pub struct Theme {
-    pub id: String,
+    pub id: Box<str>,
     colors: [Color; NUM_COLORS],
     pub color_support: ColorSupport,
 }
@@ -177,7 +177,7 @@ impl Theme {
         //      could use: https://crates.io/crates/terminal-light
         notify_warning!("Using fallback theme");
         Self {
-            id: "Fallback".to_string(),
+            id: Box::from("Fallback"),
             colors: [
                 Color::Black,        // Background
                 Color::White,        // Foreground
@@ -410,7 +410,7 @@ impl ThemeLoader {
             .themes
             .get(theme_name)
             .cloned()
-            .unwrap_or_else(Theme::fallback_theme))
+            .unwrap_or_else(|| Theme::fallback_theme()))
     }
 
     fn parse_theme_file(content: &str, name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
@@ -459,7 +459,7 @@ impl ThemeLoader {
         colors[ThemeColor::SelectionFg as usize] = parse_color("selection-foreground")?;
 
         Ok(Theme {
-            id: name.to_string(),
+            id: Box::from(name),
             colors,
             color_support: ColorSupport::Extended,
         })
@@ -581,7 +581,7 @@ mod tests {
         let theme = Theme::new(&config);
         // if the given theme does not exists, it will default to the `DEFAULT_THEME`,
         // if that is not found it will default to `Fallbakck` as last measure.
-        assert!(theme.id == DEFAULT_THEME || theme.id == "Fallback");
+        assert!(theme.id.as_ref() == DEFAULT_THEME || theme.id.as_ref() == "Fallback");
     }
 
     #[test]
@@ -591,7 +591,7 @@ mod tests {
         let mut config = Config::new();
         config.theme = Some("random-theme-that-does-not-exists".to_string());
         let theme = Theme::new(&config);
-        assert_eq!(theme.id, "Fallback".to_string());
+        assert_eq!(theme.id.as_ref(), "Fallback");
     }
 
     #[test]
@@ -694,7 +694,7 @@ mod tests {
         assert_eq!(theme.color_support, ColorSupport::Basic);
         assert_eq!(theme.bg(), Color::Black);
         assert_eq!(theme.fg(), Color::White);
-        assert_eq!(theme.id, "Fallback".to_string());
+        assert_eq!(theme.id.as_ref(), "Fallback");
     }
 
     #[test]

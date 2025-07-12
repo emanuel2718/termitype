@@ -38,7 +38,7 @@ impl FooterComponent {
             TermiElement::text(divider),
             TermiElement::spacer(1),
             TermiElement::new(
-                termi.theme.id.clone(),
+                termi.theme.id.as_ref(),
                 termi.preview_theme.is_some(),
                 theme_click_action,
             ),

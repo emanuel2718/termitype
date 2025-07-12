@@ -72,7 +72,7 @@ impl MenuHelpers {
                     max_key_width,
                     hide_description,
                     termi.config.hide_cursorline,
-                    &theme,
+                    theme,
                 );
                 ListItem::new(Line::from(spans))
             }))
