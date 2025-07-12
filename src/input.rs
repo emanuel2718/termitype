@@ -32,12 +32,12 @@ impl InputHandler {
         // TODO: think about improving this resolver
         if termi.modal.is_some() {
             InputMode::Modal
+        } else if termi.leaderboard.is_some() && termi.leaderboard.as_ref().unwrap().is_open() {
+            InputMode::Leaderboard
         } else if termi.menu.is_open() {
             InputMode::Menu {
                 is_searching: termi.menu.is_searching(),
             }
-        } else if termi.leaderboard.is_some() && termi.leaderboard.as_ref().unwrap().is_open() {
-            InputMode::Leaderboard
         } else if termi.tracker.status == Status::Completed {
             InputMode::Results
         } else {
@@ -74,9 +74,9 @@ impl InputHandler {
 
         match mode {
             InputMode::Typing => self.handle_typing_input(event),
+            InputMode::Leaderboard => self.handle_leaderboard_input(event),
             InputMode::Results => self.handle_results_input(event),
             InputMode::Modal => self.handle_modal_input(event),
-            InputMode::Leaderboard => self.handle_leaderboard_input(event),
             InputMode::Menu { is_searching } => self.handle_menu_input(event, is_searching),
         }
     }
