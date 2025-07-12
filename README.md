@@ -162,7 +162,7 @@ tail -f ~/.config/termitype/termitype.log
 
 ## Themes
 
-Termitype includes a curated collection of themes sourced from the [iTerm2 Ghostty Color Schemes Repo](https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/ghostty) repository. Themes are automatically fetched during the build process and can be previewed and changed in real-time.
+Termitype includes a curated collection of themes sourced from the [iTerm2 Ghostty Color Schemes Repo](https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/ghostty) repository. Themes  can be previewed and changed in real-time.
 
 ## Contributing
 
