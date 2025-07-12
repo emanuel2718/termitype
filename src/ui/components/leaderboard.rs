@@ -33,7 +33,7 @@ impl LeaderboardComponent {
             return None;
         }
 
-        let theme = termi.current_theme().clone();
+        let theme = termi.current_theme();
         let width = (area.width as f32 * 0.85).clamp(70.0, 120.0) as u16;
         let height = (area.height as f32 * 0.80).clamp(15.0, 30.0) as u16;
         let container = LayoutHelper::center_rect(area, width, height);

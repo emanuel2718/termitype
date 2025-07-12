@@ -19,7 +19,7 @@ impl MenuHelpers {
         max_visible: usize,
         hide_description: bool,
     ) -> (Vec<ListItem<'a>>, usize) {
-        let theme = termi.current_theme().clone();
+        let theme = termi.current_theme();
 
         let Some(menu) = termi.menu.current_menu() else {
             return (vec![ListItem::new("  No menu content")], 0);
