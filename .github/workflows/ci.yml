@@ -61,9 +61,6 @@ jobs:
         with:
           key: "build"
 
-      - name: Build debug
-        run: cargo build --verbose
-
       - name: Build release
         run: cargo build --release --verbose
 
