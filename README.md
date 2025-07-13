@@ -49,9 +49,17 @@ cargo install --git https://github.com/emanuel2718/termitype.git termitype
 
 ### From Released Binaries
 
-```sh
-# TODO: link to github releases
-```
+**📦 Download prebuilt binaries from the [latest release](https://github.com/emanuel2718/termitype/releases)**
+
+Pre-compiled binaries are available for the following platforms:
+
+| Platform    | Architecture  | Download                                                                                                                               |
+| ----------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Linux**   | x86_64 (gnu)  | [Download Latest](https://github.com/emanuel2718/termitype/releases/download/v0.0.6/termitype-v0.0.6-x86_64-unknown-linux-gnu.tar.gz)  |
+| **Linux**   | x86_64 (musl) | [Download Latest](https://github.com/emanuel2718/termitype/releases/download/v0.0.6/termitype-v0.0.6-x86_64-unknown-linux-musl.tar.gz) |
+| **macOS**   | Intel         | [Download Latest](https://github.com/emanuel2718/termitype/releases/download/v0.0.6/termitype-v0.0.6-x86_64-apple-darwin.tar.gz)       |
+| **macOS**   | Apple Silicon | [Download Latest](https://github.com/emanuel2718/termitype/releases/download/v0.0.6/termitype-v0.0.6-aarch64-apple-darwin.tar.gz)      |
+| **Windows** | x86_64        | [Download Latest](https://github.com/emanuel2718/termitype/releases/download/v0.0.6/termitype-v0.0.6-x86_64-pc-windows-msvc.zip)       |
 
 ### From Package Manager
 
@@ -162,7 +170,7 @@ tail -f ~/.config/termitype/termitype.log
 
 ## Themes
 
-Termitype includes a curated collection of themes sourced from the [iTerm2 Ghostty Color Schemes Repo](https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/ghostty) repository. Themes  can be previewed and changed in real-time.
+Termitype includes a curated collection of themes sourced from the [iTerm2 Ghostty Color Schemes Repo](https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/ghostty) repository. Themes can be previewed and changed in real-time.
 
 ## Contributing
 
