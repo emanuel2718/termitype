@@ -2,12 +2,15 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    # branches: ["main"]
+    branches: ["ci/test-workflow"]
   pull_request:
     branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
   test:
@@ -21,20 +24,24 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Cache dependencies
-        uses: actions/cache@v3
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          tool: cargo-audit
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "test"
 
       - name: Check formatting
         run: cargo fmt --all -- --check
 
       - name: Clippy
         run: cargo clippy -- -D warnings
+
+      - name: Security audit
+        run: cargo audit
 
       - name: Run tests
         run: cargo test
@@ -49,17 +56,37 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache dependencies
-        uses: actions/cache@v3
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: "build"
 
-      - name: Build
+      - name: Build debug
         run: cargo build --verbose
 
       - name: Build release
         run: cargo build --release --verbose
+
+  cross-platform:
+    name: Cross-platform check
+    needs: test
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "cross-${{ matrix.os }}"
+
+      - name: Build
+        run: cargo build
+
+      - name: Test
+        run: cargo test
