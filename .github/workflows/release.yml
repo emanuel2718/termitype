@@ -28,7 +28,6 @@ permissions:
 jobs:
   build:
     name: Build release binaries
-    environment: production
     strategy:
       matrix:
         include:
@@ -105,7 +104,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: build
-    environment: production
+    environment: release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -139,7 +138,7 @@ jobs:
   publish:
     name: Publish to crates.io
     needs: release
-    environment: production
+    environment: publish
     runs-on: ubuntu-latest
     if: inputs.publish_crates
     steps:
