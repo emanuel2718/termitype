@@ -26,7 +26,7 @@
 
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "termitype";
-          version = "0.0.5";
+          version = "0.0.6";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
         };
