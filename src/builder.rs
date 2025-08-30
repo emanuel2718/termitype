@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::OnceLock};
 use rand::{seq::IndexedRandom, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{assets, config::Config, constants::DEFAULT_LANGUAGE, log_debug};
+use crate::{assets, config::Config, constants::DEFAULT_LANGUAGE};
 
 const SYMBOLS: &[char] = &[
     '@', '#', '$', '%', '&', '*', '(', ')', '+', '-', '/', '=', '?', '<', '>', '^', '_', '`', '{',
@@ -109,7 +109,6 @@ impl Builder {
         }
 
         for (i, word) in self.words_cache.iter().enumerate() {
-            log_debug!("index: {i}, word: {word}");
             if i > 0 {
                 self.result_cache.push(' ');
             }

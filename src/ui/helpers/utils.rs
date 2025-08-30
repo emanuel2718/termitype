@@ -130,7 +130,7 @@ impl TermiSymbols {
             warning: "⚠",
             error: "✗",
             custom: "⚙",
-            info: "ⓘ",
+            info: "",
             cursor: "█",
             up_arrow: "↑",
             down_arrow: "↓",
