@@ -13,7 +13,7 @@ use super::elements::TermiElement;
 pub struct ModeBarComponent;
 
 impl ModeBarComponent {
-    pub fn create(termi: &Termi) -> Vec<TermiElement> {
+    pub fn create(termi: &Termi) -> Vec<TermiElement<'_>> {
         let status = termi.tracker.status.clone();
         let theme = termi.current_theme();
 

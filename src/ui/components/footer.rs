@@ -12,7 +12,7 @@ use super::elements::TermiElement;
 pub struct FooterComponent;
 
 impl FooterComponent {
-    pub fn create(termi: &Termi) -> Vec<TermiElement> {
+    pub fn create(termi: &Termi) -> Vec<TermiElement<'_>> {
         let theme = termi.current_theme();
         let symbols = TermiUtils::get_symbols(theme.supports_unicode());
 

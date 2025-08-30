@@ -35,7 +35,7 @@ impl TermiUtils {
         }
     }
 
-    pub fn create_menu_footer_text(termi: &crate::termi::Termi) -> ratatui::text::Line {
+    pub fn create_menu_footer_text(termi: &crate::termi::Termi) -> ratatui::text::Line<'_> {
         use ratatui::{
             style::{Modifier, Style},
             text::{Line, Span},
@@ -80,7 +80,7 @@ impl TermiUtils {
         }
     }
 
-    pub fn create_results_footer_text(theme: &crate::theme::Theme) -> ratatui::text::Line {
+    pub fn create_results_footer_text(theme: &crate::theme::Theme) -> ratatui::text::Line<'_> {
         use ratatui::{
             layout::Alignment,
             style::Style,

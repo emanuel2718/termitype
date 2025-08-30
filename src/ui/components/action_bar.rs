@@ -12,7 +12,7 @@ use super::elements::TermiElement;
 pub struct ActionBarComponent;
 
 impl ActionBarComponent {
-    pub fn create(termi: &Termi) -> Vec<TermiElement> {
+    pub fn create(termi: &Termi) -> Vec<TermiElement<'_>> {
         let theme = termi.current_theme();
         let config = &termi.config;
         let current_value = config.current_mode().value();

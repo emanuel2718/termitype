@@ -10,7 +10,7 @@ use super::elements::TermiElement;
 pub struct CommandBarComponent;
 
 impl CommandBarComponent {
-    pub fn create(termi: &Termi) -> Vec<TermiElement> {
+    pub fn create(termi: &Termi) -> Vec<TermiElement<'_>> {
         let theme = termi.current_theme();
 
         let command_groups = [

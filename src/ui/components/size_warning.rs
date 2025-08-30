@@ -14,7 +14,7 @@ use crate::ui::helpers::TermiStyle;
 pub struct SizeWarningComponent;
 
 impl SizeWarningComponent {
-    pub fn create(termi: &Termi, width: u16, height: u16) -> Vec<TermiElement> {
+    pub fn create(termi: &Termi, width: u16, height: u16) -> Vec<TermiElement<'_>> {
         let theme = termi.current_theme();
         let warning_lines = vec![
             Line::from(Span::styled("! size too small", TermiStyle::error(theme))),

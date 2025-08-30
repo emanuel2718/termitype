@@ -87,7 +87,7 @@ impl MenuComponent {
     }
 
     /// Create a "show menu" button. Used on size constrained situations.
-    pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement> {
+    pub fn create_show_menu_button(termi: &Termi) -> Vec<TermiElement<'_>> {
         let theme = termi.current_theme();
         let menu_text = "≡ Show Menu";
         let padding = " ".repeat((menu_text.len() / 2).max(1));
