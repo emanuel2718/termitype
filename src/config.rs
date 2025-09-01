@@ -1,766 +1,327 @@
-use std::str::FromStr;
-
-use clap::{ArgGroup, Parser};
-use crossterm::cursor::SetCursorStyle;
-
 use crate::{
-    ascii::get_os_default_ascii_art,
-    builder::Builder,
-    constants::{
-        DEFAULT_CURSOR_STYLE, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_PICKER_STYLE,
-        DEFAULT_RESULTS_STYLE, DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION, DEFAULT_WORD_MODE_COUNT,
-        WPS_TARGET,
-    },
+    cli::Cli,
+    constants::{DEFAULT_LANGUAGE, DEFAULT_TIME_MODE_DURATION_IN_SECS, DEFAULT_WORD_MODE_COUNT},
     persistence::Persistence,
-    styles::{PickerStyle, ResultsStyle},
-    theme::{ColorSupport, Theme, ThemeLoader},
 };
+use anyhow::Result;
+use clap::Parser;
+use serde::{Deserialize, Serialize};
+use std::{fmt, num::NonZeroUsize, time::Duration};
 
-#[derive(Parser, Debug, Clone)]
-#[command(
-    name = "termitype",
-    about = "Terminal-based typing game.",
-    after_help = "EXAMPLES:\n  \
-                  termitype -t 60                        Run a 60-second typing test\n  \
-                  termitype --word-count 100             Test will contain exactly 100 words\n  \
-                  termitype -T \"catppuccin-mocha\"        Use cattpuccin-mocha theme\n  \
-                  termitype -l spanish                   Use Spanish test words\n  \
-                  termitype -spn                         Enable symbols, punctuation, and numbers\n  \
-                  termitype --list-themes                Show all available themes\n  \
-                  termitype --results-style neofetch     Use neofetch inspired results\n  \
-                  termitype --picker-style telescope     Use floating menu style\n\n\
-                  Note that all of the options can also be changed at runtime as well via the menu\n\
-                  Visit https://github.com/emanuel2718/termitype for more information.",
-    version
-)]
-#[command(group(
-    ArgGroup::new("mode")
-        .args(&["time", "word_count"])
-        .required(false)
-        .multiple(false)
-))]
-pub struct Config {
-    /// Language dictionary to use
-    #[arg(
-        short = 'l',
-        long,
-        value_name = "LANG",
-        help = "Language dictionary to use"
-    )]
-    pub language: Option<String>,
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TimeModeValue(NonZeroUsize);
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+pub struct WordsModeValue(NonZeroUsize);
 
-    /// Test duration in seconds
-    #[arg(
-        short = 't',
-        long = "time",
-        group = "mode",
-        value_name = "SECONDS",
-        help = "Test duration in seconds"
-    )]
-    pub time: Option<u64>,
+impl TimeModeValue {
+    pub fn new(value: usize) -> Self {
+        Self(
+            NonZeroUsize::new(value)
+                .unwrap_or(NonZeroUsize::new(DEFAULT_TIME_MODE_DURATION_IN_SECS).unwrap()),
+        )
+    }
 
-    /// Custom words for the test
-    #[arg(
-        short = 'w',
-        long = "words",
-        group = "mode",
-        value_name = "\"WORD1 WORD2 ...\"",
-        help = "Custom words for the test"
-    )]
-    pub words: Option<String>,
+    fn get(&self) -> usize {
+        self.0.get()
+    }
 
-    /// Number of words to type
-    #[arg(
-        long = "word-count",
-        group = "mode",
-        value_name = "COUNT",
-        help = "Number of words to type"
-    )]
-    pub word_count: Option<usize>,
-
-    /// Include symbols in test words
-    #[arg(
-        short = 's',
-        long = "use-symbols",
-        help = "Include symbols in test words"
-    )]
-    pub use_symbols: bool,
-
-    /// Include punctuation in test words
-    #[arg(
-        short = 'p',
-        long = "use-punctuation",
-        help = "Include punctuation in test words"
-    )]
-    pub use_punctuation: bool,
-
-    /// Include numbers in test words
-    #[arg(
-        short = 'n',
-        long = "use-numbers",
-        help = "Include numbers in test words"
-    )]
-    pub use_numbers: bool,
-
-    /// Number of visible text lines
-    #[arg(
-        long = "lines",
-        default_value_t = DEFAULT_LINE_COUNT,
-        value_name = "COUNT",
-        help = "Number of visible text lines"
-    )]
-    pub visible_lines: u8,
-
-    /// Theme to use
-    #[arg(
-        short = 'T',
-        long = "theme",
-        value_name = "THEME",
-        help = "Theme to use"
-    )]
-    pub theme: Option<String>,
-
-    /// ASCII art for results screen
-    #[arg(
-        long = "ascii",
-        value_name = "ART",
-        help = "ASCII art for results screen"
-    )]
-    pub ascii: Option<String>,
-
-    /// Menu Picker style
-    #[arg(
-        long = "picker-style",
-        value_name = "STYLE",
-        value_parser = ["quake", "telescope", "ivy", "minimal"],
-        help = "Menu style"
-    )]
-    pub picker_style: Option<String>,
-
-    /// Results display style
-    #[arg(
-        long = "results-style",
-        value_name = "STYLE",
-        value_parser = ["graph", "minimal", "neofetch"],
-        help = "Results display style"
-    )]
-    pub results_style: Option<String>,
-
-    /// Cursor style
-    #[arg(
-        long = "cursor-style",
-        value_name = "STYLE",
-        value_parser = ["beam", "block", "underline", "blinking-beam", "blinking-block", "blinking-underline"],
-        help = "Cursor style"
-    )]
-    pub cursor_style: Option<String>,
-
-    /// Display FPS counter
-    #[arg(long = "show-fps", help = "Display FPS counter")]
-    pub show_fps: bool,
-
-    /// Hide live WPM counter
-    #[arg(long = "hide-live-wpm", help = "Hide live WPM counter")]
-    pub hide_live_wpm: bool,
-
-    /// Hide menu cursor highlight
-    #[arg(long = "hide-cursorline", help = "Hide menu cursor highlight")]
-    pub hide_cursorline: bool,
-
-    /// Hide notifications
-    #[arg(long = "hide-notifications", help = "Hide notification")]
-    pub hide_notifications: bool,
-
-    /// Use simplified results colors
-    #[arg(long = "monochromatic-results", help = "Use simplified results colors")]
-    pub monocrhomatic_results: bool,
-
-    /// List all available themes
-    #[arg(long = "list-themes", help = "List all available themes")]
-    pub list_themes: bool,
-
-    /// List all available languages
-    #[arg(long = "list-languages", help = "List all available languages")]
-    pub list_languages: bool,
-
-    /// List all available ASCII arts
-    #[arg(long = "list-ascii", help = "List all available ASCII arts")]
-    pub list_ascii: bool,
-
-    /// Color support level
-    #[arg(
-        long = "color-mode",
-        value_name = "MODE",
-        value_parser = ["basic", "extended", "truecolor"],
-        help = "Color support"
-    )]
-    pub color_mode: Option<String>,
-
-    /// Do not locally track tests results nor stats
-    #[arg(
-        long = "no-track",
-        help = "Do not locally track test results nor stats"
-    )]
-    pub no_track: bool,
-
-    /// Reset and clears the content of the local database
-    #[arg(
-        long = "reset-db",
-        help = "Reset and clears the content of the local database"
-    )]
-    pub reset_db: bool,
-
-    /// Enable debug mode
-    #[cfg(debug_assertions)]
-    #[arg(short = 'd', long = "debug", help = "Enable debug mode")]
-    pub debug: bool,
-
-    /// Stores the persistence of the game. Set automatically.
-    #[arg(skip)]
-    persistent: Option<Persistence>,
+    pub fn duration(&self) -> Duration {
+        Duration::from_secs(self.get() as u64)
+    }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
-pub enum ModeType {
-    Time = 0,
-    Words = 1,
+impl WordsModeValue {
+    pub fn new(value: usize) -> Self {
+        Self(
+            NonZeroUsize::new(value).unwrap_or(NonZeroUsize::new(DEFAULT_WORD_MODE_COUNT).unwrap()),
+        )
+    }
+
+    pub fn count(&self) -> usize {
+        self.0.get()
+    }
 }
 
-/// Represents the operationlal mode of the game>
-pub enum Mode {
-    Time { duration: u64 },
-    Words { count: usize },
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+pub enum ModeValue {
+    Time(TimeModeValue),
+    Words(WordsModeValue),
+}
+
+impl ModeValue {
+    pub fn duration(&self) -> Option<Duration> {
+        match self {
+            ModeValue::Time(time) => Some(time.duration()),
+            ModeValue::Words(_) => None,
+        }
+    }
+
+    pub fn count(&self) -> Option<usize> {
+        match self {
+            ModeValue::Time(_) => None,
+            ModeValue::Words(words) => Some(words.count()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+pub enum ModeKind {
+    Time,
+    Words,
+}
+
+/// Represents a typing test mode, either time-based or word-count based.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Mode {
+    kind: ModeKind,
+    value: ModeValue,
 }
 
 impl Mode {
-    /// Returns the value of the current mode.
+    /// Returns the duration of the test in seconds if is a time-limited test.
+    pub fn duration(&self) -> Option<Duration> {
+        self.value.duration()
+    }
+
+    /// Returns the number of words in the test word pool if is a word based test.
+    pub fn count(&self) -> Option<usize> {
+        self.value.count()
+    }
+
+    /// Returns true if this is a time-based mode.
+    pub fn is_time_mode(&self) -> bool {
+        matches!(self.kind, ModeKind::Time)
+    }
+
+    /// Returns true if this is a word-count based mode.
+    pub fn is_words_mode(&self) -> bool {
+        matches!(self.kind, ModeKind::Words)
+    }
+
+    /// Returns the value of the mode: seconds for time mode, word count for words mode.
     pub fn value(&self) -> usize {
-        match self {
-            Mode::Time { duration } => *duration as usize,
-            Mode::Words { count } => *count,
+        match &self.value {
+            ModeValue::Time(t) => t.0.get(),
+            ModeValue::Words(w) => w.0.get(),
+        }
+    }
+
+    /// Creates a new time-based Mode with the specified duration in seconds.
+    ///
+    /// This is a convenience method for creating a time-limited typing test.
+    /// If secs is 0, it uses the default duration.
+    ///
+    /// # Arguments
+    /// * `secs` - The duration of the test in seconds
+    ///
+    /// # Returns
+    /// The new Mode
+    ///
+    /// # Examples
+    /// ```
+    /// use termitype::config::Mode;
+    /// let mode = Mode::with_time(60); // 1-minute test
+    /// ```
+    pub fn with_time(secs: usize) -> Self {
+        Self::change_mode(ModeKind::Time, secs)
+    }
+
+    /// Creates a new word-count based Mode with the specified number of words.
+    ///
+    /// This is a convenience method for creating a word-count limited typing test.
+    /// If count is 0, it uses the default word count.
+    ///
+    /// # Arguments
+    /// * `count` - The number of words to type
+    ///
+    /// # Returns
+    /// The new Mode
+    ///
+    /// # Examples
+    /// ```
+    /// use termitype::config::Mode;
+    /// let mode = Mode::with_words(50); // 50-word test
+    /// ```
+    pub fn with_words(count: usize) -> Self {
+        Self::change_mode(ModeKind::Words, count)
+    }
+
+    /// Internal helper function to create a Mode based on the given kind and value.
+    ///
+    /// This function handles the common logic for both time and words modes,
+    /// constructing the appropriate ModeValue. If val is 0, it uses the default value.
+    ///
+    /// # Arguments
+    /// * `kind` - The type of mode to create
+    /// * `val` - The value (seconds for Time, count for Words)
+    ///
+    /// # Returns
+    /// The new Mode
+    fn change_mode(kind: ModeKind, val: usize) -> Self {
+        match kind {
+            ModeKind::Time => Self {
+                kind: ModeKind::Time,
+                value: ModeValue::Time(TimeModeValue::new(val)),
+            },
+            ModeKind::Words => Self {
+                kind: ModeKind::Words,
+                value: ModeValue::Words(WordsModeValue::new(val)),
+            },
         }
     }
 }
 
-impl Default for Config {
+impl fmt::Display for Mode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.value {
+            ModeValue::Time(t) => write!(f, "Time: {} seconds", t.0.get()),
+            ModeValue::Words(w) => write!(f, "Words: {}", w.0.get()),
+        }
+    }
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Self::with_time(DEFAULT_TIME_MODE_DURATION_IN_SECS)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigState {
+    pub mode: Mode,
+    pub language: Option<String>,
+    pub numbers: bool,
+    pub symbols: bool,
+    pub punctuation: bool,
+    #[serde(default)]
+    pub debug: bool,
+}
+
+impl Default for ConfigState {
     fn default() -> Self {
         Self {
-            time: Some(30),
-            words: None,
-            word_count: None,
-            use_symbols: false,
-            use_numbers: false,
-            use_punctuation: false,
-            theme: None,
-            ascii: Some(get_os_default_ascii_art().to_string()),
+            mode: Mode::default(),
             language: Some(DEFAULT_LANGUAGE.to_string()),
-            cursor_style: Some(DEFAULT_CURSOR_STYLE.to_string()),
-            picker_style: Some(DEFAULT_PICKER_STYLE.to_string()),
-            results_style: Some(DEFAULT_RESULTS_STYLE.to_string()),
-            visible_lines: DEFAULT_LINE_COUNT,
-            color_mode: None,
-            list_ascii: false,
-            list_themes: false,
-            list_languages: false,
-            show_fps: false,
-            hide_live_wpm: false,
-            hide_cursorline: false,
-            hide_notifications: false,
-            monocrhomatic_results: false,
-            no_track: false,
-            reset_db: false,
-            #[cfg(debug_assertions)]
+            numbers: false,
+            symbols: false,
+            punctuation: false,
             debug: false,
-            persistent: None,
         }
     }
 }
 
+#[derive(Debug, Default)]
+pub struct Config {
+    state: ConfigState,
+    persistence: Persistence,
+}
+
+// impl Default for Config {}
+
 impl Config {
-    /// Returns a new instance of the Config struct with default values.
-    pub fn new() -> Self {
-        let mut config = Self::default();
-        Self::override_with_persistence(&mut config);
-        config
-    }
-
-    /// Generic method to update a field and persist it automatically
-    fn update_and_persist<T, F>(&mut self, key: &str, value: &T, update_fn: F)
-    where
-        T: ToString + ?Sized,
-        F: FnOnce(&mut Self, &T),
-    {
-        update_fn(self, value);
-        if let Some(persistence) = &mut self.persistent {
-            let _ = persistence.set(key, &value.to_string());
-        }
-    }
-
-    fn override_with_persistence(&mut self) {
-        if let Ok(mut persistence) = Persistence::new() {
-            // Theme
-            if self.theme.is_none() {
-                if let Some(theme) = persistence.get("theme") {
-                    if self.theme.is_none() && ThemeLoader::has_theme(theme) {
-                        self.theme = Some(theme.to_string());
-                    }
-                } else {
-                    self.theme = Some(DEFAULT_THEME.to_string())
-                }
-            }
-
-            // Ascii Art
-            if self.ascii.is_none() {
-                if let Some(art_name) = persistence.get("ascii") {
-                    self.ascii = Some(art_name.to_string());
-                } else {
-                    let os_default = get_os_default_ascii_art();
-                    self.ascii = Some(os_default.to_string());
-                    let _ = persistence.set("ascii", os_default);
-                }
-            }
-
-            // Cursor
-            if self.cursor_style.is_none() {
-                if let Some(cursor) = persistence.get("cursor") {
-                    self.change_cursor_style(cursor);
-                } else {
-                    self.cursor_style = Some(DEFAULT_CURSOR_STYLE.to_string())
-                }
-            }
-
-            // Picker Style
-            if self.picker_style.is_none() {
-                if let Some(picker) = persistence.get("picker_style") {
-                    if picker.parse::<PickerStyle>().is_ok() {
-                        self.picker_style = Some(picker.to_string());
-                    }
-                } else {
-                    self.picker_style = Some(DEFAULT_PICKER_STYLE.to_string())
-                }
-            }
-
-            // Current Mode
-            if self.time.is_none() && self.words.is_none() {
-                // Mode and its value
-                let mode_type = persistence
-                    .get("mode")
-                    .and_then(|mode| self.resolve_mode_from_str(mode));
-                let mode_value = persistence
-                    .get("mode_value")
-                    .and_then(|val| val.parse::<usize>().ok());
-
-                if let Some(mode_type) = mode_type {
-                    self.change_mode(mode_type, mode_value);
-                }
-            }
-
-            // Language
-            if self.language.is_none() {
-                if let Some(lang) = persistence.get("language") {
-                    if Builder::has_language(lang) {
-                        self.language = Some(lang.to_string());
-                    }
-                } else {
-                    self.language = Some(DEFAULT_LANGUAGE.to_string())
-                }
-            }
-
-            // Symbols
-            if !self.use_symbols {
-                if let Some(use_symbols) = persistence.get("use_symbols") {
-                    let val = match use_symbols {
-                        "false" => false,
-                        "true" => true,
-                        _ => false,
-                    };
-                    self.use_symbols = val;
-                }
-            }
-
-            // Numbers
-            if !self.use_numbers {
-                if let Some(use_numbers) = persistence.get("use_numbers") {
-                    let val = match use_numbers {
-                        "false" => false,
-                        "true" => true,
-                        _ => false,
-                    };
-                    self.use_numbers = val;
-                }
-            }
-
-            // Punctuation
-            if !self.use_punctuation {
-                if let Some(use_punctuation) = persistence.get("use_punctuation") {
-                    let val = match use_punctuation {
-                        "false" => false,
-                        "true" => true,
-                        _ => false,
-                    };
-                    self.use_punctuation = val;
-                }
-            }
-
-            // TODO: refactor the way we do this. Going to get RSI from this...
-
-            // Live WPM
-            if !self.hide_live_wpm {
-                if let Some(hide_live_wpm) = persistence.get("hide_live_wpm") {
-                    let val = matches!(hide_live_wpm, "true");
-                    self.hide_live_wpm = val;
-                }
-            }
-
-            // Cursorline
-            if !self.hide_cursorline {
-                if let Some(hide_cursorline) = persistence.get("hide_cursorline") {
-                    let val = matches!(hide_cursorline, "true");
-                    self.hide_cursorline = val;
-                }
-            }
-
-            // Notifications
-            if !self.hide_notifications {
-                if let Some(hide_notifications) = persistence.get("hide_notifications") {
-                    let val = matches!(hide_notifications, "true");
-                    self.hide_notifications = val;
-                }
-            }
-
-            // Results Style
-            if self.results_style.is_none() {
-                if let Some(results_style) = persistence.get("results_style") {
-                    if results_style.parse::<ResultsStyle>().is_ok() {
-                        self.results_style = Some(results_style.to_string());
-                    }
-                } else {
-                    self.results_style = Some(DEFAULT_RESULTS_STYLE.to_string())
-                }
-            }
-
-            // Show FPS
-            if !self.show_fps {
-                if let Some(show_fps) = persistence.get("show_fps") {
-                    let val = matches!(show_fps, "true");
-                    self.show_fps = val;
-                }
-            }
-
-            // Monochromatic Results
-            if !self.monocrhomatic_results {
-                if let Some(monocrhomatic_results) = persistence.get("monocrhomatic_results") {
-                    let val = matches!(monocrhomatic_results, "true");
-                    self.monocrhomatic_results = val;
-                }
-            }
-
-            self.persistent = Some(persistence);
-        }
-    }
-
-    pub fn try_parse() -> Result<Self, clap::Error> {
-        let mut config = <Self as Parser>::try_parse()?;
-        Self::override_with_persistence(&mut config);
+    pub fn new() -> Result<Self> {
+        let args = Cli::parse();
+        let persistence = Persistence::new()?;
+        let mut config = Self {
+            state: Self::load_state(&persistence)?,
+            persistence,
+        };
+        config.apply_cli_args(args);
+        config.persist()?;
         Ok(config)
     }
 
-    /// Resolves the mode based onf the provided arguments
-    /// Defaults to time mode with (30) seconds if no options are provided.
-    /// If *both* `time` and `word` mode are passed, it will default to time mode.
+    fn load_state(p: &Persistence) -> Result<ConfigState> {
+        if let Some(j) = p.get("config") {
+            Ok(serde_json::from_str(j)?)
+        } else {
+            Ok(ConfigState::default())
+        }
+    }
+
+    fn persist(&mut self) -> Result<()> {
+        let json = serde_json::to_string(&self.state)?;
+        let _ = self.persistence.set("config", &json);
+        self.persistence.flush()?;
+        Ok(())
+    }
+
+    fn apply_cli_args(&mut self, cli: Cli) {
+        if let Some(time) = cli.time {
+            self.state.mode = Mode::with_time(time as usize);
+            // TODO: maybe is not a good idea to internally unwrap the option. It could be confusing for the user
+            // if let Ok(mode) = Mode::with_time(time as usize) {
+            //     self.state.mode = mode;
+            // }
+        }
+
+        // NOTE: this is wrong. Currently `with_words` assumes we pass the number of words but
+        // really what we want to pass is the words that the test itself is going to use.
+        if let Some(count) = cli.words_count {
+            self.state.mode = Mode::with_words(count)
+        }
+
+        if cli.use_symbols {
+            self.state.symbols = true;
+        }
+
+        if cli.use_numbers {
+            self.state.numbers = true;
+        }
+
+        if cli.use_punctuation {
+            self.state.punctuation = true;
+        }
+
+        #[cfg(debug_assertions)]
+        if cli.debug {
+            self.state.debug = true;
+        }
+    }
+
     pub fn current_mode(&self) -> Mode {
-        if let Some(words) = self.words.clone() {
-            Mode::Words {
-                count: words.split_ascii_whitespace().count(),
-            }
-        } else {
-            match (self.time, self.word_count) {
-                (Some(time), None) => Mode::Time { duration: time },
-                (None, Some(count)) => Mode::Words { count },
-                (None, None) => Mode::Time { duration: 30 },
-                _ => unreachable!("Both Time mode and Words mode cannot be used at the same time."),
-            }
-        }
+        self.state.mode
     }
 
-    pub fn current_mode_type(&self) -> ModeType {
-        match self.current_mode() {
-            Mode::Time { .. } => ModeType::Time,
-            Mode::Words { .. } => ModeType::Words,
-        }
-    }
-
-    /// Changes the mode of the game.
-    pub fn change_mode(&mut self, mode: ModeType, value: Option<usize>) {
-        match mode {
-            ModeType::Time => {
-                let duration = value.unwrap_or(DEFAULT_TIME_MODE_DURATION) as u64;
-                self.update_and_persist("mode", "Time", |config, _mode_str| {
-                    config.word_count = None;
-                    config.time = Some(duration);
-                });
-                let mode_value = value.unwrap_or(30);
-                self.update_and_persist("mode_value", &mode_value, |_, _| {});
-            }
-            ModeType::Words => {
-                let count = value.unwrap_or(DEFAULT_WORD_MODE_COUNT);
-                self.update_and_persist("mode", "Words", |config, _mode_str| {
-                    config.time = None;
-                    config.word_count = Some(count);
-                });
-                self.update_and_persist("mode_value", &count, |_, _| {});
-            }
-        }
-    }
-
-    /// Chages the current theme of the game.
-    pub fn change_theme(&mut self, theme_name: &str) {
-        self.update_and_persist("theme", theme_name, |config, theme| {
-            config.theme = Some(theme.to_string());
-        });
-    }
-
-    /// Changes the language if available.
-    pub fn change_language(&mut self, lang: &str) -> bool {
-        if Builder::has_language(lang) {
-            self.update_and_persist("language", lang, |config, language| {
-                config.language = Some(language.to_string());
-            });
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Chages the number of visible lines in the test.
-    pub fn change_visible_lines(&mut self, lines: u8) {
-        self.visible_lines = lines;
-    }
-
-    /// Chages the current style of the cursor.
-    pub fn change_cursor_style(&mut self, style: &str) {
-        self.update_and_persist("cursor", style, |config, cursor_style| {
-            config.cursor_style = Some(cursor_style.to_string());
-        });
-    }
-
-    /// Resets the words flag after a test has been run with it.
-    pub fn reset_words_flag(&mut self) {
-        self.words = None;
-    }
-
-    /// Changes the value of the current mode.
-    pub fn change_mode_value(&mut self, value: usize) {
-        match self.current_mode() {
-            Mode::Time { .. } => self.time = Some(value as u64),
-            Mode::Words { .. } => self.word_count = Some(value),
-        }
-        self.update_and_persist("mode_value", &value, |_, _| {});
-    }
-
-    fn resolve_mode_from_str(&self, mode: &str) -> Option<ModeType> {
-        match mode {
-            "Time" => Some(ModeType::Time),
-            "Words" => Some(ModeType::Words),
-            _ => None,
-        }
-    }
-
-    /// Resolves the current mode to a human-readable `String`
-    pub fn resolve_mode_type_to_str(&self) -> String {
-        if self.words.is_some() {
-            "Words".to_string()
-        } else {
-            "Time".to_string()
-        }
-    }
-
-    /// Resolves the current language to a `String`
-    pub fn resolve_language_to_str(&self) -> String {
-        self.language
+    pub fn current_language(&self) -> String {
+        self.state
+            .language
             .clone()
-            .unwrap_or(DEFAULT_LANGUAGE.to_string())
+            .unwrap_or_else(|| DEFAULT_LANGUAGE.to_string())
     }
 
-    /// Resolves the test word count based on current configuration.
-    pub fn resolve_word_count(&self) -> usize {
-        if let Some(word_count) = self.word_count {
-            word_count
-        } else if let Some(duration) = self.time {
-            let estimated_wc = (duration as f64 * WPS_TARGET).ceil() as usize;
-            std::cmp::max(estimated_wc, DEFAULT_WORD_MODE_COUNT)
-        } else {
-            let estimated_wc = (DEFAULT_WORD_MODE_COUNT as f64 * WPS_TARGET).ceil() as usize;
-            std::cmp::max(estimated_wc, DEFAULT_WORD_MODE_COUNT)
-        }
+    pub fn change_mode(&mut self, mode: Mode) -> Result<()> {
+        self.state.mode = mode;
+        Ok(())
     }
 
-    /// Resolves the test duration based on current configuration.
-    pub fn resolve_duration(&self) -> u64 {
-        match (self.time, self.word_count) {
-            (Some(duration), None) => duration,
-            _ => DEFAULT_TIME_MODE_DURATION as u64,
-        }
+    pub fn using_symbols(&self) -> bool {
+        self.state.symbols
     }
 
-    /// Resolves the cursor style based on current configuration.
-    pub fn resolve_current_cursor_style(&self) -> SetCursorStyle {
-        if let Some(style) = &self.cursor_style {
-            match style.as_str() {
-                "beam" => SetCursorStyle::SteadyBar,
-                "block" => SetCursorStyle::DefaultUserShape,
-                "underline" => SetCursorStyle::SteadyUnderScore,
-                "blinking-beam" => SetCursorStyle::BlinkingBar,
-                "blinking-block" => SetCursorStyle::BlinkingBlock,
-                "blinking-underline" => SetCursorStyle::BlinkingUnderScore,
-                _ => SetCursorStyle::BlinkingBar, // default to beam style
-            }
-        } else {
-            SetCursorStyle::BlinkingBar
-        }
+    pub fn using_numbers(&self) -> bool {
+        self.state.numbers
     }
 
-    pub fn resolve_cursor_style_from_name(&self, name: &str) -> SetCursorStyle {
-        match name {
-            "beam" => SetCursorStyle::SteadyBar,
-            "block" => SetCursorStyle::DefaultUserShape,
-            "underline" => SetCursorStyle::SteadyUnderScore,
-            "blinking-beam" => SetCursorStyle::BlinkingBar,
-            "blinking-block" => SetCursorStyle::BlinkingBlock,
-            "blinking-underline" => SetCursorStyle::BlinkingUnderScore,
-            _ => SetCursorStyle::SteadyBar,
-        }
+    pub fn using_punctuation(&self) -> bool {
+        self.state.punctuation
     }
 
-    pub fn resolve_cursor_name_from_style(&self, style: &Option<SetCursorStyle>) -> &str {
-        if let Some(style) = style {
-            match style {
-                SetCursorStyle::SteadyBar => "beam",
-                SetCursorStyle::DefaultUserShape => "block",
-                SetCursorStyle::SteadyUnderScore => "underline",
-                SetCursorStyle::BlinkingBar => "blinking-beam",
-                SetCursorStyle::BlinkingBlock => "blinking-block",
-                SetCursorStyle::BlinkingUnderScore => "blinking-underline",
-                _ => "beam",
-            }
-        } else {
-            "Not found."
-        }
+    #[cfg(debug_assertions)]
+    pub fn is_debug(&self) -> bool {
+        self.state.debug
     }
 
-    /// Toggles the presence of numbers in the test word pool.
-    pub fn toggle_numbers(&mut self) {
-        let use_numbers = !self.use_numbers;
-        self.update_and_persist("use_numbers", &use_numbers, |config, &val| {
-            config.use_numbers = val;
-        });
-    }
-
-    /// Toggles the presence of punctuation in the test word pool.
-    pub fn toggle_punctuation(&mut self) {
-        let use_punctuation = !self.use_punctuation;
-        self.update_and_persist("use_punctuation", &use_punctuation, |config, &val| {
-            config.use_punctuation = val;
-        });
-    }
-
-    /// Toggles the presence of symbols in the test word pool.
     pub fn toggle_symbols(&mut self) {
-        let use_symbols = !self.use_symbols;
-        self.update_and_persist("use_symbols", &use_symbols, |config, &val| {
-            config.use_symbols = val;
-        });
+        self.state.symbols = !self.state.symbols;
     }
 
-    /// Toggles the FPS display.
-    pub fn toggle_fps(&mut self) {
-        let show_fps = !self.show_fps;
-        self.update_and_persist("show_fps", &show_fps, |config, &val| {
-            config.show_fps = val;
-        });
+    pub fn toggle_numbers(&mut self) {
+        self.state.numbers = !self.state.numbers;
     }
 
-    /// Toggles the live WPM display.
-    pub fn toggle_live_wpm(&mut self) {
-        let hide_live_wpm = !self.hide_live_wpm;
-        self.update_and_persist("hide_live_wpm", &hide_live_wpm, |config, &val| {
-            config.hide_live_wpm = val;
-        });
-    }
-
-    /// Toggles the monochromatic results display.
-    pub fn toggle_monochromatic_results(&mut self) {
-        let monochromatic = !self.monocrhomatic_results;
-        self.update_and_persist("monocrhomatic_results", &monochromatic, |config, &val| {
-            config.monocrhomatic_results = val;
-        });
-    }
-
-    /// Toggles the cursorline display in menus.
-    pub fn toggle_cursorline(&mut self) {
-        let hide_cursorline = !self.hide_cursorline;
-        self.update_and_persist("hide_cursorline", &hide_cursorline, |config, &val| {
-            config.hide_cursorline = val;
-        });
-    }
-
-    /// Toggles hide/show state of notifications
-    pub fn toggle_notifications(&mut self) {
-        let hide_notifications = !self.hide_notifications;
-        self.update_and_persist("hide_notifications", &hide_notifications, |config, &val| {
-            config.hide_notifications = val;
-        });
-    }
-
-    /// Chesk if the current terminal has proper color support. Mainly used for themes
-    pub fn term_has_color_support(&self) -> bool {
-        let color_support = self
-            .color_mode
-            .as_deref()
-            .and_then(|s| ColorSupport::from_str(s).ok())
-            .unwrap_or_else(Theme::detect_color_support);
-        color_support.supports_themes()
-    }
-
-    /// Changes the ascii art shown on the results screen.
-    pub fn change_ascii_art(&mut self, art_name: &str) {
-        self.update_and_persist("ascii", art_name, |config, art| {
-            config.ascii = Some(art.to_string());
-        });
-    }
-
-    /// Changes the picker style for menus.
-    pub fn change_picker_style(&mut self, style: &str) {
-        if style.parse::<PickerStyle>().is_ok() {
-            self.update_and_persist("picker_style", style, |config, picker_style| {
-                config.picker_style = Some(picker_style.to_string());
-            });
-        }
-    }
-
-    /// Resolves the current picker style.
-    pub fn resolve_picker_style(&self) -> PickerStyle {
-        self.picker_style
-            .as_deref()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or_default()
-    }
-
-    /// Changes the results style for the results screen.
-    pub fn change_results_style(&mut self, style: &str) {
-        if style.parse::<ResultsStyle>().is_ok() {
-            self.update_and_persist("results_style", style, |config, results_style| {
-                config.results_style = Some(results_style.to_string());
-            });
-        }
-    }
-
-    /// Resolves the current results style.
-    pub fn resolve_results_style(&self) -> ResultsStyle {
-        self.results_style
-            .as_ref()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or_default()
+    pub fn toggle_punctuation(&mut self) {
+        self.state.punctuation = !self.state.punctuation;
     }
 }
 
@@ -768,177 +329,56 @@ impl Config {
 mod tests {
     use super::*;
 
-    fn create_config() -> Config {
-        Config::default()
-    }
-
     #[test]
-    fn test_default_state() {
+    fn test_defaults() {
         let config = Config::default();
-        assert!(config.time.is_some());
-        assert!(config.word_count.is_none());
-
-        assert_eq!(config.language, Some(DEFAULT_LANGUAGE.to_string()));
-        assert_eq!(config.theme, None);
-        assert_eq!(config.visible_lines, DEFAULT_LINE_COUNT);
-
-        assert!(!config.use_symbols);
-        assert!(!config.use_punctuation);
-        #[cfg(debug_assertions)]
-        assert!(!config.debug);
-        assert!(!config.show_fps);
-    }
-
-    fn assert_mode(config: &Config, expected_mode: ModeType, expected_value: usize) {
-        match config.current_mode() {
-            Mode::Time { duration } if matches!(expected_mode, ModeType::Time) => {
-                assert_eq!(duration as usize, expected_value)
-            }
-            Mode::Words { count } if matches!(expected_mode, ModeType::Words) => {
-                assert_eq!(count, expected_value)
-            }
-            _ => panic!("Unexpected mode"),
-        }
-    }
-
-    #[test]
-    fn test_config_change_mode() {
-        let mut config = create_config();
-        config.change_mode(ModeType::Time, Some(30));
-        assert!(config.word_count.is_none());
-        assert_mode(&config, ModeType::Time, 30);
-    }
-
-    #[test]
-    fn test_config_change_theme() {
-        let mut config = create_config();
-        let theme_name = "Monokai Classic";
-        config.change_theme(theme_name);
-        assert_eq!(config.theme, Some("Monokai Classic".to_string()));
-    }
-
-    #[test]
-    fn test_config_change_visible_lines() {
-        let mut config = create_config();
-        assert_eq!(config.visible_lines, DEFAULT_LINE_COUNT);
-        config.change_visible_lines(10);
-        assert_eq!(config.visible_lines, 10);
-    }
-
-    #[test]
-    fn test_config_toggles() {
-        let mut config = create_config();
-        assert!(!config.use_numbers);
-        assert!(!config.use_punctuation);
-        assert!(!config.use_symbols);
-
-        config.toggle_numbers();
-        assert!(config.use_numbers);
-
-        config.toggle_punctuation();
-        assert!(config.use_punctuation);
-
-        config.toggle_symbols();
-        assert!(config.use_symbols);
-    }
-
-    #[test]
-    fn test_config_live_wpm() {
-        let config = create_config();
-        assert!(!config.hide_live_wpm) // we default this to false (show live WPM)
-    }
-
-    #[test]
-    fn test_config_resolvers() {
-        let mut config = create_config();
-        config.change_mode(ModeType::Time, Some(45));
-        assert_eq!(config.resolve_duration(), 45);
-        config.change_mode(ModeType::Words, Some(75));
-        assert_eq!(config.resolve_word_count(), 75);
-    }
-
-    #[test]
-    fn test_config_resolve_cursor_style() {
-        let mut config = create_config();
-
-        // the default
-        matches!(
-            config.resolve_current_cursor_style(),
-            SetCursorStyle::BlinkingBar
-        );
-
-        config.cursor_style = Some("beam".to_string());
-        matches!(
-            config.resolve_current_cursor_style(),
-            SetCursorStyle::SteadyBar
-        );
-
-        config.cursor_style = Some("block".to_string());
-        matches!(
-            config.resolve_current_cursor_style(),
-            SetCursorStyle::DefaultUserShape
-        );
-
-        config.cursor_style = Some("underline".to_string());
-        matches!(
-            config.resolve_current_cursor_style(),
-            SetCursorStyle::SteadyUnderScore
-        );
-
-        config.cursor_style = Some("blinking-beam".to_string());
-        matches!(
-            config.resolve_current_cursor_style(),
-            SetCursorStyle::BlinkingBar
-        );
-
-        config.cursor_style = Some("blinking-block".to_string());
-        matches!(
-            config.resolve_current_cursor_style(),
-            SetCursorStyle::BlinkingBlock
-        );
-
-        config.cursor_style = Some("blinking-underline".to_string());
-        matches!(
-            config.resolve_current_cursor_style(),
-            SetCursorStyle::BlinkingUnderScore
-        );
-    }
-
-    #[test]
-    fn test_picker_style_functionality() {
-        let mut config = create_config();
-
-        assert_eq!(config.resolve_picker_style(), PickerStyle::Quake);
-
-        config.change_picker_style("telescope");
-        assert_eq!(config.resolve_picker_style(), PickerStyle::Telescope);
-
-        config.change_picker_style("ivy");
-        assert_eq!(config.resolve_picker_style(), PickerStyle::Ivy);
-
-        config.change_picker_style("quake");
-        assert_eq!(config.resolve_picker_style(), PickerStyle::Quake);
-
-        config.change_picker_style("invalid");
-        assert_eq!(config.resolve_picker_style(), PickerStyle::Quake);
-    }
-
-    #[test]
-    fn test_picker_style_from_str() {
-        assert_eq!("quake".parse::<PickerStyle>(), Ok(PickerStyle::Quake));
+        assert_eq!(config.current_mode().kind, ModeKind::Time);
         assert_eq!(
-            "telescope".parse::<PickerStyle>(),
-            Ok(PickerStyle::Telescope)
+            config.current_mode().value(),
+            DEFAULT_TIME_MODE_DURATION_IN_SECS
         );
-        assert_eq!("ivy".parse::<PickerStyle>(), Ok(PickerStyle::Ivy));
-        assert_eq!("minimal".parse::<PickerStyle>(), Ok(PickerStyle::Minimal));
-        assert_eq!("QUAKE".parse::<PickerStyle>(), Ok(PickerStyle::Quake));
-        assert!("invalid".parse::<PickerStyle>().is_err());
+        assert_eq!(config.current_language(), DEFAULT_LANGUAGE.to_string());
+        assert!(!config.using_numbers());
+        assert!(!config.using_symbols());
+        assert!(!config.using_punctuation());
     }
 
     #[test]
-    fn test_no_track_flag() {
-        let mut config = create_config();
-        config.no_track = true;
+    fn test_mode_constructor() {
+        let time_mode = Mode::with_time(65);
+        assert_eq!(time_mode.duration(), Some(Duration::from_secs(65)));
+        assert_eq!(time_mode.value(), 65);
+        assert_eq!(time_mode.count(), None);
+
+        let word_mode = Mode::with_words(15);
+        assert_eq!(word_mode.count(), Some(15));
+        assert_eq!(word_mode.value(), 15);
+        assert_eq!(word_mode.duration(), None);
+    }
+
+    #[test]
+    fn test_toggles() {
+        let mut config = Config::default();
+        assert!(!config.using_symbols());
+        config.toggle_symbols();
+        assert!(config.using_symbols());
+    }
+
+    #[test]
+    fn test_change_mode() {
+        let mut config = Config::default();
+
+        config.change_mode(Mode::with_time(150)).unwrap();
+        assert_eq!(
+            config.current_mode().duration(),
+            Some(Duration::from_secs(150))
+        );
+        assert!(config.current_mode().is_time_mode());
+        assert_eq!(config.current_mode().value(), 150);
+
+        config.change_mode(Mode::with_words(79)).unwrap();
+        assert_eq!(config.current_mode().count(), Some(79));
+        assert!(config.current_mode().is_words_mode());
+        assert_eq!(config.current_mode().value(), 79);
     }
 }
