@@ -89,6 +89,49 @@ impl Persistence {
         self.get(key).unwrap_or(default)
     }
 
+    /// Deletes a key from the persistent state.
+    ///
+    /// Marks the state as dirty if the key existed. Call `flush()` to save to disk.
+    ///
+    /// # Arguments
+    /// * `key` - The key to delete
+    ///
+    /// # Returns
+    /// Returns `true` if the key existed and was removed, `false` otherwise.
+    pub fn delete(&mut self, key: &str) -> bool {
+        if self.values.remove(key).is_some() {
+            self.dirty = true;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if there are unsaved changes.
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// Returns the number of stored key-value pairs.
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    /// Returns true if no key-value pairs are stored.
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    /// Clears all stored key-value pairs.
+    ///
+    /// Marks the state as dirty. Call `flush()` to save to disk.
+    pub fn clear(&mut self) {
+        if !self.values.is_empty() {
+            self.values.clear();
+            self.dirty = true;
+        }
+    }
+
     /// Sets a value in the persistent state.
     ///
     /// Marks the state as dirty. Call `flush()` to save to disk.
@@ -270,27 +313,44 @@ mod tests {
     fn test_set_and_get() {
         #[allow(unused_variables)]
         let (mut ps, tmp, guard) = init();
-        ps.set("vizquit", "test").unwrap();
+        let config_json = r#"{"mode":"Words","language":"en","numbers":true}"#;
+        ps.set("config", config_json).unwrap();
         ps.flush().unwrap();
-        assert_eq!(ps.get("vizquit"), Some("test"))
+        assert_eq!(ps.get("config"), Some(config_json))
+    }
+
+    #[test]
+    fn test_set_and_get_json() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        let json_value = r#"{"mode":"Time","language":"en","numbers":false}"#;
+        ps.set("config", json_value).unwrap();
+        ps.flush().unwrap();
+        assert_eq!(ps.get("config"), Some(json_value))
     }
 
     #[test]
     fn test_empty_lines() {
         #[allow(unused_variables)]
         let (mut ps, tmp, guard) = init();
-        fs::write(&ps.path, "\n\n\nkey1 = value1\n").unwrap();
+        let config_json = r#"{"mode":"Time","language":"en"}"#;
+        fs::write(&ps.path, format!("\n\n\nconfig = {}\n", config_json)).unwrap();
 
         ps.load().unwrap();
         assert_eq!(ps.values.len(), 1);
-        assert_eq!(ps.get("key1"), Some("value1"));
+        assert_eq!(ps.get("config"), Some(config_json));
     }
 
     #[test]
     fn test_invalid_lines() {
         #[allow(unused_variables)]
         let (mut ps, tmp, guard) = init();
-        fs::write(&ps.path, "\ninvalid line - random\nkey1 = value1\n").unwrap();
+        let config_json = r#"{"mode":"Words","language":"en"}"#;
+        fs::write(
+            &ps.path,
+            format!("\ninvalid line - random\nconfig = {}\n", config_json),
+        )
+        .unwrap();
 
         assert!(ps.load().is_err())
     }
@@ -299,33 +359,103 @@ mod tests {
     fn test_comment_lines() {
         #[allow(unused_variables)]
         let (mut ps, tmp, guard) = init();
-        fs::write(&ps.path, "key1 = value1\n#key2 = should_be_ignored").unwrap();
+        let config_json = r#"{"mode":"Time","language":"en"}"#;
+        fs::write(
+            &ps.path,
+            format!("config = {}\n#other = ignored", config_json),
+        )
+        .unwrap();
 
         ps.load().unwrap();
         assert_eq!(ps.values.len(), 1);
-        assert_eq!(ps.get("key1"), Some("value1"));
+        assert_eq!(ps.get("config"), Some(config_json));
     }
 
     #[test]
     fn test_save_and_load() {
         #[allow(unused_variables)]
         let (mut ps1, tmp, guard) = init();
-        ps1.set("key1", "value1").unwrap();
-        ps1.set("key2", "value2").unwrap();
+        let config_json = r#"{"mode":"Time","language":"en","numbers":false,"symbols":true}"#;
+        ps1.set("config", config_json).unwrap();
+        ps1.set("other_key", "other_value").unwrap();
         ps1.flush().unwrap();
 
-        let config_dir = ps1.path.parent().unwrap().to_path_buf();
-        let path = config_dir.join(STATE_FILE);
-
         let mut ps2 = Persistence {
-            path,
+            path: ps1.path.clone(),
             values: HashMap::with_capacity(DEFAULT_CAPACITY),
             dirty: false,
         };
 
         ps2.load().unwrap();
 
-        assert_eq!(ps2.get("key1"), Some("value1"));
-        assert_eq!(ps2.get("key2"), Some("value2"));
+        assert_eq!(ps2.get("config"), Some(config_json));
+        assert_eq!(ps2.get("other_key"), Some("other_value"));
+    }
+
+    #[test]
+    fn test_get_or() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        ps.set("existing", "value").unwrap();
+        assert_eq!(ps.get_or("existing", "default"), "value");
+        assert_eq!(ps.get_or("nonexistent", "default"), "default");
+    }
+
+    #[test]
+    fn test_delete() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        ps.set("key1", "value1").unwrap();
+        ps.set("key2", "value2").unwrap();
+        ps.flush().unwrap();
+
+        assert!(ps.delete("key1"));
+        assert!(ps.is_dirty());
+        assert_eq!(ps.get("key1"), None);
+        assert_eq!(ps.get("key2"), Some("value2"));
+
+        assert!(!ps.delete("nonexistent"));
+        assert_eq!(ps.len(), 1);
+    }
+
+    #[test]
+    fn test_is_dirty_and_len() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        assert!(!ps.is_dirty());
+        assert_eq!(ps.len(), 0);
+        assert!(ps.is_empty());
+
+        ps.set("key", "value").unwrap();
+        assert!(ps.is_dirty());
+        assert_eq!(ps.len(), 1);
+        assert!(!ps.is_empty());
+
+        ps.flush().unwrap();
+        assert!(!ps.is_dirty());
+    }
+
+    #[test]
+    fn test_flush_when_not_dirty() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        // should to nothing
+        ps.flush().unwrap();
+        assert!(!ps.is_dirty());
+    }
+
+    #[test]
+    fn test_clear() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        ps.set("key1", "value1").unwrap();
+        ps.set("key2", "value2").unwrap();
+        assert_eq!(ps.len(), 2);
+
+        ps.clear();
+        assert!(ps.is_dirty());
+        assert_eq!(ps.len(), 0);
+        assert!(ps.is_empty());
+        assert_eq!(ps.get("key1"), None);
     }
 }
