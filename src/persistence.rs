@@ -239,7 +239,7 @@ mod tests {
         };
         fs::create_dir_all(&config_dir).unwrap();
 
-        let path = config_dir.join(STATE_FILE);
+        let path = config_dir.join(".tmp.state");
 
         let persistence = Persistence {
             path,
