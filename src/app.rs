@@ -16,7 +16,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             match event::read()? {
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
                     // TODO: resolve input contxt
-                    let action = input.handle(event, InputContext::Idle);
+                    let action = input.handle(event, InputContext::Typing);
                     if action == Action::Quit {
                         break;
                     }

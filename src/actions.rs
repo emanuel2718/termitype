@@ -4,7 +4,9 @@ pub enum Action {
     Quit,
     Start,
     Resume,
+    Redo,
     Pause,
 
+    Input(char),
     Backspace,
 }

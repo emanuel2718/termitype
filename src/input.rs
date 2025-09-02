@@ -3,9 +3,9 @@ use crate::{
     builders::keymaps::{global_keymap, typing_keymap},
     log_debug,
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputContext {
     Idle,
     Typing,
@@ -23,15 +23,23 @@ impl Input {
     }
 
     pub fn handle(&mut self, event: KeyEvent, ctx: InputContext) -> Action {
+        if let Some(action) = global_keymap().get_action_from(&event) {
+            self.last_keycode = Some(event.code);
+            log_debug!("The action from input.handle: {action:?}");
+            return action;
+        }
+
         if self.is_restart_sequence(&event.code) {
             self.last_keycode = Some(event.code);
             return Action::Start;
         }
 
-        if let Some(action) = global_keymap().get_action_from(&event) {
+        if self.is_typing_input(event, &ctx) {
             self.last_keycode = Some(event.code);
-            log_debug!("The action from input.handle: {action:?}");
-            return action;
+            if let Some(c) = event.code.as_char() {
+                log_debug!("The action from input.handle: {:?}", Action::Input(c));
+                return Action::Input(c);
+            }
         }
 
         let keymap = match ctx {
@@ -53,11 +61,16 @@ impl Input {
             _ => false,
         }
     }
+
+    fn is_typing_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
+        matches!(event.code, KeyCode::Char(_)) && *ctx == InputContext::Typing
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crossterm::event::KeyModifiers;
 
     fn create_event(mods: KeyModifiers, code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, mods)
@@ -70,6 +83,24 @@ mod tests {
         let action = input.handle(event, InputContext::Idle);
 
         assert_eq!(action, Action::Quit);
+    }
+
+    #[test]
+    fn test_is_typing_input() {
+        let mut input = Input::new();
+
+        let tab_event = create_event(KeyModifiers::NONE, KeyCode::Tab);
+        let typing_event = create_event(KeyModifiers::NONE, KeyCode::Char('c'));
+        assert!(input.is_typing_input(typing_event, &InputContext::Typing));
+        assert!(!input.is_typing_input(typing_event, &InputContext::Idle));
+        assert!(!input.is_typing_input(tab_event, &InputContext::Typing));
+
+        // should be a quit sequence
+        let non_typing_event = create_event(KeyModifiers::CONTROL, KeyCode::Char('c'));
+        assert_eq!(
+            input.handle(non_typing_event, InputContext::Typing),
+            Action::Quit
+        );
     }
 
     #[test]
