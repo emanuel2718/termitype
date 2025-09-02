@@ -2,6 +2,7 @@ use crate::{
     cli::Cli,
     constants::{DEFAULT_LANGUAGE, DEFAULT_TIME_MODE_DURATION_IN_SECS, DEFAULT_WORD_MODE_COUNT},
     persistence::Persistence,
+    variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
 use clap::Parser;
@@ -195,17 +196,26 @@ pub struct ConfigState {
     pub punctuation: bool,
     #[serde(default)]
     pub debug: bool,
+    #[serde(default)]
+    pub cursor_variant: CursorVariant,
+    #[serde(default)]
+    pub picker_variant: PickerVariant,
+    #[serde(default)]
+    pub results_variant: ResultsVariant,
 }
 
 impl Default for ConfigState {
     fn default() -> Self {
         Self {
+            debug: false,
             mode: Mode::default(),
-            language: Some(DEFAULT_LANGUAGE.to_string()),
             numbers: false,
             symbols: false,
             punctuation: false,
-            debug: false,
+            language: Some(DEFAULT_LANGUAGE.to_string()),
+            cursor_variant: CursorVariant::default(),
+            picker_variant: PickerVariant::default(),
+            results_variant: ResultsVariant::default(),
         }
     }
 }
@@ -261,6 +271,24 @@ impl Config {
             self.state.mode = Mode::with_words(count)
         }
 
+        if let Some(cursor_str) = &cli.cursor {
+            if let Ok(variant) = cursor_str.parse::<CursorVariant>() {
+                self.state.cursor_variant = variant;
+            }
+        }
+
+        if let Some(picker_str) = &cli.picker {
+            if let Ok(variant) = picker_str.parse::<PickerVariant>() {
+                self.state.picker_variant = variant;
+            }
+        }
+
+        if let Some(results_str) = &cli.results {
+            if let Ok(variant) = results_str.parse::<ResultsVariant>() {
+                self.state.results_variant = variant;
+            }
+        }
+
         if cli.use_symbols {
             self.state.symbols = true;
         }
@@ -279,22 +307,6 @@ impl Config {
         }
     }
 
-    pub fn current_mode(&self) -> Mode {
-        self.state.mode
-    }
-
-    pub fn current_language(&self) -> String {
-        self.state
-            .language
-            .clone()
-            .unwrap_or_else(|| DEFAULT_LANGUAGE.to_string())
-    }
-
-    pub fn change_mode(&mut self, mode: Mode) -> Result<()> {
-        self.state.mode = mode;
-        Ok(())
-    }
-
     pub fn using_symbols(&self) -> bool {
         self.state.symbols
     }
@@ -310,6 +322,46 @@ impl Config {
     #[cfg(debug_assertions)]
     pub fn is_debug(&self) -> bool {
         self.state.debug
+    }
+
+    pub fn current_mode(&self) -> Mode {
+        self.state.mode
+    }
+
+    pub fn current_language(&self) -> String {
+        self.state
+            .language
+            .clone()
+            .unwrap_or_else(|| DEFAULT_LANGUAGE.to_string())
+    }
+
+    pub fn current_cursor_variant(&self) -> CursorVariant {
+        self.state.cursor_variant
+    }
+
+    pub fn current_picker_variant(&self) -> PickerVariant {
+        self.state.picker_variant
+    }
+
+    pub fn current_results_variant(&self) -> ResultsVariant {
+        self.state.results_variant
+    }
+
+    pub fn change_mode(&mut self, mode: Mode) -> Result<()> {
+        self.state.mode = mode;
+        Ok(())
+    }
+
+    pub fn change_cursor_variant(&mut self, variant: CursorVariant) {
+        self.state.cursor_variant = variant;
+    }
+
+    pub fn change_picker_variant(&mut self, variant: PickerVariant) {
+        self.state.picker_variant = variant;
+    }
+
+    pub fn change_results_variant(&mut self, variant: ResultsVariant) {
+        self.state.results_variant = variant;
     }
 
     pub fn toggle_symbols(&mut self) {
@@ -380,5 +432,17 @@ mod tests {
         assert_eq!(config.current_mode().count(), Some(79));
         assert!(config.current_mode().is_words_mode());
         assert_eq!(config.current_mode().value(), 79);
+    }
+
+    #[test]
+    fn test_change_variants() {
+        let mut config = Config::default();
+        assert_eq!(config.current_cursor_variant(), CursorVariant::default());
+        assert_eq!(config.current_picker_variant(), PickerVariant::default());
+        assert_eq!(config.current_results_variant(), ResultsVariant::default());
+
+        config.change_cursor_variant(CursorVariant::Underline);
+        config.change_picker_variant(PickerVariant::Telescope);
+        config.change_results_variant(ResultsVariant::Neofetch);
     }
 }

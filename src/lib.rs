@@ -7,6 +7,7 @@ pub mod error;
 pub mod logger;
 pub mod persistence;
 pub mod utils;
+pub mod variants;
 
 pub mod prelude {
     #[cfg(debug_assertions)]

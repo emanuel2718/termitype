@@ -2,6 +2,7 @@ use clap::Parser;
 
 /// The CLI arguments
 #[derive(Parser, Debug, Clone)]
+#[command(name = "termitype", about = "Terminal-based typing game.", version)]
 #[command(group(
     clap::ArgGroup::new("mode")
         .args(&["time", "words"])
@@ -36,6 +37,30 @@ pub struct Cli {
     /// Language dictionary the test will use
     #[arg(short = 'l', long, value_name = "LANG")]
     pub language: Option<String>,
+
+    /// Cursor style variant
+    #[arg(
+        long = "cursor",
+        value_name = "STYLE",
+        help = "Cursor style: beam, block, underline, blinking-beam, blinking-block, blinking-underline"
+    )]
+    pub cursor: Option<String>,
+
+    /// Picker style variant
+    #[arg(
+        long = "picker",
+        value_name = "STYLE",
+        help = "Picker style: quake, telescope, ivy, minimal"
+    )]
+    pub picker: Option<String>,
+
+    /// Results display variant
+    #[arg(
+        long = "results",
+        value_name = "STYLE",
+        help = "Results style: graph, neofetch, minimal"
+    )]
+    pub results: Option<String>,
 
     /// Enables debug mode
     #[cfg(debug_assertions)]
