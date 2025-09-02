@@ -1,3 +1,4 @@
+use crossterm::cursor::SetCursorStyle;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Error, str::FromStr};
 
@@ -69,6 +70,17 @@ impl CursorVariant {
 
     pub fn name() -> &'static str {
         Self::NAME
+    }
+
+    pub fn to_crossterm(&self) -> SetCursorStyle {
+        match self {
+            Self::Beam => SetCursorStyle::SteadyBar,
+            Self::Block => SetCursorStyle::SteadyBlock,
+            Self::Underline => SetCursorStyle::SteadyUnderScore,
+            Self::BlinkingBeam => SetCursorStyle::BlinkingBar,
+            Self::BlinkingBlock => SetCursorStyle::BlinkingBlock,
+            Self::BlinkingUnderline => SetCursorStyle::BlinkingUnderScore,
+        }
     }
 }
 
