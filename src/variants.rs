@@ -1,17 +1,35 @@
 use crossterm::cursor::SetCursorStyle;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Error, str::FromStr};
+use std::fmt::Error;
 
 // ========== CURSOR VARIANTS ==========
 
+/// Represents different cursor styles available.
+///
+/// This enum provides various cursor appearances that can be set.
+///
+/// # Examples
+///
+/// ```
+/// use termitype::variants::CursorVariant;
+///
+/// let cursor = CursorVariant::Beam;
+/// assert_eq!(cursor.value(), "beam");
+/// ```
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CursorVariant {
+    /// A solid block cursor (default).
     #[default]
     Block,
+    /// A vertical beam cursor.
     Beam,
+    /// An underline cursor.
     Underline,
+    /// A blinking vertical beam cursor.
     BlinkingBeam,
+    /// A blinking solid block cursor.
     BlinkingBlock,
+    /// A blinking underline cursor.
     BlinkingUnderline,
 }
 
@@ -42,6 +60,14 @@ impl CursorVariant {
     ];
     pub const NAME: &'static str = "cursor";
 
+    pub fn all() -> &'static [Self] {
+        Self::ALL
+    }
+
+    pub fn name() -> &'static str {
+        Self::NAME
+    }
+
     pub fn value(&self) -> &'static str {
         match self {
             Self::Beam => "beam",
@@ -64,14 +90,18 @@ impl CursorVariant {
         }
     }
 
-    pub fn all() -> &'static [Self] {
-        Self::ALL
-    }
-
-    pub fn name() -> &'static str {
-        Self::NAME
-    }
-
+    /// Converts the `CursorVariant` to the corresponding `crossterm::cursor::SetCursorStyle`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use termitype::variants::CursorVariant;
+    /// use crossterm::cursor::SetCursorStyle;
+    ///
+    /// let cursor = CursorVariant::Block;
+    /// let style = cursor.to_crossterm();
+    /// assert_eq!(style, SetCursorStyle::SteadyBlock);
+    /// ```
     pub fn to_crossterm(&self) -> SetCursorStyle {
         match self {
             Self::Beam => SetCursorStyle::SteadyBar,
@@ -86,12 +116,27 @@ impl CursorVariant {
 
 // ========== PICKER VARIANTS ==========
 
+/// Represents different picker styles for selecting items in the application.
+///
+///
+/// # Examples
+///
+/// ```
+/// use termitype::variants::PickerVariant;
+///
+/// let picker = PickerVariant::Quake;
+/// assert_eq!(picker.value(), "quake");
+/// ```
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PickerVariant {
+    /// Opens from the top a la quake terminal style, hence the name
     #[default]
     Quake,
+    /// Floating menu just like Telescopic johnson does
     Telescope,
+    /// Opens from the bottom.
     Ivy,
+    /// Telescope style picker without footer and preview folds/splits
     Minimal,
 }
 
@@ -113,6 +158,14 @@ impl PickerVariant {
     pub const ALL: &'static [Self] = &[Self::Quake, Self::Telescope, Self::Ivy, Self::Minimal];
     pub const NAME: &'static str = "picker";
 
+    pub fn all() -> &'static [Self] {
+        Self::ALL
+    }
+
+    pub fn name() -> &'static str {
+        Self::NAME
+    }
+
     pub fn value(&self) -> &'static str {
         match self {
             Self::Quake => "quake",
@@ -130,23 +183,31 @@ impl PickerVariant {
             Self::Minimal => "Minimal",
         }
     }
-
-    pub fn all() -> &'static [Self] {
-        Self::ALL
-    }
-
-    pub fn name() -> &'static str {
-        Self::NAME
-    }
 }
 
 // ========== RESULTS VARIANTS ==========
 
+/// Represents different styles for displaying results in the application.
+///
+/// Results variants define how results or output are presented to the user,
+/// such as graphical representations or minimal text displays.
+///
+/// # Examples
+///
+/// ```
+/// use termitype::variants::ResultsVariant;
+///
+/// let results = ResultsVariant::Graph;
+/// assert_eq!(results.value(), "graph");
+/// ```
 #[derive(Debug, Clone, Default, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ResultsVariant {
+    /// Graphical display style (default).
     #[default]
     Graph,
+    /// Neofetch-style display.
     Neofetch,
+    /// Minimal text display.
     Minimal,
 }
 
@@ -167,6 +228,14 @@ impl ResultsVariant {
     pub const ALL: &'static [Self] = &[Self::Graph, Self::Neofetch, Self::Minimal];
     pub const NAME: &'static str = "results";
 
+    pub fn all() -> &'static [Self] {
+        Self::ALL
+    }
+
+    pub fn name() -> &'static str {
+        Self::NAME
+    }
+
     pub fn value(&self) -> &'static str {
         match self {
             Self::Graph => "graph",
@@ -182,86 +251,8 @@ impl ResultsVariant {
             Self::Minimal => "Minimal",
         }
     }
-
-    pub fn all() -> &'static [Self] {
-        Self::ALL
-    }
-
-    pub fn name() -> &'static str {
-        Self::NAME
-    }
 }
 
-pub trait Variant:
-    Copy + Default + PartialEq + Eq + std::fmt::Debug + FromStr<Err = Error>
-{
-    fn all() -> &'static [&'static str];
-    fn value(&self) -> &'static str;
-    fn label(&self) -> &'static str;
-    fn name() -> &'static str;
-}
-
-// Implement the trait for our variants
-impl Variant for CursorVariant {
-    fn all() -> &'static [&'static str] {
-        &[
-            "beam",
-            "block",
-            "underline",
-            "blinking-beam",
-            "blinking-block",
-            "blinking-underline",
-        ]
-    }
-
-    fn value(&self) -> &'static str {
-        self.value()
-    }
-
-    fn label(&self) -> &'static str {
-        self.label()
-    }
-
-    fn name() -> &'static str {
-        Self::NAME
-    }
-}
-
-impl Variant for PickerVariant {
-    fn all() -> &'static [&'static str] {
-        &["quake", "telescope", "ivy", "minimal"]
-    }
-
-    fn value(&self) -> &'static str {
-        self.value()
-    }
-
-    fn label(&self) -> &'static str {
-        self.label()
-    }
-
-    fn name() -> &'static str {
-        Self::NAME
-    }
-}
-
-impl Variant for ResultsVariant {
-    fn all() -> &'static [&'static str] {
-        &["graph", "neofetch", "minimal"]
-    }
-
-    fn value(&self) -> &'static str {
-        self.value()
-    }
-
-    fn label(&self) -> &'static str {
-        self.label()
-    }
-
-    fn name() -> &'static str {
-        Self::NAME
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
