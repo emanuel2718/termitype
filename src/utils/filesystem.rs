@@ -3,6 +3,8 @@ use crate::error::AppResult;
 use crate::{constants::APP_NAME, error::AppError};
 #[cfg(unix)]
 use std::{env, fs, path::PathBuf};
+#[cfg(target_os = "windows")]
+use std::fs::OpenOptions;
 
 /// Grabs the intenal config dir where the logger and persitant state files live
 pub fn config_dir() -> AppResult<PathBuf> {
@@ -57,5 +59,5 @@ pub fn create_file(path: &PathBuf) -> AppResult<fs::File> {
         .create(true)
         .truncate(true)
         .open(path)
-        .map_err(TError::from)
+        .map_err(AppError::from)
 }

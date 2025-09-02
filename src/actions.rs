@@ -5,4 +5,6 @@ pub enum Action {
     Start,
     Resume,
     Pause,
+
+    Backspace,
 }
