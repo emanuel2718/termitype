@@ -1,5 +1,14 @@
 use crate::config::Config;
+use crossterm::{
+    cursor::SetCursorStyle,
+    event::{DisableMouseCapture, EnableMouseCapture},
+    execute,
+    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::{prelude::CrosstermBackend, Terminal};
+use std::io;
 
+pub mod app;
 pub mod cli;
 pub mod config;
 pub mod constants;
@@ -19,5 +28,33 @@ pub fn start() -> anyhow::Result<()> {
     let config = Config::new()?;
     logger::init()?;
 
-    Ok(())
+    let crossterm_cursor = config.current_cursor_variant().to_crossterm();
+
+    terminal::enable_raw_mode()?;
+
+    let mut stdout = io::stdout();
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        crossterm_cursor
+    )?;
+
+    let backend = CrosstermBackend::new(stdout);
+
+    let mut terminal = Terminal::new(backend)?;
+
+    let out = app::run(&mut terminal, &config);
+
+    terminal::disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture,
+        SetCursorStyle::DefaultUserShape
+    )?;
+
+    terminal.show_cursor()?;
+
+    out
 }
