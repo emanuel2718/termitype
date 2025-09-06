@@ -1,6 +1,6 @@
 use crate::{
     actions::Action,
-    builders::keymap_bulider::{global_keymap, typing_keymap},
+    builders::keymap_builder::{global_keymap, typing_keymap},
     log_debug,
 };
 use crossterm::event::{KeyCode, KeyEvent};
