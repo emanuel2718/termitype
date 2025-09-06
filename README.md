@@ -137,7 +137,7 @@ termitype --hide-notifications         # Do not show notifications
 
 ### Prerequisites
 
-- Rust 1.70+
+- Rust 1.87+
 - Cargo
 
 ### Quick Start

@@ -251,14 +251,18 @@ mod tests {
 
     impl Drop for EnvGuard {
         fn drop(&mut self) {
-            if let Some(ref h) = self.original_home {
-                std::env::set_var("HOME", h);
-            }
-            if let Some(ref a) = self.original_appdata {
-                std::env::set_var("APPDATA", a);
-            }
-            if let Some(ref x) = self.original_xdg {
-                std::env::set_var("XDG_CONFIG_HOME", x);
+            // NOTE: Rust 2024 edition marks as unsafe `env::set_var()`, we only use this on tests so it's fine
+            // https://github.com/rust-lang/rust/pull/124636
+            unsafe {
+                if let Some(ref h) = self.original_home {
+                    std::env::set_var("HOME", h);
+                }
+                if let Some(ref a) = self.original_appdata {
+                    std::env::set_var("APPDATA", a);
+                }
+                if let Some(ref x) = self.original_xdg {
+                    std::env::set_var("XDG_CONFIG_HOME", x);
+                }
             }
         }
     }
