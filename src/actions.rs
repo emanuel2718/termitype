@@ -23,6 +23,10 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<()> {
             app.quit();
             Ok(())
         }
+        Action::Start => {
+            app.start();
+            Ok(())
+        }
         Action::RandomizeTheme => theme::randomize_theme(),
         _ => Ok(()),
     }

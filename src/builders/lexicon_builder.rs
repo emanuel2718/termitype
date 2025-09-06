@@ -33,6 +33,27 @@ struct Language {
     words: Vec<String>,
 }
 
+#[derive(Debug)]
+pub struct Lexicon {
+    pub words: Vec<String>,
+    builder: LexiconBuilder,
+}
+
+impl Lexicon {
+    /// Creates a new Lexicon with words generated from the config.
+    pub fn new(config: &Config) -> Result<Self, AppError> {
+        let mut builder = LexiconBuilder::new();
+        let words = builder.generate_test(config)?;
+        Ok(Self { words, builder })
+    }
+
+    /// Regenerates the lexicon composition.
+    pub fn regenerate(&mut self, config: &Config) -> Result<(), AppError> {
+        self.words = self.builder.generate_test(config)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct LexiconBuilder {
     languages: HashMap<String, Vec<String>>,
@@ -55,7 +76,7 @@ impl LexiconBuilder {
     }
 
     /// Generates the lexicon used in the typing test.
-    pub fn generate_test(&mut self, config: &Config) -> Result<String, AppError> {
+    pub fn generate_test(&mut self, config: &Config) -> Result<Vec<String>, AppError> {
         // NOTE: im sure we can optimize the sh*t out of this, but good enough for now.
         // TODO: when custom words get implemented take it into consideration here
         let lang = config.current_language();
@@ -98,15 +119,13 @@ impl LexiconBuilder {
             .collect();
 
         // build the actual lexicon
-        let mut lexicon = String::with_capacity(word_count * 8);
+        let mut lexicon: Vec<String> = Vec::with_capacity(word_count);
         for (i, word) in selected_words.iter().enumerate() {
-            if i > 0 {
-                lexicon.push(' ');
-            }
-            lexicon.push_str(word);
+            let mut new_word = word.to_string();
             if let Some(extra) = extras[i] {
-                lexicon.push(extra);
+                new_word.push(extra);
             }
+            lexicon.push(new_word);
         }
 
         Ok(lexicon)
@@ -229,12 +248,11 @@ mod tests {
             .unwrap();
 
         let test = builder.generate_test(&config).unwrap();
-        let words: Vec<&str> = test.split_whitespace().collect();
 
-        for i in 1..words.len() {
+        for i in 1..test.len() {
             assert_ne!(
-                words[i],
-                words[i - 1],
+                test[i],
+                test[i - 1],
                 "Found consecutive duplicate at index {}",
                 i
             );
@@ -251,8 +269,7 @@ mod tests {
             .unwrap();
 
         let test = builder.generate_test(&config).unwrap();
-        let words: Vec<&str> = test.split_whitespace().collect();
-        assert_eq!(words.len(), count);
+        assert_eq!(test.len(), count);
     }
 
     #[test]
@@ -264,8 +281,7 @@ mod tests {
         for seconds in seconds_arr {
             config.change_mode(Mode::with_time(seconds)).unwrap();
             let test = builder.generate_test(&config).unwrap();
-            let words: Vec<&str> = test.split_whitespace().collect();
-            assert!(words.len() >= WPS_TARGET * seconds);
+            assert!(test.len() >= WPS_TARGET * seconds);
         }
     }
 }

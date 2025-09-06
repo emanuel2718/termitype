@@ -1,5 +1,6 @@
 use crate::{
     actions::{self, Action},
+    builders::lexicon_builder::Lexicon,
     config::Config,
     frontend,
     input::{Input, InputContext},
@@ -11,19 +12,27 @@ use std::time::Duration;
 
 pub struct App {
     pub config: Config,
+    pub lexicon: Lexicon,
     should_quit: bool,
 }
 
 impl App {
     pub fn new(config: &Config) -> Self {
+        let lexicon = Lexicon::new(config).unwrap();
+
         Self {
             config: config.clone(),
+            lexicon,
             should_quit: false,
         }
     }
 
     pub fn quit(&mut self) {
         self.should_quit = true;
+    }
+
+    pub fn start(&mut self) {
+        self.lexicon.regenerate(&self.config).unwrap();
     }
 }
 

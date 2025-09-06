@@ -1,4 +1,4 @@
-use crate::{config::Config, constants::DEFAULT_THEME, log_debug};
+use crate::{config::Config, constants::DEFAULT_THEME};
 use anyhow::Result;
 use rand::{rng, Rng};
 use ratatui::style::Color;
