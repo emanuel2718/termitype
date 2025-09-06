@@ -123,10 +123,15 @@ impl Default for Mode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigState {
+    #[serde(default)]
     pub mode: Mode,
+    #[serde(default)]
     pub language: Option<String>,
+    #[serde(default)]
     pub numbers: bool,
+    #[serde(default)]
     pub symbols: bool,
+    #[serde(default)]
     pub punctuation: bool,
     #[serde(default)]
     pub debug: bool,
