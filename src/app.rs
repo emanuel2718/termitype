@@ -1,11 +1,12 @@
 use crate::{
     actions::{self, Action},
     config::Config,
+    frontend,
     input::{Input, InputContext},
     log_info, theme,
 };
-use crossterm::event::{self, Event, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::{prelude::Backend, style::Style, widgets::Paragraph, Terminal};
+use crossterm::event::{self, Event, KeyEventKind};
+use ratatui::{prelude::Backend, Terminal};
 use std::time::Duration;
 
 pub struct App {
@@ -34,35 +35,26 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
 
     log_info!("The config: {config:?}");
     loop {
+        if app.should_quit {
+            break;
+        }
         if event::poll(Duration::from_millis(100))? {
             match event::read()? {
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
                     // TODO: resolve input contxt
                     let action = input.handle(event, InputContext::Typing);
-                    actions::handle_action(&mut app, action)?;
-                    if app.should_quit {
+                    if action == Action::Quit {
                         break;
                     }
-                }
-                Event::Mouse(MouseEvent {
-                    kind: MouseEventKind::Down(MouseButton::Left),
-                    ..
-                }) => {
-                    break;
+                    actions::handle_action(&mut app, action)?;
                 }
                 _ => {}
             }
         }
 
         terminal.draw(|frame| {
-            let area = frame.area();
-            let current_theme = theme::current_theme();
-            let bg = current_theme.bg();
-            let fg = current_theme.fg();
-            frame.render_widget(
-                Paragraph::new("ctrl-c to quit").style(Style::default().bg(bg).fg(fg)),
-                area,
-            );
+            // TODO: return the click actions
+            let _ = frontend::renderer::draw_ui(frame, &app);
         })?;
     }
 

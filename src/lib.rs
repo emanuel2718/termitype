@@ -16,6 +16,7 @@ pub mod cli;
 pub mod config;
 pub mod constants;
 pub mod error;
+pub mod frontend;
 pub mod input;
 pub mod logger;
 pub mod persistence;
