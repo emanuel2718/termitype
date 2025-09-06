@@ -10,6 +10,7 @@ use std::io;
 
 pub mod actions;
 pub mod app;
+pub mod assets;
 pub mod builders;
 pub mod cli;
 pub mod config;
@@ -18,6 +19,7 @@ pub mod error;
 pub mod input;
 pub mod logger;
 pub mod persistence;
+pub mod theme;
 pub mod utils;
 pub mod variants;
 

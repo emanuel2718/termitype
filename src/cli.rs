@@ -38,6 +38,9 @@ pub struct Cli {
     #[arg(short = 'l', long, value_name = "LANG")]
     pub language: Option<String>,
 
+    #[arg(long = "theme")]
+    pub theme: Option<String>,
+
     /// Cursor style variant
     #[arg(
         long = "cursor",

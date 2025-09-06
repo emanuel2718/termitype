@@ -1,7 +1,11 @@
 use crate::{
     cli::Cli,
-    constants::{DEFAULT_LANGUAGE, DEFAULT_TIME_MODE_DURATION_IN_SECS, DEFAULT_WORD_MODE_COUNT},
+    constants::{
+        DEFAULT_LANGUAGE, DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION_IN_SECS,
+        DEFAULT_WORD_MODE_COUNT,
+    },
     persistence::Persistence,
+    theme::Theme,
     variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
@@ -132,6 +136,8 @@ pub struct ConfigState {
     pub picker_variant: PickerVariant,
     #[serde(default)]
     pub results_variant: ResultsVariant,
+    #[serde(default)]
+    pub theme: Option<String>,
 }
 
 impl Default for ConfigState {
@@ -143,6 +149,7 @@ impl Default for ConfigState {
             symbols: false,
             punctuation: false,
             language: Some(DEFAULT_LANGUAGE.to_string()),
+            theme: Some(DEFAULT_THEME.to_string()),
             cursor_variant: CursorVariant::default(),
             picker_variant: PickerVariant::default(),
             results_variant: ResultsVariant::default(),
@@ -150,7 +157,7 @@ impl Default for ConfigState {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Config {
     state: ConfigState,
     persistence: Persistence,
@@ -199,6 +206,12 @@ impl Config {
         // really what we want to pass is the words that the test itself is going to use.
         if let Some(count) = cli.words_count {
             self.state.mode = Mode::with_words(count)
+        }
+
+        if let Some(theme_str) = &cli.theme {
+            if theme_str.parse::<Theme>().is_ok() {
+                self.state.theme = Some(theme_str.clone())
+            }
         }
 
         if let Some(cursor_str) = &cli.cursor {
@@ -265,6 +278,10 @@ impl Config {
             .unwrap_or_else(|| DEFAULT_LANGUAGE.to_string())
     }
 
+    pub fn current_theme(&self) -> Option<String> {
+        self.state.theme.clone()
+    }
+
     pub fn current_cursor_variant(&self) -> CursorVariant {
         self.state.cursor_variant
     }
@@ -275,6 +292,10 @@ impl Config {
 
     pub fn current_results_variant(&self) -> ResultsVariant {
         self.state.results_variant
+    }
+
+    pub fn change_language(&mut self, lang: String) {
+        self.state.language = Some(lang);
     }
 
     pub fn change_mode(&mut self, mode: Mode) -> Result<()> {

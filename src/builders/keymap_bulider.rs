@@ -54,6 +54,7 @@ fn build_global_keymap() -> KeyMap {
         .bind(KeyCode::F(1), Action::NoOp)
         .bind(KeyCode::F(2), Action::NoOp)
         .bind(KeyCode::F(3), Action::NoOp)
+        .bind(KeyCode::Char('r'), Action::RandomizeTheme)
         .bind_with_mod(KeyModifiers::CONTROL, KeyCode::Char('c'), Action::Quit)
         .bind_with_mod(KeyModifiers::CONTROL, KeyCode::Char('z'), Action::Quit)
 }
