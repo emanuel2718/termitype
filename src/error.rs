@@ -7,6 +7,7 @@ pub enum AppError {
     ConfigDirNotFound,
     InvalidConfigData(String),
     TermiDB(String),
+    InvalidLanguage(String),
     SqliteError(rusqlite::Error),
     Other(String),
 }
@@ -17,6 +18,7 @@ impl std::fmt::Display for AppError {
             Self::Io(err) => write!(f, "IO error: {err}"),
             Self::ConfigDirNotFound => write!(f, "Could not find termitype config directory"),
             Self::InvalidConfigData(msg) => write!(f, "Invalid configuration data: {msg}"),
+            Self::InvalidLanguage(lang) => write!(f, "Invalid language: {lang}"),
             Self::TermiDB(err) => write!(f, "TermiDB Error: {err}"),
             Self::SqliteError(err) => write!(f, "Sqlite Error: {err}"),
             Self::Other(err) => write!(f, "Error: {err}"),
@@ -65,6 +67,12 @@ impl From<rusqlite::Error> for AppError {
 
 impl From<anyhow::Error> for AppError {
     fn from(err: anyhow::Error) -> Self {
+        Self::Other(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(err: serde_json::Error) -> Self {
         Self::Other(err.to_string())
     }
 }
