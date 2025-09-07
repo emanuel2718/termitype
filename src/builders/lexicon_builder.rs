@@ -35,7 +35,7 @@ struct Language {
 
 #[derive(Debug)]
 pub struct Lexicon {
-    pub words: Vec<String>,
+    pub words: String,
     builder: LexiconBuilder,
 }
 
@@ -76,14 +76,11 @@ impl LexiconBuilder {
     }
 
     /// Generates the lexicon used in the typing test.
-    pub fn generate_test(&mut self, config: &Config) -> Result<Vec<String>, AppError> {
+    pub fn generate_test(&mut self, config: &Config) -> Result<String, AppError> {
         // NOTE: im sure we can optimize the sh*t out of this, but good enough for now.
         // TODO: when custom words get implemented take it into consideration here
         if let Some(custom_words) = &config.cli.words {
-            return Ok(custom_words
-                .split_whitespace()
-                .map(String::from)
-                .collect::<Vec<String>>());
+            return Ok(custom_words.clone());
         }
         let lang = config.current_language();
         self.ensure_language_loaded(&lang)?;
@@ -124,17 +121,19 @@ impl LexiconBuilder {
             })
             .collect();
 
-        // build the actual lexicon
-        let mut lexicon: Vec<String> = Vec::with_capacity(word_count);
+        // build the actual lexicon string
+        let mut result = String::with_capacity(word_count * 10); // rough estimate
         for (i, word) in selected_words.iter().enumerate() {
-            let mut new_word = word.to_string();
+            result.push_str(word);
             if let Some(extra) = extras[i] {
-                new_word.push(extra);
+                result.push(extra);
             }
-            lexicon.push(new_word);
+            if i < selected_words.len() - 1 {
+                result.push(' ');
+            }
         }
 
-        Ok(lexicon)
+        Ok(result)
     }
 
     /// Ensure we at least build from the default words dictionary
