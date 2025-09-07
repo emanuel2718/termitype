@@ -6,10 +6,10 @@ use termitype::{
     theme::Theme,
 };
 
-fn bench_word_pool(c: &mut Criterion) {
+fn bench_lexicon(c: &mut Criterion) {
     let mut builder = LexiconBuilder::new();
 
-    let mut group = c.benchmark_group("word_pool");
+    let mut group = c.benchmark_group("lexicon");
 
     group.bench_function("default_config", |b| {
         b.iter(|| {
@@ -68,7 +68,7 @@ fn bench_themes(c: &mut Criterion) {
 }
 
 fn bench(c: &mut Criterion) {
-    bench_word_pool(c);
+    bench_lexicon(c);
     bench_themes(c);
 }
 
