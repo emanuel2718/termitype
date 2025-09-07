@@ -1,7 +1,7 @@
 use crate::{
+    common::filesystem::{config_dir, create_file},
     constants::STATE_FILE,
     error::{AppError, AppResult},
-    utils::filesystem::{config_dir, create_file},
 };
 use std::{
     collections::HashMap,

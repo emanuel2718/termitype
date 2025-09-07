@@ -2,9 +2,8 @@ use crate::{
     actions::{self, Action},
     builders::lexicon_builder::Lexicon,
     config::Config,
-    frontend,
     input::{Input, InputContext},
-    log_info, theme,
+    log_info, theme, tui,
 };
 use crossterm::event::{self, Event, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
@@ -69,7 +68,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
 
         terminal.draw(|frame| {
             // TODO: return the click actions
-            let _ = frontend::renderer::draw_ui(frame, &app);
+            let _ = tui::renderer::draw_ui(frame, &app);
         })?;
     }
 

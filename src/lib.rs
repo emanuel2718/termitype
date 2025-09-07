@@ -13,15 +13,15 @@ pub mod app;
 pub mod assets;
 pub mod builders;
 pub mod cli;
+pub mod common;
 pub mod config;
 pub mod constants;
 pub mod error;
-pub mod frontend;
 pub mod input;
 pub mod logger;
 pub mod persistence;
 pub mod theme;
-pub mod utils;
+pub mod tui;
 pub mod variants;
 
 pub mod prelude {
