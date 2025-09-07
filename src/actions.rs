@@ -1,4 +1,4 @@
-use crate::{app::App, theme};
+use crate::{app::App, error::AppError, theme};
 use anyhow::Result;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,7 +16,7 @@ pub enum Action {
     RandomizeTheme,
 }
 
-pub fn handle_action(app: &mut App, action: Action) -> Result<()> {
+pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
     match action {
         Action::NoOp => Ok(()),
         Action::Quit => {
@@ -27,7 +27,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<()> {
             app.start();
             Ok(())
         }
-        Action::RandomizeTheme => theme::randomize_theme(),
+        Action::RandomizeTheme => theme::use_random_theme(),
         _ => Ok(()),
     }
 }

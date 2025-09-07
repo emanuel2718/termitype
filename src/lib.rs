@@ -21,6 +21,7 @@ pub mod input;
 pub mod logger;
 pub mod persistence;
 pub mod theme;
+pub mod tracker;
 pub mod tui;
 pub mod variants;
 

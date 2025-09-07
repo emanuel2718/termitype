@@ -1,4 +1,4 @@
-use crate::{config::Config, constants::DEFAULT_THEME};
+use crate::{config::Config, constants::DEFAULT_THEME, error::AppError};
 use anyhow::Result;
 use rand::{rng, Rng};
 use ratatui::style::Color;
@@ -390,6 +390,18 @@ impl ThemeManager {
         crate::assets::list_themes()
     }
 
+    pub fn use_random_theme(&self) -> Result<(), AppError> {
+        let available = self.available_themes();
+        if available.is_empty() {
+            return Err(AppError::ThemesNotFound);
+        }
+        let mut rng = rng();
+        let idx = rng.random_range(0..available.len());
+        let name = &available[idx];
+        self.set_as_current_theme(name)?;
+        Ok(())
+    }
+
     pub fn randomize_theme(&self) -> Result<()> {
         let mut rng = rng();
         let colors: [Color; NUM_COLORS] = ThemeColor::all()
@@ -447,6 +459,10 @@ pub fn cancel_theme_preview() {
 
 pub fn available_themes() -> Vec<String> {
     theme_manager().available_themes()
+}
+
+pub fn use_random_theme() -> Result<(), AppError> {
+    theme_manager().use_random_theme()
 }
 
 pub fn randomize_theme() -> Result<()> {

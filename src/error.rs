@@ -5,6 +5,7 @@ use std::io;
 pub enum AppError {
     Io(io::Error),
     ConfigDirNotFound,
+    ThemesNotFound,
     InvalidConfigData(String),
     TermiDB(String),
     InvalidLanguage(String),
@@ -17,6 +18,7 @@ impl std::fmt::Display for AppError {
         match self {
             Self::Io(err) => write!(f, "IO error: {err}"),
             Self::ConfigDirNotFound => write!(f, "Could not find termitype config directory"),
+            Self::ThemesNotFound => write!(f, "No themes available"),
             Self::InvalidConfigData(msg) => write!(f, "Invalid configuration data: {msg}"),
             Self::InvalidLanguage(lang) => write!(f, "Invalid language: {lang}"),
             Self::TermiDB(err) => write!(f, "TermiDB Error: {err}"),

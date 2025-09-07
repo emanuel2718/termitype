@@ -3,7 +3,9 @@ use crate::{
     builders::lexicon_builder::Lexicon,
     config::Config,
     input::{Input, InputContext},
-    log_info, theme, tui,
+    log_info, theme,
+    tracker::Tracker,
+    tui,
 };
 use crossterm::event::{self, Event, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
@@ -12,15 +14,18 @@ use std::time::Duration;
 pub struct App {
     pub config: Config,
     pub lexicon: Lexicon,
+    pub tracker: Tracker,
     should_quit: bool,
 }
 
 impl App {
     pub fn new(config: &Config) -> Self {
         let lexicon = Lexicon::new(config).unwrap();
+        let tracker = Tracker::new(lexicon.words.clone(), config.current_mode());
 
         Self {
             config: config.clone(),
+            tracker,
             lexicon,
             should_quit: false,
         }
