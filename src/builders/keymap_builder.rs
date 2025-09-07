@@ -7,6 +7,8 @@ use std::sync::OnceLock;
 pub static GLOBAL_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static TYPING_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 
+const MOD_CTRL: KeyModifiers = KeyModifiers::CONTROL;
+
 #[derive(Debug, Clone, Default)]
 pub struct KeyMap {
     bindings: HashMap<(KeyModifiers, KeyCode), Action>,
@@ -54,10 +56,9 @@ fn build_global_keymap() -> KeyMap {
         .bind(KeyCode::F(1), Action::NoOp)
         .bind(KeyCode::F(2), Action::NoOp)
         .bind(KeyCode::F(3), Action::NoOp)
-        .bind(KeyCode::Char('r'), Action::Start)
-        .bind(KeyCode::Char('t'), Action::RandomizeTheme)
-        .bind_with_mod(KeyModifiers::CONTROL, KeyCode::Char('c'), Action::Quit)
-        .bind_with_mod(KeyModifiers::CONTROL, KeyCode::Char('z'), Action::Quit)
+        .bind_with_mod(MOD_CTRL, KeyCode::Char('t'), Action::RandomizeTheme)
+        .bind_with_mod(MOD_CTRL, KeyCode::Char('c'), Action::Quit)
+        .bind_with_mod(MOD_CTRL, KeyCode::Char('z'), Action::Quit)
 }
 
 fn build_typing_keymap() -> KeyMap {
@@ -82,7 +83,7 @@ mod tests {
 
         let first_event = create_event(KeyModifiers::NONE, KeyCode::Char('q'));
         assert_eq!(keymap.get_action_from(&first_event), Some(Action::Quit));
-        let second_event = create_event(KeyModifiers::CONTROL, KeyCode::Char('s'));
+        let second_event = create_event(MOD_CTRL, KeyCode::Char('s'));
         assert_eq!(keymap.get_action_from(&second_event), Some(Action::Start));
 
         let fake_event = create_event(KeyModifiers::SHIFT, KeyCode::Char('n'));
