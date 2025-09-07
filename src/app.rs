@@ -32,6 +32,12 @@ impl App {
     }
 
     pub fn start(&mut self) {
+        // NOTE: if we start a new test we want to clear the custom words flag as starting a new
+        //       test is designed to generate a completely new test. If the user want to keep
+        //       the custom words then a `Redo` is the option.
+        if self.config.cli.words.is_some() {
+            self.config.cli.clear_custom_words_flag();
+        }
         self.lexicon.regenerate(&self.config).unwrap();
     }
 }

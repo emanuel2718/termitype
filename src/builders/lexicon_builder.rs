@@ -79,6 +79,12 @@ impl LexiconBuilder {
     pub fn generate_test(&mut self, config: &Config) -> Result<Vec<String>, AppError> {
         // NOTE: im sure we can optimize the sh*t out of this, but good enough for now.
         // TODO: when custom words get implemented take it into consideration here
+        if let Some(custom_words) = &config.cli.words {
+            return Ok(custom_words
+                .split_whitespace()
+                .map(String::from)
+                .collect::<Vec<String>>());
+        }
         let lang = config.current_language();
         self.ensure_language_loaded(&lang)?;
 

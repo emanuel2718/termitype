@@ -164,6 +164,7 @@ impl Default for ConfigState {
 
 #[derive(Debug, Default, Clone)]
 pub struct Config {
+    pub cli: Cli,
     state: ConfigState,
     persistence: Persistence,
 }
@@ -175,6 +176,7 @@ impl Config {
         let args = Cli::parse();
         let persistence = Persistence::new()?;
         let mut config = Self {
+            cli: args.clone(),
             state: Self::load_state(&persistence)?,
             persistence,
         };
@@ -277,10 +279,14 @@ impl Config {
     }
 
     pub fn current_language(&self) -> String {
-        self.state
-            .language
-            .clone()
-            .unwrap_or_else(|| DEFAULT_LANGUAGE.to_string())
+        if self.cli.words.is_some() {
+            "Custom".to_string()
+        } else {
+            self.state
+                .language
+                .clone()
+                .unwrap_or_else(|| DEFAULT_LANGUAGE.to_string())
+        }
     }
 
     pub fn current_theme(&self) -> Option<String> {
@@ -401,5 +407,17 @@ mod tests {
         config.change_cursor_variant(CursorVariant::Underline);
         config.change_picker_variant(PickerVariant::Telescope);
         config.change_results_variant(ResultsVariant::Neofetch);
+    }
+
+    #[test]
+    fn test_current_language_with_custom_words() {
+        let custom_word = "pog".to_string();
+        let mut cli = Cli::default();
+        let mut config = Config::default();
+        cli.words = Some(custom_word.clone());
+        config.cli = cli;
+
+        assert_eq!(config.cli.words, Some(custom_word));
+        assert_eq!(config.current_language(), "Custom");
     }
 }

@@ -1,7 +1,7 @@
 use clap::Parser;
 
 /// The CLI arguments
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Default, Clone)]
 #[command(name = "termitype", about = "Terminal-based typing game.", version)]
 #[command(group(
     clap::ArgGroup::new("mode")
@@ -38,6 +38,7 @@ pub struct Cli {
     #[arg(short = 'l', long, value_name = "LANG")]
     pub language: Option<String>,
 
+    /// The theme that is going to be used
     #[arg(long = "theme")]
     pub theme: Option<String>,
 
@@ -69,4 +70,10 @@ pub struct Cli {
     #[cfg(debug_assertions)]
     #[arg(short = 'd', long = "debug", help = "Enables debug mode")]
     pub debug: bool,
+}
+
+impl Cli {
+    pub fn clear_custom_words_flag(&mut self) {
+        self.words = None
+    }
 }
