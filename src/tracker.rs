@@ -158,12 +158,80 @@ impl Tracker {
         }
     }
 
-    pub fn handle_type_char(&mut self, c: char) -> Result<(), AppError> {
-        todo!()
+    pub fn type_char(&mut self, c: char) -> Result<(), AppError> {
+        if !self.is_typing() {
+            return Err(AppError::TypingTestNotInProgress);
+        }
+        if self.is_complete() {
+            return Err(AppError::TypingTestAlreadyCompleted);
+        }
+
+        // this is the actual expected(target) character we are typing against
+        let expected_char = self
+            .tokens
+            .get(self.current_pos)
+            .ok_or(AppError::InvalidCharacterPosition)?
+            .target;
+
+        // upate current token information
+        if let Some(token) = self.tokens.get_mut(self.current_pos) {
+            token.typed = Some(c);
+            token.typed_at = Some(Instant::now());
+            token.is_wrong = expected_char != c;
+        }
+
+        self.typed_text.push(c);
+
+        // errror tracking
+        if expected_char != c {
+            self.total_errors += 1;
+            if let Some(word) = self.words.get_mut(self.current_word_idx) {
+                word.error_count += 1;
+            }
+        }
+
+        self.current_pos += 1;
+
+        if self.should_mark_word_as_completed() {
+            self.mark_word_as_completed();
+        }
+
+        if self.should_complete() {
+            self.complete();
+        }
+
+        self.invalidate_metrics_cache();
+
+        Ok(())
     }
 
-    pub fn handle_backspace(&mut self) -> Result<(), AppError> {
-        todo!()
+    pub fn backspace(&mut self) -> Result<(), AppError> {
+        if !self.is_typing() {
+            return Err(AppError::TypingTestNotInProgress);
+        }
+
+        if self.current_pos == 0 {
+            return Err(AppError::IllegalBackspace);
+        }
+
+        self.typed_text.pop();
+
+        self.current_pos -= 1;
+
+        if let Some(token) = self.tokens.get_mut(self.current_pos) {
+            token.typed = None;
+            token.typed_at = None;
+            token.is_wrong = false;
+
+            if token.target != token.typed.unwrap_or('\0') {
+                self.total_errors = self.total_errors.saturating_sub(1);
+                if let Some(word) = self.words.get_mut(self.current_word_idx) {
+                    word.error_count = word.error_count.saturating_sub(1);
+                }
+            }
+        }
+        self.invalidate_metrics_cache();
+        Ok(())
     }
 
     pub fn current_target_char(&self) -> Option<char> {
@@ -349,7 +417,65 @@ impl Tracker {
     }
 
     fn update_metrics(&mut self) {
-        todo!()
+        // Move this wpm calculation into seperate fn `calculate_wpm`
+        let elapsed_mins = self.elapsed_time().as_secs_f64() / 60.0;
+        if elapsed_mins > 0.0 {
+            let correct_chars = self.correct_chars_count() as f64;
+            self.metrics.wpm = Some((correct_chars / 5.0) / elapsed_mins);
+        } else {
+            self.metrics.wpm = Some(0.0);
+        }
+
+        let total_typed = self.typed_text.len() as f64;
+        if total_typed > 0.0 {
+            self.metrics.accuracy = Some(self.correct_chars_count() as f64 / total_typed);
+        } else {
+            self.metrics.accuracy = Some(0.0);
+        }
+
+        self.metrics.consistency = Some(self.calcluate_consistency());
+    }
+
+    fn calcluate_consistency(&self) -> f64 {
+        let completed_words: Vec<_> = self
+            .words
+            .iter()
+            .filter(|w| w.completed && w.start_time.is_some() && w.end_time.is_some())
+            .collect();
+
+        if completed_words.len() < 2 {
+            return 0.0; // perfect consistency with 0 or 1 words
+        }
+
+        let word_speeds: Vec<f64> = completed_words
+            .iter()
+            .filter_map(|word| {
+                let duration = word
+                    .end_time?
+                    .duration_since(word.start_time?)
+                    .as_secs_f64();
+                let chars = word.target.len() as f64;
+                if duration > 0.0 {
+                    Some((chars / 5.0) / (duration / 60.0)) // WPM for this word
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if word_speeds.is_empty() {
+            return 0.0;
+        }
+
+        // std dev
+        let mean = word_speeds.iter().sum::<f64>() / word_speeds.len() as f64;
+        let variance = word_speeds
+            .iter()
+            .map(|speed| (speed - mean).powi(2))
+            .sum::<f64>()
+            / word_speeds.len() as f64;
+
+        variance.sqrt()
     }
 
     fn invalidate_metrics_cache(&mut self) {
@@ -424,10 +550,59 @@ mod tests {
 
     #[test]
     fn test_start_typing() {
-        let mut tracker = Tracker::new("termitype".to_string(), Mode::with_words(5));
+        let mut tracker = Tracker::new("termitype".to_string(), Mode::with_time(5));
         tracker.start_typing();
         assert_eq!(tracker.status, TypingStatus::InProgress);
         assert!(tracker.start_time.is_some());
+    }
+
+    #[test]
+    fn test_type_correct_char() {
+        let mut tracker = Tracker::new("hi".to_string(), Mode::with_time(5));
+        tracker.start_typing();
+
+        assert!(tracker.type_char('h').is_ok());
+        assert_eq!(tracker.current_pos, 1);
+        assert_eq!(tracker.typed_text, "h");
+        assert_eq!(tracker.total_errors, 0);
+    }
+
+    #[test]
+    fn test_type_incorrect_char() {
+        let mut tracker = Tracker::new("hi".to_string(), Mode::with_time(5));
+        tracker.start_typing();
+        assert!(tracker.type_char('e').is_ok());
+        assert_eq!(tracker.current_pos, 1);
+        assert_eq!(tracker.typed_text, "e");
+        assert_eq!(tracker.total_errors, 1);
+    }
+
+    #[test]
+    fn test_complete_short_word_typing_test_with_time_mode() {
+        let mut tracker = Tracker::new("hi".to_string(), Mode::with_time(60));
+        tracker.start_typing();
+
+        tracker.type_char('h').unwrap();
+        tracker.type_char('i').unwrap();
+
+        assert!(tracker.is_complete());
+        assert_eq!(tracker.status, TypingStatus::Completed);
+    }
+
+    #[test]
+    fn test_word_mode_completion() {
+        let mut tracker = Tracker::new("hello world".to_string(), Mode::with_words(2));
+        tracker.start_typing();
+        for c in "hello ".chars() {
+            tracker.type_char(c).unwrap()
+        }
+
+        assert!(!tracker.is_complete());
+
+        for c in "world".chars() {
+            tracker.type_char(c).unwrap()
+        }
+        assert!(tracker.is_complete())
     }
 
     #[test]
@@ -474,5 +649,29 @@ mod tests {
         tracker.start_time = Some(Instant::now() - Duration::from_secs(15));
         tracker.status = TypingStatus::InProgress;
         assert_eq!(tracker.progress(), 1.0);
+    }
+
+    #[test]
+    fn test_summary() {
+        let str = "hello termitype".to_string();
+        let mut tracker = Tracker::new(str.clone(), Mode::with_time(60));
+        tracker.start_typing();
+
+        tracker.type_char('h').unwrap();
+        tracker.type_char('e').unwrap();
+        tracker.type_char('l').unwrap();
+        tracker.type_char('x').unwrap(); // error
+        tracker.type_char('o').unwrap();
+
+        let summary = tracker.summary();
+        assert!(summary.wpm >= 0.0);
+        assert!(summary.wps >= 0.0);
+        assert!(summary.accuracy > 0.0);
+        assert_eq!(summary.total_chars, str.len());
+        assert_eq!(summary.correct_chars, 4);
+        assert_eq!(summary.total_errors, 1);
+        assert!(summary.elapsed_time > Duration::ZERO);
+        // wps shoud be wpm over 60
+        assert!((summary.wps - summary.wpm / 60.0).abs() < 0.001);
     }
 }
