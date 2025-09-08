@@ -19,14 +19,8 @@ pub enum Action {
 pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
     match action {
         Action::NoOp => Ok(()),
-        Action::Quit => {
-            app.quit();
-            Ok(())
-        }
-        Action::Start => {
-            app.start();
-            Ok(())
-        }
+        Action::Quit => app.quit(),
+        Action::Start => app.start(),
         Action::RandomizeTheme => theme::use_random_theme(),
         _ => Ok(()),
     }

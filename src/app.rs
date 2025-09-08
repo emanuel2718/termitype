@@ -2,11 +2,13 @@ use crate::{
     actions::{self, Action},
     builders::lexicon_builder::Lexicon,
     config::Config,
+    error::AppError,
     input::{Input, InputContext},
     log_info, theme,
     tracker::Tracker,
     tui,
 };
+use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
 use std::time::Duration;
@@ -31,11 +33,12 @@ impl App {
         }
     }
 
-    pub fn quit(&mut self) {
+    pub fn quit(&mut self) -> Result<(), AppError> {
         self.should_quit = true;
+        Ok(())
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self) -> Result<(), AppError> {
         // NOTE: if we start a new test we want to clear the custom words flag as starting a new
         //       test is designed to generate a completely new test. If the user want to keep
         //       the custom words then a `Redo` is the option.
@@ -43,6 +46,7 @@ impl App {
             self.config.cli.clear_custom_words_flag();
         }
         self.lexicon.regenerate(&self.config).unwrap();
+        Ok(())
     }
 }
 
