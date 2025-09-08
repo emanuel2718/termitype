@@ -31,7 +31,7 @@ impl Input {
 
         if self.is_restart_sequence(&event.code) {
             self.last_keycode = Some(event.code);
-            return Action::Start;
+            return Action::Restart;
         }
 
         if self.is_typing_input(event, &ctx) {
@@ -114,6 +114,6 @@ mod tests {
 
         let second_event = create_event(KeyModifiers::NONE, KeyCode::Enter);
         let second_action = input.handle(second_event, InputContext::Idle);
-        assert_eq!(second_action, Action::Start);
+        assert_eq!(second_action, Action::Restart);
     }
 }

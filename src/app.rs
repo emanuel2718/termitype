@@ -38,15 +38,32 @@ impl App {
         Ok(())
     }
 
-    pub fn start(&mut self) -> Result<(), AppError> {
+    pub fn restart(&mut self) -> Result<(), AppError> {
         // NOTE: if we start a new test we want to clear the custom words flag as starting a new
         //       test is designed to generate a completely new test. If the user want to keep
         //       the custom words then a `Redo` is the option.
         if self.config.cli.words.is_some() {
             self.config.cli.clear_custom_words_flag();
         }
-        self.lexicon.regenerate(&self.config).unwrap();
+        self.lexicon.regenerate(&self.config)?;
+        self.tracker
+            .reset(self.lexicon.words.clone(), self.config.current_mode());
         Ok(())
+    }
+
+    pub fn handle_input(&mut self, chr: char) -> Result<(), AppError> {
+        if self.tracker.is_idle() {
+            self.tracker.start_typing();
+        }
+        self.tracker.type_char(chr)
+    }
+
+    pub fn handle_backspace(&mut self) -> Result<(), AppError> {
+        match self.tracker.backspace() {
+            Ok(()) => Ok(()),
+            Err(AppError::TypingTestNotInProgress) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 }
 

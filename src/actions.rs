@@ -5,6 +5,7 @@ use anyhow::Result;
 pub enum Action {
     NoOp,
     Quit,
+    Restart,
     Start,
     Resume,
     Redo,
@@ -20,7 +21,9 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
     match action {
         Action::NoOp => Ok(()),
         Action::Quit => app.quit(),
-        Action::Start => app.start(),
+        Action::Restart => app.restart(),
+        Action::Input(c) => app.handle_input(c),
+        Action::Backspace => app.handle_backspace(),
         Action::RandomizeTheme => theme::use_random_theme(),
         _ => Ok(()),
     }

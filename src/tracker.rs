@@ -109,6 +109,10 @@ impl Tracker {
         }
     }
 
+    pub fn reset(&mut self, text: String, mode: Mode) {
+        *self = Self::new(text, mode);
+    }
+
     fn build_words(text: &str) -> Vec<Word> {
         let text_vec: Vec<&str> = text.split_whitespace().collect();
         text_vec
@@ -202,15 +206,18 @@ impl Tracker {
 
         self.invalidate_metrics_cache();
 
+        log_debug!("Tracker::type_char: {c}");
         Ok(())
     }
 
     pub fn backspace(&mut self) -> Result<(), AppError> {
         if !self.is_typing() {
+            log_debug!("Tracker::backspace: TypingTestNotInProgress");
             return Err(AppError::TypingTestNotInProgress);
         }
 
         if self.current_pos == 0 {
+            log_debug!("Tracker::backspace: IllegalBackspace");
             return Err(AppError::IllegalBackspace);
         }
 
@@ -231,6 +238,7 @@ impl Tracker {
             }
         }
         self.invalidate_metrics_cache();
+        log_debug!("Tracker::backspace: success");
         Ok(())
     }
 
@@ -678,5 +686,35 @@ mod tests {
         assert!(summary.elapsed_time > Duration::ZERO);
         // wps shoud be wpm over 60
         assert!((summary.wps - summary.wpm / 60.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_reset() {
+        let mut tracker = Tracker::new("hello world".to_string(), Mode::with_time(60));
+        tracker.start_typing();
+        tracker.type_char('h').unwrap();
+        tracker.type_char('e').unwrap();
+
+        assert_eq!(tracker.status, TypingStatus::InProgress);
+        assert_eq!(tracker.current_pos, 2);
+        assert_eq!(tracker.typed_text, "he");
+        assert_eq!(tracker.total_errors, 0);
+        assert!(tracker.start_time.is_some());
+
+        let new_text = "new test".to_string();
+        let new_mode = Mode::with_words(5);
+        tracker.reset(new_text.clone(), new_mode);
+
+        assert_eq!(tracker.status, TypingStatus::NotStarted);
+        assert_eq!(tracker.text, new_text);
+        assert_eq!(tracker.mode, new_mode);
+        assert_eq!(tracker.current_pos, 0);
+        assert_eq!(tracker.current_word_idx, 0);
+        assert_eq!(tracker.typed_text, "");
+        assert_eq!(tracker.total_errors, 0);
+        assert!(tracker.start_time.is_none());
+        assert!(tracker.end_time.is_none());
+        assert_eq!(tracker.words.len(), 2); // "new test"
+        assert_eq!(tracker.tokens.len(), new_text.len());
     }
 }
