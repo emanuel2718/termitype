@@ -417,23 +417,28 @@ impl Tracker {
     }
 
     fn update_metrics(&mut self) {
-        // Move this wpm calculation into seperate fn `calculate_wpm`
+        self.metrics.wpm = Some(self.calculate_wpm());
+        self.metrics.accuracy = Some(self.calculate_accuracy());
+        self.metrics.consistency = Some(self.calcluate_consistency());
+    }
+
+    fn calculate_wpm(&self) -> f64 {
         let elapsed_mins = self.elapsed_time().as_secs_f64() / 60.0;
         if elapsed_mins > 0.0 {
             let correct_chars = self.correct_chars_count() as f64;
-            self.metrics.wpm = Some((correct_chars / 5.0) / elapsed_mins);
+            (correct_chars / 5.0) / elapsed_mins
         } else {
-            self.metrics.wpm = Some(0.0);
+            0.0
         }
+    }
 
+    fn calculate_accuracy(&self) -> f64 {
         let total_typed = self.typed_text.len() as f64;
         if total_typed > 0.0 {
-            self.metrics.accuracy = Some(self.correct_chars_count() as f64 / total_typed);
+            self.correct_chars_count() as f64 / total_typed
         } else {
-            self.metrics.accuracy = Some(0.0);
+            0.0
         }
-
-        self.metrics.consistency = Some(self.calcluate_consistency());
     }
 
     fn calcluate_consistency(&self) -> f64 {
