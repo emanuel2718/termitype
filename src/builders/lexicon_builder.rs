@@ -253,12 +253,14 @@ mod tests {
             .unwrap();
 
         let test = builder.generate_test(&config).unwrap();
+        let words: Vec<&str> = test.split_whitespace().collect();
 
-        for i in 1..test.len() {
+        for i in 1..words.len() {
             assert_ne!(
-                test[i],
-                test[i - 1],
-                "Found consecutive duplicate at index {}",
+                words[i],
+                words[i - 1],
+                "Found consecutive duplicate words: {} at index {}",
+                words[i],
                 i
             );
         }
@@ -274,7 +276,7 @@ mod tests {
             .unwrap();
 
         let test = builder.generate_test(&config).unwrap();
-        assert_eq!(test.len(), count);
+        assert_eq!(test.split_whitespace().count(), count);
     }
 
     #[test]
@@ -286,7 +288,7 @@ mod tests {
         for seconds in seconds_arr {
             config.change_mode(Mode::with_time(seconds)).unwrap();
             let test = builder.generate_test(&config).unwrap();
-            assert!(test.len() >= WPS_TARGET * seconds);
+            assert!(test.split_whitespace().count() >= WPS_TARGET * seconds);
         }
     }
 }
