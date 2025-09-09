@@ -1,7 +1,7 @@
 use crate::{
     cli::Cli,
     constants::{
-        DEFAULT_LANGUAGE, DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION_IN_SECS,
+        DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION_IN_SECS,
         DEFAULT_WORD_MODE_COUNT,
     },
     persistence::Persistence,
@@ -143,6 +143,8 @@ pub struct ConfigState {
     pub results_variant: ResultsVariant,
     #[serde(default)]
     pub theme: Option<String>,
+    #[serde(default)]
+    pub lines: u8,
 }
 
 impl Default for ConfigState {
@@ -153,6 +155,7 @@ impl Default for ConfigState {
             numbers: false,
             symbols: false,
             punctuation: false,
+            lines: DEFAULT_LINE_COUNT,
             language: Some(DEFAULT_LANGUAGE.to_string()),
             theme: Some(DEFAULT_THEME.to_string()),
             cursor_variant: CursorVariant::default(),
@@ -251,6 +254,8 @@ impl Config {
             self.state.punctuation = true;
         }
 
+        self.state.lines = cli.visible_lines;
+
         #[cfg(debug_assertions)]
         if cli.debug {
             self.state.debug = true;
@@ -305,6 +310,10 @@ impl Config {
         self.state.results_variant
     }
 
+    pub fn current_line_count(&self) -> u8 {
+        self.state.lines
+    }
+
     pub fn change_language(&mut self, lang: String) {
         self.state.language = Some(lang);
     }
@@ -324,6 +333,10 @@ impl Config {
 
     pub fn change_results_variant(&mut self, variant: ResultsVariant) {
         self.state.results_variant = variant;
+    }
+
+    pub fn change_visible_lines_count(&mut self, count: u8) {
+        self.state.lines = count;
     }
 
     pub fn toggle_symbols(&mut self) {
@@ -352,6 +365,7 @@ mod tests {
             config.current_mode().value(),
             DEFAULT_TIME_MODE_DURATION_IN_SECS
         );
+        assert_eq!(config.current_line_count(), DEFAULT_LINE_COUNT);
         assert_eq!(config.current_language(), DEFAULT_LANGUAGE.to_string());
         assert!(!config.using_numbers());
         assert!(!config.using_symbols());

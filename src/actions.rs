@@ -14,6 +14,7 @@ pub enum Action {
     Input(char),
     Backspace,
 
+    ChangeLineCount(u8),
     RandomizeTheme,
 }
 
@@ -24,6 +25,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::Restart => app.restart(),
         Action::Input(c) => app.handle_input(c),
         Action::Backspace => app.handle_backspace(),
+        Action::ChangeLineCount(_) => app.handle_change_line_count(),
         Action::RandomizeTheme => theme::use_random_theme(),
         _ => Ok(()),
     }

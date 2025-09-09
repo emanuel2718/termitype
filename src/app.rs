@@ -65,6 +65,20 @@ impl App {
             Err(e) => Err(e),
         }
     }
+
+    pub fn handle_change_line_count(&mut self) -> Result<(), AppError> {
+        // TODO: eventually do this corrrectly through a modal or something, just messgin around atm.
+        //       this will need to receive the desired visible line count....
+        const MAX_LINE_COUNT: u8 = 6;
+        let current = self.config.current_line_count();
+        let new_count = if current >= MAX_LINE_COUNT {
+            1
+        } else {
+            current + 1
+        };
+        self.config.change_visible_lines_count(new_count);
+        Ok(())
+    }
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {

@@ -1,3 +1,4 @@
+use crate::constants::DEFAULT_LINE_COUNT;
 use clap::Parser;
 
 /// The CLI arguments
@@ -65,6 +66,15 @@ pub struct Cli {
         help = "Results style: graph, neofetch, minimal"
     )]
     pub results: Option<String>,
+
+    /// Number of visible text lines
+    #[arg(
+        long = "lines",
+        default_value_t = DEFAULT_LINE_COUNT,
+        value_name = "COUNT",
+        help = "Number of visible text lines"
+    )]
+    pub visible_lines: u8,
 
     /// Enables debug mode
     #[cfg(debug_assertions)]
