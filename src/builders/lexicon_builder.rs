@@ -8,8 +8,10 @@ use crate::{
     config::Config,
     constants::{DEFAULT_LANGUAGE, WPS_TARGET},
     error::AppError,
+    log_debug,
 };
 
+const MIN_POSSIBLE_WORD_COUNT: usize = 100;
 const SYMBOLS: &[char] = &[
     '@', '#', '$', '%', '&', '*', '(', ')', '+', '-', '/', '=', '?', '<', '>', '^', '_', '`', '{',
     '|', '}', '~',
@@ -90,10 +92,12 @@ impl LexiconBuilder {
 
         // if we are on time mode, we must ensure we genearate enough words even for mythicalrocket
         let word_count = if config.current_mode().is_time_mode() {
-            config.current_mode().value() * WPS_TARGET
+            (config.current_mode().value() * WPS_TARGET).max(MIN_POSSIBLE_WORD_COUNT)
         } else {
             config.current_mode().value()
         };
+
+        log_debug!("The word count: {word_count}");
 
         let mut selected_words: Vec<&str> = (0..word_count)
             .map(|i| words[shuffled_idxs[i % shuffled_idxs.len()]].as_str())
@@ -290,5 +294,18 @@ mod tests {
             let test = builder.generate_test(&config).unwrap();
             assert!(test.split_whitespace().count() >= WPS_TARGET * seconds);
         }
+    }
+
+    #[test]
+    fn test_ensure_enough_words_low_time_modes() {
+        let mut builder = create_builder();
+        let mut config = Config::default();
+        let seconds = 2;
+        // Without enforcing `MIN_POSSIBLE_WORD_COUNT`, the test would generate only 2 * WPS_TARGET = 12 words.
+        // Typing over 350 WPM in 2 seconds to finish is unrealistic, and having just 12 words show up looks rather odd.
+        // To avoid this, we ensure at least `MIN_POSSIBLE_WORD_COUNT` words for better aesthetics and the cost is minimal
+        config.change_mode(Mode::with_time(seconds)).unwrap();
+        let test = builder.generate_test(&config).unwrap();
+        assert!(test.split_whitespace().count() >= MIN_POSSIBLE_WORD_COUNT);
     }
 }
