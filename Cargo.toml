@@ -11,6 +11,7 @@ keywords = ["tui", "cli", "typing", "game"]
 repository = "https://github.com/emanuel2718/termitype.git"
 homepage = "https://github.com/emanuel2718/termitype"
 authors = ["Emanuel Ramirez <eramirez2718@gmail.com>"]
+default-run = "termitype"
 
 include = [
     "**/*.rs",
@@ -18,6 +19,14 @@ include = [
     "assets/themes/**/*",
     "assets/languages/**/*",
 ]
+
+[[bin]]
+name = "termitype"
+path = "src/main.rs"
+
+[[bin]]
+name = "simulation"
+path = "bin/simulation.rs"
 
 [profile.release]
 codegen-units = 1
