@@ -52,6 +52,9 @@ impl App {
     }
 
     pub fn handle_input(&mut self, chr: char) -> Result<(), AppError> {
+        if self.tracker.is_complete() {
+            return Ok(());
+        }
         if self.tracker.is_idle() {
             self.tracker.start_typing();
         }
@@ -92,7 +95,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
         if app.should_quit {
             break;
         }
-        if event::poll(Duration::from_millis(100))? {
+        if event::poll(Duration::from_millis(75))? {
             match event::read()? {
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
                     // TODO: resolve input contxt
@@ -108,7 +111,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
 
         terminal.draw(|frame| {
             // TODO: return the click actions
-            let _ = tui::renderer::draw_ui(frame, &app);
+            let _ = tui::renderer::draw_ui(frame, &mut app);
         })?;
     }
 
