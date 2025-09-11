@@ -196,7 +196,7 @@ impl Config {
         }
     }
 
-    fn persist(&mut self) -> Result<()> {
+    pub fn persist(&mut self) -> Result<()> {
         let json = serde_json::to_string(&self.state)?;
         let _ = self.persistence.set("config", &json);
         self.persistence.flush()?;
@@ -312,6 +312,10 @@ impl Config {
 
     pub fn current_line_count(&self) -> u8 {
         self.state.lines
+    }
+
+    pub fn change_theme(&mut self, theme: Theme) {
+        self.state.theme = Some(theme.id.to_string())
     }
 
     pub fn change_language(&mut self, lang: String) {

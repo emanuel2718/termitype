@@ -4,7 +4,7 @@ use crate::{
     config::Config,
     error::AppError,
     input::{Input, InputContext},
-    log_info, theme,
+    log_debug, log_info, theme,
     tracker::Tracker,
     tui,
 };
@@ -34,6 +34,7 @@ impl App {
     }
 
     pub fn quit(&mut self) -> Result<(), AppError> {
+        self.sync_global_changes()?;
         self.should_quit = true;
         Ok(())
     }
@@ -82,6 +83,15 @@ impl App {
         self.config.change_visible_lines_count(new_count);
         Ok(())
     }
+
+    fn sync_global_changes(&mut self) -> Result<(), AppError> {
+        // NOTE: sync the theme changes before quitting.
+        let theme = theme::current_theme();
+        log_debug!("The current theme: {theme:?}");
+        self.config.change_theme(theme);
+        self.config.persist()?;
+        Ok(())
+    }
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
@@ -100,9 +110,6 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
                     // TODO: resolve input contxt
                     let action = input.handle(event, InputContext::Typing);
-                    if action == Action::Quit {
-                        break;
-                    }
                     actions::handle_action(&mut app, action)?;
                 }
                 _ => {}
