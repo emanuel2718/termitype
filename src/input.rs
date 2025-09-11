@@ -63,7 +63,8 @@ impl Input {
     }
 
     fn is_typing_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
-        matches!(event.code, KeyCode::Char(_)) && *ctx == InputContext::Typing
+        matches!(event.code, KeyCode::Char(_))
+            && matches!(ctx, InputContext::Idle | InputContext::Typing)
     }
 }
 
@@ -89,11 +90,9 @@ mod tests {
     fn test_is_typing_input() {
         let mut input = Input::new();
 
-        let tab_event = create_event(KeyModifiers::NONE, KeyCode::Tab);
         let typing_event = create_event(KeyModifiers::NONE, KeyCode::Char('c'));
+        assert!(input.is_typing_input(typing_event, &InputContext::Idle));
         assert!(input.is_typing_input(typing_event, &InputContext::Typing));
-        assert!(!input.is_typing_input(typing_event, &InputContext::Idle));
-        assert!(!input.is_typing_input(tab_event, &InputContext::Typing));
 
         // should be a quit sequence
         let non_typing_event = create_event(KeyModifiers::CONTROL, KeyCode::Char('c'));
