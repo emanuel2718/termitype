@@ -1,12 +1,3 @@
-/*
-    state.rs  -> tracker.rs
-    TestState -> TypingStatus
-    CharInfo   -> Token
-    CharInfo.has_error => Token.is_wrong
-    WordStats  -> Word
-    TypingState -> Tracker
-*/
-
 use crate::{config::Mode, error::AppError, log_debug};
 use std::time::{Duration, Instant};
 
@@ -163,9 +154,27 @@ impl Tracker {
     }
 
     pub fn type_char(&mut self, c: char) -> Result<(), AppError> {
+        let is_space = c == ' ';
+        // never the first character of the test will be a space character.
+        if self.is_idle() && is_space {
+            return Err(AppError::IllegalSpaceCharacter);
+        }
+
+        // never the first character of a word is a space char, so if space is typed at the start
+        // of a word do absolutely nothing. This is what monkeytype does anyways.
+        if is_space && self.is_at_word_start() {
+            return Err(AppError::IllegalSpaceCharacter);
+        }
+
+        // if we get here we should auto-start typing as we are typing a valid chacter
+        if self.is_idle() && !is_space {
+            self.start_typing();
+        }
+
         if !self.is_typing() {
             return Err(AppError::TypingTestNotInProgress);
         }
+
         if self.is_complete() {
             return Err(AppError::TypingTestAlreadyCompleted);
         }
@@ -195,6 +204,7 @@ impl Tracker {
         }
 
         self.current_pos += 1;
+        self.invalidate_metrics_cache();
 
         if self.should_mark_word_as_completed() {
             self.mark_word_as_completed();
@@ -203,8 +213,6 @@ impl Tracker {
         if self.should_complete() {
             self.complete();
         }
-
-        self.invalidate_metrics_cache();
 
         log_debug!("Tracker::type_char: {c}");
         Ok(())
@@ -224,6 +232,18 @@ impl Tracker {
         self.typed_text.pop();
 
         self.current_pos -= 1;
+
+        // check if we are backspacing over a space that completed a word
+        if let Some(token) = self.tokens.get(self.current_pos) {
+            if token.target == ' ' && self.current_word_idx > 0 {
+                // we are backspacing over a <space>, so go back to the previous word
+                self.current_word_idx -= 1;
+                if let Some(word) = self.words.get_mut(self.current_word_idx) {
+                    word.completed = false;
+                    word.end_time = None;
+                }
+            }
+        }
 
         if let Some(token) = self.tokens.get_mut(self.current_pos) {
             token.typed = None;
@@ -321,6 +341,15 @@ impl Tracker {
             }
         }
         self.update_metrics();
+    }
+
+    fn is_at_word_start(&self) -> bool {
+        self.current_pos == 0
+            || self.current_pos > 0
+                && self
+                    .tokens
+                    .get(self.current_pos - 1)
+                    .is_some_and(|prev| prev.target == ' ')
     }
 
     /// Returns an iterator over all words with their statistics
@@ -720,5 +749,42 @@ mod tests {
         assert!(tracker.end_time.is_none());
         assert_eq!(tracker.words.len(), 2); // "new test"
         assert_eq!(tracker.tokens.len(), new_text.len());
+    }
+
+    #[test]
+    fn test_correct_word_tracking() {
+        let mut tracker = Tracker::new("hi you test".to_string(), Mode::with_words(3));
+        tracker.start_typing();
+        tracker.type_char('h').unwrap();
+        tracker.type_char('i').unwrap();
+        tracker.type_char(' ').unwrap();
+        tracker.backspace().unwrap();
+        tracker.type_char(' ').unwrap();
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.current_word_idx, 0);
+    }
+
+    #[test]
+    fn test_illegal_space() {
+        let mut tracker = Tracker::new("hello world".to_string(), Mode::with_time(60));
+        // tracker.start_typing();
+        let space_input = tracker.type_char(' ');
+        println!("space_input: {:?}", space_input);
+        assert!(matches!(space_input, Err(AppError::IllegalSpaceCharacter))); // error
+        assert_eq!(tracker.status, TypingStatus::NotStarted);
+
+        tracker.type_char('h').unwrap();
+        tracker.type_char('e').unwrap();
+        tracker.type_char('l').unwrap();
+        tracker.type_char('l').unwrap();
+        tracker.type_char('o').unwrap();
+        let space_input = tracker.type_char(' '); // we have typed `hello `
+        assert!(!matches!(space_input, Err(AppError::IllegalSpaceCharacter))); // not an error
+        assert_eq!(tracker.current_pos, 6);
+
+        let space_input = tracker.type_char(' ');
+        assert!(matches!(space_input, Err(AppError::IllegalSpaceCharacter))); // error
+        assert_eq!(tracker.current_pos, 6);
+        assert_eq!(tracker.typed_text, "hello ");
     }
 }

@@ -66,16 +66,21 @@ impl App {
         if self.tracker.is_complete() {
             return Ok(());
         }
-        if self.tracker.is_idle() {
-            self.tracker.start_typing();
+        match self.tracker.type_char(chr) {
+            Ok(()) => {
+                self.tracker.start_typing();
+                Ok(())
+            }
+            Err(AppError::IllegalSpaceCharacter) => Ok(()),
+            Err(e) => Err(e),
         }
-        self.tracker.type_char(chr)
     }
 
     pub fn handle_backspace(&mut self) -> Result<(), AppError> {
         match self.tracker.backspace() {
             Ok(()) => Ok(()),
             Err(AppError::TypingTestNotInProgress) => Ok(()),
+            Err(AppError::IllegalBackspace) => Ok(()),
             Err(e) => Err(e),
         }
     }
