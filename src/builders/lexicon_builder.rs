@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     assets,
-    config::Config,
+    config::{Config, Setting},
     constants::{DEFAULT_LANGUAGE, WPS_TARGET},
     error::AppError,
     log_debug,
@@ -111,13 +111,15 @@ impl LexiconBuilder {
         // add extras such as punctuation, symbols, numbers, etc.
         let extras: Vec<Option<char>> = (0..word_count)
             .map(|_| {
-                if config.using_symbols() && self.rng.random_bool(SYMBOL_PROBABILITY) {
+                let using_symbols = config.is_enabled(Setting::Symbols);
+                let using_numbers = config.is_enabled(Setting::Numbers);
+                let using_punctuation = config.is_enabled(Setting::Punctuation);
+
+                if using_symbols && self.rng.random_bool(SYMBOL_PROBABILITY) {
                     Some(SYMBOLS[self.rng.random_range(0..SYMBOLS.len())])
-                } else if config.using_punctuation()
-                    && self.rng.random_bool(PUNCTUATION_PROBABILITY)
-                {
+                } else if using_punctuation && self.rng.random_bool(PUNCTUATION_PROBABILITY) {
                     Some(PUNCTUATION[self.rng.random_range(0..PUNCTUATION.len())])
-                } else if config.using_numbers() && self.rng.random_bool(NUMBER_PROBABILITY) {
+                } else if using_numbers && self.rng.random_bool(NUMBER_PROBABILITY) {
                     Some(NUMBERS[self.rng.random_range(0..NUMBERS.len())])
                 } else {
                     None

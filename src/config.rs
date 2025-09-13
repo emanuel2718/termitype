@@ -13,6 +13,14 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::{fmt, num::NonZeroUsize, time::Duration};
 
+/// General settings that are toggleable
+#[derive(Debug, PartialEq)]
+pub enum Setting {
+    Symbols,
+    Numbers,
+    Punctuation,
+}
+
 /// Represents a typing test mode, either time-based or word-count based.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Mode {
@@ -262,18 +270,6 @@ impl Config {
         }
     }
 
-    pub fn using_symbols(&self) -> bool {
-        self.state.symbols
-    }
-
-    pub fn using_numbers(&self) -> bool {
-        self.state.numbers
-    }
-
-    pub fn using_punctuation(&self) -> bool {
-        self.state.punctuation
-    }
-
     #[cfg(debug_assertions)]
     pub fn is_debug(&self) -> bool {
         self.state.debug
@@ -343,16 +339,20 @@ impl Config {
         self.state.lines = count;
     }
 
-    pub fn toggle_symbols(&mut self) {
-        self.state.symbols = !self.state.symbols;
+    pub fn is_enabled(&self, setting: Setting) -> bool {
+        match setting {
+            Setting::Symbols => self.state.symbols,
+            Setting::Numbers => self.state.numbers,
+            Setting::Punctuation => self.state.punctuation,
+        }
     }
 
-    pub fn toggle_numbers(&mut self) {
-        self.state.numbers = !self.state.numbers;
-    }
-
-    pub fn toggle_punctuation(&mut self) {
-        self.state.punctuation = !self.state.punctuation;
+    pub fn toggle(&mut self, setting: Setting) {
+        match setting {
+            Setting::Symbols => self.state.symbols = !self.state.symbols,
+            Setting::Numbers => self.state.numbers = !self.state.numbers,
+            Setting::Punctuation => self.state.punctuation = !self.state.punctuation,
+        }
     }
 }
 
@@ -371,9 +371,9 @@ mod tests {
         );
         assert_eq!(config.current_line_count(), DEFAULT_LINE_COUNT);
         assert_eq!(config.current_language(), DEFAULT_LANGUAGE.to_string());
-        assert!(!config.using_numbers());
-        assert!(!config.using_symbols());
-        assert!(!config.using_punctuation());
+        assert!(!config.is_enabled(Setting::Symbols));
+        assert!(!config.is_enabled(Setting::Numbers));
+        assert!(!config.is_enabled(Setting::Punctuation));
     }
 
     #[test]
@@ -392,9 +392,14 @@ mod tests {
     #[test]
     fn test_toggles() {
         let mut config = Config::default();
-        assert!(!config.using_symbols());
-        config.toggle_symbols();
-        assert!(config.using_symbols());
+
+        assert!(!config.is_enabled(Setting::Symbols));
+        config.toggle(Setting::Symbols);
+        assert!(config.is_enabled(Setting::Symbols));
+
+        assert!(!config.is_enabled(Setting::Punctuation));
+        config.toggle(Setting::Punctuation);
+        assert!(config.is_enabled(Setting::Punctuation));
     }
 
     #[test]
