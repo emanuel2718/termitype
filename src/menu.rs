@@ -34,7 +34,7 @@ impl MenuAction {
 #[derive(Clone, Debug)]
 pub struct MenuItem {
     label: String,
-    pub disabled: bool,
+    pub is_disabled: bool,
     pub action: MenuAction,
     pub shortcut: Option<char>,
     pub description: Option<String>,
@@ -44,7 +44,7 @@ impl MenuItem {
     pub fn new<S: Into<String>>(label: S, action: MenuAction) -> Self {
         Self {
             label: label.into(),
-            disabled: false,
+            is_disabled: false,
             action,
             shortcut: None,
             description: None,
@@ -61,7 +61,7 @@ impl MenuItem {
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
+        self.is_disabled = disabled;
         self
     }
 
@@ -127,7 +127,7 @@ impl MenuContent {
             let query = query.to_lowercase();
             self.items
                 .iter()
-                .filter(|item| !item.disabled && fuzzy_match(&item.label.to_lowercase(), &query))
+                .filter(|item| !item.is_disabled && fuzzy_match(&item.label.to_lowercase(), &query))
                 .collect()
         }
     }
@@ -154,7 +154,7 @@ impl MenuContent {
         self.items
             .iter()
             .enumerate()
-            .find(|(_, item)| item.shortcut == Some(shortcut) && !item.disabled)
+            .find(|(_, item)| item.shortcut == Some(shortcut) && !item.is_disabled)
     }
 }
 
