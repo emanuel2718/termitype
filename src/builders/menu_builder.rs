@@ -68,7 +68,7 @@ impl MenuBuilder {
     }
 }
 
-pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent {
+pub fn build_menu_from_context(ctx: MenuContext, _config: &Config) -> MenuContent {
     match ctx {
         MenuContext::Root => build_root_menu(),
         MenuContext::Options => build_options_menu(),

@@ -390,6 +390,10 @@ impl ThemeManager {
         crate::assets::list_themes()
     }
 
+    pub fn color_support(&self) -> ColorSupport {
+        self.color_support
+    }
+
     pub fn use_random_theme(&self) -> Result<(), AppError> {
         let available = self.available_themes();
         if available.is_empty() {

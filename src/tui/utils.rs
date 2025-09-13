@@ -1,71 +1,59 @@
-use crate::theme;
-use ratatui::{
-    style::{Modifier, Style},
-    text::{Line, Span},
-};
+use crate::{app::App, tui::layout::AppLayout};
+use ratatui::{layout::Position, text::Line, widgets::Padding, Frame};
 
-pub fn create_target_text_line(
-    state: &crate::tracker::Tracker,
-    theme: &theme::Theme,
-    max_width: u16,
+pub fn calculate_visible_lines(
+    target_lines: &[Line<'static>],
+    app: &crate::app::App,
 ) -> Vec<Line<'static>> {
-    let mut spans = Vec::new();
-
-    for (i, token) in state.tokens.iter().enumerate() {
-        let style = if i < state.current_pos {
-            // character already typed
-            if token.is_wrong {
-                Style::default()
-                    .fg(theme.error())
-                    .remove_modifier(Modifier::DIM)
-            } else {
-                Style::default()
-                    .fg(theme.success())
-                    .remove_modifier(Modifier::DIM)
+    let cursor_line = {
+        let mut cumulative = 0;
+        let mut line = 0;
+        for (i, l) in target_lines.iter().enumerate() {
+            let line_len = l.spans.iter().map(|s| s.content.len()).sum::<usize>();
+            if app.tracker.current_pos < cumulative + line_len {
+                line = i;
+                break;
             }
-        } else {
-            // upcoming
-            Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
-        };
-
-        spans.push(Span::styled(token.target.to_string(), style));
-    }
-
-    let mut lines = Vec::new();
-    let mut current_line: Vec<Span<'static>> = Vec::new();
-    let mut current_width = 0;
-    for span in spans {
-        let span_width = span.content.len() as u16;
-        if current_width + span_width > max_width {
-            // breakpoints
-            let mut break_index = current_line.len();
-            for (i, s) in current_line.iter().enumerate().rev() {
-                if s.content == " " {
-                    break_index = i + 1;
-                    break;
-                }
-            }
-            if break_index < current_line.len() {
-                let next_line = current_line.split_off(break_index);
-                lines.push(Line::from(current_line));
-                current_line = next_line;
-                current_width = current_line.iter().map(|s| s.content.len() as u16).sum();
-            } else {
-                lines.push(Line::from(current_line));
-                current_line = Vec::new();
-                current_width = 0;
-            }
-            current_line.push(span);
-            current_width += span_width;
-        } else {
-            current_line.push(span);
-            current_width += span_width;
+            cumulative += line_len;
         }
+        line
+    };
+    let line_count = app.config.current_line_count() as usize;
+    let scroll_offset = (line_count - 1).saturating_sub(1);
+    let visible_start = cursor_line.saturating_sub(scroll_offset);
+    let visible_end = (visible_start + line_count).min(target_lines.len());
+    target_lines[visible_start..visible_end].to_vec()
+}
+
+pub fn set_cursor_position(
+    frame: &mut Frame,
+    app: &mut App,
+    lines: &Vec<Line>,
+    layout: &AppLayout,
+    pad_size: usize,
+) {
+    let mut cumulative = 0;
+    let mut cursor_x = 0;
+    let mut cursor_y = 0;
+    for (i, line) in lines.iter().enumerate() {
+        let line_len = line.spans.iter().map(|s| s.content.len()).sum::<usize>();
+        if app.tracker.current_pos < cumulative + line_len {
+            cursor_y = i;
+            cursor_x = (app.tracker.current_pos - cumulative) as u16;
+            break;
+        }
+        cumulative += line_len;
     }
-    if !current_line.is_empty() {
-        lines.push(Line::from(current_line));
-    }
-    lines
+    let line_count = app.config.current_line_count() as usize;
+    let scroll_offset = (line_count - 1).saturating_sub(1);
+    let visible_start = cursor_y.saturating_sub(scroll_offset);
+    let visible_cursor_y = cursor_y - visible_start;
+    // Add offset for header lines (stats or language + empty line)
+    let header_offset = 2;
+    frame.set_cursor_position(Position {
+        x: layout.center_area.x + cursor_x,
+        y: layout.center_area.y + pad_size as u16 + visible_cursor_y as u16 + header_offset as u16,
+    });
 }
 
 pub fn wrap_text(text: &str, max_width: u16) -> Vec<Line<'static>> {
@@ -94,4 +82,31 @@ pub fn wrap_text(text: &str, max_width: u16) -> Vec<Line<'static>> {
         lines.push(Line::from(current_line));
     }
     lines
+}
+
+pub fn title_padding() -> Padding {
+    Padding {
+        left: 8,
+        right: 0,
+        top: 2,
+        bottom: 0,
+    }
+}
+
+pub fn mode_line_padding() -> Padding {
+    Padding {
+        left: 0,
+        right: 0,
+        top: 6,
+        bottom: 0,
+    }
+}
+
+pub fn footer_padding() -> Padding {
+    Padding {
+        left: 0,
+        right: 1,
+        top: 0,
+        bottom: 0,
+    }
 }
