@@ -425,6 +425,10 @@ mod tests {
         config.change_cursor_variant(CursorVariant::Underline);
         config.change_picker_variant(PickerVariant::Telescope);
         config.change_results_variant(ResultsVariant::Neofetch);
+
+        assert_eq!(config.current_cursor_variant(), CursorVariant::Underline);
+        assert_eq!(config.current_picker_variant(), PickerVariant::Telescope);
+        assert_eq!(config.current_results_variant(), ResultsVariant::Neofetch);
     }
 
     #[test]
