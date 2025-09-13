@@ -1,10 +1,12 @@
 use crate::{
-    actions::{self, Action},
+    actions::{self},
     builders::lexicon_builder::Lexicon,
     config::Config,
     error::AppError,
     input::{Input, InputContext},
-    log_debug, log_info, theme,
+    log_debug, log_info,
+    menu::Menu,
+    theme,
     tracker::Tracker,
     tui,
 };
@@ -15,6 +17,7 @@ use std::time::Duration;
 
 pub struct App {
     pub config: Config,
+    pub menu: Menu,
     pub lexicon: Lexicon,
     pub tracker: Tracker,
     should_quit: bool,
@@ -27,6 +30,7 @@ impl App {
 
         Self {
             config: config.clone(),
+            menu: Menu::new(),
             tracker,
             lexicon,
             should_quit: false,
@@ -36,6 +40,12 @@ impl App {
     pub fn quit(&mut self) -> Result<(), AppError> {
         self.sync_global_changes()?;
         self.should_quit = true;
+        Ok(())
+    }
+
+    pub fn redo(&mut self) -> Result<(), AppError> {
+        self.tracker
+            .reset(self.lexicon.words.clone(), self.config.current_mode());
         Ok(())
     }
 
@@ -92,6 +102,18 @@ impl App {
         self.config.persist()?;
         Ok(())
     }
+
+    fn resolve_input_context(&self) -> InputContext {
+        if self.menu.is_open() {
+            InputContext::Menu {
+                searching: self.menu.is_searching(),
+            }
+        } else if self.tracker.is_complete() {
+            InputContext::Completed
+        } else {
+            InputContext::Typing
+        }
+    }
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
@@ -109,7 +131,8 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             match event::read()? {
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
                     // TODO: resolve input contxt
-                    let action = input.handle(event, InputContext::Typing);
+                    let input_ctx = app.resolve_input_context();
+                    let action = input.handle(event, input_ctx);
                     actions::handle_action(&mut app, action)?;
                 }
                 _ => {}
@@ -120,6 +143,8 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             // TODO: return the click actions
             let _ = tui::renderer::draw_ui(frame, &mut app);
         })?;
+
+        app.tracker.check_completion();
     }
 
     Ok(())

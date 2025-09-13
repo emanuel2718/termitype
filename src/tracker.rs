@@ -320,6 +320,7 @@ impl Tracker {
                 word.end_time = Some(Instant::now())
             }
         }
+        self.update_metrics();
     }
 
     /// Returns an iterator over all words with their statistics
@@ -405,6 +406,9 @@ impl Tracker {
     }
 
     fn try_metrics_update(&mut self) {
+        if self.is_complete() {
+            return;
+        }
         let now = Instant::now();
         let should_update = self.metrics.last_updated_at.map_or_else(
             || true,

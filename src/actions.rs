@@ -23,6 +23,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::NoOp => Ok(()),
         Action::Quit => app.quit(),
         Action::Restart => app.restart(),
+        Action::Redo => app.redo(),
         Action::Input(c) => app.handle_input(c),
         Action::Backspace => app.handle_backspace(),
         Action::ChangeLineCount(_) => app.handle_change_line_count(),

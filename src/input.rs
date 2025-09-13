@@ -1,6 +1,6 @@
 use crate::{
     actions::Action,
-    builders::keymap_builder::{global_keymap, typing_keymap},
+    builders::keymap_builder::{global_keymap, results_keymap, typing_keymap},
     log_debug,
 };
 use crossterm::event::{KeyCode, KeyEvent};
@@ -9,6 +9,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 pub enum InputContext {
     Idle,
     Typing,
+    Completed,
     Menu { searching: bool },
 }
 
@@ -44,6 +45,7 @@ impl Input {
 
         let keymap = match ctx {
             InputContext::Typing => typing_keymap(),
+            InputContext::Completed => results_keymap(),
             _ => global_keymap(),
         };
 

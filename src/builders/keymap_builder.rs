@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 
 pub static GLOBAL_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static TYPING_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
+pub static RESULTS_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 
 const MOD_CTRL: KeyModifiers = KeyModifiers::CONTROL;
 
@@ -48,6 +49,10 @@ pub fn typing_keymap() -> &'static KeyMap {
     TYPING_KEYMAP.get_or_init(build_typing_keymap)
 }
 
+pub fn results_keymap() -> &'static KeyMap {
+    RESULTS_KEYMAP.get_or_init(build_results_keymap)
+}
+
 /// Global keybinds are those keybinds that no matter the current context they will have the same`
 /// resulting action
 fn build_global_keymap() -> KeyMap {
@@ -66,6 +71,13 @@ fn build_typing_keymap() -> KeyMap {
     KeyMap::new()
         .bind(KeyCode::Esc, Action::Pause)
         .bind(KeyCode::Backspace, Action::Backspace)
+}
+
+fn build_results_keymap() -> KeyMap {
+    KeyMap::new()
+        .bind(KeyCode::Char('q'), Action::Quit)
+        .bind(KeyCode::Char('r'), Action::Redo)
+        .bind(KeyCode::Char('n'), Action::Restart)
 }
 
 #[cfg(test)]
