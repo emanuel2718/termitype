@@ -1,4 +1,4 @@
-use crate::{app::App, error::AppError, theme};
+use crate::{app::App, config::Setting, error::AppError, theme};
 use anyhow::Result;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -10,6 +10,9 @@ pub enum Action {
     Resume,
     Redo,
     Pause,
+
+    Toggle(Setting),
+    ChangeTheme(String),
 
     Input(char),
     Backspace,
@@ -26,6 +29,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::Redo => app.redo(),
         Action::Input(c) => app.handle_input(c),
         Action::Backspace => app.handle_backspace(),
+        Action::Toggle(setting) => app.config.toggle(setting),
         Action::ChangeLineCount(_) => app.handle_change_line_count(),
         Action::RandomizeTheme => theme::use_random_theme(),
         _ => Ok(()),

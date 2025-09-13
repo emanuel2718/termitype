@@ -4,6 +4,7 @@ use crate::{
         DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION_IN_SECS,
         DEFAULT_WORD_MODE_COUNT,
     },
+    error::AppError,
     persistence::Persistence,
     theme::Theme,
     variants::{CursorVariant, PickerVariant, ResultsVariant},
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt, num::NonZeroUsize, time::Duration};
 
 /// General settings that are toggleable
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Setting {
     Symbols,
     Numbers,
@@ -347,12 +348,13 @@ impl Config {
         }
     }
 
-    pub fn toggle(&mut self, setting: Setting) {
+    pub fn toggle(&mut self, setting: Setting) -> Result<(), AppError> {
         match setting {
             Setting::Symbols => self.state.symbols = !self.state.symbols,
             Setting::Numbers => self.state.numbers = !self.state.numbers,
             Setting::Punctuation => self.state.punctuation = !self.state.punctuation,
-        }
+        };
+        Ok(())
     }
 }
 
@@ -394,11 +396,11 @@ mod tests {
         let mut config = Config::default();
 
         assert!(!config.is_enabled(Setting::Symbols));
-        config.toggle(Setting::Symbols);
+        config.toggle(Setting::Symbols).unwrap();
         assert!(config.is_enabled(Setting::Symbols));
 
         assert!(!config.is_enabled(Setting::Punctuation));
-        config.toggle(Setting::Punctuation);
+        config.toggle(Setting::Punctuation).unwrap();
         assert!(config.is_enabled(Setting::Punctuation));
     }
 
