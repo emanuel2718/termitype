@@ -355,7 +355,7 @@ impl Tracker {
         }
     }
 
-    fn should_complete(&self) -> bool {
+    pub fn should_complete(&self) -> bool {
         // all words are typed, should end test
         if self.current_pos >= self.text.len() {
             return true;

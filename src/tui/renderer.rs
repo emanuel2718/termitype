@@ -26,12 +26,12 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) -> Result<()> {
     if app.tracker.is_idle() {
         let layout: AppLayout = create_main_layout(area);
         render_idle_screen(frame, app, &theme, layout);
+    } else if app.tracker.is_complete() || app.tracker.should_complete() {
+        let results_layout = create_results_layout(area);
+        render_results_screen(frame, app, &theme, results_layout);
     } else if app.tracker.is_typing() || app.tracker.is_resuming() || app.tracker.is_paused() {
         let layout: AppLayout = create_main_layout(area);
         render_typing_screen(frame, app, &theme, layout);
-    } else if app.tracker.is_complete() {
-        let results_layout = create_results_layout(area);
-        render_results_screen(frame, app, &theme, results_layout);
     }
     // TODO: have a flag like `app.an_overlay_open` or something like that
     try_render_overlays(frame, app, &theme, area);
