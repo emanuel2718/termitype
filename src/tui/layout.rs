@@ -32,7 +32,7 @@ pub fn create_main_layout(area: Rect) -> AppLayout {
     let command_area = vertical_layout[2];
     let footer_area = vertical_layout[3];
 
-    let center_width = MAX_WIDTH.min(typing_area.width.saturating_sub(2));
+    let center_width = MAX_WIDTH.min((typing_area.width as f32 * 0.8) as u16).max(1);
     let left_width = (typing_area.width - center_width) / 2;
     let right_width = typing_area.width - center_width - left_width;
 
