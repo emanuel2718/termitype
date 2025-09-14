@@ -124,7 +124,7 @@ pub fn create_typing_area<'a>(
     lines.push(Line::from(""));
     lines.extend(visible_lines);
 
-    let padding = calculate_padding(&lines, layout.center_area.height) - 1;
+    let padding = calculate_padding(&lines, layout.center_area.height).saturating_sub(1);
     let mut padded_lines = vec![Line::from(""); padding];
     padded_lines.extend(lines);
 

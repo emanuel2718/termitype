@@ -132,7 +132,7 @@ pub fn calculate_horizontal_padding(content_width: u16, total_width: u16) -> (u1
 
 pub fn center_lines_vertically(lines: Vec<ratatui::text::Line<'static>>, height: u16) -> Vec<ratatui::text::Line<'static>> {
     let padding_top = super::layout::calculate_padding(&lines, height);
-    let padding_bottom = height as usize - lines.len() - padding_top;
+    let padding_bottom = (height as usize).saturating_sub(lines.len()).saturating_sub(padding_top);
     let mut result = Vec::with_capacity(height as usize);
     result.extend((0..padding_top).map(|_| ratatui::text::Line::from("")));
     result.extend(lines);
