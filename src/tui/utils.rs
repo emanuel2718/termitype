@@ -110,3 +110,32 @@ pub fn footer_padding() -> Padding {
         bottom: 0,
     }
 }
+
+pub fn max_line_width(lines: &[ratatui::text::Line]) -> u16 {
+    lines
+        .iter()
+        .map(|line| {
+            line.spans
+                .iter()
+                .map(|s| s.content.chars().count())
+                .sum::<usize>() as u16
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+pub fn calculate_horizontal_padding(content_width: u16, total_width: u16) -> (u16, u16) {
+    let left_pad = total_width.saturating_sub(content_width) / 2;
+    let right_pad = total_width.saturating_sub(content_width + left_pad);
+    (left_pad, right_pad)
+}
+
+pub fn center_lines_vertically(lines: Vec<ratatui::text::Line<'static>>, height: u16) -> Vec<ratatui::text::Line<'static>> {
+    let padding_top = super::layout::calculate_padding(&lines, height);
+    let padding_bottom = height as usize - lines.len() - padding_top;
+    let mut result = Vec::with_capacity(height as usize);
+    result.extend((0..padding_top).map(|_| ratatui::text::Line::from("")));
+    result.extend(lines);
+    result.extend((0..padding_bottom).map(|_| ratatui::text::Line::from("")));
+    result
+}

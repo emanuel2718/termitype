@@ -331,7 +331,7 @@ impl Tracker {
         }
     }
 
-    fn complete(&mut self) {
+    pub fn complete(&mut self) {
         self.status = TypingStatus::Completed;
         self.end_time = Some(Instant::now());
         if let Some(word) = self.words.get_mut(self.current_word_idx) {

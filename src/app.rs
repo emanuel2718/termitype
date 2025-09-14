@@ -26,7 +26,12 @@ pub struct App {
 impl App {
     pub fn new(config: &Config) -> Self {
         let lexicon = Lexicon::new(config).unwrap();
-        let tracker = Tracker::new(lexicon.words.clone(), config.current_mode());
+        let mut tracker = Tracker::new(lexicon.words.clone(), config.current_mode());
+
+        #[cfg(debug_assertions)]
+        if config.cli.show_results {
+            Self::force_show_results_screen(&mut tracker);
+        }
 
         Self {
             config: config.clone(),
@@ -119,6 +124,26 @@ impl App {
             InputContext::Typing
         }
     }
+
+    fn handle_debounce(&self) -> bool {
+        if self.tracker.is_complete() {
+            if let Some(end_time) = self.tracker.end_time {
+                if end_time.elapsed() < Duration::from_millis(500) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn force_show_results_screen(tracker: &mut Tracker) {
+        tracker.start_typing();
+        let test_chars = "hello world test";
+        for c in test_chars.chars() {
+            let _ = tracker.type_char(c);
+        }
+        tracker.complete();
+    }
 }
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
@@ -138,6 +163,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
                     // TODO: resolve input contxt
                     let input_ctx = app.resolve_input_context();
                     let action = input.handle(event, input_ctx);
+                    if app.handle_debounce() {
+                        continue;
+                    }
                     actions::handle_action(&mut app, action)?;
                 }
                 _ => {}

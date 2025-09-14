@@ -202,13 +202,13 @@ impl PickerVariant {
 /// ```
 #[derive(Debug, Clone, Default, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ResultsVariant {
-    /// Graphical display style (default).
+    /// Minimal text display.
     #[default]
+    Minimal,
+    /// Graphical display style (default).
     Graph,
     /// Neofetch-style display.
     Neofetch,
-    /// Minimal text display.
-    Minimal,
 }
 
 impl std::str::FromStr for ResultsVariant {
@@ -281,7 +281,7 @@ mod tests {
         assert_eq!(variant.value(), "graph");
         assert_eq!(variant.label(), "Graph");
         assert_eq!(ResultsVariant::name(), "results");
-        assert_eq!(ResultsVariant::default(), ResultsVariant::Graph);
+        assert_eq!(ResultsVariant::default(), ResultsVariant::Minimal);
     }
 
     #[test]

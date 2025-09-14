@@ -8,16 +8,22 @@ pub struct AppLayout {
     pub footer_area: Rect,
 }
 
+#[derive(Debug)]
+pub struct ResultsLayout {
+    pub results_area: Rect,
+    pub footer_area: Rect,
+}
+
 const MAX_WIDTH: u16 = 80;
 
-pub fn create_layout(area: Rect) -> AppLayout {
+pub fn create_main_layout(area: Rect) -> AppLayout {
     let vertical_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(15),
-            Constraint::Percentage(75),
-            Constraint::Percentage(7),
-            Constraint::Percentage(2),
+            Constraint::Percentage(15), // top area
+            Constraint::Percentage(75), // typing area
+            Constraint::Percentage(7),  // command area
+            Constraint::Percentage(2),  // footer
         ])
         .split(area);
 
@@ -44,6 +50,25 @@ pub fn create_layout(area: Rect) -> AppLayout {
         top_area,
         center_area,
         command_area,
+        footer_area,
+    }
+}
+
+pub fn create_results_layout(area: Rect) -> ResultsLayout {
+    let vertical_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(10), // top margin
+            Constraint::Percentage(83), // results
+            Constraint::Percentage(7),  // footer
+        ])
+        .split(area);
+
+    let results_area = vertical_layout[1];
+    let footer_area = vertical_layout[2];
+
+    ResultsLayout {
+        results_area,
         footer_area,
     }
 }

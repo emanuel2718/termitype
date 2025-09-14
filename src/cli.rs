@@ -80,6 +80,11 @@ pub struct Cli {
     #[cfg(debug_assertions)]
     #[arg(short = 'd', long = "debug", help = "Enables debug mode")]
     pub debug: bool,
+
+    /// Start the app showing the results screen (debug only)
+    #[cfg(debug_assertions)]
+    #[arg(long = "show-results", help = "Start with results screen shown")]
+    pub show_results: bool,
 }
 
 impl Cli {
