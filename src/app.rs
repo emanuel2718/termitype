@@ -5,7 +5,7 @@ use crate::{
     error::AppError,
     input::{Input, InputContext},
     log_debug, log_info,
-    menu::Menu,
+    menu::{Menu, MenuContext},
     theme,
     tracker::Tracker,
     tui,
@@ -81,6 +81,26 @@ impl App {
         }
     }
 
+    pub fn handle_menu_open(&mut self, ctx: MenuContext) -> Result<(), AppError> {
+        self.menu.open(ctx, &self.config)?;
+        self.tracker.toggle_pause();
+        Ok(())
+    }
+
+    pub fn handle_menu_close(&mut self) -> Result<(), AppError> {
+        self.menu.close()?;
+        self.tracker.toggle_pause();
+        Ok(())
+    }
+
+    pub fn handle_menu_backtrack(&mut self) -> Result<(), AppError> {
+        self.menu.back()?;
+        if !self.menu.is_open() {
+            self.tracker.toggle_pause();
+        }
+        Ok(())
+    }
+
     pub fn handle_backspace(&mut self) -> Result<(), AppError> {
         match self.tracker.backspace() {
             Ok(()) => Ok(()),
@@ -120,8 +140,10 @@ impl App {
             }
         } else if self.tracker.is_complete() {
             InputContext::Completed
-        } else {
+        } else if self.tracker.is_typing() {
             InputContext::Typing
+        } else {
+            InputContext::Idle
         }
     }
 

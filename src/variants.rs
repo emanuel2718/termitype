@@ -129,11 +129,11 @@ impl CursorVariant {
 /// ```
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PickerVariant {
-    /// Opens from the top a la quake terminal style, hence the name
-    #[default]
-    Quake,
     /// Floating menu just like Telescopic johnson does
+    #[default]
     Telescope,
+    /// Opens from the top a la quake terminal style, hence the name
+    Quake,
     /// Opens from the bottom.
     Ivy,
     /// Telescope style picker without footer and preview folds/splits
@@ -272,7 +272,7 @@ mod tests {
         assert_eq!(variant.value(), "quake");
         assert_eq!(variant.label(), "Quake");
         assert_eq!(PickerVariant::name(), "picker");
-        assert_eq!(PickerVariant::default(), PickerVariant::Quake);
+        assert_eq!(PickerVariant::default(), PickerVariant::Telescope);
     }
 
     #[test]

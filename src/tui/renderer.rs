@@ -7,12 +7,13 @@ use crate::{
             create_typing_area,
         },
         layout::{create_main_layout, create_results_layout, AppLayout, ResultsLayout},
+        pickers,
         results::{create_minimal_results_display, create_results_footer_element},
     },
     variants::ResultsVariant,
 };
 use anyhow::Result;
-use ratatui::{style::Style, widgets::Block, Frame};
+use ratatui::{layout::Rect, style::Style, widgets::Block, Frame};
 
 pub fn draw_ui(frame: &mut Frame, app: &mut App) -> Result<()> {
     let area = frame.area();
@@ -25,15 +26,16 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) -> Result<()> {
     if app.tracker.is_idle() {
         let layout: AppLayout = create_main_layout(area);
         render_idle_screen(frame, app, &theme, layout);
-    } else if app.tracker.is_typing() {
+    } else if app.tracker.is_typing() || app.tracker.is_resuming() || app.tracker.is_paused() {
         let layout: AppLayout = create_main_layout(area);
         render_typing_screen(frame, app, &theme, layout);
     } else if app.tracker.is_complete() {
         let results_layout = create_results_layout(area);
         render_results_screen(frame, app, &theme, results_layout);
     }
-    //
-    // // overlays
+    // TODO: have a flag like `app.an_overlay_open` or something like that
+    try_render_overlays(frame, app, &theme, area);
+    // overlays
     // if app.menu.is_open() {
     //     render_menu(frame, app, area);
     // }
@@ -106,14 +108,12 @@ fn render_typing_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout:
 /// The way this looks varies depending on the current `ResultsVariant`.
 fn render_results_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout: ResultsLayout) {
     let results_display = match app.config.current_results_variant() {
-        ResultsVariant::Minimal => {
-            create_minimal_results_display(
-                app,
-                theme,
-                layout.results_area.height,
-                layout.results_area.width,
-            )
-        }
+        ResultsVariant::Minimal => create_minimal_results_display(
+            app,
+            theme,
+            layout.results_area.height,
+            layout.results_area.width,
+        ),
         // TODO: implement Graph, Neofetch variants later
         ResultsVariant::Graph => todo!(),
         ResultsVariant::Neofetch => todo!(),
@@ -123,4 +123,10 @@ fn render_results_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout
     // footer
     let footer_element = create_results_footer_element(theme);
     frame.render_widget(footer_element, layout.footer_area);
+}
+
+fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
+    if app.menu.is_open() {
+        pickers::render_menu_picker(frame, app, theme, area);
+    }
 }

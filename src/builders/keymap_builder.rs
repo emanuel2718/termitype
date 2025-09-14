@@ -1,12 +1,15 @@
 use crate::actions::Action;
 use crate::log_debug;
+use crate::menu::MenuContext;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
 pub static GLOBAL_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
+pub static IDLE_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static TYPING_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static RESULTS_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
+pub static MENU_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 
 const MOD_CTRL: KeyModifiers = KeyModifiers::CONTROL;
 
@@ -45,12 +48,20 @@ pub fn global_keymap() -> &'static KeyMap {
     GLOBAL_KEYMAP.get_or_init(build_global_keymap)
 }
 
+pub fn idle_keymap() -> &'static KeyMap {
+    IDLE_KEYMAP.get_or_init(build_idle_keymap)
+}
+
 pub fn typing_keymap() -> &'static KeyMap {
     TYPING_KEYMAP.get_or_init(build_typing_keymap)
 }
 
 pub fn results_keymap() -> &'static KeyMap {
     RESULTS_KEYMAP.get_or_init(build_results_keymap)
+}
+
+pub fn menu_keymap() -> &'static KeyMap {
+    MENU_KEYMAP.get_or_init(build_menu_keymap)
 }
 
 /// Global keybinds are those keybinds that no matter the current context they will have the same`
@@ -67,9 +78,13 @@ fn build_global_keymap() -> KeyMap {
         .bind_with_mod(MOD_CTRL, KeyCode::Char('z'), Action::Quit)
 }
 
+fn build_idle_keymap() -> KeyMap {
+    KeyMap::new().bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
+}
+
 fn build_typing_keymap() -> KeyMap {
     KeyMap::new()
-        .bind(KeyCode::Esc, Action::Pause)
+        .bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
         .bind(KeyCode::Backspace, Action::Backspace)
 }
 
@@ -78,6 +93,11 @@ fn build_results_keymap() -> KeyMap {
         .bind(KeyCode::Char('q'), Action::Quit)
         .bind(KeyCode::Char('r'), Action::Redo)
         .bind(KeyCode::Char('n'), Action::Restart)
+        .bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
+}
+
+fn build_menu_keymap() -> KeyMap {
+    KeyMap::new().bind(KeyCode::Esc, Action::MenuGoBack)
 }
 
 #[cfg(test)]

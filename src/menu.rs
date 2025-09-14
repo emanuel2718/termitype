@@ -1,4 +1,6 @@
-use crate::{actions, common::strings::fuzzy_match};
+use crate::{
+    actions, builders::menu_builder, common::strings::fuzzy_match, config::Config, error::AppError,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MenuContext {
@@ -160,7 +162,7 @@ impl MenuContent {
 
 #[derive(Clone, Debug)]
 pub struct Menu {
-    pub stack: Vec<MenuContent>,
+    stack: Vec<MenuContent>,
     search_query: String,
     pub ui_height: usize,
 }
@@ -182,6 +184,23 @@ impl Menu {
 
     pub fn is_open(&self) -> bool {
         !self.stack.is_empty()
+    }
+
+    pub fn open(&mut self, ctx: MenuContext, config: &Config) -> Result<(), AppError> {
+        let menu = menu_builder::build_menu_from_context(ctx, config);
+        self.stack.push(menu);
+        Ok(())
+    }
+
+    pub fn close(&mut self) -> Result<(), AppError> {
+        self.stack.clear();
+        Ok(())
+    }
+
+    pub fn back(&mut self) -> Result<(), AppError> {
+        // TODO: handle clear previews
+        self.stack.clear();
+        Ok(())
     }
 
     pub fn current_menu(&self) -> Option<&MenuContent> {
@@ -208,5 +227,223 @@ impl Menu {
 
     pub fn is_searching(&self) -> bool {
         !self.search_query.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actions::Action;
+
+    #[test]
+    fn test_open_menu() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(!menu.is_open());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.is_open());
+    }
+
+    #[test]
+    fn test_close_menu() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.is_open());
+        menu.close().unwrap();
+        assert!(!menu.is_open());
+    }
+
+    #[test]
+    fn test_menu_action_is_submenu() {
+        let action = MenuAction::Action(actions::Action::Quit);
+        assert!(!action.is_submenu());
+
+        let submenu = MenuAction::SubMenu(MenuContext::Root);
+        assert!(submenu.is_submenu());
+    }
+
+    #[test]
+    fn test_menu_item_new() {
+        let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit));
+        assert_eq!(item.label, "Test");
+        assert!(!item.is_disabled);
+        assert_eq!(item.shortcut, None);
+        assert_eq!(item.description, None);
+    }
+
+    #[test]
+    fn test_menu_item_submenu() {
+        let item = MenuItem::submenu("Options", MenuContext::Options);
+        assert_eq!(item.label, "Options");
+        assert!(matches!(
+            item.action,
+            MenuAction::SubMenu(MenuContext::Options)
+        ));
+    }
+
+    #[test]
+    fn test_menu_item_description() {
+        let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit))
+            .description("A test item");
+        assert_eq!(item.description, Some("A test item".to_string()));
+    }
+
+    #[test]
+    fn test_menu_item_label() {
+        let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit));
+        assert_eq!(item.label(), "Test");
+
+        let item_with_shortcut = item.shortcut('T');
+        assert_eq!(item_with_shortcut.label(), "Test [T]");
+    }
+
+    #[test]
+    fn test_menu_content_new() {
+        let items = vec![MenuItem::new(
+            "Item1",
+            MenuAction::Action(actions::Action::Quit),
+        )];
+        let content = MenuContent::new("Title", MenuContext::Root, items);
+        assert_eq!(content.title, "Title");
+        assert_eq!(content.ctx, MenuContext::Root);
+        assert_eq!(content.len(), 1);
+        assert_eq!(content.current_index, 0);
+    }
+
+    #[test]
+    fn test_menu_content_len_and_is_empty() {
+        let empty_content = MenuContent::new("Empty", MenuContext::Root, vec![]);
+        assert_eq!(empty_content.len(), 0);
+        assert!(empty_content.is_empty());
+
+        let items = vec![MenuItem::new(
+            "Item1",
+            MenuAction::Action(actions::Action::Quit),
+        )];
+        let content = MenuContent::new("Title", MenuContext::Root, items);
+        assert_eq!(content.len(), 1);
+        assert!(!content.is_empty());
+    }
+
+    #[test]
+    fn test_menu_content_current_item() {
+        let items = vec![
+            MenuItem::new("Item1", MenuAction::Action(actions::Action::Quit)),
+            MenuItem::new("Item2", MenuAction::Action(actions::Action::Quit)),
+        ];
+        let mut content = MenuContent::new("Title", MenuContext::Root, items);
+        assert_eq!(content.current_item().unwrap().label, "Item1");
+
+        content.current_index = 1;
+        assert_eq!(content.current_item().unwrap().label, "Item2");
+
+        content.current_index = 2;
+        assert!(content.current_item().is_none());
+    }
+
+    #[test]
+    fn test_menu_content_nav() {
+        let items = vec![
+            MenuItem::new("1", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("2", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("3", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("4", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("5", MenuAction::Action(Action::NoOp)),
+        ];
+        let mut content = MenuContent::new("Title", MenuContext::Root, items);
+
+        content.nav(MenuMotion::Down, 10);
+        assert_eq!(content.current_index, 1);
+
+        content.nav(MenuMotion::Up, 10);
+        assert_eq!(content.current_index, 0);
+
+        content.nav(MenuMotion::End, 10);
+        assert_eq!(content.current_index, 4);
+
+        content.nav(MenuMotion::Home, 10);
+        assert_eq!(content.current_index, 0);
+
+        content.nav(MenuMotion::PageDown, 3); // ui_height=3, scroll=1
+        assert_eq!(content.current_index, 1);
+
+        content.nav(MenuMotion::PageUp, 3);
+        assert_eq!(content.current_index, 0);
+    }
+
+    #[test]
+    fn test_menu_content_find_by_shortcut() {
+        let items = vec![
+            MenuItem::new("Item1", MenuAction::Action(actions::Action::Quit)).shortcut('A'),
+            MenuItem::new("Item2", MenuAction::Action(actions::Action::Quit))
+                .shortcut('B')
+                .disabled(true),
+            MenuItem::new("Item3", MenuAction::Action(actions::Action::Quit)).shortcut('C'),
+        ];
+        let content = MenuContent::new("Title", MenuContext::Root, items);
+
+        let found = content.find_by_shortcut('A');
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().0, 0);
+
+        let not_found = content.find_by_shortcut('B'); // disabled
+        assert!(not_found.is_none());
+
+        let not_found2 = content.find_by_shortcut('D');
+        assert!(not_found2.is_none());
+    }
+
+    #[test]
+    fn test_menu_back() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.is_open());
+        menu.back().unwrap();
+        assert!(!menu.is_open());
+    }
+
+    #[test]
+    fn test_menu_current_menu() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(menu.current_menu().is_none());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.current_menu().is_some());
+    }
+
+    #[test]
+    fn test_menu_current_item() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(menu.current_item().is_none());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.current_item().is_some()); // root must always have items
+    }
+
+    #[test]
+    fn test_menu_current_items() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(menu.current_items().is_empty());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(!menu.current_items().is_empty());
+    }
+
+    #[test]
+    fn test_menu_search_query() {
+        let mut menu = Menu::new();
+        assert_eq!(menu.search_query(), "");
+        menu.search_query = "test".to_string();
+        assert_eq!(menu.search_query(), "test");
+    }
+
+    #[test]
+    fn test_menu_is_searching() {
+        let mut menu = Menu::new();
+        assert!(!menu.is_searching());
+        menu.search_query = "test".to_string();
+        assert!(menu.is_searching());
     }
 }

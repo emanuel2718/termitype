@@ -11,6 +11,8 @@ pub enum TypingStatus {
     InProgress,
     /// The typing test is currently paused
     Paused,
+    /// The typing test was un-paused and is awaiting input to resume typing test or bail out
+    Resuming,
     /// The typing test has completed
     Completed,
 }
@@ -63,12 +65,16 @@ pub struct Tracker {
     pub words: Vec<Word>,
     /// Information about each fo the tokens(chars) on the test
     pub tokens: Vec<Token>,
+    /// The number of errors commited in the test
+    pub total_errors: usize,
     /// The time the typing test started at
     pub start_time: Option<Instant>,
     /// The time the typing test ended at
     pub end_time: Option<Instant>,
-    /// The number of errors commited in the test
-    pub total_errors: usize,
+    /// The time the typing test was paused at.
+    paused_at: Option<Instant>,
+    /// Total time the test has been paused
+    total_paused_time: Duration,
     /// Metrics of the current test
     metrics: Metrics,
 }
@@ -93,9 +99,11 @@ impl Tracker {
             current_word_idx: 0,
             words,
             tokens,
+            total_errors: 0,
             start_time: None,
             end_time: None,
-            total_errors: 0,
+            paused_at: None,
+            total_paused_time: Duration::ZERO,
             metrics: Metrics::default(),
         }
     }
@@ -145,10 +153,33 @@ impl Tracker {
         }
     }
 
+    fn resume(&mut self) {
+        if let Some(paused_at) = self.paused_at {
+            self.total_paused_time += Instant::now().duration_since(paused_at);
+        }
+        self.paused_at = None;
+        self.status = TypingStatus::InProgress;
+    }
+
+    fn pause(&mut self) {
+        // If already paused (e.g., from Resuming state), accumulate the previous pause time
+        if let Some(paused_at) = self.paused_at {
+            self.total_paused_time += Instant::now().duration_since(paused_at);
+        }
+        self.status = TypingStatus::Paused;
+        self.paused_at = Some(Instant::now())
+    }
+
+    fn unpause(&mut self) {
+        if self.start_time.is_some() {
+            self.status = TypingStatus::Resuming;
+        }
+    }
+
     pub fn toggle_pause(&mut self) {
         match self.status {
-            TypingStatus::InProgress => self.status = TypingStatus::Paused,
-            TypingStatus::Paused => self.status = TypingStatus::InProgress,
+            TypingStatus::Paused => self.unpause(),
+            TypingStatus::InProgress | TypingStatus::Resuming => self.pause(),
             _ => {}
         }
     }
@@ -164,6 +195,12 @@ impl Tracker {
         // of a word do absolutely nothing. This is what monkeytype does anyways.
         if is_space && self.is_at_word_start() {
             return Err(AppError::IllegalSpaceCharacter);
+        }
+
+        // this the refractory state after unpausing the typing test, typing a char should continue
+        // the test as per usual
+        if self.is_resuming() {
+            self.resume();
         }
 
         // if we get here we should auto-start typing as we are typing a valid chacter
@@ -278,12 +315,17 @@ impl Tracker {
         matches!(self.status, TypingStatus::InProgress)
     }
 
+    pub fn is_resuming(&self) -> bool {
+        matches!(self.status, TypingStatus::Resuming)
+    }
+
     pub fn is_complete(&self) -> bool {
         matches!(self.status, TypingStatus::Completed)
     }
 
     pub fn check_completion(&mut self) {
-        if matches!(self.status, TypingStatus::InProgress) && self.should_complete() {
+        let typing_test_in_progress = self.is_typing() || self.is_resuming();
+        if self.should_complete() && typing_test_in_progress {
             self.complete();
         }
     }
@@ -321,8 +363,8 @@ impl Tracker {
 
         match self.mode {
             Mode::Time(secs) => {
-                if let Some(start) = self.start_time {
-                    start.elapsed() >= Duration::from_secs(secs.get() as u64)
+                if self.start_time.is_some() {
+                    self.elapsed_time() >= Duration::from_secs(secs.get() as u64)
                 } else {
                     false
                 }
@@ -392,6 +434,7 @@ impl Tracker {
             correct_chars: self.correct_chars_count(),
             total_errors: self.total_errors,
             elapsed_time: self.elapsed_time(),
+            total_paused_time: self.total_paused_time,
             completed_words: self.words.iter().filter(|w| w.completed).count(),
             total_words: self.words.len(),
             progress: self.progress(),
@@ -423,11 +466,16 @@ impl Tracker {
 
     /// Returns the elapsed time of the curren typin test
     pub fn elapsed_time(&self) -> Duration {
-        match (self.start_time, self.end_time) {
+        let raw_elapsed = match (self.start_time, self.end_time) {
             (Some(start), Some(end)) => end.duration_since(start),
             (Some(start), None) => start.elapsed(),
             _ => Duration::ZERO,
+        };
+        let mut adjusted = raw_elapsed.saturating_sub(self.total_paused_time);
+        if let Some(paused_at) = self.paused_at {
+            adjusted = adjusted.saturating_sub(paused_at.elapsed());
         }
+        adjusted
     }
 
     pub fn correct_chars_count(&self) -> usize {
@@ -435,9 +483,10 @@ impl Tracker {
     }
 
     fn try_metrics_update(&mut self) {
-        if self.is_complete() {
+        if self.is_complete() || self.is_paused() || self.is_resuming() {
             return;
         }
+
         let now = Instant::now();
         let should_update = self.metrics.last_updated_at.map_or_else(
             || true,
@@ -464,12 +513,33 @@ impl Tracker {
     }
 
     fn calculate_wpm(&self) -> f64 {
-        let elapsed_mins = self.elapsed_time().as_secs_f64() / 60.0;
-        if elapsed_mins > 0.0 {
-            let correct_chars = self.correct_chars_count() as f64;
-            (correct_chars / 5.0) / elapsed_mins
-        } else {
+        let completed_words: Vec<_> = self
+            .words
+            .iter()
+            .filter(|w| w.completed && w.start_time.is_some() && w.end_time.is_some())
+            .collect();
+        if completed_words.is_empty() {
+            return 0.0;
+        }
+        let word_speeds: Vec<f64> = completed_words
+            .iter()
+            .filter_map(|word| {
+                let duration = word
+                    .end_time?
+                    .duration_since(word.start_time?)
+                    .as_secs_f64();
+                let chars = word.target.len() as f64;
+                if duration > 0.0 {
+                    Some((chars / 5.0) / (duration / 60.0))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if word_speeds.is_empty() {
             0.0
+        } else {
+            word_speeds.iter().sum::<f64>() / word_speeds.len() as f64
         }
     }
 
@@ -549,6 +619,7 @@ pub struct Summary {
     pub total_errors: usize,
     pub correct_chars: usize,
     pub elapsed_time: Duration,
+    pub total_paused_time: Duration,
     pub completed_words: usize,
     pub progress: f64,
     pub is_completed: bool,
@@ -600,6 +671,28 @@ mod tests {
         tracker.start_typing();
         assert_eq!(tracker.status, TypingStatus::InProgress);
         assert!(tracker.start_time.is_some());
+    }
+
+    #[test]
+    fn test_status_change() {
+        let mut tracker = Tracker::new("random".to_string(), Mode::with_time(60));
+        assert_eq!(tracker.status, TypingStatus::NotStarted);
+        tracker.toggle_pause();
+        assert_eq!(tracker.status, TypingStatus::NotStarted);
+        tracker.toggle_pause();
+
+        tracker.start_typing();
+        tracker.toggle_pause();
+        assert_eq!(tracker.status, TypingStatus::Paused);
+        tracker.toggle_pause();
+        assert_eq!(tracker.status, TypingStatus::Resuming);
+        tracker.toggle_pause();
+        assert!(tracker.type_char('c').is_err());
+        assert_eq!(tracker.status, TypingStatus::Paused);
+        tracker.toggle_pause();
+        assert_eq!(tracker.status, TypingStatus::Resuming);
+        tracker.type_char('c').unwrap();
+        assert_eq!(tracker.status, TypingStatus::InProgress);
     }
 
     #[test]
@@ -786,5 +879,48 @@ mod tests {
         assert!(matches!(space_input, Err(AppError::IllegalSpaceCharacter))); // error
         assert_eq!(tracker.current_pos, 6);
         assert_eq!(tracker.typed_text, "hello ");
+    }
+
+    #[test]
+    fn test_pause_time_tracking() {
+        let mut tracker = Tracker::new("test".to_string(), Mode::with_time(60));
+        tracker.type_char('t').unwrap();
+        assert_eq!(tracker.status, TypingStatus::InProgress);
+        assert_eq!(tracker.total_paused_time, Duration::ZERO);
+
+        // pause the typing test
+        tracker.toggle_pause();
+        assert_eq!(tracker.status, TypingStatus::Paused);
+        assert!(tracker.paused_at.is_some());
+
+        // simulate a 100ms pause
+        tracker.paused_at = Some(Instant::now() - Duration::from_millis(100));
+
+        // unpause
+        tracker.toggle_pause();
+        assert_eq!(tracker.status, TypingStatus::Resuming);
+        assert!(tracker.paused_at.is_some());
+        assert_eq!(tracker.total_paused_time, Duration::ZERO); // we don't update paused_tiem until we get to `InProgress`
+
+        // we resume the typing test
+        tracker.type_char('e').unwrap();
+        assert_eq!(tracker.status, TypingStatus::InProgress);
+        assert!(tracker.paused_at.is_none());
+        assert!(tracker.total_paused_time >= Duration::from_millis(100)); // now that we are in progress again we add to the paused time total
+
+        // pause again, simulate 500ms pause
+        tracker.toggle_pause();
+        tracker.paused_at = Some(Instant::now() - Duration::from_millis(500));
+        tracker.toggle_pause();
+        tracker.type_char('s').unwrap();
+
+        // Check total paused time
+        assert!(tracker.total_paused_time >= Duration::from_millis(600));
+
+        // Check elapsed time accounts for pause
+        let summary = tracker.summary();
+        assert!(summary.elapsed_time < Duration::from_millis(50));
+        assert!(summary.total_paused_time >= Duration::from_millis(600));
+        assert!(summary.total_paused_time <= Duration::from_millis(601));
     }
 }
