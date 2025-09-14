@@ -88,7 +88,10 @@ impl LexiconBuilder {
         self.ensure_language_loaded(&lang)?;
 
         let words = &self.languages[&lang];
-        let shuffled_idxs = &self.shuffled_pools[&lang];
+        let shuffled_idxs = &mut self.shuffled_pools.get_mut(&lang).unwrap();
+
+        // get new rnadom selection
+        shuffled_idxs.shuffle(&mut self.rng);
 
         // if we are on time mode, we must ensure we genearate enough words even for mythicalrocket
         let word_count = if config.current_mode().is_time_mode() {
@@ -221,6 +224,7 @@ mod tests {
         config::{Config, Mode},
         constants::MAX_CUSTOM_TIME,
     };
+    use std::collections::HashSet;
 
     fn create_builder() -> LexiconBuilder {
         LexiconBuilder::new()
@@ -309,5 +313,35 @@ mod tests {
         config.change_mode(Mode::with_time(seconds)).unwrap();
         let test = builder.generate_test(&config).unwrap();
         assert!(test.split_whitespace().count() >= MIN_POSSIBLE_WORD_COUNT);
+    }
+
+    #[test]
+    fn test_restart_generates_new_words_word_mode() {
+        let mut builder = create_builder();
+        let mut config = Config::default();
+        let word_count = 20;
+        config.change_mode(Mode::with_words(word_count)).unwrap();
+
+        let first_test = builder.generate_test(&config).unwrap();
+        let first_words: Vec<&str> = first_test.split_whitespace().collect();
+
+        let second_test = builder.generate_test(&config).unwrap();
+        let second_words: Vec<&str> = second_test.split_whitespace().collect();
+
+        assert_eq!(first_words.len(), word_count);
+        assert_eq!(second_words.len(), word_count);
+
+        let first_set: HashSet<&str> = first_words.iter().cloned().collect();
+        let second_set: HashSet<&str> = second_words.iter().cloned().collect();
+
+        // they must not be the same set of words
+        assert_ne!(
+            first_set, second_set,
+            "Restart should generate a new set of words, not just shuffle the existing ones. \
+             First set: {:?}, Second set: {:?}",
+            first_set, second_set
+        );
+
+        assert_ne!(first_test, second_test);
     }
 }
