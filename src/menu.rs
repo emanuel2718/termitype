@@ -86,27 +86,39 @@ impl MenuItem {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum MenuVisualizer {
+    ThemeVisualizer,
+}
+
 #[derive(Clone, Debug)]
 pub struct MenuContent {
+    items: Vec<MenuItem>,
     pub title: String,
     pub ctx: MenuContext,
-    items: Vec<MenuItem>,
     pub current_index: usize,
+    pub visualizer: Option<MenuVisualizer>,
 }
 
 impl Default for MenuContent {
     fn default() -> Self {
-        Self::new("Root", MenuContext::Root, Vec::new())
+        Self::new("Root", MenuContext::Root, Vec::new(), None)
     }
 }
 
 impl MenuContent {
-    pub fn new<S: Into<String>>(title: S, ctx: MenuContext, items: Vec<MenuItem>) -> Self {
+    pub fn new<S: Into<String>>(
+        title: S,
+        ctx: MenuContext,
+        items: Vec<MenuItem>,
+        visualizer: Option<MenuVisualizer>,
+    ) -> Self {
         Self {
             title: title.into(),
             ctx,
             items,
             current_index: 0,
+            visualizer,
         }
     }
 
@@ -134,6 +146,17 @@ impl MenuContent {
         }
     }
 
+    pub fn find_by_shortcut(&self, shortcut: char) -> Option<(usize, &MenuItem)> {
+        self.items
+            .iter()
+            .enumerate()
+            .find(|(_, item)| item.shortcut == Some(shortcut) && !item.is_disabled)
+    }
+
+    pub fn has_visualizer(&self) -> bool {
+        self.visualizer.is_some()
+    }
+
     pub fn nav(&mut self, motion: MenuMotion, ui_height: usize) {
         let len = self.items.len();
         if len == 0 {
@@ -150,13 +173,6 @@ impl MenuContent {
             MenuMotion::End => self.current_index = len - 1,
             MenuMotion::Back => {}
         }
-    }
-
-    pub fn find_by_shortcut(&self, shortcut: char) -> Option<(usize, &MenuItem)> {
-        self.items
-            .iter()
-            .enumerate()
-            .find(|(_, item)| item.shortcut == Some(shortcut) && !item.is_disabled)
     }
 }
 
@@ -304,7 +320,7 @@ mod tests {
             "Item1",
             MenuAction::Action(actions::Action::Quit),
         )];
-        let content = MenuContent::new("Title", MenuContext::Root, items);
+        let content = MenuContent::new("Title", MenuContext::Root, items, None);
         assert_eq!(content.title, "Title");
         assert_eq!(content.ctx, MenuContext::Root);
         assert_eq!(content.len(), 1);
@@ -313,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_menu_content_len_and_is_empty() {
-        let empty_content = MenuContent::new("Empty", MenuContext::Root, vec![]);
+        let empty_content = MenuContent::new("Empty", MenuContext::Root, vec![], None);
         assert_eq!(empty_content.len(), 0);
         assert!(empty_content.is_empty());
 
@@ -321,7 +337,7 @@ mod tests {
             "Item1",
             MenuAction::Action(actions::Action::Quit),
         )];
-        let content = MenuContent::new("Title", MenuContext::Root, items);
+        let content = MenuContent::new("Title", MenuContext::Root, items, None);
         assert_eq!(content.len(), 1);
         assert!(!content.is_empty());
     }
@@ -332,7 +348,7 @@ mod tests {
             MenuItem::new("Item1", MenuAction::Action(actions::Action::Quit)),
             MenuItem::new("Item2", MenuAction::Action(actions::Action::Quit)),
         ];
-        let mut content = MenuContent::new("Title", MenuContext::Root, items);
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None);
         assert_eq!(content.current_item().unwrap().label, "Item1");
 
         content.current_index = 1;
@@ -351,7 +367,7 @@ mod tests {
             MenuItem::new("4", MenuAction::Action(Action::NoOp)),
             MenuItem::new("5", MenuAction::Action(Action::NoOp)),
         ];
-        let mut content = MenuContent::new("Title", MenuContext::Root, items);
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None);
 
         content.nav(MenuMotion::Down, 10);
         assert_eq!(content.current_index, 1);
@@ -381,7 +397,7 @@ mod tests {
                 .disabled(true),
             MenuItem::new("Item3", MenuAction::Action(actions::Action::Quit)).shortcut('C'),
         ];
-        let content = MenuContent::new("Title", MenuContext::Root, items);
+        let content = MenuContent::new("Title", MenuContext::Root, items, None);
 
         let found = content.find_by_shortcut('A');
         assert!(found.is_some());

@@ -1,6 +1,6 @@
 use crate::actions::Action;
 use crate::log_debug;
-use crate::menu::MenuContext;
+use crate::menu::{MenuContext, MenuMotion};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -9,9 +9,10 @@ pub static GLOBAL_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static IDLE_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static TYPING_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static RESULTS_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
-pub static MENU_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
+pub static MENU_BASE_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
+pub static MENU_SEARCH_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 
-const MOD_CTRL: KeyModifiers = KeyModifiers::CONTROL;
+const CTRL: KeyModifiers = KeyModifiers::CONTROL;
 
 #[derive(Debug, Clone, Default)]
 pub struct KeyMap {
@@ -60,8 +61,12 @@ pub fn results_keymap() -> &'static KeyMap {
     RESULTS_KEYMAP.get_or_init(build_results_keymap)
 }
 
-pub fn menu_keymap() -> &'static KeyMap {
-    MENU_KEYMAP.get_or_init(build_menu_keymap)
+pub fn menu_base_keymap() -> &'static KeyMap {
+    MENU_BASE_KEYMAP.get_or_init(build_menu_base_keymap)
+}
+
+pub fn menu_search_keymap() -> &'static KeyMap {
+    MENU_SEARCH_KEYMAP.get_or_init(build_menu_search_keymap)
 }
 
 /// Global keybinds are those keybinds that no matter the current context they will have the same`
@@ -72,10 +77,10 @@ fn build_global_keymap() -> KeyMap {
         .bind(KeyCode::F(1), Action::NoOp)
         .bind(KeyCode::F(2), Action::NoOp)
         .bind(KeyCode::F(3), Action::NoOp)
-        .bind_with_mod(MOD_CTRL, KeyCode::Char('l'), Action::ChangeLineCount(1))
-        .bind_with_mod(MOD_CTRL, KeyCode::Char('t'), Action::RandomizeTheme)
-        .bind_with_mod(MOD_CTRL, KeyCode::Char('c'), Action::Quit)
-        .bind_with_mod(MOD_CTRL, KeyCode::Char('z'), Action::Quit)
+        .bind_with_mod(CTRL, KeyCode::Char('l'), Action::ChangeLineCount(1))
+        .bind_with_mod(CTRL, KeyCode::Char('t'), Action::RandomizeTheme)
+        .bind_with_mod(CTRL, KeyCode::Char('c'), Action::Quit)
+        .bind_with_mod(CTRL, KeyCode::Char('z'), Action::Quit)
 }
 
 fn build_idle_keymap() -> KeyMap {
@@ -96,8 +101,25 @@ fn build_results_keymap() -> KeyMap {
         .bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
 }
 
-fn build_menu_keymap() -> KeyMap {
-    KeyMap::new().bind(KeyCode::Esc, Action::MenuGoBack)
+fn build_menu_base_keymap() -> KeyMap {
+    KeyMap::new()
+        .bind(KeyCode::Esc, Action::MenuGoBack)
+        .bind(KeyCode::Enter, Action::MenuSelect)
+        .bind(KeyCode::Up, Action::MenuNav(MenuMotion::Up))
+        .bind(KeyCode::Down, Action::MenuNav(MenuMotion::Down))
+        .bind(KeyCode::Char('k'), Action::MenuNav(MenuMotion::Up))
+        .bind(KeyCode::Char('j'), Action::MenuNav(MenuMotion::Down))
+        .bind(KeyCode::Char('l'), Action::MenuSelect)
+        .bind(KeyCode::Char('h'), Action::MenuGoBack)
+        .bind(KeyCode::Char('/'), Action::MenuInitSearch)
+}
+
+fn build_menu_search_keymap() -> KeyMap {
+    KeyMap::new()
+        .bind(KeyCode::Esc, Action::MenuExitSearch)
+        .bind(KeyCode::Enter, Action::MenuSelect)
+        .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
+        .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
 }
 
 #[cfg(test)]
@@ -116,7 +138,7 @@ mod tests {
 
         let first_event = create_event(KeyModifiers::NONE, KeyCode::Char('q'));
         assert_eq!(keymap.get_action_from(&first_event), Some(Action::Quit));
-        let second_event = create_event(MOD_CTRL, KeyCode::Char('s'));
+        let second_event = create_event(CTRL, KeyCode::Char('s'));
         assert_eq!(keymap.get_action_from(&second_event), Some(Action::Start));
 
         let fake_event = create_event(KeyModifiers::SHIFT, KeyCode::Char('n'));

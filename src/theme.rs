@@ -351,7 +351,7 @@ impl ThemeManager {
         }
     }
 
-    pub fn set_as_current_theme(&self, name: &str) -> Result<()> {
+    pub fn set_as_current_theme(&self, name: &str) -> Result<(), AppError> {
         let theme = self.get_theme(name)?;
         *self.current_theme.write().unwrap() = Some(theme);
         Ok(())
@@ -449,7 +449,7 @@ pub fn set_as_preview_theme(name: &str) -> Result<()> {
     theme_manager().set_as_preview_theme(name)
 }
 
-pub fn set_as_current_theme(name: &str) -> Result<()> {
+pub fn set_as_current_theme(name: &str) -> Result<(), AppError> {
     theme_manager().set_as_current_theme(name)
 }
 

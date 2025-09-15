@@ -1,7 +1,7 @@
 use crate::{
     actions::Action,
     builders::keymap_builder::{
-        global_keymap, idle_keymap, menu_keymap, results_keymap, typing_keymap,
+        global_keymap, idle_keymap, menu_base_keymap, results_keymap, typing_keymap,
     },
     log_debug,
 };
@@ -49,7 +49,7 @@ impl Input {
             InputContext::Idle => idle_keymap(),
             InputContext::Typing => typing_keymap(),
             InputContext::Completed => results_keymap(),
-            InputContext::Menu { .. } => menu_keymap(),
+            InputContext::Menu { .. } => menu_base_keymap(),
         };
 
         self.last_keycode = Some(event.code);

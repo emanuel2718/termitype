@@ -1,12 +1,13 @@
 use crate::actions::Action;
 use crate::config::{Config, Setting};
-use crate::menu::{MenuContent, MenuContext, MenuItem};
+use crate::menu::{MenuContent, MenuContext, MenuItem, MenuVisualizer};
 use crate::theme;
 
 pub struct MenuBuilder {
     title: String,
     ctx: MenuContext,
     items: Vec<MenuItem>,
+    visualizer: Option<MenuVisualizer>,
 }
 
 impl Default for MenuBuilder {
@@ -21,11 +22,12 @@ impl MenuBuilder {
             ctx,
             title: title.into(),
             items: Vec::new(),
+            visualizer: None,
         }
     }
 
     pub fn build(self) -> MenuContent {
-        MenuContent::new(self.title, self.ctx, self.items)
+        MenuContent::new(self.title, self.ctx, self.items, self.visualizer)
     }
 
     pub fn action<S: Into<String>>(mut self, label: S, action: Action) -> Self {
@@ -64,6 +66,11 @@ impl MenuBuilder {
         if let Some(item) = self.items.last_mut() {
             item.is_disabled = disabled
         }
+        self
+    }
+
+    pub fn add_visualizer(mut self, visualizer: MenuVisualizer) -> Self {
+        self.visualizer = Some(visualizer);
         self
     }
 }
@@ -119,7 +126,7 @@ fn build_themes_menu() -> MenuContent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::menu::MenuAction;
+    use crate::menu::{MenuAction, MenuVisualizer};
 
     #[test]
     fn test_build_from_context() {
@@ -173,5 +180,13 @@ mod tests {
             .disabled(true);
         let item = &builder.items[0];
         assert!(item.is_disabled);
+    }
+
+    #[test]
+    fn test_builder_menu_visualizer() {
+        let builder = MenuBuilder::default().add_visualizer(MenuVisualizer::ThemeVisualizer);
+        let menu = builder.build();
+        assert!(menu.has_visualizer());
+        assert_eq!(menu.visualizer, Some(MenuVisualizer::ThemeVisualizer))
     }
 }
