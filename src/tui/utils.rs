@@ -48,12 +48,18 @@ pub fn set_cursor_position(
     let scroll_offset = (line_count - 1).saturating_sub(1);
     let visible_start = cursor_y.saturating_sub(scroll_offset);
     let visible_cursor_y = cursor_y - visible_start;
-    // Add offset for header lines (stats or language + empty line)
     let header_offset = 2;
-    frame.set_cursor_position(Position {
-        x: layout.center_area.x + cursor_x,
-        y: layout.center_area.y + pad_size as u16 + visible_cursor_y as u16 + header_offset as u16,
-    });
+
+    // dont render the cursor if the menu is open or we should be showing the results
+    if !app.menu.is_open() && !app.tracker.is_complete() && !app.tracker.should_complete() {
+        frame.set_cursor_position(Position {
+            x: layout.center_area.x + cursor_x,
+            y: layout.center_area.y
+                + pad_size as u16
+                + visible_cursor_y as u16
+                + header_offset as u16,
+        });
+    }
 }
 
 pub fn wrap_text(text: &str, max_width: u16) -> Vec<Line<'static>> {
@@ -130,9 +136,14 @@ pub fn calculate_horizontal_padding(content_width: u16, total_width: u16) -> (u1
     (left_pad, right_pad)
 }
 
-pub fn center_lines_vertically(lines: Vec<ratatui::text::Line<'static>>, height: u16) -> Vec<ratatui::text::Line<'static>> {
+pub fn center_lines_vertically(
+    lines: Vec<ratatui::text::Line<'static>>,
+    height: u16,
+) -> Vec<ratatui::text::Line<'static>> {
     let padding_top = super::layout::calculate_padding(&lines, height);
-    let padding_bottom = (height as usize).saturating_sub(lines.len()).saturating_sub(padding_top);
+    let padding_bottom = (height as usize)
+        .saturating_sub(lines.len())
+        .saturating_sub(padding_top);
     let mut result = Vec::with_capacity(height as usize);
     result.extend((0..padding_top).map(|_| ratatui::text::Line::from("")));
     result.extend(lines);

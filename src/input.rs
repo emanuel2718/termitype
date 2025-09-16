@@ -1,7 +1,8 @@
 use crate::{
     actions::Action,
     builders::keymap_builder::{
-        global_keymap, idle_keymap, menu_base_keymap, results_keymap, typing_keymap,
+        global_keymap, idle_keymap, menu_base_keymap, menu_search_keymap, results_keymap,
+        typing_keymap,
     },
     log_debug,
 };
@@ -49,13 +50,31 @@ impl Input {
             InputContext::Idle => idle_keymap(),
             InputContext::Typing => typing_keymap(),
             InputContext::Completed => results_keymap(),
-            InputContext::Menu { .. } => menu_base_keymap(),
+            InputContext::Menu { searching: false } => menu_base_keymap(),
+            InputContext::Menu { searching: true } => menu_search_keymap(),
         };
 
         self.last_keycode = Some(event.code);
-        let action = keymap.get_action_from(&event).unwrap_or(Action::NoOp);
-        log_debug!("The action from input.handle: {action:?}");
-        action
+        if let Some(action) = keymap.get_action_from(&event) {
+            log_debug!("The action from input.handle: {action:?}");
+            return action;
+        }
+
+        // try handling menu shortcuts key inputs
+        if self.is_menu_shortcut_input(event, &ctx) {
+            if let Some(c) = event.code.as_char() {
+                return Action::MenuShortcut(c);
+            }
+        }
+
+        // handle menu search query input
+        if self.is_menu_search_input(event, &ctx) {
+            if let Some(c) = event.code.as_char() {
+                return Action::MenuUpdateSearch(c.to_string());
+            }
+        }
+
+        Action::NoOp
     }
 
     fn is_restart_sequence(&self, current_keycode: &KeyCode) -> bool {
@@ -70,12 +89,24 @@ impl Input {
     fn is_typing_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
         matches!(event.code, KeyCode::Char(_))
             && matches!(ctx, InputContext::Idle | InputContext::Typing)
+            && !matches!(ctx, InputContext::Menu { .. })
+    }
+
+    fn is_menu_shortcut_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
+        matches!(event.code, KeyCode::Char(_))
+            && matches!(ctx, InputContext::Menu { searching: false })
+    }
+
+    fn is_menu_search_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
+        matches!(event.code, KeyCode::Char(_))
+            && matches!(ctx, InputContext::Menu { searching: true })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::menu::MenuContext;
     use crossterm::event::KeyModifiers;
 
     fn create_event(mods: KeyModifiers, code: KeyCode) -> KeyEvent {
@@ -119,5 +150,45 @@ mod tests {
         let second_event = create_event(KeyModifiers::NONE, KeyCode::Enter);
         let second_action = input.handle(second_event, InputContext::Idle);
         assert_eq!(second_action, Action::Restart);
+    }
+
+    #[test]
+    fn test_typing_input_action() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Char('a'));
+        let action = input.handle(event, InputContext::Typing);
+        assert_eq!(action, Action::Input('a'));
+    }
+
+    #[test]
+    fn test_menu_shortcut() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Char('s'));
+        let action = input.handle(event, InputContext::Menu { searching: false });
+        assert_eq!(action, Action::MenuShortcut('s'));
+    }
+
+    #[test]
+    fn test_menu_search_update() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Char('q'));
+        let action = input.handle(event, InputContext::Menu { searching: true });
+        assert_eq!(action, Action::MenuUpdateSearch("q".to_string()));
+    }
+
+    #[test]
+    fn test_idle_keymap_action() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Esc);
+        let action = input.handle(event, InputContext::Idle);
+        assert_eq!(action, Action::MenuOpen(MenuContext::Root));
+    }
+
+    #[test]
+    fn test_noop_for_unhandled_key() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::F(12)); // Not bound
+        let action = input.handle(event, InputContext::Idle);
+        assert_eq!(action, Action::NoOp);
     }
 }

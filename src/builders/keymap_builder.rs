@@ -120,6 +120,7 @@ fn build_menu_search_keymap() -> KeyMap {
         .bind(KeyCode::Enter, Action::MenuSelect)
         .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
         .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
+        .bind(KeyCode::Backspace, Action::MenuBackspaceSearch)
 }
 
 #[cfg(test)]

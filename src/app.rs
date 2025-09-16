@@ -1,11 +1,11 @@
 use crate::{
-    actions::{self},
+    actions::{self, Action},
     builders::lexicon_builder::Lexicon,
     config::Config,
     error::AppError,
     input::{Input, InputContext},
     log_debug, log_info,
-    menu::{Menu, MenuContext},
+    menu::{Menu, MenuContext, MenuMotion},
     theme,
     tracker::Tracker,
     tui,
@@ -88,16 +88,72 @@ impl App {
     }
 
     pub fn handle_menu_close(&mut self) -> Result<(), AppError> {
+        // TODO: this clearing of preview should be done cleanly
+        theme::cancel_theme_preview();
         self.menu.close()?;
         self.tracker.toggle_pause();
         Ok(())
     }
 
     pub fn handle_menu_backtrack(&mut self) -> Result<(), AppError> {
+        // TODO: this clearing of preview should be done cleanly
+        theme::cancel_theme_preview();
         self.menu.back()?;
         if !self.menu.is_open() {
             self.tracker.toggle_pause();
         }
+        Ok(())
+    }
+
+    pub fn handle_menu_navigate(&mut self, motion: MenuMotion) -> Result<(), AppError> {
+        self.menu.navigate(motion);
+        self.try_preview()?;
+        Ok(())
+    }
+
+    pub fn handle_menu_select(&mut self) -> Result<(), AppError> {
+        if let Ok(Some(action)) = self.menu.select(&self.config) {
+            actions::handle_action(self, action)?;
+            // note: the action above could've been a menu closing action.
+            if !self.menu.is_open() {
+                self.tracker.toggle_pause();
+            }
+        }
+        Ok(())
+    }
+
+    pub fn handle_menu_exit_search(&mut self) -> Result<(), AppError> {
+        self.menu.exit_search();
+        Ok(())
+    }
+
+    pub fn handle_menu_backspace_search(&mut self) -> Result<(), AppError> {
+        if !self.menu.search_query().is_empty() {
+            let mut query = self.menu.search_query().to_string();
+            query.pop();
+            if query.is_empty() {
+                self.menu.exit_search();
+            } else {
+                self.menu.update_search(query);
+            }
+            self.try_preview()?
+        }
+        Ok(())
+    }
+
+    pub fn handle_menu_init_search(&mut self) -> Result<(), AppError> {
+        self.menu.init_search();
+        Ok(())
+    }
+
+    pub fn handle_menu_update_search(&mut self, query: String) -> Result<(), AppError> {
+        if query.is_empty() {
+            return Ok(()); // TODO: this is dumb
+        }
+        let current_query = self.menu.search_query().to_string();
+        let new_query = format!("{}{}", current_query, query);
+        self.menu.update_search(new_query);
+
         Ok(())
     }
 
@@ -121,6 +177,21 @@ impl App {
             current + 1
         };
         self.config.change_visible_lines_count(new_count);
+        Ok(())
+    }
+
+    // TODO: do this cleanly
+    fn try_preview(&mut self) -> Result<(), AppError> {
+        if let Some(menu) = self.menu.current_menu() {
+            if let Some(item) = self.menu.current_item() {
+                if item.has_preview {
+                    match menu.ctx {
+                        MenuContext::Themes => theme::set_as_preview_theme(item.label().as_str()),
+                        _ => Ok(()),
+                    }?;
+                }
+            }
+        };
         Ok(())
     }
 

@@ -55,6 +55,20 @@ impl MenuBuilder {
         self
     }
 
+    pub fn preivew(mut self) -> Self {
+        if let Some(item) = self.items.last_mut() {
+            item.has_preview = true;
+        }
+        self
+    }
+
+    pub fn close_on_select(mut self) -> Self {
+        if let Some(item) = self.items.last_mut() {
+            item.close_on_select = true;
+        }
+        self
+    }
+
     pub fn description<S: Into<String>>(mut self, desc: S) -> Self {
         if let Some(item) = self.items.last_mut() {
             item.description = Some(desc.into());
@@ -112,7 +126,10 @@ fn build_themes_menu() -> MenuContent {
     let themes = theme::available_themes();
     let mut builder = MenuBuilder::new("Select Theme", MenuContext::Themes);
     for name in &themes {
-        builder = builder.action(name, Action::ChangeTheme(name.clone()));
+        builder = builder
+            .action(name, Action::ChangeTheme(name.clone()))
+            .close_on_select()
+            .preivew();
     }
 
     let mut menu = builder.build();
