@@ -374,7 +374,6 @@ impl Tracker {
     }
 
     pub fn complete(&mut self) {
-        self.status = TypingStatus::Completed;
         self.end_time = Some(Instant::now());
         if let Some(word) = self.words.get_mut(self.current_word_idx) {
             if !word.completed {
@@ -383,6 +382,7 @@ impl Tracker {
             }
         }
         self.update_metrics();
+        self.status = TypingStatus::Completed;
     }
 
     fn is_at_word_start(&self) -> bool {
