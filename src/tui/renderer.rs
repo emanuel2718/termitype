@@ -10,7 +10,7 @@ use crate::{
         pickers,
         results::{create_minimal_results_display, create_results_footer_element},
     },
-    variants::ResultsVariant,
+    variants::{PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
 use ratatui::{layout::Rect, style::Style, widgets::Block, Frame};
@@ -127,6 +127,18 @@ fn render_results_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout
 
 fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     if app.menu.is_open() {
-        pickers::render_menu_picker(frame, app, theme, area);
+        render_menu_picker(frame, app, theme, area);
+    }
+}
+
+fn render_menu_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
+    let variant = app.config.current_picker_variant();
+    let max_height = 20.min(area.height.saturating_sub(6));
+    let menu_height = max_height.saturating_sub(2); // borders
+    app.menu.ui_height = menu_height as usize;
+
+    match variant {
+        PickerVariant::Telescope => pickers::render_telescope_picker(frame, app, theme, area),
+        _ => pickers::render_telescope_picker(frame, app, theme, area),
     }
 }

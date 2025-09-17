@@ -32,7 +32,9 @@ pub fn create_main_layout(area: Rect) -> AppLayout {
     let command_area = vertical_layout[2];
     let footer_area = vertical_layout[3];
 
-    let center_width = MAX_WIDTH.min((typing_area.width as f32 * 0.8) as u16).max(1);
+    let center_width = MAX_WIDTH
+        .min((typing_area.width as f32 * 0.8) as u16)
+        .max(1);
     let left_width = (typing_area.width - center_width) / 2;
     let right_width = typing_area.width - center_width - left_width;
 
@@ -70,35 +72,5 @@ pub fn create_results_layout(area: Rect) -> ResultsLayout {
     ResultsLayout {
         results_area,
         footer_area,
-    }
-}
-
-pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
-        ])
-        .split(r);
-
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
-        ])
-        .split(popup_layout[1])[1]
-}
-
-pub fn calculate_padding(lines: &[ratatui::text::Line], height: u16) -> usize {
-    let num_lines = lines.len();
-    let height = height as usize;
-    if num_lines < height {
-        (height - num_lines) / 2
-    } else {
-        0
     }
 }

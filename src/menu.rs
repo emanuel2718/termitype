@@ -249,7 +249,7 @@ impl MenuContent {
         }
     }
 
-    fn update_scroll_offset(
+    pub fn update_scroll_offset(
         menu: &mut MenuContent,
         current_filtered_index: usize,
         viewport_height: usize,
@@ -293,6 +293,10 @@ impl Menu {
     pub fn open(&mut self, ctx: MenuContext, config: &Config) -> Result<(), AppError> {
         let menu = menu_builder::build_menu_from_context(ctx, config);
         self.stack.push(menu);
+        let ui_height = self.ui_height;
+        if let Some(current_menu) = self.current_menu_mut() {
+            MenuContent::update_scroll_offset(current_menu, current_menu.current_index, ui_height);
+        }
         Ok(())
     }
 
@@ -309,6 +313,10 @@ impl Menu {
             self.stack.clear();
         }
         Ok(())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.current_items().len() == 0
     }
 
     pub fn current_menu(&self) -> Option<&MenuContent> {

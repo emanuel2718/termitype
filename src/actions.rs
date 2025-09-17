@@ -46,7 +46,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::Backspace => app.handle_backspace(),
         Action::MenuNav(motion) => app.handle_menu_navigate(motion),
         Action::MenuOpen(ctx) => app.handle_menu_open(ctx),
-        Action::MenuShortcut(shortcut) => todo!(),
+        // Action::MenuShortcut(shortcut) => todo!(),
         Action::MenuClose => app.handle_menu_close(),
         Action::MenuGoBack => app.handle_menu_backtrack(),
         Action::MenuSelect => app.handle_menu_select(),

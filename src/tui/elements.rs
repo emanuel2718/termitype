@@ -5,18 +5,18 @@ use crate::{
     theme::Theme,
     tracker::Tracker,
     tui::{
-        layout::{calculate_padding, AppLayout},
+        layout::AppLayout,
         utils::{
-            calculate_visible_lines, footer_padding, mode_line_padding, set_cursor_position,
-            title_padding,
+            calculate_padding, calculate_visible_lines, footer_padding, mode_line_padding,
+            set_cursor_position, title_padding,
         },
     },
 };
 use ratatui::{
-    layout::Alignment,
+    layout::{Alignment, Rect},
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Paragraph},
+    widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
@@ -37,62 +37,63 @@ pub fn create_title<'a>(app: &App, theme: &Theme) -> Paragraph<'a> {
 
 pub fn create_mode_line<'a>(app: &App, theme: &Theme) -> Paragraph<'a> {
     let mut spans = Vec::new();
-    let separator_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
+    let fg_dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
+    let highlight_style = Style::default().fg(theme.highlight());
 
     // punctuation
     let punctuation_style = if app.config.is_enabled(Setting::Punctuation) {
-        Style::default().fg(theme.highlight())
+        highlight_style
     } else {
-        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+        fg_dim_style
     };
     spans.push(Span::styled("! punctuation ", punctuation_style));
 
     // numbers
     let numbers_style = if app.config.is_enabled(Setting::Numbers) {
-        Style::default().fg(theme.highlight())
+        highlight_style
     } else {
-        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+        fg_dim_style
     };
     spans.push(Span::styled("# numbers ", numbers_style));
 
     // symbols
     let symbols_style = if app.config.is_enabled(Setting::Symbols) {
-        Style::default().fg(theme.highlight())
+        highlight_style
     } else {
-        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+        fg_dim_style
     };
     spans.push(Span::styled("@ symbols ", symbols_style));
 
     // separator
-    spans.push(Span::styled("| ", separator_style));
+    spans.push(Span::styled("| ", fg_dim_style));
 
     // time
     let time_mode_style = if app.config.current_mode().is_time_mode() {
-        Style::default().fg(theme.highlight())
+        highlight_style
     } else {
-        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+        fg_dim_style
     };
     spans.push(Span::styled("T time ", time_mode_style));
 
     // words
     let word_mode_style = if app.config.current_mode().is_words_mode() {
-        Style::default().fg(theme.highlight())
+        highlight_style
     } else {
-        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+        fg_dim_style
     };
     spans.push(Span::styled("A words ", word_mode_style));
 
     // separator
-    spans.push(Span::styled("| ", separator_style));
+    spans.push(Span::styled("| ", fg_dim_style));
 
     let durations = [15, 30, 60, 120];
     for &dur in &durations {
         let dur_style = if app.config.current_mode().is_time_mode()
             && app.config.current_mode().value() == dur
         {
-            Style::default().fg(theme.highlight())
+            highlight_style
         } else {
-            Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+            fg_dim_style
         };
         spans.push(Span::styled(format!("{} ", dur), dur_style));
     }
@@ -164,25 +165,27 @@ fn create_tracker_line(app: &mut App, theme: &Theme) -> Line<'static> {
 
 fn create_target_text_line(state: &Tracker, theme: &Theme, max_width: u16) -> Vec<Line<'static>> {
     let mut spans = Vec::new();
+    let dim_mod = Modifier::DIM;
+    let default_style = Style::default();
+
+    let upcoming_token_style = default_style.fg(theme.fg()).add_modifier(dim_mod);
+    let correct_token_style = default_style.fg(theme.success()).remove_modifier(dim_mod);
+    let wrong_token_style = default_style.fg(theme.error()).remove_modifier(dim_mod);
 
     for (i, token) in state.tokens.iter().enumerate() {
-        let style = if i < state.current_pos {
-            // character already typed
+        let token_style = if i < state.current_pos {
+            // tokens already typed
             if token.is_wrong {
-                Style::default()
-                    .fg(theme.error())
-                    .remove_modifier(Modifier::DIM)
+                wrong_token_style
             } else {
-                Style::default()
-                    .fg(theme.success())
-                    .remove_modifier(Modifier::DIM)
+                correct_token_style
             }
         } else {
             // upcoming
-            Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+            upcoming_token_style
         };
 
-        spans.push(Span::styled(token.target.to_string(), style));
+        spans.push(Span::styled(token.target.to_string(), token_style));
     }
 
     let mut lines = Vec::new();
@@ -267,4 +270,55 @@ pub fn create_footer_element<'a>(theme: &Theme) -> Paragraph<'a> {
         .add_modifier(Modifier::DIM)
         .alignment(Alignment::Right)
         .block(Block::default().padding(footer_padding()))
+}
+
+pub fn create_menu_search_bar<'a>(theme: &Theme, searching: bool, query: &str) -> Paragraph<'a> {
+    if !searching {
+        let dim = Modifier::DIM;
+        let spans = vec![
+            Span::styled(" [↑/k]", Style::default().fg(theme.highlight())),
+            Span::styled(" up  ", Style::default().fg(theme.fg()).add_modifier(dim)),
+            Span::styled("[↓/j]", Style::default().fg(theme.highlight())),
+            Span::styled(" down  ", Style::default().fg(theme.fg()).add_modifier(dim)),
+            Span::styled("[/]", Style::default().fg(theme.highlight())),
+            Span::styled(
+                " search  ",
+                Style::default().fg(theme.fg()).add_modifier(dim),
+            ),
+            Span::styled("[enter]", Style::default().fg(theme.highlight())),
+            Span::styled(
+                " select  ",
+                Style::default().fg(theme.fg()).add_modifier(dim),
+            ),
+            Span::styled("[esc]", Style::default().fg(theme.highlight())),
+            Span::styled(" close", Style::default().fg(theme.fg()).add_modifier(dim)),
+        ];
+        return Paragraph::new(Line::from(spans))
+            .style(Style::default().fg(theme.fg()))
+            .alignment(Alignment::Left)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD)),
+            );
+    }
+
+    let line = Line::from(vec![
+        Span::styled("Search: ", Style::default().fg(theme.primary())),
+        Span::styled(query.to_string(), Style::default().fg(theme.fg())),
+    ]);
+    Paragraph::new(line)
+        .style(Style::default().fg(theme.fg()))
+        .alignment(Alignment::Left)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD))
+                .padding(ratatui::widgets::Padding {
+                    left: 1,
+                    right: 1,
+                    top: 0,
+                    bottom: 0,
+                }),
+        )
 }

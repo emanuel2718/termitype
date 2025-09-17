@@ -89,11 +89,11 @@ impl MenuBuilder {
     }
 }
 
-pub fn build_menu_from_context(ctx: MenuContext, _config: &Config) -> MenuContent {
+pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent {
     match ctx {
         MenuContext::Root => build_root_menu(),
         MenuContext::Options => build_options_menu(),
-        MenuContext::Themes => build_themes_menu(),
+        MenuContext::Themes => build_themes_menu(config),
     }
 }
 
@@ -122,20 +122,22 @@ fn build_options_menu() -> MenuContent {
         .build()
 }
 
-fn build_themes_menu() -> MenuContent {
+fn build_themes_menu(config: &Config) -> MenuContent {
     let themes = theme::available_themes();
     let mut builder = MenuBuilder::new("Select Theme", MenuContext::Themes);
     for name in &themes {
         builder = builder
             .action(name, Action::ChangeTheme(name.clone()))
-            .close_on_select()
-            .preivew();
+            .preivew()
+            .add_visualizer(MenuVisualizer::ThemeVisualizer)
+            .close_on_select();
     }
 
     let mut menu = builder.build();
-    let current_theme_name = theme::current_theme().id.to_string();
-    if let Some(idx) = themes.iter().position(|name| name == &current_theme_name) {
-        menu.current_index = idx;
+    if let Some(current_theme_name) = config.current_theme() {
+        if let Some(idx) = themes.iter().position(|name| name == &current_theme_name) {
+            menu.current_index = idx;
+        }
     }
     menu
 }
