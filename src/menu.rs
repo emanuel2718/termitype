@@ -430,7 +430,11 @@ impl Menu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::actions::Action;
+    use crate::{
+        actions::Action,
+        app::App,
+        theme::{self},
+    };
 
     #[test]
     fn test_open_menu() {
@@ -722,5 +726,37 @@ mod tests {
     fn test_menu_item_preview() {
         let item = MenuItem::new("Test", MenuAction::Action(Action::NoOp)).preivew();
         assert!(item.has_preview);
+    }
+
+    #[test]
+    fn test_menu_item_action_with_search() {
+        let config = Config::default();
+        let mut app = App::new(&config);
+        let theme_name = "termitype-dark";
+        theme::set_as_current_theme("Fallback").unwrap();
+        assert!(!theme::is_using_preview_theme());
+
+        assert_eq!(
+            theme::current_theme().id.to_string(),
+            "Fallback".to_string()
+        );
+
+        app.handle_menu_open(MenuContext::Themes).unwrap();
+        assert!(app.menu.is_open());
+        assert!(!app.menu.is_empty());
+        app.handle_menu_init_search().unwrap();
+        app.handle_menu_update_search(theme_name.to_string())
+            .unwrap();
+        assert!(!app.menu.is_empty());
+        assert!(theme::is_using_preview_theme());
+
+        let current_item = app.menu.current_item().unwrap();
+        assert!(current_item.label() == theme_name);
+
+        let select_action = app.menu.select(&config).unwrap();
+        assert_eq!(
+            select_action,
+            Some(Action::ChangeTheme(theme_name.to_string()))
+        );
     }
 }

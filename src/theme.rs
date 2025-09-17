@@ -378,6 +378,10 @@ impl ThemeManager {
         self.themes.read().unwrap().contains_key(name)
     }
 
+    pub fn is_using_preview_theme(&self) -> bool {
+        self.preview_theme.read().unwrap().as_ref().is_some()
+    }
+
     pub fn loaded_theme_count(&self) -> usize {
         self.themes.read().unwrap().len()
     }
@@ -443,6 +447,10 @@ pub fn current_theme() -> Theme {
     theme_manager()
         .get_active_theme()
         .unwrap_or_else(Theme::fallback)
+}
+
+pub fn is_using_preview_theme() -> bool {
+    theme_manager().is_using_preview_theme()
 }
 
 pub fn set_as_preview_theme(name: &str) -> Result<()> {

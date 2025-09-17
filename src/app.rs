@@ -83,6 +83,7 @@ impl App {
 
     pub fn handle_menu_open(&mut self, ctx: MenuContext) -> Result<(), AppError> {
         self.menu.open(ctx, &self.config)?;
+        self.try_preview()?;
         self.tracker.toggle_pause();
         Ok(())
     }
@@ -116,6 +117,7 @@ impl App {
             actions::handle_action(self, action)?;
             // note: the action above could've been a menu closing action.
             if !self.menu.is_open() {
+                theme::cancel_theme_preview();
                 self.tracker.toggle_pause();
             }
         }
@@ -153,6 +155,7 @@ impl App {
         let current_query = self.menu.search_query().to_string();
         let new_query = format!("{}{}", current_query, query);
         self.menu.update_search(new_query);
+        self.try_preview()?;
 
         Ok(())
     }

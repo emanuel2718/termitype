@@ -192,6 +192,9 @@ impl Config {
             state: Self::load_state(&persistence)?,
             persistence,
         };
+        if config.state.theme.is_none() {
+            config.state.theme = Some(DEFAULT_THEME.to_string());
+        }
         config.apply_cli_args(args);
         config.persist()?;
         Ok(config)
