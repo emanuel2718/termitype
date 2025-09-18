@@ -33,8 +33,6 @@ pub struct Token {
 /// Contains information about a word present the the typing test word pool
 #[derive(Debug, Clone)]
 pub struct Word {
-    /// The current typed text for the word
-    pub typed: String,
     /// The target word text
     pub target: String,
     /// Time when this word was started
@@ -117,7 +115,6 @@ impl Tracker {
         text_vec
             .iter()
             .map(|word| Word {
-                typed: String::new(),
                 target: word.to_string(),
                 start_time: None,
                 end_time: None,
@@ -513,34 +510,16 @@ impl Tracker {
     }
 
     fn calculate_wpm(&self) -> f64 {
-        let completed_words: Vec<_> = self
-            .words
-            .iter()
-            .filter(|w| w.completed && w.start_time.is_some() && w.end_time.is_some())
-            .collect();
-        if completed_words.is_empty() {
+        let total_chars_typed = self.typed_text.len() as f64;
+        if total_chars_typed <= 0.0 {
             return 0.0;
         }
-        let word_speeds: Vec<f64> = completed_words
-            .iter()
-            .filter_map(|word| {
-                let duration = word
-                    .end_time?
-                    .duration_since(word.start_time?)
-                    .as_secs_f64();
-                let chars = word.target.len() as f64;
-                if duration > 0.0 {
-                    Some((chars / 5.0) / (duration / 60.0))
-                } else {
-                    None
-                }
-            })
-            .collect();
-        if word_speeds.is_empty() {
-            0.0
-        } else {
-            word_speeds.iter().sum::<f64>() / word_speeds.len() as f64
-        }
+
+        let elapsed_secs = self.elapsed_time().as_secs_f64();
+        let effective_secs = elapsed_secs.max(0.1); // avoid spikes on short time/word tests
+
+        // wpm = (chars / 5) per minute
+        (total_chars_typed / 5.0) / (effective_secs / 60.0)
     }
 
     fn calculate_accuracy(&self) -> f64 {
@@ -845,7 +824,7 @@ mod tests {
     }
 
     #[test]
-    fn test_correct_word_tracking() {
+    fn test_word_index() {
         let mut tracker = Tracker::new("hi you test".to_string(), Mode::with_words(3));
         tracker.start_typing();
         tracker.type_char('h').unwrap();
@@ -858,9 +837,62 @@ mod tests {
     }
 
     #[test]
+    fn test_token_tracking() {
+        let mut tracker = Tracker::new("hi you test".to_string(), Mode::with_words(3));
+        tracker.start_typing();
+
+        assert!(!tracker.tokens.first().unwrap().is_wrong);
+        assert!(tracker.tokens.first().unwrap().typed.is_none());
+        assert_eq!(tracker.tokens.first().unwrap().target, 'h');
+
+        tracker.type_char('f').unwrap();
+        assert!(tracker.tokens.first().unwrap().is_wrong);
+        assert!(tracker.tokens.first().unwrap().typed.is_some());
+        assert_eq!(tracker.tokens.first().unwrap().typed, Some('f'));
+        assert_eq!(tracker.tokens.first().unwrap().target, 'h');
+
+        tracker.backspace().unwrap();
+        assert!(!tracker.tokens.first().unwrap().is_wrong);
+        assert!(tracker.tokens.first().unwrap().typed.is_none());
+        assert_eq!(tracker.tokens.first().unwrap().target, 'h');
+
+        tracker.type_char('h').unwrap();
+        assert!(!tracker.tokens.first().unwrap().is_wrong);
+        assert!(tracker.tokens.first().unwrap().typed.is_some());
+        assert_eq!(tracker.tokens.first().unwrap().typed, Some('h'));
+    }
+
+    #[test]
+    fn test_word_tracking() {
+        let mut tracker = Tracker::new("hi you test".to_string(), Mode::with_words(3));
+        tracker.start_typing();
+
+        assert!(!tracker.words.first().unwrap().completed);
+        assert_eq!(tracker.words.first().unwrap().error_count, 0);
+
+        tracker.type_char('n').unwrap();
+        assert!(!tracker.words.first().unwrap().completed);
+        assert_eq!(tracker.words.first().unwrap().error_count, 1);
+
+        tracker.type_char('o').unwrap();
+        assert!(!tracker.words.first().unwrap().completed);
+        assert_eq!(tracker.words.first().unwrap().error_count, 2);
+
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.words.first().unwrap().error_count, 1);
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.words.first().unwrap().error_count, 0);
+
+        tracker.type_char('h').unwrap();
+        tracker.type_char('i').unwrap();
+        tracker.type_char(' ').unwrap(); // we only mark a word as completed after we move from it with <space>
+        assert_eq!(tracker.words.first().unwrap().error_count, 0);
+        assert!(tracker.words.first().unwrap().completed);
+    }
+
+    #[test]
     fn test_illegal_space() {
         let mut tracker = Tracker::new("hello world".to_string(), Mode::with_time(60));
-        // tracker.start_typing();
         let space_input = tracker.type_char(' ');
         println!("space_input: {:?}", space_input);
         assert!(matches!(space_input, Err(AppError::IllegalSpaceCharacter))); // error
@@ -914,13 +946,27 @@ mod tests {
         tracker.toggle_pause();
         tracker.type_char('s').unwrap();
 
-        // Check total paused time
         assert!(tracker.total_paused_time >= Duration::from_millis(600));
 
-        // Check elapsed time accounts for pause
         let summary = tracker.summary();
         assert!(summary.elapsed_time < Duration::from_millis(50));
         assert!(summary.total_paused_time >= Duration::from_millis(600));
         assert!(summary.total_paused_time <= Duration::from_millis(601));
+    }
+
+    #[test]
+    fn test_word_mode_fast_wpm_calculation() {
+        let mut tracker = Tracker::new("test".to_string(), Mode::with_words(1));
+
+        for c in "test".chars() {
+            tracker.type_char(c).unwrap();
+        }
+
+        let summary = tracker.summary();
+        assert_eq!(tracker.status, TypingStatus::Completed);
+        assert!(summary.wpm > 0.0);
+
+        // 4 chars = 0.8 words, in 0.1 seconds = 0.8 / (0.1/60) = 480 WPM
+        assert_eq!(summary.wpm, 480.0);
     }
 }

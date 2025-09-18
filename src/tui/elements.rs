@@ -13,11 +13,11 @@ use crate::{
     },
 };
 use ratatui::{
-    layout::{Alignment, Rect},
+    Frame,
+    layout::Alignment,
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
