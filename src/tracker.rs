@@ -220,6 +220,12 @@ impl Tracker {
             .ok_or(AppError::InvalidCharacterPosition)?
             .target;
 
+        // don't allow wrong char input on word boundary
+        // TODO: here we should show the wrong characters like monkeytype does
+        if expected_char == ' ' && !is_space {
+            return Ok(());
+        }
+
         // upate current token information
         if let Some(token) = self.tokens.get_mut(self.current_pos) {
             token.typed = Some(c);
@@ -968,5 +974,22 @@ mod tests {
 
         // 4 chars = 0.8 words, in 0.1 seconds = 0.8 / (0.1/60) = 480 WPM
         assert_eq!(summary.wpm, 480.0);
+    }
+
+    #[test]
+    fn test_typing_wrong_char_on_word_boundary_should_do_nothing() {
+        let mut tracker = Tracker::new("another test".to_string(), Mode::with_words(2));
+        let word_to_type = "another";
+        for c in word_to_type.chars() {
+            tracker.type_char(c).unwrap();
+        }
+
+        assert_eq!(tracker.current_pos, word_to_type.len());
+        assert_eq!(tracker.correct_chars_count(), word_to_type.len());
+
+        // wrong token
+        tracker.type_char('W').unwrap();
+        assert_eq!(tracker.current_pos, word_to_type.len());
+        assert_eq!(tracker.correct_chars_count(), word_to_type.len());
     }
 }
