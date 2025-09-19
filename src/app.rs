@@ -1,5 +1,5 @@
 use crate::{
-    actions::{self, Action},
+    actions,
     builders::lexicon_builder::Lexicon,
     config::Config,
     error::AppError,
@@ -72,10 +72,7 @@ impl App {
             return Ok(());
         }
         match self.tracker.type_char(chr) {
-            Ok(()) => {
-                self.tracker.start_typing();
-                Ok(())
-            }
+            Ok(()) => Ok(()),
             Err(AppError::IllegalSpaceCharacter) => Ok(()),
             Err(e) => Err(e),
         }
