@@ -732,7 +732,7 @@ mod tests {
     fn test_menu_item_action_with_search() {
         let config = Config::default();
         let mut app = App::new(&config);
-        let theme_name = "termitype-dark";
+        let theme_name = "Termitype Dark";
         theme::set_as_current_theme("Fallback").unwrap();
         assert!(!theme::is_using_preview_theme());
 
