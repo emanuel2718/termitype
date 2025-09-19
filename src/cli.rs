@@ -89,6 +89,8 @@ pub struct Cli {
 
 impl Cli {
     pub fn clear_custom_words_flag(&mut self) {
-        self.words = None
+        if self.words.is_some() {
+            self.words = None
+        }
     }
 }

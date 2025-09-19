@@ -215,7 +215,7 @@ impl Config {
         Ok(())
     }
 
-    fn apply_cli_args(&mut self, cli: Cli) {
+    pub(crate) fn apply_cli_args(&mut self, cli: Cli) {
         if let Some(time) = cli.time {
             self.state.mode = Mode::with_time(time as usize);
             // TODO: maybe is not a good idea to internally unwrap the option. It could be confusing for the user
@@ -228,6 +228,11 @@ impl Config {
         // really what we want to pass is the words that the test itself is going to use.
         if let Some(count) = cli.words_count {
             self.state.mode = Mode::with_words(count)
+        }
+
+        if let Some(words_str) = &cli.words {
+            let word_count = words_str.split_whitespace().count();
+            self.state.mode = Mode::with_words(word_count);
         }
 
         if let Some(theme_str) = &cli.theme {
@@ -451,5 +456,23 @@ mod tests {
 
         assert_eq!(config.cli.words, Some(custom_word));
         assert_eq!(config.current_language(), "Custom");
+    }
+
+    #[test]
+    fn test_custom_words_should_set_word_mode_with_count() {
+        let custom_word = "about too soon".to_string();
+        let cli = Cli {
+            words: Some(custom_word),
+            ..Default::default()
+        };
+        let mut config = Config::default();
+
+        config.cli = cli.clone();
+        config.apply_cli_args(cli);
+
+        assert_eq!(
+            config.current_mode(),
+            Mode::Words(NonZeroUsize::new(3).unwrap())
+        );
     }
 }
