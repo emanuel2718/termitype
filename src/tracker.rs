@@ -269,6 +269,15 @@ impl Tracker {
             return Err(AppError::IllegalBackspace);
         }
 
+        // disallow backspace at word boundary after a full correctly typed word
+        if self.is_previous_token_a_space() {
+            if let Some(prev_word) = self.prev_word() {
+                if prev_word.completed && prev_word.error_count == 0 {
+                    return Ok(());
+                }
+            }
+        }
+
         self.typed_text.pop();
 
         self.current_pos -= 1;
@@ -330,6 +339,41 @@ impl Tracker {
         if typing_test_in_progress && self.should_complete() {
             self.complete();
         }
+    }
+
+    fn is_previous_token_a_space(&self) -> bool {
+        if let (Some(curr), Some(prev)) = (self.current_token(), self.prev_token()) {
+            return curr.target != ' ' && prev.target == ' ';
+        }
+        false
+    }
+
+    fn prev_token(&self) -> Option<&Token> {
+        if self.current_pos == 0 {
+            return None;
+        }
+        self.tokens.get(self.current_pos - 1)
+    }
+
+    fn current_token(&self) -> Option<&Token> {
+        if self.current_pos == 0 || self.current_pos > self.tokens.len() - 1 {
+            return None;
+        }
+        self.tokens.get(self.current_pos)
+    }
+
+    fn prev_word(&self) -> Option<&Word> {
+        if self.current_word_idx == 0 {
+            return None;
+        }
+        self.words.get(self.current_word_idx - 1)
+    }
+
+    fn current_word(&self) -> Option<&Word> {
+        if self.current_word_idx == 0 || self.current_word_idx > self.words.len() - 1 {
+            return None;
+        }
+        self.words.get(self.current_word_idx)
     }
 
     fn should_mark_word_as_completed(&self) -> bool {
@@ -838,13 +882,16 @@ mod tests {
     fn test_word_index() {
         let mut tracker = Tracker::new("hi you test".to_string(), Mode::with_words(3));
         tracker.start_typing();
+        assert_eq!(tracker.current_word_idx, 0);
         tracker.type_char('h').unwrap();
         tracker.type_char('i').unwrap();
         tracker.type_char(' ').unwrap();
-        tracker.backspace().unwrap();
-        tracker.type_char(' ').unwrap();
-        tracker.backspace().unwrap();
-        assert_eq!(tracker.current_word_idx, 0);
+        assert_eq!(tracker.current_word_idx, 1);
+        assert_eq!(tracker.current_pos, 3);
+        tracker.type_char('y').unwrap();
+        tracker.type_char('o').unwrap();
+        assert_eq!(tracker.current_word_idx, 1);
+        assert_eq!(tracker.current_pos, 5);
     }
 
     #[test]
@@ -1015,5 +1062,67 @@ mod tests {
 
         let wpm = tracker.wpm();
         assert_eq!(wpm, 0.0, "expected 0 wpm, got {wpm} wpm");
+
+        let mut tracker = Tracker::new(target_text.clone(), Mode::with_words(target_text.len()));
+
+        for _ in 0..target_text.len() - 1 {
+            if tracker.is_complete() {
+                break;
+            }
+            for _ in 0..6 {
+                tracker.type_char('x').unwrap(); // no `x` in the target text
+            }
+            tracker.type_char(' ').unwrap();
+        }
+
+        let wpm = tracker.wpm();
+        assert_eq!(wpm, 0.0, "expected 0 wpm, got {wpm} wpm");
+    }
+
+    #[test]
+    fn test_disallow_backspace_at_boundary_after_correct_word() {
+        let mut tracker = Tracker::new("termitype FAIL another".to_string(), Mode::with_words(3));
+
+        let str = "termitype";
+        for c in str.chars() {
+            tracker.type_char(c).unwrap();
+        }
+
+        tracker.type_char(' ').unwrap();
+
+        assert_eq!(tracker.current_pos, 10);
+        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'F');
+
+        tracker.backspace().unwrap(); // we should remain on the same spot
+
+        assert_eq!(tracker.current_pos, 10);
+        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'F');
+
+        tracker.type_char('F').unwrap();
+        assert_eq!(tracker.current_pos, 11);
+        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'A');
+
+        tracker.backspace().unwrap();
+
+        assert_eq!(tracker.current_pos, 10);
+        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'F');
+
+        // the disallow rule only applies if the previous word is not fully correct
+
+        // typo kind
+        for c in "FsIL".chars() {
+            tracker.type_char(c).unwrap();
+        }
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 15);
+        assert_eq!(tracker.current_word_idx, 2); // another
+        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'a');
+
+        tracker.backspace().unwrap();
+        tracker.backspace().unwrap();
+
+        assert_eq!(tracker.current_pos, 13);
+        assert_eq!(tracker.current_word_idx, 1); // FAIL
+        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'L');
     }
 }
