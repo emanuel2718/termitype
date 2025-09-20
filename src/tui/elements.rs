@@ -13,11 +13,11 @@ use crate::{
     },
 };
 use ratatui::{
-    Frame,
     layout::Alignment,
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -304,7 +304,7 @@ pub fn create_menu_search_bar<'a>(theme: &Theme, searching: bool, query: &str) -
     }
 
     let line = Line::from(vec![
-        Span::styled("Search: ", Style::default().fg(theme.primary())),
+        Span::styled("> ", Style::default().fg(theme.primary())),
         Span::styled(query.to_string(), Style::default().fg(theme.fg())),
     ]);
     Paragraph::new(line)

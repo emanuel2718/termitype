@@ -147,6 +147,7 @@ impl Tracker {
                 word.start_time = Some(now);
             }
             self.invalidate_metrics_cache();
+            self.update_metrics();
         }
     }
 
@@ -244,7 +245,6 @@ impl Tracker {
         }
 
         self.current_pos += 1;
-        self.invalidate_metrics_cache();
 
         if self.should_mark_word_as_completed() {
             self.mark_word_as_completed();
@@ -297,7 +297,6 @@ impl Tracker {
                 }
             }
         }
-        self.invalidate_metrics_cache();
         log_debug!("Tracker::backspace: success");
         Ok(())
     }
@@ -328,7 +327,7 @@ impl Tracker {
 
     pub fn check_completion(&mut self) {
         let typing_test_in_progress = self.is_typing() || self.is_resuming();
-        if self.should_complete() && typing_test_in_progress {
+        if typing_test_in_progress && self.should_complete() {
             self.complete();
         }
     }
@@ -377,14 +376,18 @@ impl Tracker {
     }
 
     pub fn complete(&mut self) {
-        self.end_time = Some(Instant::now());
+        let completion_time = Instant::now();
+        self.end_time = Some(completion_time);
+
         if let Some(word) = self.words.get_mut(self.current_word_idx) {
             if !word.completed {
                 word.completed = true;
-                word.end_time = Some(Instant::now())
+                word.end_time = Some(completion_time);
             }
         }
+
         self.update_metrics();
+
         self.status = TypingStatus::Completed;
     }
 
@@ -404,7 +407,6 @@ impl Tracker {
 
     /// Returns the current WPM
     pub fn wpm(&mut self) -> f64 {
-        self.try_metrics_update();
         self.metrics.wpm.unwrap_or(0.0)
     }
 
@@ -415,19 +417,15 @@ impl Tracker {
 
     /// Returns the current accuracy as a percentage (0.0 to 1.0)
     pub fn accuracy(&mut self) -> f64 {
-        self.try_metrics_update();
         self.metrics.accuracy.unwrap_or(0.0)
     }
 
     pub fn consistency(&mut self) -> f64 {
-        self.try_metrics_update();
         self.metrics.consistency.unwrap_or(0.0)
     }
 
     /// Returns a summary of the current typing session
     pub fn summary(&mut self) -> Summary {
-        self.try_metrics_update();
-
         Summary {
             wpm: self.wpm(),
             wps: self.wps(),
@@ -485,31 +483,23 @@ impl Tracker {
         self.typed_text.len() - self.total_errors
     }
 
-    fn try_metrics_update(&mut self) {
-        if self.is_complete() || self.is_paused() || self.is_resuming() {
+    pub fn try_metrics_update(&mut self) {
+        if !self.is_typing() || self.should_complete() {
             return;
         }
 
         let now = Instant::now();
-        let should_update = self.metrics.last_updated_at.map_or_else(
+        if self.metrics.last_updated_at.map_or_else(
             || true,
-            |last| {
-                // TODO: check if we should increase this
-                now.duration_since(last) > Duration::from_millis(100)
-            },
-        );
-
-        // let should_update = self.metrics.last_updated_at.map_or(true, |last| {
-        //     // TODO: check if we should increase this
-        //     now.duration_since(last) > Duration::from_millis(100)
-        // });
-        if should_update {
+            |last_update| now.duration_since(last_update) > Duration::from_millis(1_000),
+        ) {
+            log_debug!("Updating metrics");
             self.update_metrics();
             self.metrics.last_updated_at = Some(now)
-        }
+        };
     }
 
-    fn update_metrics(&mut self) {
+    pub fn update_metrics(&mut self) {
         self.metrics.wpm = Some(self.calculate_wpm());
         self.metrics.accuracy = Some(self.calculate_accuracy());
         self.metrics.consistency = Some(self.calcluate_consistency());

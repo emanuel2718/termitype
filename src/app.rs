@@ -13,7 +13,7 @@ use crate::{
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub struct App {
     pub config: Config,
@@ -265,12 +265,13 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             }
         }
 
+        app.tracker.try_metrics_update();
+        app.tracker.check_completion();
+
         terminal.draw(|frame| {
             // TODO: return the click actions
             let _ = tui::renderer::draw_ui(frame, &mut app);
         })?;
-
-        app.tracker.check_completion();
     }
 
     Ok(())

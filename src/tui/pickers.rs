@@ -156,7 +156,7 @@ fn render_menu_bottom_bar(
         let bar = create_menu_search_bar(theme, menu.is_searching(), menu.search_query());
         frame.render_widget(bar, bar_area);
         if menu.is_searching() {
-            let base_offset: u16 = 8; // "Search: "
+            let base_offset: u16 = 2; // "> "
             let qlen = menu.search_query().chars().count() as u16;
             let mut x = bar_area.x + 1 + 1 + base_offset + qlen; // +1 for left border, +1 for left padding
             if x >= bar_area.x + bar_area.width.saturating_sub(1) {
