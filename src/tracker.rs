@@ -143,7 +143,7 @@ impl Tracker {
             let now = Instant::now();
             self.status = TypingStatus::InProgress;
             self.start_time = Some(now);
-            if let Some(word) = self.words.get_mut(0) {
+            if let Some(word) = self.current_word_mut() {
                 word.start_time = Some(now);
             }
             self.invalidate_metrics_cache();
@@ -216,8 +216,7 @@ impl Tracker {
 
         // this is the actual expected(target) character we are typing against
         let expected_char = self
-            .tokens
-            .get(self.current_pos)
+            .current_token()
             .ok_or(AppError::InvalidCharacterPosition)?
             .target;
 
@@ -228,7 +227,7 @@ impl Tracker {
         }
 
         // upate current token information
-        if let Some(token) = self.tokens.get_mut(self.current_pos) {
+        if let Some(token) = self.current_token_mut() {
             token.typed = Some(c);
             token.typed_at = Some(Instant::now());
             token.is_wrong = expected_char != c;
@@ -239,7 +238,7 @@ impl Tracker {
         // errror tracking
         if expected_char != c {
             self.total_errors += 1;
-            if let Some(word) = self.words.get_mut(self.current_word_idx) {
+            if let Some(word) = self.current_word_mut() {
                 word.error_count += 1;
             }
         }
@@ -283,25 +282,25 @@ impl Tracker {
         self.current_pos -= 1;
 
         // check if we are backspacing over a space that completed a word
-        if let Some(token) = self.tokens.get(self.current_pos) {
+        if let Some(token) = self.current_token() {
             if token.target == ' ' && self.current_word_idx > 0 {
                 // we are backspacing over a <space>, so go back to the previous word
                 self.current_word_idx -= 1;
-                if let Some(word) = self.words.get_mut(self.current_word_idx) {
+                if let Some(word) = self.current_word_mut() {
                     word.completed = false;
                     word.end_time = None;
                 }
             }
         }
 
-        if let Some(token) = self.tokens.get_mut(self.current_pos) {
+        if let Some(token) = self.current_token_mut() {
             token.typed = None;
             token.typed_at = None;
             token.is_wrong = false;
 
             if token.target != token.typed.unwrap_or('\0') {
                 self.total_errors = self.total_errors.saturating_sub(1);
-                if let Some(word) = self.words.get_mut(self.current_word_idx) {
+                if let Some(word) = self.current_word_mut() {
                     word.error_count = word.error_count.saturating_sub(1);
                 }
             }
@@ -311,7 +310,7 @@ impl Tracker {
     }
 
     pub fn current_target_char(&self) -> Option<char> {
-        self.tokens.get(self.current_pos).map(|c| c.target)
+        self.current_token().map(|c| c.target)
     }
 
     pub fn is_idle(&self) -> bool {
@@ -356,9 +355,6 @@ impl Tracker {
     }
 
     fn current_token(&self) -> Option<&Token> {
-        if self.current_pos == 0 || self.current_pos > self.tokens.len() - 1 {
-            return None;
-        }
         self.tokens.get(self.current_pos)
     }
 
@@ -369,18 +365,19 @@ impl Tracker {
         self.words.get(self.current_word_idx - 1)
     }
 
-    fn current_word(&self) -> Option<&Word> {
-        if self.current_word_idx == 0 || self.current_word_idx > self.words.len() - 1 {
-            return None;
-        }
-        self.words.get(self.current_word_idx)
+    fn current_token_mut(&mut self) -> Option<&mut Token> {
+        self.tokens.get_mut(self.current_pos)
+    }
+
+    fn current_word_mut(&mut self) -> Option<&mut Word> {
+        self.words.get_mut(self.current_word_idx)
     }
 
     fn should_mark_word_as_completed(&self) -> bool {
         if self.current_pos == 0 {
             return false;
         }
-        let curr_char = self.tokens.get(self.current_pos - 1);
+        let curr_char = self.prev_token();
         let is_space_x = curr_char.map_or_else(|| false, |c| c.target == ' ');
         let is_end = self.current_pos >= self.text.len();
 
@@ -390,13 +387,13 @@ impl Tracker {
     // NOTE: i did this words end and start time because i think it would be nice to show in a
     // graph visualiation, but if this gets too annoying to deal with then remove it.
     fn mark_word_as_completed(&mut self) {
-        if let Some(word) = self.words.get_mut(self.current_word_idx) {
+        if let Some(word) = self.current_word_mut() {
             word.completed = true;
             word.end_time = Some(Instant::now());
         }
         self.current_word_idx += 1;
 
-        if let Some(word) = self.words.get_mut(self.current_word_idx) {
+        if let Some(word) = self.current_word_mut() {
             word.start_time = Some(Instant::now())
         }
     }
@@ -424,7 +421,7 @@ impl Tracker {
         let completion_time = Instant::now();
         self.end_time = Some(completion_time);
 
-        if let Some(word) = self.words.get_mut(self.current_word_idx) {
+        if let Some(word) = self.current_word_mut() {
             if !word.completed {
                 word.completed = true;
                 word.end_time = Some(completion_time);
@@ -437,12 +434,7 @@ impl Tracker {
     }
 
     fn is_at_word_start(&self) -> bool {
-        self.current_pos == 0
-            || self.current_pos > 0
-                && self
-                    .tokens
-                    .get(self.current_pos - 1)
-                    .is_some_and(|prev| prev.target == ' ')
+        self.current_pos == 0 || self.prev_token().is_some_and(|prev| prev.target == ' ')
     }
 
     /// Returns an iterator over all words with their statistics
