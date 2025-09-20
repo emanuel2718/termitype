@@ -255,11 +255,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
                     // TODO: resolve input contxt
                     let input_ctx = app.resolve_input_context();
-                    let action = input.handle(event, input_ctx);
-                    if app.handle_debounce() {
+                    let input_result = input.handle(event, input_ctx);
+                    if !input_result.skip_debounce && app.handle_debounce() {
                         continue;
                     }
-                    actions::handle_action(&mut app, action)?;
+                    actions::handle_action(&mut app, input_result.action)?;
                 }
                 _ => {}
             }
