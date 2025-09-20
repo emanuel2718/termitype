@@ -376,6 +376,7 @@ impl Tracker {
     }
 
     pub fn complete(&mut self) {
+        self.update_metrics();
         let completion_time = Instant::now();
         self.end_time = Some(completion_time);
 
@@ -483,6 +484,15 @@ impl Tracker {
         self.typed_text.len() - self.total_errors
     }
 
+    /// Returns the number of correctly typed non-space characters so far
+    pub fn correct_non_space_chars_count(&self) -> usize {
+        self.tokens
+            .iter()
+            .take(self.current_pos)
+            .filter(|token| token.target != ' ' && token.typed == Some(token.target))
+            .count()
+    }
+
     pub fn try_metrics_update(&mut self) {
         if !self.is_typing() || self.should_complete() {
             return;
@@ -493,7 +503,6 @@ impl Tracker {
             || true,
             |last_update| now.duration_since(last_update) > Duration::from_millis(1_000),
         ) {
-            log_debug!("Updating metrics");
             self.update_metrics();
             self.metrics.last_updated_at = Some(now)
         };
@@ -506,8 +515,12 @@ impl Tracker {
     }
 
     fn calculate_wpm(&self) -> f64 {
-        let total_chars_typed = self.typed_text.len() as f64;
-        if total_chars_typed <= 0.0 {
+        // anti keyboard smash tactic
+        if self.correct_non_space_chars_count() == 0 {
+            return 0.0;
+        }
+        let correct_chars_typed = self.correct_chars_count() as f64;
+        if correct_chars_typed <= 0.0 {
             return 0.0;
         }
 
@@ -515,7 +528,7 @@ impl Tracker {
         let effective_secs = elapsed_secs.max(0.1); // avoid spikes on short time/word tests
 
         // wpm = (chars / 5) per minute
-        (total_chars_typed / 5.0) / (effective_secs / 60.0)
+        (correct_chars_typed / 5.0) / (effective_secs / 60.0)
     }
 
     fn calculate_accuracy(&self) -> f64 {
@@ -602,11 +615,14 @@ pub struct Summary {
 
 impl Summary {
     pub fn net_wpm(&self) -> f64 {
-        if self.accuracy > 0.0 {
-            self.wpm * self.accuracy
-        } else {
-            0.0
+        // basically raw wpm
+        let total_typed = (self.correct_chars + self.total_errors) as f64;
+        if total_typed <= 0.0 {
+            return 0.0;
         }
+        let elapsed_secs = self.elapsed_time.as_secs_f64();
+        let effective_secs = elapsed_secs.max(0.1);
+        (total_typed / 5.0) / (effective_secs / 60.0)
     }
 
     pub fn error_percentage(&self) -> f64 {
@@ -768,24 +784,23 @@ mod tests {
     #[test]
     fn test_summary() {
         let str = "hello termitype".to_string();
-        let mut tracker = Tracker::new(str.clone(), Mode::with_time(60));
+        let mut tracker = Tracker::new(str.clone(), Mode::with_time(30));
         tracker.start_typing();
 
-        tracker.type_char('h').unwrap();
-        tracker.type_char('e').unwrap();
-        tracker.type_char('l').unwrap();
-        tracker.type_char('x').unwrap(); // error
-        tracker.type_char('o').unwrap();
+        for c in str.chars() {
+            tracker.type_char(c).unwrap();
+        }
+
+        tracker.start_time = Some(Instant::now() - Duration::from_secs(15));
 
         let summary = tracker.summary();
         assert!(summary.wpm >= 0.0);
         assert!(summary.wps >= 0.0);
         assert!(summary.accuracy > 0.0);
         assert_eq!(summary.total_chars, str.len());
-        assert_eq!(summary.correct_chars, 4);
-        assert_eq!(summary.total_errors, 1);
-        assert!(summary.elapsed_time > Duration::ZERO);
-        // wps shoud be wpm over 60
+        assert_eq!(summary.correct_chars, str.len());
+        assert_eq!(summary.total_errors, 0);
+        assert!(summary.elapsed_time >= Duration::from_secs(10));
         assert!((summary.wps - summary.wpm / 60.0).abs() < 0.001);
     }
 
@@ -981,5 +996,24 @@ mod tests {
         tracker.type_char('W').unwrap();
         assert_eq!(tracker.current_pos, word_to_type.len());
         assert_eq!(tracker.correct_chars_count(), word_to_type.len());
+    }
+
+    #[test]
+    fn test_fast_wrong_input_keeps_wpm_low() {
+        let target_text = "this is a longer piece of reference words for testing".to_string();
+        let mut tracker = Tracker::new(target_text.clone(), Mode::with_time(60));
+
+        for _ in 0..target_text.len() - 1 {
+            if tracker.is_complete() {
+                break;
+            }
+            for _ in 0..6 {
+                tracker.type_char('x').unwrap(); // no `x` in the target text
+            }
+            tracker.type_char(' ').unwrap();
+        }
+
+        let wpm = tracker.wpm();
+        assert_eq!(wpm, 0.0, "expected 0 wpm, got {wpm} wpm");
     }
 }
