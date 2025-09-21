@@ -13,7 +13,7 @@ use crate::{
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub struct App {
     pub config: Config,
@@ -26,6 +26,7 @@ pub struct App {
 impl App {
     pub fn new(config: &Config) -> Self {
         let lexicon = Lexicon::new(config).unwrap();
+        #[allow(unused_mut)]
         let mut tracker = Tracker::new(lexicon.words.clone(), config.current_mode());
 
         #[cfg(debug_assertions)]
@@ -162,6 +163,7 @@ impl App {
             Ok(()) => Ok(()),
             Err(AppError::TypingTestNotInProgress) => Ok(()),
             Err(AppError::IllegalBackspace) => Ok(()),
+            Err(AppError::IllegalSpaceCharacter) => Ok(()),
             Err(e) => Err(e),
         }
     }
@@ -229,6 +231,7 @@ impl App {
         false
     }
 
+    #[cfg(debug_assertions)]
     fn force_show_results_screen(tracker: &mut Tracker) {
         tracker.start_typing();
         let test_chars = "hello world test";

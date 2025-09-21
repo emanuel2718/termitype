@@ -1,6 +1,9 @@
 use crate::{config::Mode, error::AppError, log_debug};
 use std::time::{Duration, Instant};
 
+const WORD_BOUNDARY_ESTIMATE_RATIO: usize = 5;
+const DEFAULT_WORD_BOUNDARY_CAPACITY: usize = 16;
+
 /// Represents the current state of an individual typing test.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum TypingStatus {
@@ -45,6 +48,25 @@ pub struct Word {
     pub completed: bool,
 }
 
+/// Represents a space jump operation
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct SpaceJump {
+    /// Position before the jump
+    source_pos: usize,
+    /// Position after the jump
+    target_pos: usize,
+}
+
+impl SpaceJump {
+    #[inline]
+    const fn new(source_pos: usize, target_pos: usize) -> Self {
+        Self {
+            source_pos,
+            target_pos,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Tracker {
     /// The mode of the current typing test
@@ -75,18 +97,17 @@ pub struct Tracker {
     total_paused_time: Duration,
     /// Metrics of the current test
     metrics: Metrics,
+    /// Tracks positions where space jumps occurred
+    space_jump_stack: Vec<SpaceJump>,
+    /// Pre-calculated indexed of word boundaries
+    word_boundaries: Vec<usize>,
 }
 
 impl Tracker {
     pub fn new(text: String, mode: Mode) -> Self {
         let words = Self::build_words(&text);
         let tokens = Self::build_tokens(&text);
-        if let Some(first_word) = words.first() {
-            log_debug!("First word: {:?}", first_word);
-        }
-        if let Some(first_token) = tokens.first() {
-            log_debug!("First token: {:?}", first_token);
-        }
+        let word_boundaries = Self::build_word_boundaries(&text);
 
         Self {
             mode,
@@ -102,6 +123,8 @@ impl Tracker {
             end_time: None,
             paused_at: None,
             total_paused_time: Duration::ZERO,
+            space_jump_stack: Vec::new(),
+            word_boundaries,
             metrics: Metrics::default(),
         }
     }
@@ -133,6 +156,29 @@ impl Tracker {
                 typed_at: None,
             })
             .collect()
+    }
+
+    /// Bulids the word boundaries vec, basically all the position where each word starts after spce
+    fn build_word_boundaries(text: &str) -> Vec<usize> {
+        let capacity =
+            (text.len() / WORD_BOUNDARY_ESTIMATE_RATIO).max(DEFAULT_WORD_BOUNDARY_CAPACITY);
+        let mut boundaries = Vec::with_capacity(capacity);
+
+        boundaries.push(0); // initial pos
+
+        let mut search_pos = 0;
+        while let Some(space_pos) = text[search_pos..].find(' ') {
+            let word_start = search_pos + space_pos + 1;
+            if word_start < text.len() {
+                boundaries.push(word_start);
+                search_pos = word_start;
+            } else {
+                break;
+            }
+        }
+
+        boundaries.shrink_to_fit();
+        boundaries
     }
 
     pub fn start_typing(&mut self) {
@@ -226,6 +272,13 @@ impl Tracker {
             return Ok(());
         }
 
+        // space jumping shenanigans
+        if is_space && expected_char != ' ' {
+            if let Some(target_pos) = self.calculate_space_jump_target() {
+                return self.perform_space_jump(target_pos);
+            }
+        }
+
         // upate current token information
         if let Some(token) = self.current_token_mut() {
             token.typed = Some(c);
@@ -274,6 +327,13 @@ impl Tracker {
                 if prev_word.completed && prev_word.error_count == 0 {
                     return Ok(());
                 }
+            }
+        }
+
+        // undo space jump action
+        if let Some(&jump) = self.space_jump_stack.last() {
+            if self.current_pos == jump.target_pos {
+                return self.undo_space_jump(jump);
             }
         }
 
@@ -354,10 +414,14 @@ impl Tracker {
         self.tokens.get(self.current_pos - 1)
     }
 
+    /// Gets the current token
+    #[inline]
     fn current_token(&self) -> Option<&Token> {
         self.tokens.get(self.current_pos)
     }
 
+    /// Gets the previous word
+    #[inline]
     fn prev_word(&self) -> Option<&Word> {
         if self.current_word_idx == 0 {
             return None;
@@ -365,12 +429,23 @@ impl Tracker {
         self.words.get(self.current_word_idx - 1)
     }
 
+    /// Mutably gets the current token
+    #[inline]
     fn current_token_mut(&mut self) -> Option<&mut Token> {
         self.tokens.get_mut(self.current_pos)
     }
 
+    /// Mutablly gets the current word
+    #[inline]
     fn current_word_mut(&mut self) -> Option<&mut Word> {
         self.words.get_mut(self.current_word_idx)
+    }
+
+    /// Gets the current word
+    #[inline]
+    #[allow(dead_code)]
+    fn current_word(&self) -> Option<&Word> {
+        self.words.get(self.current_word_idx)
     }
 
     fn should_mark_word_as_completed(&self) -> bool {
@@ -435,6 +510,110 @@ impl Tracker {
 
     fn is_at_word_start(&self) -> bool {
         self.current_pos == 0 || self.prev_token().is_some_and(|prev| prev.target == ' ')
+    }
+
+    /// Calculates the target position for a space jump
+    fn calculate_space_jump_target(&self) -> Option<usize> {
+        // bin search the next word boundary
+        let next_boundary_idx = self
+            .word_boundaries
+            .partition_point(|&boundary| boundary <= self.current_pos);
+
+        let next_boundary = *self.word_boundaries.get(next_boundary_idx)?;
+
+        Some(next_boundary)
+    }
+
+    /// Activate the spacedrive and perform the space jump to the target location
+    fn perform_space_jump(&mut self, target_pos: usize) -> Result<(), AppError> {
+        let source_pos = self.current_pos;
+        let jump_length = target_pos.saturating_sub(source_pos);
+
+        if jump_length == 0 {
+            return Ok(());
+        }
+
+        self.space_jump_stack
+            .push(SpaceJump::new(source_pos, target_pos));
+
+        self.total_errors += jump_length;
+
+        // fill the offset with spaces
+        let spaces: String = " ".repeat(jump_length);
+        self.typed_text.push_str(&spaces);
+
+        // update the offset tokens and words states
+        for pos in source_pos..target_pos {
+            self.current_pos = pos;
+
+            if let Some(token) = self.current_token_mut() {
+                token.typed = Some(' ');
+                token.typed_at = Some(Instant::now());
+                token.is_wrong = true;
+            }
+
+            if let Some(word) = self.current_word_mut() {
+                word.error_count += 1;
+            }
+        }
+
+        self.current_pos = target_pos;
+
+        // did the jump complted a word
+        if self.should_mark_word_as_completed() {
+            self.mark_word_as_completed();
+        }
+
+        Ok(())
+    }
+
+    /// Reverses a given space jump operation
+    fn undo_space_jump(&mut self, jump: SpaceJump) -> Result<(), AppError> {
+        let positions_to_undo = jump
+            .target_pos
+            .saturating_sub(jump.source_pos)
+            .saturating_add(1);
+
+        self.total_errors = self.total_errors.saturating_sub(positions_to_undo);
+
+        // remove the spaces added by the space jump
+        let new_len = self.typed_text.len().saturating_sub(positions_to_undo);
+        self.typed_text.truncate(new_len);
+
+        // restore space-jumped word and token states to default
+        for pos in (jump.source_pos..=jump.target_pos).rev() {
+            self.current_pos = pos;
+
+            if let Some(token) = self.current_token_mut() {
+                token.typed = None;
+                token.typed_at = None;
+                token.is_wrong = false;
+
+                if token.target != ' ' {
+                    if let Some(word) = self.current_word_mut() {
+                        word.error_count = word.error_count.saturating_sub(1);
+                    }
+                }
+            }
+
+            // should we unmark the completed word
+            if pos > 0 {
+                if let Some(token) = self.prev_token() {
+                    if token.target == ' ' && self.current_word_idx > 0 {
+                        self.current_word_idx -= 1;
+                        if let Some(word) = self.current_word_mut() {
+                            word.completed = false;
+                            word.end_time = None;
+                        }
+                    }
+                }
+            }
+        }
+
+        self.current_pos = jump.source_pos;
+        self.space_jump_stack.pop();
+
+        Ok(())
     }
 
     /// Returns an iterator over all words with their statistics
@@ -1083,23 +1262,23 @@ mod tests {
         tracker.type_char(' ').unwrap();
 
         assert_eq!(tracker.current_pos, 10);
-        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'F');
+        assert_eq!(tracker.current_token().unwrap().target, 'F');
 
         tracker.backspace().unwrap(); // we should remain on the same spot
 
         assert_eq!(tracker.current_pos, 10);
-        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'F');
+        assert_eq!(tracker.current_token().unwrap().target, 'F');
 
         tracker.type_char('F').unwrap();
         assert_eq!(tracker.current_pos, 11);
-        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'A');
+        assert_eq!(tracker.current_token().unwrap().target, 'A');
 
         tracker.backspace().unwrap();
 
         assert_eq!(tracker.current_pos, 10);
-        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'F');
+        assert_eq!(tracker.current_token().unwrap().target, 'F');
 
-        // the disallow rule only applies if the previous word is not fully correct
+        // NOTE(ema): the disallow rule only applies if the previous word is not fully correct
 
         // typo kind
         for c in "FsIL".chars() {
@@ -1108,13 +1287,123 @@ mod tests {
         tracker.type_char(' ').unwrap();
         assert_eq!(tracker.current_pos, 15);
         assert_eq!(tracker.current_word_idx, 2); // another
-        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'a');
+        assert_eq!(tracker.current_token().unwrap().target, 'a');
 
         tracker.backspace().unwrap();
         tracker.backspace().unwrap();
 
         assert_eq!(tracker.current_pos, 13);
         assert_eq!(tracker.current_word_idx, 1); // FAIL
-        assert_eq!(tracker.tokens.get(tracker.current_pos).unwrap().target, 'L');
+        assert_eq!(tracker.current_token().unwrap().target, 'L');
+    }
+
+    #[test]
+    fn test_space_beyond_first_token_should_skip_to_next_word() {
+        let mut tracker = Tracker::new("hello there test".to_string(), Mode::with_words(3));
+
+        tracker.type_char('h').unwrap();
+        assert_eq!(tracker.current_pos, 1);
+        assert_eq!(tracker.current_word_idx, 0);
+        assert_eq!(tracker.current_word().unwrap().target, "hello".to_string());
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 6);
+        assert_eq!(tracker.current_word_idx, 1);
+        assert_eq!(tracker.current_word().unwrap().target, "there".to_string());
+
+        tracker.type_char('t').unwrap(); // there
+        assert_eq!(tracker.current_pos, 7);
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 12);
+        assert_eq!(tracker.current_word_idx, 2);
+        assert_eq!(tracker.current_word().unwrap().target, "test".to_string());
+    }
+
+    #[test]
+    fn test_jump_space_to_start_of_next_word() {
+        let mut tracker = Tracker::new("another space jump test".to_string(), Mode::with_words(4));
+
+        tracker.type_char('f').unwrap();
+        assert_eq!(tracker.current_pos, 1);
+        assert_eq!(tracker.current_word_idx, 0);
+
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 8);
+        assert_eq!(tracker.current_word_idx, 1);
+        assert_eq!(tracker.current_word().unwrap().error_count, 0);
+
+        tracker.type_char('f').unwrap();
+        assert_eq!(tracker.current_pos, 9);
+        assert_eq!(tracker.current_word_idx, 1);
+
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 14);
+        assert_eq!(tracker.current_word_idx, 2);
+        assert_eq!(tracker.current_word().unwrap().error_count, 0);
+
+        tracker.type_char('f').unwrap();
+        assert_eq!(tracker.current_pos, 15);
+        assert_eq!(tracker.current_word_idx, 2);
+        assert_eq!(tracker.current_word().unwrap().error_count, 1);
+    }
+
+    #[test]
+    fn test_space_in_boundary_shouldnt_skip() {
+        let mut tracker = Tracker::new("hello world".to_string(), Mode::default());
+        for c in "hello".chars() {
+            tracker.type_char(c).unwrap();
+        }
+        assert_eq!(tracker.current_pos, 5);
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 6);
+        assert!(tracker.type_char(' ').is_err());
+        assert_eq!(tracker.current_pos, 6);
+    }
+
+    #[test]
+    fn test_backspace_after_multiple_chained_spaces() {
+        let target_text = "hello there termitype hope you doing good".to_string();
+        let mut tracker = Tracker::new(target_text, Mode::with_time(30));
+        tracker.type_char('h').unwrap();
+        assert_eq!(tracker.current_pos, 1);
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 6); // just before "there"
+        tracker.type_char('t').unwrap();
+        assert_eq!(tracker.current_pos, 7);
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 12); // just before "termitype"
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.current_pos, 7);
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.current_pos, 6);
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.current_pos, 1);
+    }
+
+    #[test]
+    fn test_space_jump_long_word_with_offsets() {
+        let text = "supercalifragilisticexpialidocious another".to_string();
+        let long_word_len = "supercalifragilisticexpialidocious".len(); // 34
+        let next_word_start = long_word_len + 1; // 35
+
+        let offsets = [1, 5, 10, 20, 30];
+
+        for &offset in &offsets {
+            let mut tracker = Tracker::new(text.clone(), Mode::with_words(2));
+
+            for c in text.chars().take(offset) {
+                tracker.type_char(c).unwrap();
+            }
+            assert_eq!(tracker.current_pos, offset);
+            assert_eq!(tracker.current_word_idx, 0);
+
+            tracker.type_char(' ').unwrap();
+
+            assert_eq!(tracker.current_pos, next_word_start);
+            assert_eq!(tracker.current_word_idx, 1);
+            assert_eq!(tracker.current_word().unwrap().target, "another");
+
+            assert_eq!(tracker.typed_text.len(), next_word_start);
+            assert!(tracker.typed_text[offset..].chars().all(|c| c == ' '));
+        }
     }
 }
