@@ -411,7 +411,10 @@ impl Menu {
     }
 
     pub fn select(&mut self, config: &Config) -> Result<Option<Action>, AppError> {
-        if let Some(item) = self.current_item() {
+        if let Some(item) = self.current_item().cloned() {
+            if self.is_searching() {
+                self.clear_search();
+            }
             let action = item.action.clone();
             match action {
                 MenuAction::Action(act) => {
@@ -656,6 +659,19 @@ mod tests {
         menu.update_search("test".to_string());
         assert!(menu.is_searching());
         assert_eq!(menu.search_query(), "test".to_string());
+    }
+
+    #[test]
+    fn test_menu_search_confirm_should_clear_search_query() {
+        let mut menu = Menu::new();
+        let config = Config::default();
+        menu.open(MenuContext::Root, &config).unwrap();
+        menu.init_search();
+        menu.update_search("theme".to_string());
+        assert_eq!(menu.search_query(), "theme");
+
+        menu.select(&config).unwrap();
+        assert_eq!(menu.search_query(), "");
     }
 
     #[test]
