@@ -155,12 +155,18 @@ fn create_tracker_line(app: &mut App, theme: &Theme) -> Line<'static> {
             format!("{}/{}", summary.completed_words, summary.total_words)
         }
     };
-    let mode_progress_span = Span::styled(mode_progress, Style::default().fg(theme.highlight()));
-    let wpm_span = Span::styled(
-        format!("  {:.0} wpm", app.tracker.wpm()),
-        Style::default().fg(theme.fg()),
-    );
-    Line::from(vec![mode_progress_span, wpm_span])
+    let mut spans = vec![Span::styled(
+        mode_progress,
+        Style::default().fg(theme.highlight()),
+    )];
+    if !app.config.should_hide_live_wpm() {
+        let wpm = Span::styled(
+            format!("  {:.0} wpm", app.tracker.wpm()),
+            Style::default().fg(theme.fg()),
+        );
+        spans.push(wpm);
+    }
+    Line::from(spans)
 }
 
 fn create_target_text_line(state: &Tracker, theme: &Theme, max_width: u16) -> Vec<Line<'static>> {

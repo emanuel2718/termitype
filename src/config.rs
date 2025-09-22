@@ -20,6 +20,7 @@ pub enum Setting {
     Symbols,
     Numbers,
     Punctuation,
+    LiveWPM,
 }
 
 /// Represents a typing test mode, either time-based or word-count based.
@@ -113,6 +114,32 @@ impl Mode {
             NonZeroUsize::new(count).unwrap_or(NonZeroUsize::new(DEFAULT_WORD_MODE_COUNT).unwrap()),
         )
     }
+
+    /// Creats a new time-based Mode with the default time of `30 seconds`
+    ///
+    /// ```
+    /// use termitype::constants::DEFAULT_TIME_MODE_DURATION_IN_SECS;
+    /// assert_eq!(DEFAULT_TIME_MODE_DURATION_IN_SECS, 30);
+    ///
+    /// use termitype::config::Mode;
+    /// let mode = Mode::with_default_time();
+    /// ```
+    pub fn with_default_time() -> Self {
+        Mode::Time(NonZeroUsize::new(DEFAULT_TIME_MODE_DURATION_IN_SECS).unwrap())
+    }
+
+    /// Creats a new words-based Mode with the default word count of `50 words`
+    ///
+    /// ```
+    /// use termitype::constants::DEFAULT_WORD_MODE_COUNT;
+    /// assert_eq!(DEFAULT_WORD_MODE_COUNT, 50);
+    ///
+    /// use termitype::config::Mode;
+    /// let mode = Mode::with_default_words();
+    /// ```
+    pub fn with_default_words() -> Self {
+        Mode::Words(NonZeroUsize::new(DEFAULT_WORD_MODE_COUNT).unwrap())
+    }
 }
 
 impl fmt::Display for Mode {
@@ -154,6 +181,8 @@ pub struct ConfigState {
     pub theme: Option<String>,
     #[serde(default)]
     pub lines: u8,
+    #[serde(default)]
+    pub hide_live_wpm: bool,
 }
 
 impl Default for ConfigState {
@@ -170,6 +199,7 @@ impl Default for ConfigState {
             cursor_variant: CursorVariant::default(),
             picker_variant: PickerVariant::default(),
             results_variant: ResultsVariant::default(),
+            hide_live_wpm: false,
         }
     }
 }
@@ -271,6 +301,10 @@ impl Config {
             self.state.punctuation = true;
         }
 
+        if cli.hide_live_wpm {
+            self.state.hide_live_wpm = true;
+        }
+
         self.state.lines = cli.visible_lines;
 
         #[cfg(debug_assertions)]
@@ -348,11 +382,16 @@ impl Config {
         self.state.lines = count;
     }
 
+    pub fn should_hide_live_wpm(&self) -> bool {
+        self.state.hide_live_wpm
+    }
+
     pub fn is_enabled(&self, setting: Setting) -> bool {
         match setting {
             Setting::Symbols => self.state.symbols,
             Setting::Numbers => self.state.numbers,
             Setting::Punctuation => self.state.punctuation,
+            Setting::LiveWPM => !self.state.hide_live_wpm,
         }
     }
 
@@ -361,6 +400,7 @@ impl Config {
             Setting::Symbols => self.state.symbols = !self.state.symbols,
             Setting::Numbers => self.state.numbers = !self.state.numbers,
             Setting::Punctuation => self.state.punctuation = !self.state.punctuation,
+            Setting::LiveWPM => self.state.hide_live_wpm = !self.state.hide_live_wpm,
         };
         Ok(())
     }
@@ -410,6 +450,11 @@ mod tests {
         assert!(!config.is_enabled(Setting::Punctuation));
         config.toggle(Setting::Punctuation).unwrap();
         assert!(config.is_enabled(Setting::Punctuation));
+
+        assert!(!config.state.hide_live_wpm);
+        assert!(!config.should_hide_live_wpm());
+        config.toggle(Setting::LiveWPM).unwrap();
+        assert!(config.should_hide_live_wpm())
     }
 
     #[test]
@@ -465,9 +510,11 @@ mod tests {
             words: Some(custom_word),
             ..Default::default()
         };
-        let mut config = Config::default();
+        let mut config = Config {
+            cli: Cli::default(),
+            ..Default::default()
+        };
 
-        config.cli = cli.clone();
         config.apply_cli_args(cli);
 
         assert_eq!(

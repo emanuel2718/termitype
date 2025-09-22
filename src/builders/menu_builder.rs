@@ -119,6 +119,9 @@ fn build_options_menu() -> MenuContent {
         .action("Use punctuation", Action::Toggle(Setting::Punctuation))
         .shortcut('p')
         .description("Include punctuation in the generated test (!, ?, etc)")
+        .action("Show live WPM", Action::Toggle(Setting::LiveWPM))
+        .shortcut('w')
+        .description("Show the live word per minutes during the test")
         .build()
 }
 

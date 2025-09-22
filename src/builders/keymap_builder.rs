@@ -105,6 +105,7 @@ fn build_menu_base_keymap() -> KeyMap {
     KeyMap::new()
         .bind(KeyCode::Esc, Action::MenuGoBack)
         .bind(KeyCode::Enter, Action::MenuSelect)
+        .bind(KeyCode::Char(' '), Action::MenuSelect)
         .bind(KeyCode::Up, Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Down, Action::MenuNav(MenuMotion::Down))
         .bind(KeyCode::Char('k'), Action::MenuNav(MenuMotion::Up))

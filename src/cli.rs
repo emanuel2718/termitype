@@ -85,6 +85,10 @@ pub struct Cli {
     #[cfg(debug_assertions)]
     #[arg(long = "show-results", help = "Start with results screen shown")]
     pub show_results: bool,
+
+    /// Hide live WPM counter
+    #[arg(long = "hide-live-wpm", help = "Hide live WPM counter")]
+    pub hide_live_wpm: bool,
 }
 
 impl Cli {

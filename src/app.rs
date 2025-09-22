@@ -1,7 +1,7 @@
 use crate::{
     actions,
     builders::lexicon_builder::Lexicon,
-    config::Config,
+    config::{Config, Setting},
     error::AppError,
     input::{Input, InputContext},
     log_debug, log_info,
@@ -79,6 +79,12 @@ impl App {
         }
     }
 
+    pub fn handle_toggle_setting(&mut self, setting: Setting) -> Result<(), AppError> {
+        self.config.toggle(setting)?;
+        self.restart()?;
+        Ok(())
+    }
+
     pub fn handle_menu_open(&mut self, ctx: MenuContext) -> Result<(), AppError> {
         self.menu.open(ctx, &self.config)?;
         self.try_preview()?;
@@ -110,6 +116,16 @@ impl App {
         Ok(())
     }
 
+    pub fn handle_menu_shortcut(&mut self, shortcut: char) -> Result<(), AppError> {
+        if let Some(menu) = self.menu.current_menu_mut() {
+            if let Some((idx, _)) = menu.find_by_shortcut(shortcut) {
+                menu.current_index = idx;
+                return self.handle_menu_select();
+            }
+        }
+        Ok(())
+    }
+
     pub fn handle_menu_select(&mut self) -> Result<(), AppError> {
         if let Ok(Some(action)) = self.menu.select(&self.config) {
             actions::handle_action(self, action)?;
@@ -131,9 +147,7 @@ impl App {
         if !self.menu.search_query().is_empty() {
             let mut query = self.menu.search_query().to_string();
             query.pop();
-            if query.is_empty() {
-                self.menu.exit_search();
-            } else {
+            if !query.is_empty() {
                 self.menu.update_search(query);
             }
             self.try_preview()?
