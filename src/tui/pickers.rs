@@ -1,6 +1,7 @@
 use crate::{
+    actions::Action,
     app::App,
-    menu::{Menu, MenuVisualizer},
+    menu::{Menu, MenuAction, MenuVisualizer},
     theme::Theme,
     tui::{
         elements::create_menu_search_bar,
@@ -26,7 +27,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
             return;
         }
 
-        let max_width = 70.min(area.width.saturating_sub(6));
+        let max_width = 80.min(area.width.saturating_sub(6));
         let max_height = 25.min(area.height.saturating_sub(6)).max(12);
         let title = current_menu.title.clone();
 
@@ -62,13 +63,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
 
         let items_area_height = items_area.height as usize;
         let items_count = items.len();
-        let scroll_offset = current_menu.scroll_offset;
-        let visible_items = items
-            .iter()
-            .enumerate()
-            .skip(scroll_offset)
-            .take(items_area_height)
-            .collect::<Vec<_>>();
+        let mut scroll_offset = current_menu.scroll_offset;
 
         let mut lines: Vec<Line> = Vec::new();
         let current_index = if menu.has_search_query() {
@@ -81,8 +76,23 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
             current_menu.current_index
         };
 
+        // ensure the current index is visible
+        if current_index < scroll_offset {
+            scroll_offset = current_index;
+        } else if current_index >= scroll_offset + items_area_height {
+            scroll_offset = current_index.saturating_sub(items_area_height - 1);
+        }
+
+        let visible_items = items
+            .iter()
+            .enumerate()
+            .skip(scroll_offset)
+            .take(items_area_height)
+            .collect::<Vec<_>>();
+
         for (idx, item) in visible_items {
             let is_selected = idx == current_index;
+            let is_toggle = matches!(&item.action, MenuAction::Action(Action::Toggle(_)));
             let mut style = Style::default().fg(theme.fg());
 
             if is_selected {
@@ -93,13 +103,44 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 style = style.add_modifier(Modifier::DIM);
             }
 
-            let label = item.label();
+            if is_toggle {
+                if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
+                    let enabled = app.config.is_enabled(setting.clone());
+                    if !enabled {
+                        style = style.add_modifier(Modifier::DIM);
+                    } else {
+                        style = style.fg(theme.success())
+                    }
+                }
+            }
 
-            lines.push(Line::from(vec![Span::styled(label, style)]));
+            let indicator = if is_toggle {
+                if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
+                    let enabled = app.config.is_enabled(setting.clone());
+                    if enabled {
+                        "[x]"
+                    } else {
+                        "[ ]"
+                    }
+                } else {
+                    unreachable!()
+                }
+            } else {
+                match is_selected {
+                    true => ">",
+                    false => " ",
+                }
+            };
+
+            let label = format!("{} {}", indicator, item.label());
+
+            let spans = vec![Span::styled(label, style)];
+
+            lines.push(Line::from(spans));
         }
 
         let items_paragraph = Paragraph::new(lines)
-            .wrap(Wrap { trim: true })
+            .wrap(Wrap { trim: false })
             .block(Block::default().padding(menu_items_padding()));
 
         // render the items of the menu
