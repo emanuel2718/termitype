@@ -424,6 +424,17 @@ mod tests {
         assert!(!config.is_enabled(Setting::Symbols));
         assert!(!config.is_enabled(Setting::Numbers));
         assert!(!config.is_enabled(Setting::Punctuation));
+
+        let default_time_mode = Mode::with_default_time();
+        assert_eq!(
+            default_time_mode.duration(),
+            Some(Duration::from_secs(
+                DEFAULT_TIME_MODE_DURATION_IN_SECS as u64
+            ))
+        );
+
+        let default_words_mode = Mode::with_default_words();
+        assert_eq!(default_words_mode.count(), Some(DEFAULT_WORD_MODE_COUNT))
     }
 
     #[test]

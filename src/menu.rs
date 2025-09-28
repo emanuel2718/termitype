@@ -775,4 +775,36 @@ mod tests {
             Some(Action::ChangeTheme(theme_name.to_string()))
         );
     }
+
+    #[test]
+    fn test_menu_search_no_matches_keeps_menu_open() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.is_open());
+        assert!(!menu.current_items().is_empty());
+
+        menu.init_search();
+        menu.update_search("nonexistent".to_string());
+        assert!(menu.is_open());
+        assert!(menu.current_items().is_empty());
+        assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), "nonexistent");
+    }
+
+    #[test]
+    fn test_menu_exit_search_clears_query_and_mode() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+
+        menu.init_search();
+        menu.update_search("test".to_string());
+        assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), "test");
+
+        menu.exit_search();
+        assert!(!menu.is_searching());
+        assert_eq!(menu.search_query(), "");
+    }
 }

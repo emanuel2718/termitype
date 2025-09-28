@@ -2,13 +2,14 @@ use crate::{
     app::App,
     theme::{self, Theme},
     tui::{
-        elements::{
-            create_command_area, create_footer_element, create_mode_line, create_title,
-            create_typing_area,
+        components::{
+            command_bar, footer, mode_bar, pickers,
+            results::{create_minimal_results_display, create_results_footer_element},
+            size_warning, title, typing_area,
         },
-        layout::{create_main_layout, create_results_layout, AppLayout, ResultsLayout},
-        pickers,
-        results::{create_minimal_results_display, create_results_footer_element},
+        layout::{
+            create_main_layout, create_results_layout, AppLayout, LayoutBuilder, ResultsLayout,
+        },
     },
     variants::{PickerVariant, ResultsVariant},
 };
@@ -23,24 +24,39 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) -> Result<()> {
     let bg_block = Block::default().style(Style::default().bg(theme.bg()));
     frame.render_widget(bg_block, area);
 
-    if app.tracker.is_idle() {
-        let layout: AppLayout = create_main_layout(area);
-        render_idle_screen(frame, app, &theme, layout);
-    } else if app.tracker.is_complete() {
-        let results_layout = create_results_layout(area);
-        render_results_screen(frame, app, &theme, results_layout);
-    } else if app.tracker.is_typing() || app.tracker.is_resuming() || app.tracker.is_paused() {
-        let layout: AppLayout = create_main_layout(area);
-        render_typing_screen(frame, app, &theme, layout);
+    // that's what she said
+    if LayoutBuilder::is_too_smol(area) {
+        if area.height >= 2 && area.width >= 1 {
+            let (warning, warning_width) =
+                size_warning::create_size_warning_element(&theme, area.height, area.width);
+            let warning_height = 2;
+            let clamped_width = warning_width.min(area.width);
+            let x = ((area.width as i32 - clamped_width as i32).max(0) / 2) as u16;
+            let y = ((area.height as i32 - warning_height as i32).max(0) / 2) as u16;
+            let width = clamped_width;
+            let height = warning_height;
+            let warning_rect = Rect::new(x, y, width, height);
+            frame.render_widget(warning, warning_rect);
+        }
+        return Ok(());
+    }
+
+    match app.tracker.is_complete() {
+        true => render_results_screen(frame, app, &theme, create_results_layout(area)),
+        false => {
+            let layout = create_main_layout(area);
+            match app.tracker.is_idle() {
+                true => render_idle_screen(frame, app, &theme, layout),
+                false => render_typing_screen(frame, app, &theme, layout),
+            }
+        }
     }
     // TODO: have a flag like `app.an_overlay_open` or something like that
     try_render_overlays(frame, app, &theme, area);
-    // overlays
-    // if app.menu.is_open() {
-    //     render_menu(frame, app, area);
-    // }
+
     Ok(())
 }
+
 /// Render the idle screen. This renders when the user is not typing or actively seeing the Results screen
 /// The <lang>, <cmd_bar> and <footer> are known as the `extra` sections.
 /// What the above means is that if the screen size is small enough we hide those sections first.
@@ -49,35 +65,42 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) -> Result<()> {
 ///
 ///  ------------------------
 /// |  <title>               |
+/// |        <mode>          |
 /// |                        |
+/// |        <lang>          |
+/// |     <typing_area>      |
 /// |                        |
-/// |         <lang>         |
-/// |      <typing_area>     |
-/// |                        |
-/// |        <cmd_bar>       |
+/// |       <cmd_bar>        |
 /// |               <footer> |
 ///  ------------------------
 ///
 fn render_idle_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout: AppLayout) {
     // title
-    let title = create_title(app, theme);
-    frame.render_widget(title, layout.top_area);
+    if let Some(rect) = layout.title_area {
+        let title = title::create_title(app, theme);
+        frame.render_widget(title, rect);
+    }
 
-    // mode line
-    let mode_line = create_mode_line(app, theme);
-    frame.render_widget(mode_line, layout.top_area);
+    // action bar
+    if let Some(rect) = layout.mode_bar_area {
+        let mode_line = mode_bar::create_mode_line(app, theme, rect.height, rect.width);
+        frame.render_widget(mode_line, rect);
+    }
 
     // typing area
-    let typing_area = create_typing_area(frame, app, theme, &layout);
-    frame.render_widget(typing_area, layout.center_area);
+    typing_area::render_typing_area(frame, app, theme, &layout);
 
     // commands
-    let commands_area = create_command_area(theme);
-    frame.render_widget(commands_area, layout.command_area);
+    if layout.show_command_bar {
+        let commands_area = command_bar::create_command_area(theme);
+        frame.render_widget(commands_area, layout.command_area);
+    }
 
     // footer
-    let footer_element = create_footer_element(theme);
-    frame.render_widget(footer_element, layout.footer_area);
+    if layout.show_footer {
+        let footer_element = footer::create_footer_element(theme);
+        frame.render_widget(footer_element, layout.footer_area);
+    }
 }
 
 /// Render the typing screen. This only renders when actively typing (`TypingStatus::InProgress`)
@@ -96,12 +119,13 @@ fn render_idle_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout: A
 ///
 fn render_typing_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout: AppLayout) {
     // title
-    let title = create_title(app, theme);
-    frame.render_widget(title, layout.top_area);
+    if let Some(rect) = layout.title_area {
+        let title = title::create_title(app, theme);
+        frame.render_widget(title, rect);
+    }
 
     // typing area
-    let typing_area = create_typing_area(frame, app, theme, &layout);
-    frame.render_widget(typing_area, layout.center_area);
+    typing_area::render_typing_area(frame, app, theme, &layout);
 }
 
 /// Render the results screen. This render when the typing test is completed (`TypingStatus::Completed`)
@@ -132,8 +156,9 @@ fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Re
 }
 
 fn render_menu_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
+    const MAX_MENU_HEIGHT: u16 = 20;
     let variant = app.config.current_picker_variant();
-    let max_height = 20.min(area.height.saturating_sub(6));
+    let max_height = MAX_MENU_HEIGHT.min(area.height.saturating_sub(6));
     let menu_height = max_height.saturating_sub(2); // borders
     app.menu.ui_height = menu_height as usize;
 

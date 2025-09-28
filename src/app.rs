@@ -100,6 +100,13 @@ impl App {
         Ok(())
     }
 
+    pub fn handle_menu_toggle(&mut self) -> Result<(), AppError> {
+        if self.menu.is_open() {
+            return self.handle_menu_close();
+        }
+        self.handle_menu_open(MenuContext::Root)
+    }
+
     pub fn handle_menu_backtrack(&mut self) -> Result<(), AppError> {
         // TODO: this clearing of preview should be done cleanly
         theme::cancel_theme_preview();
@@ -147,7 +154,9 @@ impl App {
         if !self.menu.search_query().is_empty() {
             let mut query = self.menu.search_query().to_string();
             query.pop();
-            if !query.is_empty() {
+            if query.is_empty() {
+                self.menu.exit_search();
+            } else {
                 self.menu.update_search(query);
             }
             self.try_preview()?
@@ -292,4 +301,61 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::menu::MenuContext;
+
+    #[test]
+    fn test_handle_menu_backspace_search() {
+        let config = Config::default();
+        let mut app = App::new(&config);
+        app.handle_menu_open(MenuContext::Root).unwrap();
+
+        // Start search and add a character
+        app.handle_menu_init_search().unwrap();
+        app.handle_menu_update_search("t".to_string()).unwrap();
+        assert!(app.menu.is_searching());
+        assert_eq!(app.menu.search_query(), "t");
+
+        // Backspace should exit search since it becomes empty
+        app.handle_menu_backspace_search().unwrap();
+        assert!(!app.menu.is_searching());
+        assert_eq!(app.menu.search_query(), "");
+    }
+
+    #[test]
+    fn test_handle_menu_backspace_search_partial() {
+        let config = Config::default();
+        let mut app = App::new(&config);
+        app.handle_menu_open(MenuContext::Root).unwrap();
+
+        // Start search and add multiple characters
+        app.handle_menu_init_search().unwrap();
+        app.handle_menu_update_search("test".to_string()).unwrap();
+        assert!(app.menu.is_searching());
+        assert_eq!(app.menu.search_query(), "test");
+
+        // Backspace should reduce to "tes"
+        app.handle_menu_backspace_search().unwrap();
+        assert!(app.menu.is_searching());
+        assert_eq!(app.menu.search_query(), "tes");
+
+        // Backspace again should reduce to "te"
+        app.handle_menu_backspace_search().unwrap();
+        assert!(app.menu.is_searching());
+        assert_eq!(app.menu.search_query(), "te");
+
+        // Backspace to "t"
+        app.handle_menu_backspace_search().unwrap();
+        assert!(app.menu.is_searching());
+        assert_eq!(app.menu.search_query(), "t");
+
+        // Final backspace should exit search
+        app.handle_menu_backspace_search().unwrap();
+        assert!(!app.menu.is_searching());
+        assert_eq!(app.menu.search_query(), "");
+    }
 }

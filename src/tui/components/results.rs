@@ -1,7 +1,7 @@
 use crate::{
     app::App,
     theme::Theme,
-    tui::utils::{calculate_horizontal_padding, center_lines_vertically, max_line_width},
+    tui::helpers::{calculate_horizontal_padding, center_lines_vertically, max_line_width},
 };
 use ratatui::{
     layout::Alignment,

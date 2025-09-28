@@ -1,0 +1,9 @@
+// Components module
+pub mod command_bar;
+pub mod footer;
+pub mod mode_bar;
+pub mod pickers;
+pub mod results;
+pub mod size_warning;
+pub mod title;
+pub mod typing_area;

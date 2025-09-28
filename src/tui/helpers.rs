@@ -124,23 +124,6 @@ pub fn calculate_padding(lines: &[Line], height: u16) -> usize {
         0
     }
 }
-pub fn title_padding() -> Padding {
-    Padding {
-        left: 8,
-        right: 0,
-        top: 2,
-        bottom: 0,
-    }
-}
-
-pub fn mode_line_padding() -> Padding {
-    Padding {
-        left: 0,
-        right: 0,
-        top: 6,
-        bottom: 0,
-    }
-}
 
 pub fn footer_padding() -> Padding {
     Padding {
