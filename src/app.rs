@@ -1,7 +1,7 @@
 use crate::{
     actions,
     builders::lexicon_builder::Lexicon,
-    config::{Config, Setting},
+    config::{self, Config, Setting},
     error::AppError,
     input::{Input, InputContext},
     log_debug, log_info,
@@ -191,7 +191,7 @@ impl App {
         }
     }
 
-    pub fn handle_change_line_count(&mut self) -> Result<(), AppError> {
+    pub fn handle_set_line_count(&mut self) -> Result<(), AppError> {
         // TODO: eventually do this corrrectly through a modal or something, just messgin around atm.
         //       this will need to receive the desired visible line count....
         const MAX_LINE_COUNT: u8 = 6;
@@ -202,6 +202,24 @@ impl App {
             current + 1
         };
         self.config.change_visible_lines_count(new_count);
+        Ok(())
+    }
+
+    pub fn handle_set_time(&mut self, secs: usize) -> Result<(), AppError> {
+        self.config.change_mode(config::Mode::with_time(secs))?;
+        self.restart()?;
+        Ok(())
+    }
+
+    pub fn handle_set_words(&mut self, count: usize) -> Result<(), AppError> {
+        self.config.change_mode(config::Mode::with_words(count))?;
+        self.restart()?;
+        Ok(())
+    }
+
+    pub fn handle_set_language(&mut self, lang: String) -> Result<(), AppError> {
+        self.config.change_language(lang);
+        self.restart()?;
         Ok(())
     }
 
@@ -279,7 +297,6 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
         if event::poll(Duration::from_millis(75))? {
             match event::read()? {
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
-                    // TODO: resolve input contxt
                     let input_ctx = app.resolve_input_context();
                     let input_result = input.handle(event, input_ctx);
                     if !input_result.skip_debounce && app.handle_debounce() {

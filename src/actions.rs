@@ -35,6 +35,9 @@ pub enum Action {
     ChangeLineCount(u8),
     ChangeTheme(String),
     RandomizeTheme,
+    SetTime(u16),
+    SetWords(u16),
+    SetLanguage(String),
 }
 
 pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
@@ -57,9 +60,12 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::MenuBackspaceSearch => app.handle_menu_backspace_search(),
         Action::MenuUpdateSearch(query) => app.handle_menu_update_search(query),
         Action::Toggle(setting) => app.handle_toggle_setting(setting),
-        Action::ChangeLineCount(_) => app.handle_change_line_count(),
+        Action::ChangeLineCount(_) => app.handle_set_line_count(),
         Action::ChangeTheme(name) => theme::set_as_current_theme(&name),
         Action::RandomizeTheme => theme::use_random_theme(),
+        Action::SetTime(secs) => app.handle_set_time(secs as usize),
+        Action::SetWords(count) => app.handle_set_words(count as usize),
+        Action::SetLanguage(lang) => app.handle_set_language(lang),
         _ => Ok(()),
     }
 }

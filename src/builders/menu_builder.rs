@@ -94,17 +94,31 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
         MenuContext::Root => build_root_menu(),
         MenuContext::Options => build_options_menu(),
         MenuContext::Themes => build_themes_menu(config),
+        MenuContext::Time => build_time_menu(),
+        MenuContext::Words => build_words_menu(),
+        MenuContext::Language => build_language_menu(),
     }
 }
 
 fn build_root_menu() -> MenuContent {
     MenuBuilder::new("Main Menu", MenuContext::Root)
+        .submenu("Time", MenuContext::Time)
+        .shortcut('t')
+        .description("Set test duration")
+        .submenu("Words", MenuContext::Words)
+        .shortcut('w')
+        .description("Set word count")
+        .submenu("Language", MenuContext::Language)
+        .shortcut('l')
+        .description("Select language")
         .submenu("Options", MenuContext::Options)
         .shortcut('o')
         .description("Configure typing preferences")
         .submenu("Theme", MenuContext::Themes)
-        .shortcut('t')
+        .shortcut('T')
         .description("Available Themes")
+        .action("Exit", Action::Quit)
+        .shortcut('Q')
         .build()
 }
 
@@ -143,6 +157,44 @@ fn build_themes_menu(config: &Config) -> MenuContent {
         }
     }
     menu
+}
+
+fn build_time_menu() -> MenuContent {
+    // NOTE(ema):  for some reason I prefer the manual version of this (i.e `build_words_menu`)
+    const DEFAULT_TIME_DURATION_LIST: [u16; 4] = [15, 30, 60, 120];
+    let mut builder = MenuBuilder::new("Select Time", MenuContext::Time);
+    for &duration in &DEFAULT_TIME_DURATION_LIST {
+        builder = builder
+            .action(duration.to_string(), Action::SetTime(duration))
+            .close_on_select();
+    }
+
+    builder.build()
+}
+
+fn build_words_menu() -> MenuContent {
+    MenuBuilder::new("Select Words", MenuContext::Words)
+        .action("10", Action::SetWords(10))
+        .close_on_select()
+        .action("25", Action::SetWords(25))
+        .close_on_select()
+        .action("50", Action::SetWords(50))
+        .close_on_select()
+        .action("100", Action::SetWords(100))
+        .close_on_select()
+        .build()
+}
+
+fn build_language_menu() -> MenuContent {
+    use crate::builders::lexicon_builder::LexiconBuilder;
+    let languages = LexiconBuilder::available_languages();
+    let mut builder = MenuBuilder::new("Select Language", MenuContext::Language);
+    for lang in languages {
+        builder = builder
+            .action(lang.clone(), Action::SetLanguage(lang.clone()))
+            .close_on_select();
+    }
+    builder.build()
 }
 
 #[cfg(test)]

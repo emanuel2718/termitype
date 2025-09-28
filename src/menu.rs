@@ -11,6 +11,9 @@ pub enum MenuContext {
     Root,
     Options,
     Themes,
+    Time,
+    Words,
+    Language,
 }
 
 #[derive(Debug, Clone, PartialEq)]
