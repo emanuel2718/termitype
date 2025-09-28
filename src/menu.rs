@@ -221,8 +221,8 @@ impl MenuContent {
         viewport_height: usize,
     ) -> usize {
         match motion {
-            MenuMotion::Up => (current_index + len - 1) % len,
-            MenuMotion::Down => (current_index + 1) % len,
+            MenuMotion::Up => current_index.saturating_sub(1),
+            MenuMotion::Down => (current_index + 1).min(len.saturating_sub(1)),
             MenuMotion::PageUp => {
                 let scroll = viewport_height.saturating_sub(1) / 2;
                 current_index.saturating_sub(scroll)
@@ -580,11 +580,7 @@ mod tests {
         assert_eq!(content.current_index, 0);
 
         content.nav(MenuMotion::Up, 10, None);
-        assert_eq!(content.current_index, 4); // we at the end
-
-        // wrap back up
-        content.nav(MenuMotion::Down, 10, None);
-        assert_eq!(content.current_index, 0);
+        assert_eq!(content.current_index, 0); // no wrapping
     }
 
     #[test]
