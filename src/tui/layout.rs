@@ -197,7 +197,7 @@ pub fn picker_overlay_area(area: Rect) -> Rect {
 
     Rect {
         x: (area.width - max_width) / 2,
-        y: (area.height - max_height) / 2,
+        y: (area.height - max_height) / 2 - 2,
         width: max_width,
         height: max_height,
     }
