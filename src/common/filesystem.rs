@@ -1,8 +1,7 @@
-#[cfg(unix)]
-use crate::error::AppResult;
-use crate::{constants::APP_NAME, error::AppError};
-#[cfg(unix)]
+use crate::{constants::APP_NAME, error::{AppError, AppResult}};
 use std::{env, fs, path::PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 #[cfg(target_os = "windows")]
 use std::fs::OpenOptions;
 
