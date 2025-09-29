@@ -20,6 +20,8 @@ pub fn create_mode_line<'a>(
         .fg(theme.highlight())
         .add_modifier(Modifier::BOLD);
 
+    let current_mode = app.config.current_mode();
+
     // show compact menu if not enough width
     if container_width < MODE_LINE_MIN_WIDTH {
         let compact_spans = vec![
@@ -80,17 +82,20 @@ pub fn create_mode_line<'a>(
     // separator
     spans.push(Span::styled("| ", fg_style));
 
-    // TODO: add custom duration
-    let durations = [15, 30, 60, 120];
-    for &dur in &durations {
-        let dur_style = if app.config.current_mode().is_time_mode()
-            && app.config.current_mode().value() == dur
-        {
+    // TODO: add custom values
+    let is_time_mode = current_mode.is_time_mode();
+    let values = if is_time_mode {
+        [15, 30, 60, 120]
+    } else {
+        [10, 25, 50, 100]
+    };
+    for &val in &values {
+        let val_style = if current_mode.value() == val {
             highlight_style
         } else {
             fg_style
         };
-        spans.push(Span::styled(format!("{} ", dur), dur_style));
+        spans.push(Span::styled(format!("{} ", val), val_style));
     }
 
     let mode_line = Line::from(spans);
