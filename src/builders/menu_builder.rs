@@ -97,6 +97,7 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
         MenuContext::Time => build_time_menu(),
         MenuContext::Words => build_words_menu(),
         MenuContext::Language => build_language_menu(),
+        MenuContext::Language => build_language_menu(config),
     }
 }
 
@@ -185,7 +186,7 @@ fn build_words_menu() -> MenuContent {
         .build()
 }
 
-fn build_language_menu() -> MenuContent {
+fn build_language_menu(config: &Config) -> MenuContent {
     use crate::builders::lexicon_builder::LexiconBuilder;
     let languages = LexiconBuilder::available_languages();
     let mut builder = MenuBuilder::new("Select Language", MenuContext::Language);
@@ -194,7 +195,17 @@ fn build_language_menu() -> MenuContent {
             .action(lang.clone(), Action::SetLanguage(lang.clone()))
             .close_on_select();
     }
-    builder.build()
+    let mut menu = builder.build();
+
+    if let Some(idx) = languages
+        .iter()
+        .position(|lang| lang.clone() == config.current_language())
+    {
+        menu.current_index = idx
+    }
+
+    menu
+}
 }
 
 #[cfg(test)]
