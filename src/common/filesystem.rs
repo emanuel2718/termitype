@@ -1,9 +1,8 @@
-use crate::{constants::APP_NAME, error::{AppError, AppResult}};
+use crate::{
+    constants::APP_NAME,
+    error::{AppError, AppResult},
+};
 use std::{env, fs, path::PathBuf};
-#[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
-#[cfg(target_os = "windows")]
-use std::fs::OpenOptions;
 
 /// Grabs the intenal config dir where the logger and persitant state files live
 pub fn config_dir() -> AppResult<PathBuf> {
