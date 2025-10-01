@@ -14,6 +14,7 @@ pub enum MenuContext {
     Time,
     Words,
     Language,
+    Cursor,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -105,6 +106,7 @@ impl MenuItem {
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuVisualizer {
     ThemeVisualizer,
+    CursorVisualizer,
 }
 
 #[derive(Clone, Debug)]
@@ -397,6 +399,13 @@ impl Menu {
                 }
             }
             menu.scroll_offset = 0;
+        }
+    }
+
+    pub fn backspace_search(&mut self) {
+        if !self.search_query.is_empty() {
+            self.search_query.pop();
+            self.update_search(self.search_query.clone());
         }
     }
 
@@ -771,7 +780,7 @@ mod tests {
         let select_action = app.menu.select(&config).unwrap();
         assert_eq!(
             select_action,
-            Some(Action::ChangeTheme(theme_name.to_string()))
+            Some(Action::SetTheme(theme_name.to_string()))
         );
     }
 
@@ -805,5 +814,26 @@ mod tests {
         menu.exit_search();
         assert!(!menu.is_searching());
         assert_eq!(menu.search_query(), "");
+    }
+
+    #[test]
+    fn test_menu_backspace_while_searching() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+        menu.init_search();
+
+        menu.update_search("t2".to_string());
+        assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), "t2");
+
+        menu.backspace_search();
+        assert_eq!(menu.search_query(), "t");
+
+        menu.backspace_search();
+        menu.backspace_search();
+        assert!(menu.is_searching()); // backspace should *not* take us out of search mode
+        assert!(menu.search_query().is_empty());
+        // assert_eq!(app.menu.search_query(), "t");
     }
 }

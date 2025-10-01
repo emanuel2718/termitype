@@ -177,6 +177,10 @@ pub fn picker_should_use_full_area(area: Rect) -> bool {
     area.height < 25 || area.width < 60
 }
 
+pub fn picker_should_show_visualizer(area: Rect) -> bool {
+    area.height >= 17
+}
+
 pub fn picker_overlay_area(area: Rect) -> Rect {
     if picker_should_use_full_area(area) {
         let bar_height = 3;

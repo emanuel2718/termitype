@@ -9,11 +9,49 @@ use crate::{
     theme,
     tracker::Tracker,
     tui,
+    variants::CursorVariant,
 };
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
 use ratatui::{prelude::Backend, Terminal};
 use std::time::Duration;
+
+pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
+    let mut input = Input::new();
+    let mut app = App::new(config);
+
+    theme::init_from_config(config)?;
+
+    log_info!("The config: {config:?}");
+    loop {
+        if app.should_quit {
+            break;
+        }
+        if event::poll(Duration::from_millis(75))? {
+            match event::read()? {
+                Event::Key(event) if event.kind == KeyEventKind::Press => {
+                    let input_ctx = app.resolve_input_context();
+                    let input_result = input.handle(event, input_ctx);
+                    if !input_result.skip_debounce && app.handle_debounce() {
+                        continue;
+                    }
+                    actions::handle_action(&mut app, input_result.action)?;
+                }
+                _ => {}
+            }
+        }
+
+        app.tracker.try_metrics_update();
+        app.tracker.check_completion();
+
+        terminal.draw(|frame| {
+            // TODO: return the click actions
+            let _ = tui::renderer::draw_ui(frame, &mut app);
+        })?;
+    }
+
+    Ok(())
+}
 
 pub struct App {
     pub config: Config,
@@ -95,6 +133,7 @@ impl App {
     pub fn handle_menu_close(&mut self) -> Result<(), AppError> {
         // TODO: this clearing of preview should be done cleanly
         theme::cancel_theme_preview();
+        self.restore_cursor_style();
         self.menu.close()?;
         self.tracker.toggle_pause();
         Ok(())
@@ -112,6 +151,7 @@ impl App {
         theme::cancel_theme_preview();
         self.menu.back()?;
         if !self.menu.is_open() {
+            self.restore_cursor_style();
             self.tracker.toggle_pause();
         }
         Ok(())
@@ -139,6 +179,7 @@ impl App {
             // note: the action above could've been a menu closing action.
             if !self.menu.is_open() {
                 theme::cancel_theme_preview();
+                self.restore_cursor_style();
                 self.tracker.toggle_pause();
             }
         }
@@ -151,16 +192,8 @@ impl App {
     }
 
     pub fn handle_menu_backspace_search(&mut self) -> Result<(), AppError> {
-        if !self.menu.search_query().is_empty() {
-            let mut query = self.menu.search_query().to_string();
-            query.pop();
-            if query.is_empty() {
-                self.menu.exit_search();
-            } else {
-                self.menu.update_search(query);
-            }
-            self.try_preview()?
-        }
+        self.menu.backspace_search();
+        self.try_preview()?;
         Ok(())
     }
 
@@ -205,6 +238,12 @@ impl App {
         Ok(())
     }
 
+    pub fn handle_set_cursor(&mut self, variant: CursorVariant) -> Result<(), AppError> {
+        self.config.change_cursor_variant(variant);
+        self.restart()?;
+        Ok(())
+    }
+
     pub fn handle_set_time(&mut self, secs: usize) -> Result<(), AppError> {
         self.config.change_mode(config::Mode::with_time(secs))?;
         self.restart()?;
@@ -230,12 +269,31 @@ impl App {
                 if item.has_preview {
                     match menu.ctx {
                         MenuContext::Themes => theme::set_as_preview_theme(item.label().as_str()),
+                        MenuContext::Cursor => {
+                            use crate::actions::Action;
+                            use crate::menu::MenuAction;
+                            use crossterm::execute;
+                            use std::io::stdout;
+
+                            if let MenuAction::Action(Action::SetCursor(variant)) = &item.action {
+                                let _ = execute!(stdout(), variant.to_crossterm());
+                            }
+                            Ok(())
+                        }
                         _ => Ok(()),
                     }?;
                 }
             }
         };
         Ok(())
+    }
+
+    fn restore_cursor_style(&self) {
+        use crossterm::execute;
+        use std::io::stdout;
+
+        let current_variant = self.config.current_cursor_variant();
+        let _ = execute!(stdout(), current_variant.to_crossterm());
     }
 
     fn sync_global_changes(&mut self) -> Result<(), AppError> {
@@ -280,99 +338,5 @@ impl App {
             let _ = tracker.type_char(c);
         }
         tracker.complete();
-    }
-}
-
-pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
-    let mut input = Input::new();
-    let mut app = App::new(config);
-
-    theme::init_from_config(config)?;
-
-    log_info!("The config: {config:?}");
-    loop {
-        if app.should_quit {
-            break;
-        }
-        if event::poll(Duration::from_millis(75))? {
-            match event::read()? {
-                Event::Key(event) if event.kind == KeyEventKind::Press => {
-                    let input_ctx = app.resolve_input_context();
-                    let input_result = input.handle(event, input_ctx);
-                    if !input_result.skip_debounce && app.handle_debounce() {
-                        continue;
-                    }
-                    actions::handle_action(&mut app, input_result.action)?;
-                }
-                _ => {}
-            }
-        }
-
-        app.tracker.try_metrics_update();
-        app.tracker.check_completion();
-
-        terminal.draw(|frame| {
-            // TODO: return the click actions
-            let _ = tui::renderer::draw_ui(frame, &mut app);
-        })?;
-    }
-
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::menu::MenuContext;
-
-    #[test]
-    fn test_handle_menu_backspace_search() {
-        let config = Config::default();
-        let mut app = App::new(&config);
-        app.handle_menu_open(MenuContext::Root).unwrap();
-
-        // Start search and add a character
-        app.handle_menu_init_search().unwrap();
-        app.handle_menu_update_search("t".to_string()).unwrap();
-        assert!(app.menu.is_searching());
-        assert_eq!(app.menu.search_query(), "t");
-
-        // Backspace should exit search since it becomes empty
-        app.handle_menu_backspace_search().unwrap();
-        assert!(!app.menu.is_searching());
-        assert_eq!(app.menu.search_query(), "");
-    }
-
-    #[test]
-    fn test_handle_menu_backspace_search_partial() {
-        let config = Config::default();
-        let mut app = App::new(&config);
-        app.handle_menu_open(MenuContext::Root).unwrap();
-
-        // Start search and add multiple characters
-        app.handle_menu_init_search().unwrap();
-        app.handle_menu_update_search("test".to_string()).unwrap();
-        assert!(app.menu.is_searching());
-        assert_eq!(app.menu.search_query(), "test");
-
-        // Backspace should reduce to "tes"
-        app.handle_menu_backspace_search().unwrap();
-        assert!(app.menu.is_searching());
-        assert_eq!(app.menu.search_query(), "tes");
-
-        // Backspace again should reduce to "te"
-        app.handle_menu_backspace_search().unwrap();
-        assert!(app.menu.is_searching());
-        assert_eq!(app.menu.search_query(), "te");
-
-        // Backspace to "t"
-        app.handle_menu_backspace_search().unwrap();
-        assert!(app.menu.is_searching());
-        assert_eq!(app.menu.search_query(), "t");
-
-        // Final backspace should exit search
-        app.handle_menu_backspace_search().unwrap();
-        assert!(!app.menu.is_searching());
-        assert_eq!(app.menu.search_query(), "");
     }
 }

@@ -96,8 +96,8 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
         MenuContext::Themes => build_themes_menu(config),
         MenuContext::Time => build_time_menu(),
         MenuContext::Words => build_words_menu(),
-        MenuContext::Language => build_language_menu(),
         MenuContext::Language => build_language_menu(config),
+        MenuContext::Cursor => build_cursor_menu(config),
     }
 }
 
@@ -118,6 +118,9 @@ fn build_root_menu() -> MenuContent {
         .submenu("Theme", MenuContext::Themes)
         .shortcut('T')
         .description("Available Themes")
+        .submenu("Cursor", MenuContext::Cursor)
+        .shortcut('c')
+        .description("Available Cursors")
         .action("Exit", Action::Quit)
         .shortcut('Q')
         .build()
@@ -145,7 +148,7 @@ fn build_themes_menu(config: &Config) -> MenuContent {
     let mut builder = MenuBuilder::new("Select Theme", MenuContext::Themes);
     for name in &themes {
         builder = builder
-            .action(name, Action::ChangeTheme(name.clone()))
+            .action(name, Action::SetTheme(name.clone()))
             .preivew()
             .add_visualizer(MenuVisualizer::ThemeVisualizer)
             .close_on_select();
@@ -206,6 +209,28 @@ fn build_language_menu(config: &Config) -> MenuContent {
 
     menu
 }
+
+fn build_cursor_menu(config: &Config) -> MenuContent {
+    use crate::variants::CursorVariant;
+    let variants = CursorVariant::all();
+    let mut builder = MenuBuilder::new("Select Cursor", MenuContext::Cursor)
+        .add_visualizer(MenuVisualizer::CursorVisualizer);
+
+    for &variant in variants {
+        builder = builder
+            .action(variant.label(), Action::SetCursor(variant))
+            .preivew()
+            .close_on_select();
+    }
+
+    let mut menu = builder.build();
+
+    let current_variant = config.current_cursor_variant();
+    if let Some(idx) = variants.iter().position(|&v| v == current_variant) {
+        menu.current_index = idx
+    }
+
+    menu
 }
 
 #[cfg(test)]

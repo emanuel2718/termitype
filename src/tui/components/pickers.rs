@@ -4,7 +4,10 @@ use crate::{
     menu::{Menu, MenuAction, MenuVisualizer},
     theme::Theme,
     tui::helpers::{horizontally_center, menu_items_padding},
-    tui::layout::{picker_overlay_area, picker_should_use_full_area},
+    tui::layout::{
+        picker_overlay_area, picker_should_show_visualizer, picker_should_use_full_area,
+    },
+    variants::CursorVariant,
 };
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
@@ -14,9 +17,28 @@ use ratatui::{
     Frame,
 };
 
+// TODO: have some sort of Visualizer trait an builder
 // TODO: refactor so that is easy to add new pickers and have them share logic
 // TODO: cleanup bunch of magic numbers
 // TODO: cleanup logic for splits
+
+fn calculate_total_menu_area(overlay_area: Rect, screen_area: Rect, has_visualizer: bool) -> Rect {
+    if !has_visualizer {
+        // single panel
+        return overlay_area;
+    }
+
+    let bar_height = 3u16;
+    let extended_height =
+        (overlay_area.height + bar_height).min(screen_area.height.saturating_sub(overlay_area.y));
+
+    Rect {
+        x: overlay_area.x,
+        y: overlay_area.y,
+        width: overlay_area.width,
+        height: extended_height,
+    }
+}
 
 pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     let menu = &app.menu;
@@ -28,21 +50,21 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
         let title = current_menu.title.clone();
         let overlay_area = picker_overlay_area(area);
 
-        // clear only what intersects with the currnet menu
-        frame.render_widget(Clear, overlay_area);
+        // don't show visualizer on small height. Doesnt look good
+        let has_visualizer = current_menu.has_visualizer() && picker_should_show_visualizer(area);
+        let total_menu_area = calculate_total_menu_area(overlay_area, area, has_visualizer);
+
+        frame.render_widget(Clear, total_menu_area);
 
         // has visualizer: two panels
         // no visualizer: single panel
-        let has_visualizer = current_menu.has_visualizer();
         let is_low_width = overlay_area.width <= 75;
 
         let (items_area, visualizer_area, bottom_bar_anchor): (Rect, Rect, Rect) = if has_visualizer
         {
             if is_low_width {
-                // divide panels top/bottom
                 let bar_height: u16 = 3;
                 let half_top_len = overlay_area.height / 2;
-                let bottom_len = overlay_area.height - half_top_len;
 
                 let rows = if menu.is_searching() {
                     let top_len = half_top_len.saturating_sub(bar_height);
@@ -51,17 +73,14 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                         .constraints([
                             Constraint::Length(top_len),
                             Constraint::Length(bar_height),
-                            Constraint::Length(bottom_len),
+                            Constraint::Min(0),
                         ])
-                        .split(overlay_area)
+                        .split(total_menu_area)
                 } else {
                     Layout::default()
                         .direction(Direction::Vertical)
-                        .constraints([
-                            Constraint::Length(half_top_len),
-                            Constraint::Length(bottom_len),
-                        ])
-                        .split(overlay_area)
+                        .constraints([Constraint::Length(half_top_len), Constraint::Min(0)])
+                        .split(total_menu_area)
                 };
 
                 let top_panel = rows[0];
@@ -156,7 +175,6 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     )
                     .style(Style::default().bg(theme.bg()));
                 let right_inner = right_block.inner(right_panel);
-                frame.render_widget(Clear, right_panel);
                 frame.render_widget(right_block, right_panel);
 
                 (left_inner, right_inner, left_panel)
@@ -280,7 +298,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
         if let Some(menu) = menu.current_menu() {
             if menu.has_visualizer() && menu.visualizer.is_some() {
                 let visualizer = menu.visualizer.as_ref().unwrap();
-                render_menu_visualizer(frame, theme, visualizer, visualizer_area);
+                render_menu_visualizer(frame, theme, visualizer, visualizer_area, app);
             }
         }
 
@@ -291,9 +309,9 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
         // In full area mode, always show the bar since space is reserved for it, except for vertical splits.
         if !is_low_width
             || menu.is_searching()
-            || (picker_should_use_full_area(area) && !(is_low_width && has_visualizer))
+            || picker_should_use_full_area(area) && !has_visualizer
         {
-            render_menu_bottom_bar(frame, bottom_bar_anchor, area, theme, menu);
+            render_menu_bottom_bar(frame, bottom_bar_anchor, area, theme, menu, has_visualizer);
         }
     }
 }
@@ -304,6 +322,7 @@ fn render_menu_bottom_bar(
     area: Rect,
     theme: &Theme,
     menu: &Menu,
+    has_visualizer: bool,
 ) {
     let bar_height = 3u16;
     let bar_area = Rect {
@@ -353,15 +372,27 @@ fn render_menu_bottom_bar(
             ])]);
             frame.render_widget(left, left_area);
 
-            // Place cursor after query
-            let base_offset: u16 = 2; // "> "
-            let qlen = menu.search_query().chars().count() as u16;
-            let mut x = left_area.x + base_offset + qlen;
-            if x >= left_area.x + left_area.width.saturating_sub(1) {
-                x = left_area.x + left_area.width.saturating_sub(2);
+            // Hide cursor for cursor menu when visualizer is not shown
+            let is_cursor_menu_without_visualizer = if let Some(current_menu) = menu.current_menu()
+            {
+                matches!(
+                    current_menu.visualizer,
+                    Some(MenuVisualizer::CursorVisualizer)
+                ) && !has_visualizer
+            } else {
+                false
+            };
+
+            if !is_cursor_menu_without_visualizer {
+                let base_offset: u16 = 2; // "> "
+                let qlen = menu.search_query().chars().count() as u16;
+                let mut x = left_area.x + base_offset + qlen;
+                if x >= left_area.x + left_area.width.saturating_sub(1) {
+                    x = left_area.x + left_area.width.saturating_sub(2);
+                }
+                let y = left_area.y;
+                frame.set_cursor_position(Position { x, y });
             }
-            let y = left_area.y;
-            frame.set_cursor_position(Position { x, y });
         } else {
             let left = Paragraph::new("> ")
                 .style(dim_style)
@@ -394,9 +425,16 @@ fn render_menu_bottom_bar(
     }
 }
 
-fn render_menu_visualizer(frame: &mut Frame, theme: &Theme, vis: &MenuVisualizer, area: Rect) {
+fn render_menu_visualizer(
+    frame: &mut Frame,
+    theme: &Theme,
+    vis: &MenuVisualizer,
+    area: Rect,
+    app: &App,
+) {
     match vis {
         MenuVisualizer::ThemeVisualizer => render_theme_visualizer(frame, theme, area),
+        MenuVisualizer::CursorVisualizer => render_cursor_visualizer(frame, theme, area, app),
     }
 }
 
@@ -526,4 +564,113 @@ fn render_theme_cmd_bar_visualizer(frame: &mut Frame, theme: &Theme, area: Rect)
 
     let cmd_bar = Paragraph::new(command_bar).alignment(Alignment::Center);
     frame.render_widget(cmd_bar, command_bar_centered);
+}
+
+fn render_cursor_visualizer(frame: &mut Frame, theme: &Theme, area: Rect, app: &App) {
+    use crate::{actions::Action, menu::MenuAction, variants::CursorVariant};
+
+    let cursor_variant = if let Some(item) = app.menu.current_item() {
+        match &item.action {
+            MenuAction::Action(Action::SetCursor(variant)) => *variant,
+            _ => CursorVariant::default(),
+        }
+    } else {
+        CursorVariant::default()
+    };
+
+    let visualizer_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // variant name
+            Constraint::Min(5),    // cursor preview
+        ])
+        .split(area);
+
+    render_cursor_variant_header(frame, theme, visualizer_layout[0], &cursor_variant);
+
+    render_cursor_preview_text(frame, theme, visualizer_layout[1], &cursor_variant);
+}
+
+fn render_cursor_variant_header(
+    frame: &mut Frame,
+    theme: &Theme,
+    area: Rect,
+    variant: &CursorVariant,
+) {
+    let header_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // padding top
+            Constraint::Length(1), // variant
+            Constraint::Min(0),    // space
+        ])
+        .split(area);
+
+    let title_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(2), // padding left
+            Constraint::Min(10),   // title
+            Constraint::Min(0),    // space
+        ])
+        .split(header_layout[1]);
+
+    let variant_text = format!("Variant: {}", variant.label());
+    let header = Paragraph::new(variant_text)
+        .style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
+        .alignment(Alignment::Left);
+    frame.render_widget(header, title_layout[1]);
+}
+
+fn render_cursor_preview_text(
+    frame: &mut Frame,
+    theme: &Theme,
+    area: Rect,
+    _variant: &CursorVariant,
+) {
+    let vertical_padding = area.height.saturating_sub(3) / 2;
+    let preview_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(vertical_padding), // top padding
+            Constraint::Length(2),                // preview text
+            Constraint::Min(0),                   // bottom space
+        ])
+        .split(area);
+
+    let text_area = preview_layout[1];
+
+    let preview_line = create_cursor_preview_line(theme);
+
+    let preview = Paragraph::new(preview_line)
+        .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true });
+    frame.render_widget(preview, text_area);
+
+    let full_text = "terminal typing at its finest";
+    let cursor_position = "terminal typing".len();
+
+    let full_text_width = full_text.len() as u16;
+    let centered_x = (text_area.width.saturating_sub(full_text_width)) / 2;
+    let cursor_x = text_area.x + centered_x + cursor_position as u16;
+    let cursor_y = text_area.y;
+
+    frame.set_cursor_position(Position {
+        x: cursor_x,
+        y: cursor_y,
+    });
+}
+
+fn create_cursor_preview_line(theme: &Theme) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(
+            "terminal ".to_string(),
+            Style::default().fg(theme.success()),
+        ),
+        Span::styled("typing ".to_string(), Style::default().fg(theme.error())),
+        Span::styled(
+            "at its finest".to_string(),
+            Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
+        ),
+    ])
 }

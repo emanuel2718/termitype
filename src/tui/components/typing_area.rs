@@ -34,8 +34,7 @@ pub fn render_typing_area(frame: &mut Frame, app: &mut App, theme: &Theme, layou
     let mut padded_lines = vec![Line::from(""); padding];
     padded_lines.extend(lines);
 
-    let paragraph = Paragraph::new(padded_lines)
-        .style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM));
+    let paragraph = Paragraph::new(padded_lines).style(Style::default().fg(theme.fg()));
 
     frame.render_widget(paragraph, layout.center_area);
 
@@ -45,7 +44,7 @@ pub fn render_typing_area(frame: &mut Frame, app: &mut App, theme: &Theme, layou
 fn create_language_line(app: &mut App, theme: &Theme) -> Line<'static> {
     let language_span = Span::styled(
         app.config.current_language(),
-        Style::default().fg(theme.fg()),
+        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
     );
     Line::from(vec![language_span]).alignment(Alignment::Center)
 }
@@ -69,8 +68,9 @@ fn create_tracker_line(app: &mut App, theme: &Theme) -> Line<'static> {
     )];
     if !app.config.should_hide_live_wpm() {
         let wpm = Span::styled(
-            format!("  {:.0} wpm", app.tracker.wpm()),
-            Style::default().fg(theme.fg()),
+            format!("  {:.0}", app.tracker.wpm()),
+            // format!("  {:.0} wpm", app.tracker.wpm()),
+            Style::default().fg(theme.highlight()),
         );
         spans.push(wpm);
     }
