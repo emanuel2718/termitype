@@ -111,6 +111,11 @@ fn create_target_text_line(state: &Tracker, theme: &Theme, max_width: u16) -> Ve
             style = style.add_modifier(Modifier::DIM);
         }
 
+        // dim dem extra tokens
+        if token.is_extra_token() {
+            style = style.add_modifier(Modifier::DIM);
+        }
+
         // don't underline space cahr
         if is_past_wrong_word && token.target != ' ' {
             style = style

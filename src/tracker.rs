@@ -1,4 +1,4 @@
-use crate::{config::Mode, error::AppError, log_debug};
+use crate::{config::Mode, constants::MAX_EXTRA_WRONG_CHARS, error::AppError, log_debug};
 use std::time::{Duration, Instant};
 
 const WORD_BOUNDARY_ESTIMATE_RATIO: usize = 5;
@@ -33,6 +33,16 @@ pub struct Token {
     pub is_skipped: bool,
     /// Time when this token was typed
     pub typed_at: Option<Instant>,
+}
+
+impl Token {
+    pub fn is_extra_token(&self) -> bool {
+        self.is_wrong && self.target == self.typed.unwrap_or('\0') && self.target != ' '
+    }
+
+    fn is_correct_non_space_token(&self) -> bool {
+        self.target != ' ' && self.typed == Some(self.target) && !self.is_wrong
+    }
 }
 
 /// Contains information about a word present the the typing test word pool
@@ -103,6 +113,8 @@ pub struct Tracker {
     space_jump_stack: Vec<SpaceJump>,
     /// Pre-calculated indexed of word boundaries
     word_boundaries: Vec<usize>,
+    /// Number of extra wrong tokens added at the word boundaries
+    extra_errors_count: usize,
 }
 
 impl Tracker {
@@ -128,6 +140,7 @@ impl Tracker {
             space_jump_stack: Vec::new(),
             word_boundaries,
             metrics: Metrics::default(),
+            extra_errors_count: 0,
         }
     }
 
@@ -269,9 +282,25 @@ impl Tracker {
             .ok_or(AppError::InvalidCharacterPosition)?
             .target;
 
-        // don't allow wrong char input on word boundary
-        // TODO: here we should show the wrong characters like monkeytype does
+        // add wrong tokens at word boundary. Monkey see, monkey do...
         if expected_char == ' ' && !is_space {
+            if self.extra_errors_count < MAX_EXTRA_WRONG_CHARS {
+                let new_token = Token {
+                    typed: Some(c),
+                    target: c,
+                    is_wrong: true,
+                    is_skipped: false,
+                    typed_at: Some(Instant::now()),
+                };
+                self.tokens.insert(self.current_pos, new_token);
+                self.typed_text.push(c);
+                self.total_errors += 1;
+                if let Some(word) = self.current_word_mut() {
+                    word.error_count += 1;
+                }
+                self.extra_errors_count += 1;
+                self.current_pos += 1;
+            }
             return Ok(());
         }
 
@@ -343,6 +372,14 @@ impl Tracker {
         self.typed_text.pop();
 
         self.current_pos -= 1;
+
+        // are we currently backspacing over an *extra* wrong token question mark
+        if let Some(token) = self.tokens.get(self.current_pos) {
+            if token.is_extra_token() {
+                self.tokens.remove(self.current_pos);
+                self.extra_errors_count = self.extra_errors_count.saturating_sub(1);
+            }
+        }
 
         // check if we are backspacing over a space that completed a word
         if let Some(token) = self.current_token() {
@@ -458,7 +495,7 @@ impl Tracker {
         }
         let curr_char = self.prev_token();
         let is_space_x = curr_char.map_or_else(|| false, |c| c.target == ' ');
-        let is_end = self.current_pos >= self.text.len();
+        let is_end = self.current_pos >= self.tokens.len();
 
         is_space_x || is_end
     }
@@ -471,6 +508,7 @@ impl Tracker {
             word.end_time = Some(Instant::now());
         }
         self.current_word_idx += 1;
+        self.extra_errors_count = 0;
 
         if let Some(word) = self.current_word_mut() {
             word.start_time = Some(Instant::now())
@@ -479,7 +517,7 @@ impl Tracker {
 
     pub fn should_complete(&self) -> bool {
         // all words are typed, should end test
-        if self.current_pos >= self.text.len() {
+        if self.current_pos >= self.tokens.len() {
             return true;
         }
 
@@ -668,12 +706,7 @@ impl Tracker {
     /// Returns the current test progress. Takes into consideration the test mode for the progress calculation
     pub fn progress(&self) -> f64 {
         match self.mode {
-            Mode::Words(_) => {
-                if self.text.is_empty() {
-                    return 1.0;
-                }
-                self.current_pos as f64 / self.text.len() as f64
-            }
+            Mode::Words(_) => (self.current_pos as f64 / self.text.len() as f64).min(1.0),
             Mode::Time(total_seconds) => {
                 if self.status == TypingStatus::Completed {
                     1.0
@@ -710,7 +743,7 @@ impl Tracker {
         self.tokens
             .iter()
             .take(self.current_pos)
-            .filter(|token| token.target != ' ' && token.typed == Some(token.target))
+            .filter(|token| token.is_correct_non_space_token())
             .count()
     }
 
@@ -1206,7 +1239,7 @@ mod tests {
     }
 
     #[test]
-    fn test_typing_wrong_char_on_word_boundary_should_do_nothing() {
+    fn test_typing_wrong_char_on_word_boundary_should_add_extra_token() {
         let mut tracker = Tracker::new("another test".to_string(), Mode::with_words(2));
         let word_to_type = "another";
         for c in word_to_type.chars() {
@@ -1216,9 +1249,9 @@ mod tests {
         assert_eq!(tracker.current_pos, word_to_type.len());
         assert_eq!(tracker.correct_chars_count(), word_to_type.len());
 
-        // wrong token
+        // wrong token at boundary, add it
         tracker.type_char('W').unwrap();
-        assert_eq!(tracker.current_pos, word_to_type.len());
+        assert_eq!(tracker.current_pos, word_to_type.len() + 1);
         assert_eq!(tracker.correct_chars_count(), word_to_type.len());
     }
 
@@ -1411,5 +1444,47 @@ mod tests {
             assert_eq!(tracker.typed_text.len(), next_word_start);
             assert!(tracker.typed_text[offset..].chars().all(|c| c == ' '));
         }
+    }
+
+    #[test]
+    fn test_words_mode_completion_with_extra_tokens_at_boundary() {
+        let mut tracker = Tracker::new("hello world test".to_string(), Mode::with_words(3));
+        tracker.start_typing();
+
+        for c in "hello".chars() {
+            tracker.type_char(c).unwrap();
+        }
+        assert_eq!(tracker.current_word_idx, 0);
+        assert!(!tracker.is_complete());
+
+        // wrong tokens, should add extra tokens
+        for c in "xxxyyyzzz".chars() {
+            tracker.type_char(c).unwrap();
+        }
+
+        // we still at word `0`, not done yet
+        assert_eq!(tracker.current_word_idx, 0);
+        assert!(!tracker.is_complete());
+
+        // move to next word
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_word_idx, 1);
+        assert!(!tracker.is_complete());
+
+        for c in "world".chars() {
+            tracker.type_char(c).unwrap();
+            assert!(!tracker.is_complete()); // we still in word_idx=1 out of 2, not done yet
+        }
+
+        tracker.type_char(' ').unwrap();
+
+        // word_idx=2, but we haven't completed the word sow we are not done
+        assert!(!tracker.is_complete());
+        assert_eq!(tracker.current_word_idx, 2);
+
+        for c in "test".chars() {
+            tracker.type_char(c).unwrap();
+        }
+        assert!(tracker.is_complete());
     }
 }
