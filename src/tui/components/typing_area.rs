@@ -79,27 +79,46 @@ fn create_tracker_line(app: &mut App, theme: &Theme) -> Line<'static> {
 
 fn create_target_text_line(state: &Tracker, theme: &Theme, max_width: u16) -> Vec<Line<'static>> {
     let mut spans = Vec::new();
-    let dim_mod = Modifier::DIM;
-    let default_style = Style::default();
-
-    let upcoming_token_style = default_style.fg(theme.fg()).add_modifier(dim_mod);
-    let correct_token_style = default_style.fg(theme.success()).remove_modifier(dim_mod);
-    let wrong_token_style = default_style.fg(theme.error()).remove_modifier(dim_mod);
+    let mut word_idx = 0;
 
     for (i, token) in state.tokens.iter().enumerate() {
-        let token_style = if i < state.current_pos {
-            // tokens already typed
+        if token.target == ' ' {
+            word_idx += 1;
+        }
+
+        let is_past_wrong_word = word_idx < state.current_word_idx
+            && state
+                .words
+                .get(word_idx)
+                .is_some_and(|w| w.completed && w.error_count > 0);
+
+        let fg_color = if token.is_skipped {
+            theme.fg()
+        } else if i < state.current_pos {
+            // typed
             if token.is_wrong {
-                wrong_token_style
+                theme.error()
             } else {
-                correct_token_style
+                theme.success()
             }
         } else {
             // upcoming
-            upcoming_token_style
+            theme.fg()
         };
 
-        spans.push(Span::styled(token.target.to_string(), token_style));
+        let mut style = Style::default().fg(fg_color);
+        if token.is_skipped || i >= state.current_pos {
+            style = style.add_modifier(Modifier::DIM);
+        }
+
+        // don't underline space cahr
+        if is_past_wrong_word && token.target != ' ' {
+            style = style
+                .add_modifier(Modifier::UNDERLINED)
+                .underline_color(theme.error())
+        }
+
+        spans.push(Span::styled(token.target.to_string(), style));
     }
 
     let mut lines = Vec::new();

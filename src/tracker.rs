@@ -29,6 +29,8 @@ pub struct Token {
     pub target: char,
     /// Wether this token was typed wrong or not
     pub is_wrong: bool,
+    /// Whether this token was skipped during space jump or not
+    pub is_skipped: bool,
     /// Time when this token was typed
     pub typed_at: Option<Instant>,
 }
@@ -153,6 +155,7 @@ impl Tracker {
                 typed: None,
                 target: chr,
                 is_wrong: false,
+                is_skipped: false,
                 typed_at: None,
             })
             .collect()
@@ -357,6 +360,7 @@ impl Tracker {
             token.typed = None;
             token.typed_at = None;
             token.is_wrong = false;
+            token.is_skipped = false;
 
             if token.target != token.typed.unwrap_or('\0') {
                 self.total_errors = self.total_errors.saturating_sub(1);
@@ -550,6 +554,7 @@ impl Tracker {
                 token.typed = Some(' ');
                 token.typed_at = Some(Instant::now());
                 token.is_wrong = true;
+                token.is_skipped = true;
             }
 
             if let Some(word) = self.current_word_mut() {
@@ -588,6 +593,7 @@ impl Tracker {
                 token.typed = None;
                 token.typed_at = None;
                 token.is_wrong = false;
+                token.is_skipped = false;
 
                 if token.target != ' ' {
                     if let Some(word) = self.current_word_mut() {
