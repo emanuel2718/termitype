@@ -362,6 +362,7 @@ impl Config {
     }
 
     pub fn change_mode(&mut self, mode: Mode) -> Result<()> {
+        self.cli.clear_custom_words_flag();
         self.state.mode = mode;
         Ok(())
     }
@@ -522,7 +523,7 @@ mod tests {
             ..Default::default()
         };
         let mut config = Config {
-            cli: Cli::default(),
+            cli: cli.clone(),
             ..Default::default()
         };
 
@@ -532,5 +533,26 @@ mod tests {
             config.current_mode(),
             Mode::Words(NonZeroUsize::new(3).unwrap())
         );
+    }
+
+    #[test]
+    fn test_changing_mode_should_clear_custom_words_flag() {
+        let custom_word = "random word".to_string();
+        let cli = Cli {
+            words: Some(custom_word),
+            ..Default::default()
+        };
+        let mut config = Config {
+            cli: cli.clone(),
+            ..Default::default()
+        };
+
+        config.apply_cli_args(cli);
+
+        assert_eq!(config.cli.words, Some("random word".to_string()));
+
+        config.change_mode(Mode::with_default_time()).unwrap();
+
+        assert_eq!(config.cli.words, None);
     }
 }
