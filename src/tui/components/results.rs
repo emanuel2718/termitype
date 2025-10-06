@@ -1,14 +1,42 @@
 use crate::{
     app::App,
     theme::Theme,
-    tui::helpers::{calculate_horizontal_padding, center_lines_vertically, max_line_width},
+    tui::{
+        helpers::{calculate_horizontal_padding, center_lines_vertically, max_line_width},
+        layout::ResultsLayout,
+    },
+    variants::ResultsVariant,
 };
 use ratatui::{
     layout::Alignment,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Padding, Paragraph},
+    Frame,
 };
+
+pub struct Results;
+
+impl Results {
+    pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, layout: ResultsLayout) {
+        let results_display = match app.config.current_results_variant() {
+            ResultsVariant::Minimal => create_minimal_results_display(
+                app,
+                theme,
+                layout.results_area.height,
+                layout.results_area.width,
+            ),
+            // TODO: implement Graph, Neofetch variants later
+            ResultsVariant::Graph => todo!(),
+            ResultsVariant::Neofetch => todo!(),
+        };
+        frame.render_widget(results_display, layout.results_area);
+
+        // footer
+        let footer_element = create_results_footer_element(theme);
+        frame.render_widget(footer_element, layout.footer_area);
+    }
+}
 
 ///  ResultsVariant::Minimal
 pub fn create_minimal_results_display<'a>(
