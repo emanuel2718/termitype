@@ -1,8 +1,8 @@
 use crate::{
     actions::Action,
     builders::keymap_builder::{
-        global_keymap, idle_keymap, menu_base_keymap, menu_search_keymap, results_keymap,
-        typing_keymap,
+        global_keymap, idle_keymap, menu_base_keymap, menu_search_keymap, modal_keymap,
+        results_keymap, typing_keymap,
     },
     log_debug,
 };
@@ -13,6 +13,7 @@ pub enum InputContext {
     Idle,
     Typing,
     Completed,
+    Modal,
     Menu { searching: bool },
 }
 
@@ -56,6 +57,7 @@ impl Input {
             InputContext::Idle => idle_keymap(),
             InputContext::Typing => typing_keymap(),
             InputContext::Completed => results_keymap(),
+            InputContext::Modal => modal_keymap(),
             InputContext::Menu { searching: false } => menu_base_keymap(),
             InputContext::Menu { searching: true } => menu_search_keymap(),
         };
@@ -81,6 +83,13 @@ impl Input {
             }
         }
 
+        // handle modal inputs
+        if self.is_modal_input(event, &ctx) {
+            if let Some(c) = event.code.as_char() {
+                return Self::wrap_input_result(Action::ModalInput(c), false);
+            }
+        }
+
         Self::wrap_input_result(Action::NoOp, false)
     }
 
@@ -97,6 +106,10 @@ impl Input {
         matches!(event.code, KeyCode::Char(_))
             && matches!(ctx, InputContext::Idle | InputContext::Typing)
             && !matches!(ctx, InputContext::Menu { .. })
+    }
+
+    fn is_modal_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
+        matches!(event.code, KeyCode::Char(_)) && matches!(ctx, InputContext::Modal)
     }
 
     fn is_menu_shortcut_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {

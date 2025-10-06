@@ -1,6 +1,7 @@
 use crate::actions::Action;
 use crate::config::{Config, Setting};
 use crate::menu::{MenuContent, MenuContext, MenuItem, MenuVisualizer};
+use crate::modal::ModalContext;
 use crate::theme;
 
 pub struct MenuBuilder {
@@ -121,7 +122,7 @@ fn build_root_menu() -> MenuContent {
         .submenu("Cursor", MenuContext::Cursor)
         .shortcut('c')
         .description("Available Cursors")
-        .action("Exit", Action::Quit)
+        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation))
         .shortcut('Q')
         .build()
 }
@@ -173,6 +174,10 @@ fn build_time_menu() -> MenuContent {
             .close_on_select();
     }
 
+    builder = builder
+        .action("Custom", Action::ModalOpen(ModalContext::CustomTime))
+        .shortcut('c');
+
     builder.build()
 }
 
@@ -186,6 +191,8 @@ fn build_words_menu() -> MenuContent {
         .close_on_select()
         .action("100", Action::SetWords(100))
         .close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount))
+        .shortcut('c')
         .build()
 }
 

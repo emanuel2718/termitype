@@ -1,6 +1,7 @@
 // Components module
 pub mod command_bar;
 pub mod footer;
+pub mod modal_dialog;
 pub mod mode_bar;
 pub mod pickers;
 pub mod results;

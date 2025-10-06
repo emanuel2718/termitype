@@ -3,6 +3,7 @@ use crate::{
     config::Setting,
     error::AppError,
     menu::{MenuContext, MenuMotion},
+    modal::ModalContext,
     theme,
     variants::CursorVariant,
 };
@@ -30,6 +31,13 @@ pub enum Action {
     MenuExitSearch,
     MenuBackspaceSearch,
     MenuUpdateSearch(String),
+
+    ModalOpen(ModalContext),
+    ModalInput(char),
+    ModalBackspace,
+    ModalConfirm,
+    // ModalConfirm(Box<Action>),
+    ModalClose,
 
     Toggle(Setting),
 
@@ -63,6 +71,12 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::MenuExitSearch => app.handle_menu_exit_search(),
         Action::MenuBackspaceSearch => app.handle_menu_backspace_search(),
         Action::MenuUpdateSearch(query) => app.handle_menu_update_search(query),
+        Action::ModalOpen(ctx) => app.handle_modal_open(ctx),
+        Action::ModalInput(c) => app.handle_modal_input(c),
+        Action::ModalBackspace => app.handle_modal_backspace(),
+        // Action::ModalConfirm(act) => app.handle_modal_confirm(*act),
+        Action::ModalConfirm => app.handle_modal_confirm(),
+        Action::ModalClose => app.handle_modal_close(),
         Action::Toggle(setting) => app.handle_toggle_setting(setting),
         Action::SetLineCount(_) => app.handle_set_line_count(),
         Action::SetTheme(name) => theme::set_as_current_theme(&name),

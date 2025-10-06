@@ -3,7 +3,9 @@ use crate::{
     theme::{self, Theme},
     tui::{
         components::{
-            command_bar, footer, mode_bar, pickers,
+            command_bar, footer,
+            modal_dialog::ModalDialog,
+            mode_bar, pickers,
             results::{create_minimal_results_display, create_results_footer_element},
             size_warning, title, typing_area,
         },
@@ -131,6 +133,8 @@ fn render_typing_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout:
 /// Render the results screen. This render when the typing test is completed (`TypingStatus::Completed`)
 /// The way this looks varies depending on the current `ResultsVariant`.
 fn render_results_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout: ResultsLayout) {
+    // TODO: use this pattern
+    // Results::render(...);
     let results_display = match app.config.current_results_variant() {
         ResultsVariant::Minimal => create_minimal_results_display(
             app,
@@ -150,7 +154,11 @@ fn render_results_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout
 }
 
 fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
-    if app.menu.is_open() {
+    if let Some(ref modal) = app.modal {
+        ModalDialog::render(frame, modal, theme, area);
+    } else if app.menu.is_open() {
+        // TODO: use this pattern
+        // Picker::render(frame, app, theme, area);
         render_menu_picker(frame, app, theme, area);
     }
 }

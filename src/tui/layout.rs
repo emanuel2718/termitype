@@ -1,4 +1,3 @@
-use crate::log_debug;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 #[derive(Debug)]
@@ -109,7 +108,7 @@ impl LayoutBuilder {
             0
         };
 
-        log_debug!("height: {}, width: {}", area.height, area.width);
+        // log_debug!("height: {}, width: {}", area.height, area.width);
 
         let title_area = if show_title && available_height >= title_height {
             Some(Rect {

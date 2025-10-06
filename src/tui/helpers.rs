@@ -55,8 +55,9 @@ pub fn set_cursor_position(
     let visible_cursor_y = cursor_y - visible_start;
     let header_offset = 2;
 
-    // dont render the cursor if the menu is open or we should be showing the results
-    if !app.menu.is_open() && !app.tracker.is_complete() && !app.tracker.should_complete() {
+    // should we render the typing area cursor question mark
+    let overlay_open = app.menu.is_open() || app.modal.is_some();
+    if !overlay_open && !app.tracker.is_complete() && !app.tracker.should_complete() {
         frame.set_cursor_position(Position {
             x: layout.center_area.x + cursor_x,
             y: layout.center_area.y
@@ -113,6 +114,20 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1]
+}
+
+pub fn centered_fixed_rect(width: u16, height: u16, area: Rect) -> Rect {
+    let width = width.min(area.width);
+    let height = height.min(area.height);
+
+    let x = area.x + (area.width.saturating_sub(width)) / 2;
+    let y = area.y + (area.height.saturating_sub(height)) / 2;
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
 }
 
 pub fn calculate_padding(lines: &[Line], height: u16) -> usize {

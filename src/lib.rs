@@ -20,6 +20,7 @@ pub mod error;
 pub mod input;
 pub mod logger;
 pub mod menu;
+pub mod modal;
 pub mod persistence;
 pub mod theme;
 pub mod tracker;

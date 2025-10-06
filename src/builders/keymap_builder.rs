@@ -11,6 +11,7 @@ pub static TYPING_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static RESULTS_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static MENU_BASE_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static MENU_SEARCH_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
+pub static MODAL_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 
 const CTRL: KeyModifiers = KeyModifiers::CONTROL;
 
@@ -69,6 +70,10 @@ pub fn menu_search_keymap() -> &'static KeyMap {
     MENU_SEARCH_KEYMAP.get_or_init(build_menu_search_keymap)
 }
 
+pub fn modal_keymap() -> &'static KeyMap {
+    MODAL_KEYMAP.get_or_init(build_modal_keymap)
+}
+
 /// Global keybinds are those keybinds that no matter the current context they will have the same`
 /// resulting action
 fn build_global_keymap() -> KeyMap {
@@ -125,6 +130,13 @@ fn build_menu_search_keymap() -> KeyMap {
         .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
         .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Backspace, Action::MenuBackspaceSearch)
+}
+
+fn build_modal_keymap() -> KeyMap {
+    KeyMap::new()
+        .bind(KeyCode::Esc, Action::ModalClose)
+        .bind(KeyCode::Enter, Action::ModalConfirm)
+        .bind(KeyCode::Backspace, Action::ModalBackspace)
 }
 
 #[cfg(test)]

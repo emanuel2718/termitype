@@ -1,11 +1,12 @@
 use crate::{
-    actions,
+    actions::{self},
     builders::lexicon_builder::Lexicon,
-    config::{self, Config, Setting},
+    config::{self, Config, Mode, Setting},
     error::AppError,
     input::{Input, InputContext},
     log_debug, log_info,
     menu::{Menu, MenuContext, MenuMotion},
+    modal::{Modal, ModalContext},
     theme,
     tracker::Tracker,
     tui,
@@ -56,6 +57,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
 pub struct App {
     pub config: Config,
     pub menu: Menu,
+    pub modal: Option<Modal>,
     pub lexicon: Lexicon,
     pub tracker: Tracker,
     should_quit: bool,
@@ -75,6 +77,7 @@ impl App {
         Self {
             config: config.clone(),
             menu: Menu::new(),
+            modal: None,
             tracker,
             lexicon,
             should_quit: false,
@@ -193,7 +196,7 @@ impl App {
 
     pub fn handle_menu_backspace_search(&mut self) -> Result<(), AppError> {
         self.menu.backspace_search();
-        self.try_preview()?;
+        // self.try_preview()?;
         Ok(())
     }
 
@@ -211,6 +214,64 @@ impl App {
         self.menu.update_search(new_query);
         self.try_preview()?;
 
+        Ok(())
+    }
+
+    pub fn handle_modal_open(&mut self, ctx: ModalContext) -> Result<(), AppError> {
+        self.modal = Some(Modal::new(ctx));
+        Ok(())
+    }
+
+    pub fn handle_modal_close(&mut self) -> Result<(), AppError> {
+        self.modal = None;
+        Ok(())
+    }
+
+    pub fn handle_modal_backspace(&mut self) -> Result<(), AppError> {
+        if let Some(modal) = self.modal.as_mut() {
+            modal.handle_backspace();
+        }
+        Ok(())
+    }
+
+    pub fn handle_modal_input(&mut self, chr: char) -> Result<(), AppError> {
+        if let Some(modal) = self.modal.as_mut() {
+            modal.handle_input(chr);
+        }
+        Ok(())
+    }
+
+    pub fn handle_modal_confirm(&mut self) -> Result<(), AppError> {
+        if let Some(modal) = self.modal.as_mut() {
+            // NOTE(ema): this would've been so clean, but unfortunately we don't know wich context
+            // we currently at in `keymap_builder`. To what we would need to map `Action::ModalConfirm` to?
+            // Maybe in the future i've grinded enough intellect xp to be able to tackle this
+            // actions::handle_action(self, action);
+
+            match modal.ctx {
+                ModalContext::CustomTime => {
+                    // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
+                    if let Ok(val) = modal.get_value() {
+                        if let Ok(secs) = val.parse::<usize>() {
+                            self.config.change_mode(Mode::with_time(secs))?;
+                            self.restart()?
+                        }
+                    }
+                }
+                ModalContext::CustomWordCount => {
+                    // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
+                    if let Ok(val) = modal.get_value() {
+                        if let Ok(count) = val.parse::<usize>() {
+                            self.config.change_mode(Mode::with_words(count))?;
+                            self.restart()?
+                        }
+                    }
+                }
+                ModalContext::ExitConfirmation => self.quit()?,
+            }
+        }
+        self.handle_modal_close()?;
+        self.handle_menu_close()?;
         Ok(())
     }
 
@@ -305,8 +366,14 @@ impl App {
         Ok(())
     }
 
+    // NOTE(ema): this is order dependet which can be dangerous and confusing.
+    // For example, if we put the modal `if` after the menu check it will never reach the modal if
+    // we opened the modal from the menu (as in this case we, currently, keep the menu open.
+    // TODO: improve this
     fn resolve_input_context(&self) -> InputContext {
-        if self.menu.is_open() {
+        if self.modal.is_some() {
+            InputContext::Modal
+        } else if self.menu.is_open() {
             InputContext::Menu {
                 searching: self.menu.is_searching(),
             }
