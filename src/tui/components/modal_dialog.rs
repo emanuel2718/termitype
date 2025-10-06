@@ -105,6 +105,7 @@ impl ModalDialog {
         let (width, suffix) = match modal.ctx {
             ModalContext::CustomTime => (3, " second(s)"), // 300 is the max custom time
             ModalContext::CustomWordCount => (4, " word(s)"), // 5000 is the max custom word count
+            ModalContext::CustomLineCount => (2, " line(s)"), // 10 is the max custom line
             _ => unreachable!(),
         };
 

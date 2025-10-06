@@ -99,6 +99,7 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
         MenuContext::Words => build_words_menu(),
         MenuContext::Language => build_language_menu(config),
         MenuContext::Cursor => build_cursor_menu(config),
+        MenuContext::VisibleLines => build_visible_lines_menu(),
     }
 }
 
@@ -119,6 +120,9 @@ fn build_root_menu() -> MenuContent {
         .submenu("Theme", MenuContext::Themes)
         .shortcut('T')
         .description("Available Themes")
+        .submenu("Lines", MenuContext::VisibleLines)
+        .shortcut('L')
+        .description("Visible Lines")
         .submenu("Cursor", MenuContext::Cursor)
         .shortcut('c')
         .description("Available Cursors")
@@ -238,6 +242,28 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
     }
 
     menu
+}
+
+fn build_visible_lines_menu() -> MenuContent {
+    MenuBuilder::new("Select Line Count", MenuContext::VisibleLines)
+        .action("1", Action::SetLineCount(1))
+        .shortcut('1')
+        .close_on_select()
+        .action("2", Action::SetLineCount(2))
+        .shortcut('2')
+        .close_on_select()
+        .action("3", Action::SetLineCount(3))
+        .shortcut('3')
+        .close_on_select()
+        .action("4", Action::SetLineCount(4))
+        .shortcut('4')
+        .close_on_select()
+        .action("5", Action::SetLineCount(5))
+        .shortcut('5')
+        .close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount))
+        .shortcut('c')
+        .build()
 }
 
 #[cfg(test)]

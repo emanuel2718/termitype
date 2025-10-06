@@ -13,6 +13,9 @@ pub const MIN_CUSTOM_WORD_COUNT: usize = 1;
 pub const MAX_CUSTOM_WORD_COUNT: usize = 5_000;
 pub const DEFAULT_WORD_MODE_COUNT: usize = 50; // 50 words
 
+pub const MIN_CUSTOM_LINE_COUNT: usize = 1;
+pub const MAX_CUSTOM_LINE_COUNT: usize = 10;
+
 pub const STATE_FILE: &str = ".state";
 
 /// Returns the logger file name

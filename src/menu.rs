@@ -15,6 +15,7 @@ pub enum MenuContext {
     Words,
     Language,
     Cursor,
+    VisibleLines,
 }
 
 #[derive(Debug, Clone, PartialEq)]

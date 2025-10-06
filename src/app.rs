@@ -267,6 +267,15 @@ impl App {
                         }
                     }
                 }
+                ModalContext::CustomLineCount => {
+                    // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
+                    if let Ok(val) = modal.get_value() {
+                        if let Ok(count) = val.parse::<u8>() {
+                            self.config.change_visible_lines_count(count);
+                            self.restart()?
+                        }
+                    }
+                }
                 ModalContext::ExitConfirmation => self.quit()?,
             }
         }
@@ -285,17 +294,8 @@ impl App {
         }
     }
 
-    pub fn handle_set_line_count(&mut self) -> Result<(), AppError> {
-        // TODO: eventually do this corrrectly through a modal or something, just messgin around atm.
-        //       this will need to receive the desired visible line count....
-        const MAX_LINE_COUNT: u8 = 6;
-        let current = self.config.current_line_count();
-        let new_count = if current >= MAX_LINE_COUNT {
-            1
-        } else {
-            current + 1
-        };
-        self.config.change_visible_lines_count(new_count);
+    pub fn handle_set_line_count(&mut self, line_count: u8) -> Result<(), AppError> {
+        self.config.change_visible_lines_count(line_count);
         Ok(())
     }
 

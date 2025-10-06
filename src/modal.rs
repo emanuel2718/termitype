@@ -1,5 +1,6 @@
 use crate::constants::{
-    MAX_CUSTOM_TIME, MAX_CUSTOM_WORD_COUNT, MIN_CUSTOM_TIME, MIN_CUSTOM_WORD_COUNT,
+    MAX_CUSTOM_LINE_COUNT, MAX_CUSTOM_TIME, MAX_CUSTOM_WORD_COUNT, MIN_CUSTOM_TIME,
+    MIN_CUSTOM_WORD_COUNT,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,6 +22,7 @@ pub enum ModalKind {
 pub enum ModalContext {
     CustomTime,
     CustomWordCount,
+    CustomLineCount,
     ExitConfirmation,
 }
 
@@ -65,6 +67,20 @@ impl Modal {
                     max_val: MAX_CUSTOM_WORD_COUNT as u16,
                 }),
             },
+            ModalContext::CustomLineCount => Modal {
+                ctx,
+                kind: ModalKind::Input,
+                title: "Custom Line Count".to_string(),
+                description: "How many visible lines?".to_string(),
+                buffer: Some(InputBuffer {
+                    input: String::new(),
+                    cursor_pos: 0,
+                    is_numeric: true,
+                    error: None,
+                    min_val: 1,
+                    max_val: MAX_CUSTOM_LINE_COUNT as u16,
+                }),
+            },
             ModalContext::ExitConfirmation => Modal {
                 ctx,
                 kind: ModalKind::Confirmation,
@@ -77,10 +93,6 @@ impl Modal {
 
     pub fn handle_input(&mut self, c: char) {
         if let Some(buf) = self.buffer.as_mut() {
-            if buf.error.is_some() && !buf.input.is_empty() {
-                return;
-            }
-
             let is_valid_char = if buf.is_numeric {
                 c.is_ascii_digit()
             } else {
@@ -236,7 +248,14 @@ mod tests {
         assert_eq!(modal.get_value(), Ok("50".to_string()));
     }
 
-
+    #[test]
+    fn test_input_error_and_then_correct_input() {
+        let mut modal = Modal::new(ModalContext::CustomLineCount);
+        modal.handle_input('1');
+        modal.handle_input('2');
+        modal.handle_input('0');
+        assert_eq!(modal.get_value(), Ok("10".to_string()));
+    }
 
     #[test]
     fn test_modal_above_max_value() {
