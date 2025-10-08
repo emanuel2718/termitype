@@ -1,45 +1,17 @@
 use crate::{
     app::App,
     theme::Theme,
-    tui::{
-        helpers::{calculate_horizontal_padding, center_lines_vertically, max_line_width},
-        layout::ResultsLayout,
-    },
-    variants::ResultsVariant,
+    tui::helpers::{calculate_horizontal_padding, center_lines_vertically, max_line_width},
 };
 use ratatui::{
     layout::Alignment,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Padding, Paragraph},
-    Frame,
 };
 
-pub struct Results;
-
-impl Results {
-    pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, layout: ResultsLayout) {
-        let results_display = match app.config.current_results_variant() {
-            ResultsVariant::Minimal => create_minimal_results_display(
-                app,
-                theme,
-                layout.results_area.height,
-                layout.results_area.width,
-            ),
-            // TODO: implement Graph, Neofetch variants later
-            ResultsVariant::Graph => todo!(),
-            ResultsVariant::Neofetch => todo!(),
-        };
-        frame.render_widget(results_display, layout.results_area);
-
-        // footer
-        let footer_element = create_results_footer_element(theme);
-        frame.render_widget(footer_element, layout.footer_area);
-    }
-}
-
 ///  ResultsVariant::Minimal
-pub fn create_minimal_results_display<'a>(
+pub fn create_minimal_results<'a>(
     app: &mut App,
     theme: &Theme,
     height: u16,
@@ -96,30 +68,4 @@ pub fn create_minimal_results_display<'a>(
             top: 0,
             bottom: 0,
         }))
-}
-
-pub fn create_results_footer_element(theme: &Theme) -> Paragraph<'_> {
-    let dim = Modifier::DIM;
-    let items = vec![
-        ("[N]", "ew "),
-        ("[R]", "edo "),
-        ("[Q]", "uit "),
-        ("[ESC]", " menu"),
-    ];
-
-    let spans: Vec<Span> = items
-        .into_iter()
-        .flat_map(|(key, text)| {
-            vec![
-                Span::styled(key, Style::default().fg(theme.highlight())),
-                Span::styled(text, Style::default().fg(theme.fg()).add_modifier(dim)),
-            ]
-        })
-        .collect();
-
-    let line = Line::from(spans);
-    Paragraph::new(line)
-        .style(Style::default())
-        .alignment(Alignment::Center)
-        .block(Block::default())
 }

@@ -103,48 +103,27 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
     }
 }
 
+#[rustfmt::skip]
 fn build_root_menu() -> MenuContent {
     MenuBuilder::new("Main Menu", MenuContext::Root)
-        .submenu("Time", MenuContext::Time)
-        .shortcut('t')
-        .description("Set test duration")
-        .submenu("Words", MenuContext::Words)
-        .shortcut('w')
-        .description("Set word count")
-        .submenu("Language", MenuContext::Language)
-        .shortcut('l')
-        .description("Select language")
-        .submenu("Options", MenuContext::Options)
-        .shortcut('o')
-        .description("Configure typing preferences")
-        .submenu("Theme", MenuContext::Themes)
-        .shortcut('T')
-        .description("Available Themes")
-        .submenu("Lines", MenuContext::VisibleLines)
-        .shortcut('L')
-        .description("Visible Lines")
-        .submenu("Cursor", MenuContext::Cursor)
-        .shortcut('c')
-        .description("Available Cursors")
-        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation))
-        .shortcut('Q')
+        .submenu("Time", MenuContext::Time) .shortcut('t') .description("Set test duration")
+        .submenu("Words", MenuContext::Words) .shortcut('w') .description("Set word count")
+        .submenu("Language", MenuContext::Language) .shortcut('l') .description("Select language")
+        .submenu("Options", MenuContext::Options) .shortcut('o') .description("Configure typing preferences")
+        .submenu("Theme", MenuContext::Themes) .shortcut('T') .description("Available Themes")
+        .submenu("Lines", MenuContext::VisibleLines) .shortcut('L') .description("Visible Lines")
+        .submenu("Cursor", MenuContext::Cursor) .shortcut('c') .description("Available Cursors")
+        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)) .shortcut('Q')
         .build()
 }
 
+#[rustfmt::skip]
 fn build_options_menu() -> MenuContent {
     MenuBuilder::new("Options", MenuContext::Options)
-        .action("Use symbols", Action::Toggle(Setting::Symbols))
-        .shortcut('s')
-        .description("Include symbols in the generated test (@, #, etc)")
-        .action("Use numbers", Action::Toggle(Setting::Numbers))
-        .shortcut('n')
-        .description("Include numbers in the generated test")
-        .action("Use punctuation", Action::Toggle(Setting::Punctuation))
-        .shortcut('p')
-        .description("Include punctuation in the generated test (!, ?, etc)")
-        .action("Show live WPM", Action::Toggle(Setting::LiveWPM))
-        .shortcut('w')
-        .description("Show the live word per minutes during the test")
+        .action("Use symbols", Action::Toggle(Setting::Symbols)) .shortcut('s') .description("Include symbols in the generated test (@, #, etc)")
+        .action("Use numbers", Action::Toggle(Setting::Numbers)) .shortcut('n') .description("Include numbers in the generated test")
+        .action("Use punctuation", Action::Toggle(Setting::Punctuation)) .shortcut('p') .description("Include punctuation in the generated test (!, ?, etc)")
+        .action("Show live WPM", Action::Toggle(Setting::LiveWPM)) .shortcut('w') .description("Show the live word per minutes during the test")
         .build()
 }
 
@@ -185,18 +164,14 @@ fn build_time_menu() -> MenuContent {
     builder.build()
 }
 
+#[rustfmt::skip]
 fn build_words_menu() -> MenuContent {
     MenuBuilder::new("Select Words", MenuContext::Words)
-        .action("10", Action::SetWords(10))
-        .close_on_select()
-        .action("25", Action::SetWords(25))
-        .close_on_select()
-        .action("50", Action::SetWords(50))
-        .close_on_select()
-        .action("100", Action::SetWords(100))
-        .close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount))
-        .shortcut('c')
+        .action("10", Action::SetWords(10)) .close_on_select()
+        .action("25", Action::SetWords(25)) .close_on_select()
+        .action("50", Action::SetWords(50)) .close_on_select()
+        .action("100", Action::SetWords(100)) .close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount)) .shortcut('c')
         .build()
 }
 
@@ -229,7 +204,7 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
 
     for &variant in variants {
         builder = builder
-            .action(variant.label(), Action::SetCursor(variant))
+            .action(variant.label(), Action::SetCursorVariant(variant))
             .preivew()
             .close_on_select();
     }
@@ -244,25 +219,15 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
     menu
 }
 
+#[rustfmt::skip]
 fn build_visible_lines_menu() -> MenuContent {
     MenuBuilder::new("Select Line Count", MenuContext::VisibleLines)
-        .action("1", Action::SetLineCount(1))
-        .shortcut('1')
-        .close_on_select()
-        .action("2", Action::SetLineCount(2))
-        .shortcut('2')
-        .close_on_select()
-        .action("3", Action::SetLineCount(3))
-        .shortcut('3')
-        .close_on_select()
-        .action("4", Action::SetLineCount(4))
-        .shortcut('4')
-        .close_on_select()
-        .action("5", Action::SetLineCount(5))
-        .shortcut('5')
-        .close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount))
-        .shortcut('c')
+        .action("1", Action::SetLineCount(1)) .shortcut('1') .close_on_select()
+        .action("2", Action::SetLineCount(2)) .shortcut('2') .close_on_select()
+        .action("3", Action::SetLineCount(3)) .shortcut('3') .close_on_select()
+        .action("4", Action::SetLineCount(4)) .shortcut('4') .close_on_select()
+        .action("5", Action::SetLineCount(5)) .shortcut('5') .close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)) .shortcut('c')
         .build()
 }
 

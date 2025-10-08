@@ -588,7 +588,7 @@ fn render_cursor_visualizer(frame: &mut Frame, theme: &Theme, area: Rect, app: &
 
     let cursor_variant = if let Some(item) = app.menu.current_item() {
         match &item.action {
-            MenuAction::Action(Action::SetCursor(variant)) => *variant,
+            MenuAction::Action(Action::SetCursorVariant(variant)) => *variant,
             _ => CursorVariant::default(),
         }
     } else {

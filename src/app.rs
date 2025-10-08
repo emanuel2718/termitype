@@ -10,7 +10,7 @@ use crate::{
     theme,
     tracker::Tracker,
     tui,
-    variants::CursorVariant,
+    variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
@@ -301,7 +301,17 @@ impl App {
 
     pub fn handle_set_cursor(&mut self, variant: CursorVariant) -> Result<(), AppError> {
         self.config.change_cursor_variant(variant);
-        self.restart()?;
+        // self.restart()?;
+        Ok(())
+    }
+
+    pub fn handle_set_picker(&mut self, variant: PickerVariant) -> Result<(), AppError> {
+        self.config.change_picker_variant(variant);
+        Ok(())
+    }
+
+    pub fn handle_set_result(&mut self, variant: ResultsVariant) -> Result<(), AppError> {
+        self.config.change_results_variant(variant);
         Ok(())
     }
 
@@ -336,7 +346,9 @@ impl App {
                             use crossterm::execute;
                             use std::io::stdout;
 
-                            if let MenuAction::Action(Action::SetCursor(variant)) = &item.action {
+                            if let MenuAction::Action(Action::SetCursorVariant(variant)) =
+                                &item.action
+                            {
                                 let _ = execute!(stdout(), variant.to_crossterm());
                             }
                             Ok(())

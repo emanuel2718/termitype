@@ -5,7 +5,7 @@ use crate::{
     menu::{MenuContext, MenuMotion},
     modal::ModalContext,
     theme,
-    variants::CursorVariant,
+    variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
 
@@ -43,7 +43,9 @@ pub enum Action {
 
     SetLineCount(u8),
     SetTheme(String),
-    SetCursor(CursorVariant),
+    SetCursorVariant(CursorVariant),
+    SetPickerVariant(PickerVariant),
+    SetResultVariant(ResultsVariant),
 
     SetTime(u16),
     SetWords(u16),
@@ -81,7 +83,9 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         // Action::SetLineCount(_) => app.handle_set_line_count(),
         Action::SetLineCount(count) => app.handle_set_line_count(count),
         Action::SetTheme(name) => theme::set_as_current_theme(&name),
-        Action::SetCursor(variant) => app.handle_set_cursor(variant),
+        Action::SetCursorVariant(variant) => app.handle_set_cursor(variant),
+        Action::SetPickerVariant(variant) => app.handle_set_picker(variant),
+        Action::SetResultVariant(variant) => app.handle_set_result(variant),
         Action::SetTime(secs) => app.handle_set_time(secs as usize),
         Action::SetWords(count) => app.handle_set_words(count as usize),
         Action::SetLanguage(lang) => app.handle_set_language(lang),

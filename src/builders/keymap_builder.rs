@@ -1,6 +1,7 @@
 use crate::actions::Action;
 use crate::log_debug;
 use crate::menu::{MenuContext, MenuMotion};
+use crate::variants::ResultsVariant;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -14,6 +15,7 @@ pub static MENU_SEARCH_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static MODAL_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 
 const CTRL: KeyModifiers = KeyModifiers::CONTROL;
+const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
 
 #[derive(Debug, Clone, Default)]
 pub struct KeyMap {
@@ -99,12 +101,16 @@ fn build_typing_keymap() -> KeyMap {
         .bind(KeyCode::Backspace, Action::Backspace)
 }
 
+#[rustfmt::skip]
 fn build_results_keymap() -> KeyMap {
     KeyMap::new()
         .bind(KeyCode::Char('q'), Action::Quit)
         .bind(KeyCode::Char('r'), Action::Redo)
-        .bind(KeyCode::Char('n'), Action::Restart)
         .bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
+        .bind( KeyCode::Char('m'), Action::SetResultVariant(ResultsVariant::Minimal))
+        .bind( KeyCode::Char('g'), Action::SetResultVariant(ResultsVariant::Graph))
+        .bind( KeyCode::Char('n'), Action::SetResultVariant(ResultsVariant::Neofetch))
+        .bind_with_mod(SHIFT, KeyCode::Char('N'), Action::Restart)
 }
 
 fn build_menu_base_keymap() -> KeyMap {
@@ -115,21 +121,21 @@ fn build_menu_base_keymap() -> KeyMap {
         .bind(KeyCode::Up, Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Down, Action::MenuNav(MenuMotion::Down))
         .bind(KeyCode::Char('k'), Action::MenuNav(MenuMotion::Up))
-        .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Char('j'), Action::MenuNav(MenuMotion::Down))
-        .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
         .bind(KeyCode::Char('l'), Action::MenuSelect)
         .bind(KeyCode::Char('h'), Action::MenuGoBack)
         .bind(KeyCode::Char('/'), Action::MenuInitSearch)
+        .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
+        .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
 }
 
 fn build_menu_search_keymap() -> KeyMap {
     KeyMap::new()
         .bind(KeyCode::Esc, Action::MenuExitSearch)
         .bind(KeyCode::Enter, Action::MenuSelect)
+        .bind(KeyCode::Backspace, Action::MenuBackspaceSearch)
         .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
         .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
-        .bind(KeyCode::Backspace, Action::MenuBackspaceSearch)
 }
 
 fn build_modal_keymap() -> KeyMap {

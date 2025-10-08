@@ -156,15 +156,11 @@ pub fn create_main_layout(area: Rect) -> AppLayout {
 pub fn create_results_layout(area: Rect) -> ResultsLayout {
     let vertical_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage(10), // top margin
-            Constraint::Percentage(83), // results
-            Constraint::Percentage(7),  // footer
-        ])
+        .constraints([Constraint::Min(0), Constraint::Length(1)])
         .split(area);
 
-    let results_area = vertical_layout[1];
-    let footer_area = vertical_layout[2];
+    let results_area = vertical_layout[0];
+    let footer_area = vertical_layout[1];
 
     ResultsLayout {
         results_area,
