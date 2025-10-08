@@ -47,6 +47,7 @@ pub fn create_file(path: &PathBuf) -> AppResult<fs::File> {
 
 #[cfg(target_os = "windows")]
 pub fn create_file(path: &PathBuf) -> AppResult<fs::File> {
+    use std::fs::OpenOptions;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
