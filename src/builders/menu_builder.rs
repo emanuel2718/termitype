@@ -9,6 +9,7 @@ pub struct MenuBuilder {
     ctx: MenuContext,
     items: Vec<MenuItem>,
     visualizer: Option<MenuVisualizer>,
+    is_informational: bool,
 }
 
 impl Default for MenuBuilder {
@@ -24,11 +25,18 @@ impl MenuBuilder {
             title: title.into(),
             items: Vec::new(),
             visualizer: None,
+            is_informational: false,
         }
     }
 
     pub fn build(self) -> MenuContent {
-        MenuContent::new(self.title, self.ctx, self.items, self.visualizer)
+        MenuContent::new(
+            self.title,
+            self.ctx,
+            self.items,
+            self.visualizer,
+            self.is_informational,
+        )
     }
 
     pub fn action<S: Into<String>>(mut self, label: S, action: Action) -> Self {
@@ -88,6 +96,16 @@ impl MenuBuilder {
         self.visualizer = Some(visualizer);
         self
     }
+
+    pub fn informational(mut self) -> Self {
+        self.is_informational = true;
+        self
+    }
+
+    pub fn info<S: Into<String>>(mut self, key: S, value: S) -> Self {
+        self.items.push(MenuItem::info(key, value));
+        self
+    }
 }
 
 pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent {
@@ -100,6 +118,7 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
         MenuContext::Language => build_language_menu(config),
         MenuContext::Cursor => build_cursor_menu(config),
         MenuContext::VisibleLines => build_visible_lines_menu(),
+        MenuContext::About => build_about_menu(),
     }
 }
 
@@ -113,6 +132,7 @@ fn build_root_menu() -> MenuContent {
         .submenu("Theme", MenuContext::Themes) .shortcut('T') .description("Available Themes")
         .submenu("Lines", MenuContext::VisibleLines) .shortcut('L') .description("Visible Lines")
         .submenu("Cursor", MenuContext::Cursor) .shortcut('c') .description("Available Cursors")
+        .submenu("About", MenuContext::About) .shortcut('a') .description("About termitype")
         .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)) .shortcut('Q')
         .build()
 }
@@ -228,6 +248,17 @@ fn build_visible_lines_menu() -> MenuContent {
         .action("4", Action::SetLineCount(4)) .shortcut('4') .close_on_select()
         .action("5", Action::SetLineCount(5)) .shortcut('5') .close_on_select()
         .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)) .shortcut('c')
+        .build()
+}
+
+fn build_about_menu() -> MenuContent {
+    MenuBuilder::new("About", MenuContext::About)
+        .informational()
+        .info("Name", "termitype")
+        .info("Version", env!("CARGO_PKG_VERSION"))
+        .info("License", env!("CARGO_PKG_LICENSE"))
+        .info("Description", "TUI typing game")
+        .info("Source", "https://github.com/emanuel2718/termitype")
         .build()
 }
 

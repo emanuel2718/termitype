@@ -16,6 +16,7 @@ pub enum MenuContext {
     Language,
     Cursor,
     VisibleLines,
+    About,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +34,7 @@ pub enum MenuMotion {
 pub enum MenuAction {
     Action(actions::Action),
     SubMenu(MenuContext),
+    Info(String, String),
 }
 
 impl MenuAction {
@@ -73,6 +75,12 @@ impl MenuItem {
 
     pub fn submenu<S: Into<String>>(label: S, context: MenuContext) -> Self {
         Self::new(label, MenuAction::SubMenu(context))
+    }
+
+    pub fn info<S: Into<String>>(key: S, value: S) -> Self {
+        let key = key.into();
+        let value = value.into();
+        Self::new(format!("{} {}", key, value), MenuAction::Info(key, value))
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -118,11 +126,12 @@ pub struct MenuContent {
     pub current_index: usize,
     pub scroll_offset: usize,
     pub visualizer: Option<MenuVisualizer>,
+    pub is_informational: bool,
 }
 
 impl Default for MenuContent {
     fn default() -> Self {
-        Self::new("Root", MenuContext::Root, Vec::new(), None)
+        Self::new("Root", MenuContext::Root, Vec::new(), None, false)
     }
 }
 
@@ -132,6 +141,7 @@ impl MenuContent {
         ctx: MenuContext,
         items: Vec<MenuItem>,
         visualizer: Option<MenuVisualizer>,
+        is_informational: bool,
     ) -> Self {
         Self {
             title: title.into(),
@@ -140,6 +150,7 @@ impl MenuContent {
             current_index: 0,
             scroll_offset: 0,
             visualizer,
+            is_informational,
         }
     }
 
@@ -437,6 +448,7 @@ impl Menu {
                     return Ok(Some(act));
                 }
                 MenuAction::SubMenu(ctx) => self.open(ctx, config)?,
+                MenuAction::Info(_, _) => {} // No action for info items
             }
         }
         Ok(None)
@@ -521,7 +533,7 @@ mod tests {
             "Item1",
             MenuAction::Action(actions::Action::Quit),
         )];
-        let content = MenuContent::new("Title", MenuContext::Root, items, None);
+        let content = MenuContent::new("Title", MenuContext::Root, items, None, false);
         assert_eq!(content.title, "Title");
         assert_eq!(content.ctx, MenuContext::Root);
         assert_eq!(content.len(), 1);
@@ -531,7 +543,7 @@ mod tests {
 
     #[test]
     fn test_menu_content_len_and_is_empty() {
-        let empty_content = MenuContent::new("Empty", MenuContext::Root, vec![], None);
+        let empty_content = MenuContent::new("Empty", MenuContext::Root, vec![], None, false);
         assert_eq!(empty_content.len(), 0);
         assert!(empty_content.is_empty());
 
@@ -539,7 +551,7 @@ mod tests {
             "Item1",
             MenuAction::Action(actions::Action::Quit),
         )];
-        let content = MenuContent::new("Title", MenuContext::Root, items, None);
+        let content = MenuContent::new("Title", MenuContext::Root, items, None, false);
         assert_eq!(content.len(), 1);
         assert!(!content.is_empty());
     }
@@ -550,7 +562,7 @@ mod tests {
             MenuItem::new("Item1", MenuAction::Action(actions::Action::Quit)),
             MenuItem::new("Item2", MenuAction::Action(actions::Action::Quit)),
         ];
-        let mut content = MenuContent::new("Title", MenuContext::Root, items, None);
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None, false);
         assert_eq!(content.current_item().unwrap().label, "Item1");
 
         content.current_index = 1;
@@ -569,7 +581,7 @@ mod tests {
             MenuItem::new("4", MenuAction::Action(Action::NoOp)),
             MenuItem::new("5", MenuAction::Action(Action::NoOp)),
         ];
-        let mut content = MenuContent::new("Title", MenuContext::Root, items, None);
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None, false);
 
         content.nav(MenuMotion::Down, 10, None);
         assert_eq!(content.current_index, 1);
@@ -602,7 +614,7 @@ mod tests {
                 .disabled(true),
             MenuItem::new("3", MenuAction::Action(actions::Action::Quit)).shortcut('C'),
         ];
-        let content = MenuContent::new("Title", MenuContext::Root, items, None);
+        let content = MenuContent::new("Title", MenuContext::Root, items, None, false);
 
         let found = content.find_by_shortcut('A');
         assert!(found.is_some());
@@ -705,7 +717,7 @@ mod tests {
             MenuItem::new("test", MenuAction::Action(Action::NoOp)),
             MenuItem::new("hi", MenuAction::Action(Action::NoOp)).disabled(true),
         ];
-        let content = MenuContent::new("Title", MenuContext::Root, items, None);
+        let content = MenuContent::new("Title", MenuContext::Root, items, None, false);
 
         let all_items = content.items("");
         assert_eq!(all_items.len(), 3);
@@ -726,7 +738,7 @@ mod tests {
             MenuItem::new("test", MenuAction::Action(Action::NoOp)),
             MenuItem::new("hi", MenuAction::Action(Action::NoOp)),
         ];
-        let mut content = MenuContent::new("Title", MenuContext::Root, items, None);
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None, false);
 
         content.nav(MenuMotion::Down, 10, Some("t"));
         // must only have `termitype` and `test` as items, in that order

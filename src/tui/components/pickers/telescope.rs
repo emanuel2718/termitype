@@ -45,6 +45,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
 
         let title = current_menu.title.clone();
         let overlay_area = picker_overlay_area(area);
+        let is_informational_menu = current_menu.is_informational;
 
         // don't show visualizer on small height. Doesnt look good
         let has_visualizer = current_menu.has_visualizer() && picker_should_show_visualizer(area);
@@ -202,6 +203,22 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
         let items_area_height = items_area.height as usize;
         let mut scroll_offset = current_menu.scroll_offset;
 
+        let max_key_len = if is_informational_menu {
+            items
+                .iter()
+                .filter_map(|item| {
+                    if let MenuAction::Info(key, _) = &item.action {
+                        Some(key.len())
+                    } else {
+                        None
+                    }
+                })
+                .max()
+                .unwrap_or(0)
+        } else {
+            0
+        };
+
         let mut lines: Vec<Line> = Vec::new();
 
         if has_no_items {
@@ -235,10 +252,26 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
             for (idx, item) in visible_items {
                 let is_selected = idx == current_index;
                 let is_toggle = matches!(&item.action, MenuAction::Action(Action::Toggle(_)));
+                let is_info = matches!(item.action, MenuAction::Info(_, _));
                 let mut style = Style::default().fg(theme.fg());
 
-                if is_selected {
+                if is_selected && !is_info {
                     style = style.add_modifier(Modifier::REVERSED);
+                }
+
+                if item.is_disabled {
+                    style = style.add_modifier(Modifier::DIM);
+                }
+
+                if is_toggle {
+                    if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
+                        let enabled = app.config.is_enabled(setting.clone());
+                        if !enabled {
+                            style = style.add_modifier(Modifier::DIM);
+                        } else {
+                            style = style.fg(theme.success())
+                        }
+                    }
                 }
 
                 if item.is_disabled {
@@ -274,9 +307,22 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     }
                 };
 
-                let label = format!("{} {}", indicator, item.label());
-
-                let spans = vec![Span::styled(label, style)];
+                let spans = if is_info {
+                    if let MenuAction::Info(key, value) = &item.action {
+                        let padded_key = format!(" {:<width$}", key, width = max_key_len + 1);
+                        vec![
+                            Span::styled(indicator, Style::default().fg(theme.info())),
+                            Span::styled(padded_key, Style::default().fg(theme.fg())),
+                            Span::styled(" ", Style::default()),
+                            Span::styled(value, Style::default().fg(theme.info())),
+                        ]
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    let label = format!("{} {}", indicator, item.label());
+                    vec![Span::styled(label, style)]
+                };
 
                 lines.push(Line::from(spans));
             }
