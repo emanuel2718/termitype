@@ -28,6 +28,23 @@ pub fn format_timestamp(time: time::SystemTime) -> String {
     format!("{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{ms:03}")
 }
 
+/// Truncate a string to a maximum display width
+pub fn truncate_to_width(s: &str, max_width: usize) -> String {
+    let mut result = String::new();
+    let mut current_width = 0;
+
+    for c in s.chars() {
+        let char_width = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+        if current_width + char_width > max_width {
+            break;
+        }
+        result.push(c);
+        current_width += char_width;
+    }
+
+    result
+}
+
 // TODO: maybe we can improve this to be more performant. Using the most basic fuzzy search possible for now
 pub fn fuzzy_match(text: &str, pattern: &str) -> bool {
     let text = text.chars().collect::<Vec<_>>();

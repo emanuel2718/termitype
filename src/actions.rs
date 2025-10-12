@@ -49,6 +49,7 @@ pub enum Action {
 
     SetTime(u16),
     SetWords(u16),
+    SetAsciiArt(String),
     SetLanguage(String),
 
     RandomizeTheme,
@@ -89,6 +90,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::SetTime(secs) => app.handle_set_time(secs as usize),
         Action::SetWords(count) => app.handle_set_words(count as usize),
         Action::SetLanguage(lang) => app.handle_set_language(lang),
+        Action::SetAsciiArt(art) => app.handle_set_ascii_art(art),
         Action::RandomizeTheme => theme::use_random_theme(),
         _ => Ok(()),
     }

@@ -18,6 +18,8 @@ pub const MAX_CUSTOM_LINE_COUNT: usize = 10;
 
 pub const MAX_EXTRA_WRONG_CHARS: usize = 19;
 
+pub const DEFAULT_ASCII_ART: &str = "Termitype";
+
 pub const STATE_FILE: &str = ".state";
 
 /// Returns the logger file name

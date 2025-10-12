@@ -15,6 +15,7 @@ pub enum MenuContext {
     Words,
     Language,
     Cursor,
+    Ascii,
     VisibleLines,
     About,
 }
@@ -116,14 +117,15 @@ impl MenuItem {
 pub enum MenuVisualizer {
     ThemeVisualizer,
     CursorVisualizer,
+    AsciiVisualizer,
 }
 
 #[derive(Clone, Debug)]
 pub struct MenuContent {
     items: Vec<MenuItem>,
+    current_index: usize,
     pub title: String,
     pub ctx: MenuContext,
-    pub current_index: usize,
     pub scroll_offset: usize,
     pub visualizer: Option<MenuVisualizer>,
     pub is_informational: bool,
@@ -160,6 +162,14 @@ impl MenuContent {
 
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
+    }
+
+    pub fn current_index(&self) -> usize {
+        self.current_index
+    }
+
+    pub fn set_current_index(&mut self, idx: usize) {
+        self.current_index = idx;
     }
 
     pub fn current_item(&self) -> Option<&MenuItem> {
@@ -259,7 +269,7 @@ impl MenuContent {
         if let Some(item) = filtered_items.get(new_filtered_index) {
             for (original_idx, original_item) in menu.items.iter().enumerate() {
                 if *item == *original_item {
-                    menu.current_index = original_idx;
+                    menu.set_current_index(original_idx);
                     break;
                 }
             }
@@ -387,7 +397,7 @@ impl Menu {
         if let Some(menu) = self.current_menu_mut() {
             let items = menu.items(&query);
             if items.is_empty() {
-                menu.current_index = 0;
+                menu.set_current_index(0);
             } else {
                 // does the current item still in the new results?
                 if let Some(current_item) = menu.current_item() {
@@ -402,7 +412,7 @@ impl Menu {
                                 if first_item.label() == original_item.label()
                                     && first_item.action == original_item.action
                                 {
-                                    menu.current_index = original_idx;
+                                    menu.set_current_index(original_idx);
                                     break;
                                 }
                             }
@@ -755,7 +765,7 @@ mod tests {
         menu.open(MenuContext::Root, &config).unwrap();
         menu.navigate(MenuMotion::Down);
         if let Some(current_menu) = menu.current_menu() {
-            assert_eq!(current_menu.current_index, 1);
+            assert_eq!(current_menu.current_index(), 1);
         }
     }
 

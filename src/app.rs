@@ -169,7 +169,7 @@ impl App {
     pub fn handle_menu_shortcut(&mut self, shortcut: char) -> Result<(), AppError> {
         if let Some(menu) = self.menu.current_menu_mut() {
             if let Some((idx, _)) = menu.find_by_shortcut(shortcut) {
-                menu.current_index = idx;
+                menu.set_current_index(idx);
                 return self.handle_menu_select();
             }
         }
@@ -330,6 +330,11 @@ impl App {
     pub fn handle_set_language(&mut self, lang: String) -> Result<(), AppError> {
         self.config.change_language(lang);
         self.restart()?;
+        Ok(())
+    }
+
+    pub fn handle_set_ascii_art(&mut self, art: String) -> Result<(), AppError> {
+        self.config.change_ascii_art(art);
         Ok(())
     }
 

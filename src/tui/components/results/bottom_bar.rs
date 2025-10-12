@@ -1,10 +1,10 @@
 use crate::{theme::Theme, variants::ResultsVariant};
 use ratatui::{
+    Frame,
     layout::{Alignment, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
-    Frame,
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -111,7 +111,7 @@ fn create_footer_item<'a>(
     selected: bool,
 ) -> Vec<Span<'a>> {
     let (fg_color, bg_color, use_bold) = if selected {
-        (theme.cursor_text(), theme.accent(), true)
+        (theme.cursor_text(), theme.warning(), true)
     } else {
         (theme.selection_fg(), theme.selection_bg(), false)
     };

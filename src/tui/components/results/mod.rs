@@ -18,7 +18,7 @@ impl Results {
         let screen = match current_variant {
             ResultsVariant::Minimal => minimal::create_minimal_results(app, theme, height, width),
             ResultsVariant::Graph => graph::create_graph_results(theme, height, width),
-            ResultsVariant::Neofetch => neofetch::create_neofetch_results(theme, height, width),
+            ResultsVariant::Neofetch => neofetch::create_neofetch_results(app, theme, height, width),
         };
 
         frame.render_widget(screen, layout.results_area);

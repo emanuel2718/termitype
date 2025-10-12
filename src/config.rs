@@ -1,8 +1,9 @@
 use crate::{
+    ascii,
     cli::Cli,
     constants::{
-        DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME, DEFAULT_TIME_MODE_DURATION_IN_SECS,
-        DEFAULT_WORD_MODE_COUNT,
+        DEFAULT_ASCII_ART, DEFAULT_LANGUAGE, DEFAULT_LINE_COUNT, DEFAULT_THEME,
+        DEFAULT_TIME_MODE_DURATION_IN_SECS, DEFAULT_WORD_MODE_COUNT,
     },
     error::AppError,
     persistence::Persistence,
@@ -164,6 +165,8 @@ pub struct ConfigState {
     #[serde(default)]
     pub language: Option<String>,
     #[serde(default)]
+    pub ascii: Option<String>,
+    #[serde(default)]
     pub numbers: bool,
     #[serde(default)]
     pub symbols: bool,
@@ -196,6 +199,7 @@ impl Default for ConfigState {
             lines: DEFAULT_LINE_COUNT,
             language: Some(DEFAULT_LANGUAGE.to_string()),
             theme: Some(DEFAULT_THEME.to_string()),
+            ascii: Some(ascii::get_default_art_by_os().to_string()),
             cursor_variant: CursorVariant::default(),
             picker_variant: PickerVariant::default(),
             results_variant: ResultsVariant::default(),
@@ -268,6 +272,12 @@ impl Config {
         if let Some(theme_str) = &cli.theme {
             if theme_str.parse::<Theme>().is_ok() {
                 self.state.theme = Some(theme_str.clone())
+            }
+        }
+
+        if let Some(ascii_str) = &cli.ascii {
+            if ascii_str.parse::<ascii::Ascii>().is_ok() {
+                self.state.ascii = Some(ascii_str.clone())
             }
         }
 
@@ -353,12 +363,23 @@ impl Config {
         self.state.lines
     }
 
+    pub fn current_ascii_art(&self) -> String {
+        self.state
+            .ascii
+            .clone()
+            .unwrap_or_else(|| DEFAULT_ASCII_ART.to_string())
+    }
+
     pub fn change_theme(&mut self, theme: Theme) {
         self.state.theme = Some(theme.id.to_string())
     }
 
     pub fn change_language(&mut self, lang: String) {
         self.state.language = Some(lang);
+    }
+
+    pub fn change_ascii_art(&mut self, ascii_art: String) {
+        self.state.ascii = Some(ascii_art);
     }
 
     pub fn change_mode(&mut self, mode: Mode) -> Result<()> {

@@ -43,6 +43,10 @@ pub struct Cli {
     #[arg(long = "theme")]
     pub theme: Option<String>,
 
+    /// The ASCII art for results screen
+    #[arg(long = "ascii")]
+    pub ascii: Option<String>,
+
     /// Cursor style variant
     #[arg(
         long = "cursor",

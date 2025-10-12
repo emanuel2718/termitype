@@ -1,4 +1,5 @@
 use crate::actions::Action;
+use crate::ascii;
 use crate::config::{Config, Setting};
 use crate::menu::{MenuContent, MenuContext, MenuItem, MenuVisualizer};
 use crate::modal::ModalContext;
@@ -118,6 +119,7 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
         MenuContext::Language => build_language_menu(config),
         MenuContext::Cursor => build_cursor_menu(config),
         MenuContext::VisibleLines => build_visible_lines_menu(),
+        MenuContext::Ascii => build_ascii_menu(config),
         MenuContext::About => build_about_menu(),
     }
 }
@@ -132,7 +134,8 @@ fn build_root_menu() -> MenuContent {
         .submenu("Theme", MenuContext::Themes) .shortcut('T') .description("Available Themes")
         .submenu("Lines", MenuContext::VisibleLines) .shortcut('L') .description("Visible Lines")
         .submenu("Cursor", MenuContext::Cursor) .shortcut('c') .description("Available Cursors")
-        .submenu("About", MenuContext::About) .shortcut('a') .description("About termitype")
+        .submenu("Ascii Art", MenuContext::Ascii) .shortcut('a') .description("View ASCII Arts")
+        .submenu("About", MenuContext::About) .shortcut('A') .description("About termitype")
         .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)) .shortcut('Q')
         .build()
 }
@@ -161,7 +164,7 @@ fn build_themes_menu(config: &Config) -> MenuContent {
     let mut menu = builder.build();
     if let Some(current_theme_name) = config.current_theme() {
         if let Some(idx) = themes.iter().position(|name| name == &current_theme_name) {
-            menu.current_index = idx;
+            menu.set_current_index(idx);
         }
     }
     menu
@@ -210,7 +213,7 @@ fn build_language_menu(config: &Config) -> MenuContent {
         .iter()
         .position(|lang| lang.clone() == config.current_language())
     {
-        menu.current_index = idx
+        menu.set_current_index(idx);
     }
 
     menu
@@ -233,7 +236,7 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
 
     let current_variant = config.current_cursor_variant();
     if let Some(idx) = variants.iter().position(|&v| v == current_variant) {
-        menu.current_index = idx
+        menu.set_current_index(idx);
     }
 
     menu
@@ -249,6 +252,24 @@ fn build_visible_lines_menu() -> MenuContent {
         .action("5", Action::SetLineCount(5)) .shortcut('5') .close_on_select()
         .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)) .shortcut('c')
         .build()
+}
+
+fn build_ascii_menu(config: &Config) -> MenuContent {
+    let arts = ascii::list_ascii();
+    let mut builder = MenuBuilder::new("Select ASCII Art", MenuContext::Ascii)
+        .add_visualizer(MenuVisualizer::AsciiVisualizer);
+    for name in &arts {
+        builder = builder
+            .action(name.clone(), Action::SetAsciiArt(name.to_string()))
+            .preivew()
+            .close_on_select();
+    }
+    let mut menu = builder.build();
+    let current_art = config.current_ascii_art();
+    if let Some(idx) = arts.iter().position(|art| *art == current_art) {
+        menu.set_current_index(idx);
+    }
+    menu
 }
 
 fn build_about_menu() -> MenuContent {
@@ -275,7 +296,10 @@ mod tests {
         let root_content = build_root_menu();
         assert_eq!(content_from_ctx.title, root_content.title);
         assert_eq!(content_from_ctx.ctx, root_content.ctx);
-        assert_eq!(content_from_ctx.current_index, root_content.current_index);
+        assert_eq!(
+            content_from_ctx.current_index(),
+            root_content.current_index()
+        );
     }
 
     #[test]

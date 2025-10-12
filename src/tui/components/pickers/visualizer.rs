@@ -1,9 +1,5 @@
 use crate::{
-    actions::Action,
-    app::App,
-    menu::{MenuAction, MenuVisualizer},
-    theme::Theme,
-    tui::helpers::horizontally_center,
+    app::App, ascii, menu::MenuVisualizer, theme::Theme, tui::helpers::horizontally_center,
 };
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
@@ -23,8 +19,11 @@ pub fn render_menu_visualizer(
     match vis {
         MenuVisualizer::ThemeVisualizer => render_theme_visualizer(frame, theme, area),
         MenuVisualizer::CursorVisualizer => render_cursor_visualizer(frame, theme, area, app),
+        MenuVisualizer::AsciiVisualizer => render_ascii_visualizer(frame, theme, area, app),
     }
 }
+
+// ========== THEME VISUALIZER ==========
 
 fn render_theme_visualizer(frame: &mut Frame, theme: &Theme, area: Rect) {
     let visualizer_layout = Layout::default()
@@ -154,6 +153,8 @@ fn render_theme_cmd_bar_visualizer(frame: &mut Frame, theme: &Theme, area: Rect)
     frame.render_widget(cmd_bar, command_bar_centered);
 }
 
+// ========== CURSOR VISUALIZER ==========
+
 fn render_cursor_visualizer(frame: &mut Frame, theme: &Theme, area: Rect, app: &App) {
     use crate::{actions::Action, menu::MenuAction, variants::CursorVariant};
 
@@ -261,4 +262,53 @@ fn create_cursor_preview_line(theme: &Theme) -> Line<'static> {
             Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
         ),
     ])
+}
+
+// ========== ASCII ART VISUALIZER ==========
+
+fn render_ascii_visualizer(frame: &mut Frame, theme: &Theme, area: Rect, app: &App) {
+    let ascii_name = app
+        .menu
+        .current_item()
+        .map(|item| item.label().to_string())
+        .unwrap_or_default();
+
+    let ascii_art = ascii::get_ascii(&ascii_name).unwrap_or_default();
+
+    render_ascii_art(frame, theme, area, &ascii_art);
+}
+
+fn render_ascii_art(frame: &mut Frame, theme: &Theme, area: Rect, art: &str) {
+    if art.is_empty() {
+        return;
+    }
+
+    let mut max_width = 0u16;
+    let lines: Vec<Line> = art
+        .lines()
+        .map(|line| {
+            max_width = max_width.max(line.chars().count() as u16);
+            Line::from(line)
+        })
+        .collect();
+
+    let line_count = lines.len() as u16;
+    let vertical_padding = area.height.saturating_sub(line_count) / 2;
+
+    // center the art in the visualizer thingy
+    let vertical_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(vertical_padding),
+            Constraint::Length(line_count),
+            Constraint::Min(0),
+        ])
+        .split(area);
+
+    let centered_area = horizontally_center(vertical_layout[1], max_width);
+
+    let paragraph = Paragraph::new(lines)
+        .style(Style::default().fg(theme.fg()))
+        .alignment(Alignment::Left);
+    frame.render_widget(paragraph, centered_area);
 }

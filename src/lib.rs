@@ -10,6 +10,7 @@ use std::io;
 
 pub mod actions;
 pub mod app;
+pub mod ascii;
 pub mod assets;
 pub mod builders;
 pub mod cli;

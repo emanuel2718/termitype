@@ -115,6 +115,10 @@ pub struct Tracker {
     word_boundaries: Vec<usize>,
     /// Number of extra wrong tokens added at the word boundaries
     extra_errors_count: usize,
+    /// Snapshots of WPM samples taken every second while typing
+    wpm_snapshots: WpmSnapshots,
+    /// Last time a WPM sample snapshot was taken
+    last_snapshot_time: Option<Instant>,
 }
 
 impl Tracker {
@@ -140,7 +144,9 @@ impl Tracker {
             space_jump_stack: Vec::new(),
             word_boundaries,
             metrics: Metrics::default(),
+            wpm_snapshots: WpmSnapshots::new(),
             extra_errors_count: 0,
+            last_snapshot_time: None,
         }
     }
 
@@ -546,6 +552,7 @@ impl Tracker {
         }
 
         self.update_metrics();
+        log_debug!("Wpm samples: {:?}", self.wpm_snapshots);
 
         self.status = TypingStatus::Completed;
     }
@@ -685,12 +692,13 @@ impl Tracker {
     }
 
     /// Returns a summary of the current typing session
-    pub fn summary(&mut self) -> Summary {
+    pub fn summary(&self) -> Summary {
         Summary {
-            wpm: self.wpm(),
-            wps: self.wps(),
-            accuracy: self.accuracy(),
-            consistency: self.consistency(),
+            wpm: self.metrics.wpm.unwrap_or(0.0),
+            wps: self.metrics.wpm.unwrap_or(0.0) / 60.0,
+            snapshots: self.wpm_snapshots.clone(),
+            accuracy: self.metrics.accuracy.unwrap_or(0.0),
+            consistency: self.metrics.consistency.unwrap_or(0.0),
             total_chars: self.text.len(),
             correct_chars: self.correct_chars_count(),
             total_errors: self.total_errors,
@@ -753,19 +761,40 @@ impl Tracker {
         }
 
         let now = Instant::now();
-        if self.metrics.last_updated_at.map_or_else(
-            || true,
-            |last_update| now.duration_since(last_update) > Duration::from_millis(1_000),
-        ) {
+
+        // store snapshot of current wpm every elapsed second while typing
+        if self.should_snapshot_wpm(now) {
+            let current_wpm = self.calculate_wpm();
+            if current_wpm > 0.0 {
+                self.wpm_snapshots.push(current_wpm);
+            }
+            self.last_snapshot_time = Some(now);
+        }
+
+        if self.should_update_metrics(now) {
             self.update_metrics();
-            self.metrics.last_updated_at = Some(now)
-        };
+            self.metrics.last_updated_at = Some(now);
+        }
+    }
+
+    fn should_snapshot_wpm(&self, now: Instant) -> bool {
+        let elapsed = self.elapsed_time();
+        elapsed >= Duration::from_secs(1)
+            && self
+                .last_snapshot_time
+                .is_none_or(|last| now.duration_since(last) >= Duration::from_secs(1))
+    }
+
+    fn should_update_metrics(&self, now: Instant) -> bool {
+        self.metrics
+            .last_updated_at
+            .is_none_or(|last_update| now.duration_since(last_update) >= Duration::from_secs(1))
     }
 
     pub fn update_metrics(&mut self) {
         self.metrics.wpm = Some(self.calculate_wpm());
         self.metrics.accuracy = Some(self.calculate_accuracy());
-        self.metrics.consistency = Some(self.calcluate_consistency());
+        self.metrics.consistency = Some(self.calculate_consistency());
     }
 
     fn calculate_wpm(&self) -> f64 {
@@ -794,46 +823,14 @@ impl Tracker {
         }
     }
 
-    fn calcluate_consistency(&self) -> f64 {
-        let completed_words: Vec<_> = self
-            .words
-            .iter()
-            .filter(|w| w.completed && w.start_time.is_some() && w.end_time.is_some())
-            .collect();
-
-        if completed_words.len() < 2 {
-            return 0.0; // perfect consistency with 0 or 1 words
+    fn calculate_consistency(&self) -> f64 {
+        let mean = self.wpm_snapshots.mean();
+        if mean == 0.0 || self.wpm_snapshots.is_empty() {
+            0.0
+        } else {
+            let std = self.wpm_snapshots.std_dev();
+            (100.0 - (std / mean) * 100.0).max(0.0)
         }
-
-        let word_speeds: Vec<f64> = completed_words
-            .iter()
-            .filter_map(|word| {
-                let duration = word
-                    .end_time?
-                    .duration_since(word.start_time?)
-                    .as_secs_f64();
-                let chars = word.target.len() as f64;
-                if duration > 0.0 {
-                    Some((chars / 5.0) / (duration / 60.0)) // WPM for this word
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        if word_speeds.is_empty() {
-            return 0.0;
-        }
-
-        // std dev
-        let mean = word_speeds.iter().sum::<f64>() / word_speeds.len() as f64;
-        let variance = word_speeds
-            .iter()
-            .map(|speed| (speed - mean).powi(2))
-            .sum::<f64>()
-            / word_speeds.len() as f64;
-
-        variance.sqrt()
     }
 
     fn invalidate_metrics_cache(&mut self) {
@@ -854,6 +851,7 @@ struct Metrics {
 pub struct Summary {
     pub wpm: f64,
     pub wps: f64,
+    pub snapshots: WpmSnapshots,
     pub accuracy: f64,
     pub consistency: f64,
     pub total_chars: usize,
@@ -889,6 +887,78 @@ impl Summary {
 
     pub fn completion_percentage(&self) -> f64 {
         self.progress * 100.0
+    }
+}
+
+/// Snapshots of WPM sample taken periodically while typing
+#[derive(Debug, Clone, Default)]
+pub struct WpmSnapshots {
+    snapshots: Vec<f64>,
+}
+
+impl WpmSnapshots {
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[inline]
+    pub fn push(&mut self, wpm: f64) {
+        self.snapshots.push(wpm);
+    }
+
+    #[inline]
+    pub fn min(&self) -> f64 {
+        self.snapshots
+            .iter()
+            .copied()
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(0.0)
+    }
+
+    #[inline]
+    pub fn max(&self) -> f64 {
+        self.snapshots
+            .iter()
+            .copied()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(0.0)
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.snapshots.is_empty()
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.snapshots.len()
+    }
+
+    #[inline]
+    pub fn mean(&self) -> f64 {
+        if self.snapshots.is_empty() {
+            0.0
+        } else {
+            self.snapshots.iter().sum::<f64>() / self.snapshots.len() as f64
+        }
+    }
+
+    /// Calculates the standard deviation based on the snapshots
+    pub fn std_dev(&self) -> f64 {
+        if self.snapshots.len() < 2 {
+            return 0.0;
+        }
+
+        let mean: f64 = self.snapshots.iter().sum::<f64>() / self.snapshots.len() as f64;
+        let variance: f64 = self
+            .snapshots
+            .iter()
+            .map(|wpm| (wpm - mean).powi(2))
+            .sum::<f64>()
+            / self.snapshots.len() as f64;
+
+        variance.sqrt()
     }
 }
 
@@ -1486,5 +1556,51 @@ mod tests {
             tracker.type_char(c).unwrap();
         }
         assert!(tracker.is_complete());
+    }
+
+    #[test]
+    fn test_consistency_perfect() {
+        let mut tracker = Tracker::new("test".to_string(), Mode::with_time(60));
+        // Simulate perfect consistency: all WPM samples the same
+        tracker.wpm_snapshots.snapshots = vec![60.0, 60.0, 60.0, 60.0];
+        tracker.update_metrics();
+        assert_eq!(tracker.consistency(), 100.0);
+    }
+
+    #[test]
+    fn test_consistency_varying() {
+        let mut tracker = Tracker::new("test".to_string(), Mode::with_time(60));
+        // Simulate varying WPM: mean 60, std dev 10
+        tracker.wpm_snapshots.snapshots = vec![50.0, 70.0];
+        tracker.update_metrics();
+        let expected = 100.0 - (10.0 / 60.0) * 100.0; // 83.333...
+        assert!((tracker.consistency() - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_consistency_high_variation() {
+        let mut tracker = Tracker::new("test".to_string(), Mode::with_time(60));
+        // High variation: mean 60, std dev 60
+        tracker.wpm_snapshots.snapshots = vec![0.0, 120.0];
+        tracker.update_metrics();
+        assert_eq!(tracker.consistency(), 0.0);
+    }
+
+    #[test]
+    fn test_consistency_no_samples() {
+        let mut tracker = Tracker::new("test".to_string(), Mode::with_time(60));
+        // No samples
+        tracker.wpm_snapshots.snapshots = vec![];
+        tracker.update_metrics();
+        assert_eq!(tracker.consistency(), 0.0);
+    }
+
+    #[test]
+    fn test_consistency_zero_mean() {
+        let mut tracker = Tracker::new("test".to_string(), Mode::with_time(60));
+        // All zero WPM
+        tracker.wpm_snapshots.snapshots = vec![0.0, 0.0];
+        tracker.update_metrics();
+        assert_eq!(tracker.consistency(), 0.0);
     }
 }

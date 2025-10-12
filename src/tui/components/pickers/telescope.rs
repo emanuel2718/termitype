@@ -232,7 +232,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     0
                 }
             } else {
-                current_menu.current_index
+                current_menu.current_index()
             };
 
             // ensure the current index is visible

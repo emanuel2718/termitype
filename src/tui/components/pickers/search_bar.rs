@@ -1,8 +1,4 @@
-use crate::{
-    app::App,
-    menu::Menu,
-    theme::Theme,
-};
+use crate::{app::App, menu::Menu, theme::Theme};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},
@@ -106,7 +102,7 @@ pub fn render_menu_bottom_bar(
                     0
                 }
             } else {
-                current_menu.current_index
+                current_menu.current_index()
             };
             (current_index.saturating_add(1), n)
         } else {
