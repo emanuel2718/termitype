@@ -47,28 +47,16 @@ pub struct Cli {
     #[arg(long = "ascii")]
     pub ascii: Option<String>,
 
-    /// Cursor style variant
-    #[arg(
-        long = "cursor",
-        value_name = "STYLE",
-        help = "Cursor style: beam, block, underline, blinking-beam, blinking-block, blinking-underline"
-    )]
+    /// Cursor style variant: beam, block, underline, blinking-beam, blinking-block, blinking-underline
+    #[arg(long = "cursor", value_name = "STYLE")]
     pub cursor: Option<String>,
 
-    /// Picker style variant
-    #[arg(
-        long = "picker",
-        value_name = "STYLE",
-        help = "Picker style: quake, telescope, ivy, minimal"
-    )]
+    /// Picker style variant: quake, telescope, ivy, minimal
+    #[arg(long = "picker", value_name = "STYLE")]
     pub picker: Option<String>,
 
-    /// Results display variant
-    #[arg(
-        long = "results",
-        value_name = "STYLE",
-        help = "Results style: graph, neofetch, minimal"
-    )]
+    /// Results style variatn: minimal, neofetch, graph
+    #[arg(long = "results", value_name = "STYLE")]
     pub results: Option<String>,
 
     /// Number of visible text lines
@@ -76,22 +64,21 @@ pub struct Cli {
         long = "lines",
         default_value_t = DEFAULT_LINE_COUNT,
         value_name = "COUNT",
-        help = "Number of visible text lines"
     )]
     pub visible_lines: u8,
 
     /// Enables debug mode
     #[cfg(debug_assertions)]
-    #[arg(short = 'd', long = "debug", help = "Enables debug mode")]
+    #[arg(short = 'd', long = "debug")]
     pub debug: bool,
 
     /// Start the app showing the results screen (debug only)
     #[cfg(debug_assertions)]
-    #[arg(long = "show-results", help = "Start with results screen shown")]
+    #[arg(long = "show-results")]
     pub show_results: bool,
 
     /// Hide live WPM counter
-    #[arg(long = "hide-live-wpm", help = "Hide live WPM counter")]
+    #[arg(long = "hide-live-wpm")]
     pub hide_live_wpm: bool,
 }
 
@@ -101,4 +88,5 @@ impl Cli {
             self.words = None
         }
     }
+    // TODO: add here the check to print to console (i.e languages, themes, etc.)
 }
