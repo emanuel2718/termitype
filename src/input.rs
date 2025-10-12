@@ -7,6 +7,7 @@ use crate::{
     log_debug,
 };
 use crossterm::event::{KeyCode, KeyEvent};
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputContext {
@@ -20,6 +21,7 @@ pub enum InputContext {
 #[derive(Default)]
 pub struct Input {
     last_keycode: Option<KeyCode>,
+    last_esc_time: Option<Instant>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -34,6 +36,21 @@ impl Input {
     }
 
     pub fn handle(&mut self, event: KeyEvent, ctx: InputContext) -> InputResult {
+        // HOTFIX: we must debounce `Esc` because there is a bug of duplicated key events for me only on Linux. Resulting in the menu not opening and closing properly.
+        // I have setup `CapsLock` as dual-key (`Esc` when pressed alone and `Control` when pressed alongside another key).
+        // I do have that same setup in MacOS, but the bug only triggers on Linux. A quick solution for now, to make Linux build usable for testing, would be to debounce
+        // the esc events to a couple of ms to only register one of the duplicated back-to-back press events caused by my dual key setup.
+        // TODO: find a proper solution for this.
+        if event.code == KeyCode::Esc {
+            let now = Instant::now();
+            if let Some(last) = self.last_esc_time {
+                if now.duration_since(last) < Duration::from_millis(20) {
+                    return Self::wrap_input_result(Action::NoOp, false);
+                }
+            }
+            self.last_esc_time = Some(now);
+        }
+
         if let Some(action) = global_keymap().get_action_from(&event) {
             self.last_keycode = Some(event.code);
             log_debug!("The action from input.handle: {action:?}");
