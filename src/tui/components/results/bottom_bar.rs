@@ -1,13 +1,15 @@
 use crate::{theme::Theme, variants::ResultsVariant};
 use ratatui::{
-    Frame,
     layout::{Alignment, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
+    Frame,
 };
 use unicode_width::UnicodeWidthStr;
 
+// TODO: map this to the `keymap_builder` to avoid forgetting changing something here everytime
+// we change a keymap
 const VARIANTS: &[(&str, &str, ResultsVariant)] = &[
     ("Minimal", "m", ResultsVariant::Minimal),
     ("Graph", "g", ResultsVariant::Graph),
@@ -16,7 +18,7 @@ const VARIANTS: &[(&str, &str, ResultsVariant)] = &[
 
 const ACTIONS: &[(&str, &str)] = &[
     ("New", "N"),
-    ("Redo", "r"),
+    ("Redo", "R"),
     ("Menu", "esc"),
     ("Quit", "^c"),
     ("Randomize Theme", "^t"),

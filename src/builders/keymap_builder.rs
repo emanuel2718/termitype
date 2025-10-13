@@ -105,12 +105,12 @@ fn build_typing_keymap() -> KeyMap {
 fn build_results_keymap() -> KeyMap {
     KeyMap::new()
         .bind(KeyCode::Char('q'), Action::Quit)
-        .bind(KeyCode::Char('r'), Action::Redo)
         .bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
         .bind( KeyCode::Char('m'), Action::SetResultVariant(ResultsVariant::Minimal))
         .bind( KeyCode::Char('g'), Action::SetResultVariant(ResultsVariant::Graph))
         .bind( KeyCode::Char('n'), Action::SetResultVariant(ResultsVariant::Neofetch))
         .bind_with_mod(SHIFT, KeyCode::Char('N'), Action::Restart)
+        .bind_with_mod(SHIFT, KeyCode::Char('R'), Action::Redo)
 }
 
 fn build_menu_base_keymap() -> KeyMap {
