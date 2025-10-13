@@ -359,10 +359,14 @@ impl Tracker {
             return Err(AppError::IllegalBackspace);
         }
 
-        // disallow backspace at word boundary after a full correctly typed word
+        // disallow backspace at word boundary after a correctly typed word,
+        // but allow backspacing over space-jumped words
         if self.is_previous_token_a_space() {
             if let Some(prev_word) = self.prev_word() {
-                if prev_word.completed && prev_word.error_count == 0 {
+                if prev_word.completed
+                    && prev_word.error_count == 0
+                    && !self.prev_word_has_skipped_tokens()
+                {
                     return Ok(());
                 }
             }
@@ -387,10 +391,9 @@ impl Tracker {
             }
         }
 
-        // check if we are backspacing over a space that completed a word
+        // if we are backspacing over a space that completed a word, unmark the word as completed
         if let Some(token) = self.current_token() {
             if token.target == ' ' && self.current_word_idx > 0 {
-                // we are backspacing over a <space>, so go back to the previous word
                 self.current_word_idx -= 1;
                 if let Some(word) = self.current_word_mut() {
                     word.completed = false;
@@ -400,12 +403,13 @@ impl Tracker {
         }
 
         if let Some(token) = self.current_token_mut() {
+            let was_wrong = token.target != token.typed.unwrap_or('\0');
             token.typed = None;
             token.typed_at = None;
             token.is_wrong = false;
             token.is_skipped = false;
 
-            if token.target != token.typed.unwrap_or('\0') {
+            if was_wrong {
                 self.total_errors = self.total_errors.saturating_sub(1);
                 if let Some(word) = self.current_word_mut() {
                     word.error_count = word.error_count.saturating_sub(1);
@@ -459,6 +463,38 @@ impl Tracker {
             return None;
         }
         self.tokens.get(self.current_pos - 1)
+    }
+
+    fn prev_word_has_skipped_tokens(&self) -> bool {
+        if self.current_pos == 0 {
+            return false;
+        }
+
+        let mut pos = self.current_pos - 1;
+        while pos > 0 {
+            if let Some(token) = self.tokens.get(pos) {
+                if token.is_skipped {
+                    return true;
+                }
+                if token.target == ' ' {
+                    // space before the prev word
+                    break;
+                }
+            }
+            pos -= 1;
+        }
+        false
+    }
+
+    fn would_complete_word_at(&self, pos: usize) -> bool {
+        if pos == 0 {
+            return false;
+        }
+        // a word is `completed` if the previous token is a `<space>` or we are at the end of word
+        self.tokens
+            .get(pos - 1)
+            .is_some_and(|token| token.target == ' ')
+            || pos >= self.tokens.len()
     }
 
     /// Gets the current token
@@ -601,10 +637,6 @@ impl Tracker {
                 token.is_wrong = true;
                 token.is_skipped = true;
             }
-
-            if let Some(word) = self.current_word_mut() {
-                word.error_count += 1;
-            }
         }
 
         self.current_pos = target_pos;
@@ -619,10 +651,7 @@ impl Tracker {
 
     /// Reverses a given space jump operation
     fn undo_space_jump(&mut self, jump: SpaceJump) -> Result<(), AppError> {
-        let positions_to_undo = jump
-            .target_pos
-            .saturating_sub(jump.source_pos)
-            .saturating_add(1);
+        let positions_to_undo = jump.target_pos.saturating_sub(jump.source_pos);
 
         self.total_errors = self.total_errors.saturating_sub(positions_to_undo);
 
@@ -630,34 +659,24 @@ impl Tracker {
         let new_len = self.typed_text.len().saturating_sub(positions_to_undo);
         self.typed_text.truncate(new_len);
 
-        // restore space-jumped word and token states to default
-        for pos in (jump.source_pos..=jump.target_pos).rev() {
-            self.current_pos = pos;
+        let word_was_completed = self.would_complete_word_at(jump.target_pos);
 
-            if let Some(token) = self.current_token_mut() {
+        // if a word was completed during the space jump... unmark it and go back one word
+        if word_was_completed && self.current_word_idx > 0 {
+            self.current_word_idx -= 1;
+            if let Some(word) = self.current_word_mut() {
+                word.completed = false;
+                word.end_time = None;
+            }
+        }
+
+        // restore the space jumped token state
+        for pos in (jump.source_pos..jump.target_pos).rev() {
+            if let Some(token) = self.tokens.get_mut(pos) {
                 token.typed = None;
                 token.typed_at = None;
                 token.is_wrong = false;
                 token.is_skipped = false;
-
-                if token.target != ' ' {
-                    if let Some(word) = self.current_word_mut() {
-                        word.error_count = word.error_count.saturating_sub(1);
-                    }
-                }
-            }
-
-            // should we unmark the completed word
-            if pos > 0 {
-                if let Some(token) = self.prev_token() {
-                    if token.target == ' ' && self.current_word_idx > 0 {
-                        self.current_word_idx -= 1;
-                        if let Some(word) = self.current_word_mut() {
-                            word.completed = false;
-                            word.end_time = None;
-                        }
-                    }
-                }
             }
         }
 
@@ -1475,6 +1494,27 @@ mod tests {
     }
 
     #[test]
+    fn test_space_jump_and_back_with_fixed_error() {
+        let mut tracker =
+            Tracker::new("another change to do here".to_string(), Mode::with_words(5));
+
+        tracker.type_char('a').unwrap();
+        tracker.type_char(' ').unwrap();
+        tracker.backspace().unwrap();
+        tracker.type_char('a').unwrap();
+        tracker.backspace().unwrap();
+
+        // complete the word
+        for c in "nother".chars() {
+            tracker.type_char(c).unwrap();
+        }
+        tracker.type_char(' ').unwrap();
+
+        // first word is corrected and shouldn't be marked as wrong
+        assert_eq!(tracker.words.first().unwrap().error_count, 0);
+    }
+
+    #[test]
     fn test_backspace_after_multiple_chained_spaces() {
         let target_text = "hello there termitype hope you doing good".to_string();
         let mut tracker = Tracker::new(target_text, Mode::with_time(30));
@@ -1608,5 +1648,129 @@ mod tests {
         tracker.wpm_snapshots.snapshots = vec![0.0, 0.0];
         tracker.update_metrics();
         assert_eq!(tracker.consistency(), 0.0);
+    }
+
+    #[test]
+    fn test_space_jump_skipped_words_no_error_count() {
+        let mut tracker = Tracker::new("hello world test".to_string(), Mode::with_words(3));
+        tracker.start_typing();
+
+        tracker.type_char('h').unwrap();
+        assert_eq!(tracker.current_pos, 1);
+        assert_eq!(tracker.words[0].error_count, 0);
+
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_pos, 6);
+        assert_eq!(tracker.current_word_idx, 1);
+
+        assert_eq!(tracker.words[0].error_count, 0);
+
+        assert_eq!(tracker.words[1].error_count, 0);
+    }
+
+    #[test]
+    fn test_backspace_extra_tokens_at_boundary_should_fix_error_count() {
+        let mut tracker = Tracker::new("hello world".to_string(), Mode::with_words(2));
+        tracker.start_typing();
+
+        for c in "hello".chars() {
+            tracker.type_char(c).unwrap();
+        }
+        assert_eq!(tracker.current_pos, 5);
+        assert_eq!(tracker.words[0].error_count, 0);
+        assert_eq!(tracker.total_errors, 0);
+
+        tracker.type_char('X').unwrap();
+        tracker.type_char('Y').unwrap();
+        tracker.type_char('Z').unwrap();
+
+        tracker.backspace().unwrap();
+        tracker.backspace().unwrap();
+        tracker.backspace().unwrap();
+
+        assert_eq!(tracker.current_pos, 5);
+        assert_eq!(tracker.words[0].error_count, 0);
+        assert_eq!(tracker.total_errors, 0);
+
+        tracker.type_char(' ').unwrap();
+        assert_eq!(tracker.current_word_idx, 1);
+
+        assert!(tracker.words[0].completed);
+        assert_eq!(
+            tracker.words[0].error_count, 0,
+            "Completed word should have 0 errors after correction"
+        );
+    }
+
+    #[test]
+    fn test_complete_word_with_errors_then_backspace_and_fix() {
+        let mut tracker = Tracker::new("hello world".to_string(), Mode::with_words(2));
+        tracker.start_typing();
+
+        tracker.type_char('h').unwrap();
+        tracker.type_char('a').unwrap(); // wrong char!
+        tracker.type_char('l').unwrap();
+        tracker.type_char('l').unwrap();
+        tracker.type_char('o').unwrap();
+        assert_eq!(tracker.words[0].error_count, 1);
+
+        tracker.type_char(' ').unwrap();
+        assert!(tracker.words[0].completed);
+        assert_eq!(tracker.words[0].error_count, 1);
+        assert_eq!(tracker.current_word_idx, 1);
+
+        tracker.backspace().unwrap();
+        assert!(!tracker.words[0].completed);
+        assert_eq!(tracker.current_word_idx, 0);
+
+        tracker.backspace().unwrap();
+        tracker.backspace().unwrap();
+        tracker.backspace().unwrap();
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.words[0].error_count, 0);
+
+        tracker.type_char('e').unwrap();
+        tracker.type_char('l').unwrap();
+        tracker.type_char('l').unwrap();
+        tracker.type_char('o').unwrap();
+        assert_eq!(tracker.words[0].error_count, 0);
+
+        tracker.type_char(' ').unwrap();
+        assert!(tracker.words[0].completed);
+        assert_eq!(tracker.words[0].error_count, 0);
+    }
+
+    #[test]
+    fn test_word_with_errors_then_space_jump_then_backspace_and_fix() {
+        let mut tracker = Tracker::new("hello world test".to_string(), Mode::with_words(3));
+        tracker.start_typing();
+
+        tracker.type_char('h').unwrap();
+        tracker.type_char('a').unwrap(); // wrong char
+        assert_eq!(tracker.words[0].error_count, 1);
+
+        tracker.type_char(' ').unwrap();
+        assert!(tracker.words[0].completed);
+        assert_eq!(tracker.words[0].error_count, 1);
+        assert_eq!(tracker.current_word_idx, 1);
+        assert_eq!(tracker.current_pos, 6);
+
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.current_pos, 2);
+
+        assert_eq!(tracker.current_word_idx, 0);
+        assert!(!tracker.words[0].completed,);
+
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.words[0].error_count, 0);
+
+        tracker.type_char('e').unwrap();
+        tracker.type_char('l').unwrap();
+        tracker.type_char('l').unwrap();
+        tracker.type_char('o').unwrap();
+        tracker.type_char(' ').unwrap();
+
+        assert_eq!(tracker.words[0].error_count, 0);
+        assert!(tracker.words[0].completed);
     }
 }
