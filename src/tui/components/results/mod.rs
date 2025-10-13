@@ -11,17 +11,13 @@ pub struct Results;
 impl Results {
     pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, layout: ResultsLayout) {
         let current_variant = app.config.current_results_variant();
+        let area = layout.results_area;
 
-        let height = layout.results_area.height;
-        let width = layout.results_area.width;
-
-        let screen = match current_variant {
-            ResultsVariant::Minimal => minimal::create_minimal_results(app, theme, height, width),
-            ResultsVariant::Graph => graph::create_graph_results(theme, height, width),
-            ResultsVariant::Neofetch => neofetch::create_neofetch_results(app, theme, height, width),
-        };
-
-        frame.render_widget(screen, layout.results_area);
+        match current_variant {
+            ResultsVariant::Minimal => minimal::render(frame, app, theme, area),
+            ResultsVariant::Graph => graph::render(frame, app, theme, area),
+            ResultsVariant::Neofetch => neofetch::render(frame, app, theme, area),
+        }
 
         bottom_bar::render_bar(frame, theme, current_variant, layout.footer_area);
     }

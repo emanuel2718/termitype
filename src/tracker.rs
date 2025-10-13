@@ -907,6 +907,12 @@ impl WpmSnapshots {
         self.snapshots.push(wpm);
     }
 
+    /// Returns an iterator over the WPM snapshots
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &f64> {
+        self.snapshots.iter()
+    }
+
     #[inline]
     pub fn min(&self) -> f64 {
         self.snapshots

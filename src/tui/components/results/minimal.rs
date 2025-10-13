@@ -10,13 +10,12 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph},
 };
 
-///  ResultsVariant::Minimal
-pub fn create_minimal_results<'a>(
-    app: &mut App,
-    theme: &Theme,
-    height: u16,
-    width: u16,
-) -> Paragraph<'a> {
+use ratatui::{layout::Rect, Frame};
+
+/// ResultsVariant::Minimal
+pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
+    let height = area.height;
+    let width = area.width;
     let summary = app.tracker.summary();
 
     let label_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
@@ -59,7 +58,7 @@ pub fn create_minimal_results<'a>(
     let content_max_width = max_line_width(&vertically_padded);
     let (left_pad, right_pad) = calculate_horizontal_padding(content_max_width, width);
 
-    Paragraph::new(vertically_padded)
+    let widget = Paragraph::new(vertically_padded)
         .style(Style::default().fg(theme.fg()))
         .alignment(Alignment::Left)
         .block(Block::default().padding(Padding {
@@ -67,5 +66,7 @@ pub fn create_minimal_results<'a>(
             right: right_pad,
             top: 0,
             bottom: 0,
-        }))
+        }));
+
+    frame.render_widget(widget, area);
 }

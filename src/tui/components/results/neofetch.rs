@@ -14,12 +14,11 @@ const STATS_MIN_WIDTH: usize = 40; // min width needed for stats
 const SPACING: usize = 4; // space between art and stats
 const MIN_PADDING: usize = 4; // min horizontal_padding
 
-pub fn create_neofetch_results<'a>(
-    app: &mut App,
-    theme: &Theme,
-    height: u16,
-    width: u16,
-) -> Paragraph<'a> {
+use ratatui::{layout::Rect, Frame};
+
+pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
+    let height = area.height;
+    let width = area.width;
     let summary = app.tracker.summary();
 
     let ascii_name = ascii::get_ascii(app.config.current_ascii_art().as_str()).unwrap_or_default();
@@ -238,7 +237,7 @@ pub fn create_neofetch_results<'a>(
         (MIN_PADDING / 2) as u16
     };
 
-    Paragraph::new(lines)
+    let widget = Paragraph::new(lines)
         .style(Style::default().fg(theme.fg()))
         .alignment(Alignment::Left)
         .block(Block::default().padding(Padding {
@@ -246,5 +245,7 @@ pub fn create_neofetch_results<'a>(
             right: horizontal_padding,
             top: vertical_padding,
             bottom: 0,
-        }))
+        }));
+
+    frame.render_widget(widget, area);
 }
