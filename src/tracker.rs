@@ -1,4 +1,6 @@
-use crate::{config::Mode, constants::MAX_EXTRA_WRONG_CHARS, error::AppError, log_debug};
+use crate::{
+    config::Mode, constants::MAX_EXTRA_WRONG_CHARS, error::AppError, log_debug, notifications,
+};
 use std::time::{Duration, Instant};
 
 const WORD_BOUNDARY_ESTIMATE_RATIO: usize = 5;
@@ -216,6 +218,12 @@ impl Tracker {
             }
             self.invalidate_metrics_cache();
             self.update_metrics();
+            // NOTE: maybe we want a configurable option to let the user determine this behavior
+            // for now, just clear them on test start
+            // Maybe this is a weird side-effect, not sure if I like this
+            if notifications::has_any() {
+                notifications::clear_notifications();
+            }
         }
     }
 

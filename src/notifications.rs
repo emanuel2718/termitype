@@ -107,6 +107,10 @@ pub fn get_active_notifications() -> Vec<Notification> {
     }
 }
 
+pub fn has_any() -> bool {
+    !get_active_notifications().is_empty()
+}
+
 pub fn clear_notifications() {
     if let Ok(mut notifications) = get_notifications().lock() {
         notifications.clear()
@@ -280,5 +284,13 @@ mod tests {
         assert_eq!(active[0].message, "msg 2");
         assert_eq!(active[1].message, "msg 3");
         assert_eq!(active[2].message, "msg 4");
+    }
+
+    #[test]
+    fn test_has_any() {
+        reset_notifications();
+        assert!(!has_any());
+        notify(NotificationSeverity::Info, "test message");
+        assert!(has_any());
     }
 }
