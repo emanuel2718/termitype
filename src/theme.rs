@@ -53,7 +53,7 @@ impl ThemeColor {
         match self {
             ThemeColor::Background => "background",
             ThemeColor::Foreground => "foreground",
-            ThemeColor::Muted => "palette8",
+            ThemeColor::Muted => "palette7", // NOTE: originally was palette8
             ThemeColor::Accent => "palette10",
             ThemeColor::Info => "palette4",
             ThemeColor::Primary => "palette5",

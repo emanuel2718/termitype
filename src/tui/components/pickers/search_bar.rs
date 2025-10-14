@@ -1,10 +1,10 @@
 use crate::{menu::Menu, theme::Theme};
 use ratatui::{
-    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Padding, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph},
+    Frame,
 };
 
 pub fn render_menu_bottom_bar(
@@ -26,12 +26,8 @@ pub fn render_menu_bottom_bar(
         frame.render_widget(Clear, bar_area);
         let border_block = Block::default()
             .borders(Borders::ALL)
-            .border_style(
-                Style::default()
-                    .fg(theme.border())
-                    .bg(theme.bg())
-                    .remove_modifier(Modifier::all()),
-            )
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
             .style(Style::default().bg(theme.bg()))
             .padding(Padding {
                 left: 1,

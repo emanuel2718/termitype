@@ -10,11 +10,11 @@ use crate::{
     },
 };
 use ratatui::{
-    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Modifier, Style},
+    style::{Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
+    Frame,
 };
 
 fn calculate_total_menu_area(overlay_area: Rect, screen_area: Rect, has_visualizer: bool) -> Rect {
@@ -83,36 +83,25 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 let top_panel = rows[0];
                 let bottom_panel_base = rows[rows.len() - 1];
 
+                // TODO: make it an option to choose the style of menu based on `BorderType` opts
+
                 // items (top)
                 let top_block = Block::default()
                     .borders(Borders::ALL)
-                    .border_style(
-                        Style::default()
-                            .fg(theme.border())
-                            .bg(theme.bg())
-                            .remove_modifier(Modifier::all()),
-                    )
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .title(format!(" {} ", title))
                     .title_alignment(Alignment::Center)
-                    .title_style(
-                        Style::default()
-                            .fg(theme.border())
-                            .bg(theme.bg())
-                            .remove_modifier(Modifier::all()),
-                    )
-                    .style(Style::default().bg(theme.bg()));
+                    .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
+                    .bg(theme.bg());
                 let top_inner = top_block.inner(top_panel);
                 frame.render_widget(top_block, top_panel);
 
                 // visualizer (bot)
                 let bottom_block = Block::default()
                     .borders(Borders::ALL)
-                    .border_style(
-                        Style::default()
-                            .fg(theme.border())
-                            .bg(theme.bg())
-                            .remove_modifier(Modifier::all()),
-                    )
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .style(Style::default().bg(theme.bg()));
                 let bottom_inner = bottom_block.inner(bottom_panel_base);
                 frame.render_widget(bottom_block, bottom_panel_base);
@@ -134,20 +123,11 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 // items (left)
                 let left_block = Block::default()
                     .borders(Borders::ALL)
-                    .border_style(
-                        Style::default()
-                            .fg(theme.border())
-                            .bg(theme.bg())
-                            .remove_modifier(Modifier::all()),
-                    )
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .title(format!(" {} ", title))
                     .title_alignment(Alignment::Center)
-                    .title_style(
-                        Style::default()
-                            .fg(theme.border())
-                            .bg(theme.bg())
-                            .remove_modifier(Modifier::all()),
-                    )
+                    .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .style(Style::default().bg(theme.bg()));
                 let left_inner = left_block.inner(left_panel);
                 frame.render_widget(left_block, left_panel);
@@ -164,12 +144,8 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 // right (visualizer)
                 let right_block = Block::default()
                     .borders(Borders::ALL)
-                    .border_style(
-                        Style::default()
-                            .fg(theme.border())
-                            .bg(theme.bg())
-                            .remove_modifier(Modifier::all()),
-                    )
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .style(Style::default().bg(theme.bg()));
                 let right_inner = right_block.inner(right_panel);
                 frame.render_widget(right_block, right_panel);
@@ -180,20 +156,11 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
             // single panel (no visualizer)
             let menu_block = Block::default()
                 .borders(Borders::ALL)
-                .border_style(
-                    Style::default()
-                        .fg(theme.border())
-                        .bg(theme.bg())
-                        .remove_modifier(Modifier::all()),
-                )
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                 .title(format!(" {} ", title))
                 .title_alignment(Alignment::Center)
-                .title_style(
-                    Style::default()
-                        .fg(theme.border())
-                        .bg(theme.bg())
-                        .remove_modifier(Modifier::all()),
-                )
+                .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                 .style(Style::default().bg(theme.bg()));
             let inner_area = menu_block.inner(overlay_area);
             frame.render_widget(menu_block, overlay_area);
@@ -292,7 +259,11 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 let indicator = if is_toggle {
                     if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
                         let enabled = app.config.is_enabled(setting.clone());
-                        if enabled { "[x]" } else { "[ ]" }
+                        if enabled {
+                            "[x]"
+                        } else {
+                            "[ ]"
+                        }
                     } else {
                         unreachable!()
                     }

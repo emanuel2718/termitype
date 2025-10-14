@@ -23,10 +23,14 @@ impl ModalDialog {
         let modal_area = helpers::centered_fixed_rect(w, h, area);
         f.render_widget(Clear, modal_area);
 
+        let border_style = Style::default()
+            .fg(theme.border())
+            .add_modifier(Modifier::DIM);
+
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_type(BorderType::Plain)
-            .border_style(Style::default().fg(theme.border()))
+            .border_type(BorderType::Rounded)
+            .border_style(border_style)
             .style(Style::default().bg(theme.bg()));
 
         let inner_area = block.inner(modal_area);
