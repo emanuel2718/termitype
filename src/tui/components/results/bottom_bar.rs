@@ -11,9 +11,9 @@ use unicode_width::UnicodeWidthStr;
 // TODO: map this to the `keymap_builder` to avoid forgetting changing something here everytime
 // we change a keymap
 const VARIANTS: &[(&str, &str, ResultsVariant)] = &[
-    ("Minimal", "m", ResultsVariant::Minimal),
     ("Graph", "g", ResultsVariant::Graph),
     ("Neofetch", "n", ResultsVariant::Neofetch),
+    ("Minimal", "m", ResultsVariant::Minimal),
 ];
 
 const ACTIONS: &[(&str, &str)] = &[

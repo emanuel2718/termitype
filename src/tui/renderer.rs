@@ -3,8 +3,9 @@ use crate::{
     theme::{self, Theme},
     tui::{
         components::{
-            command_bar, footer, modal_dialog::ModalDialog, mode_bar, pickers::Picker,
-            results::Results, size_warning, title, typing_area,
+            command_bar, footer, modal_dialog::ModalDialog, mode_bar,
+            notifications::NotificationComponent, pickers::Picker, results::Results, size_warning,
+            title, typing_area,
         },
         layout::{
             create_main_layout, create_results_layout, AppLayout, LayoutBuilder, ResultsLayout,
@@ -138,4 +139,6 @@ fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Re
     } else if app.menu.is_open() {
         Picker::render(frame, app, theme, area);
     }
+
+    NotificationComponent::render(frame, theme, area);
 }

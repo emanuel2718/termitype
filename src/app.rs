@@ -7,14 +7,14 @@ use crate::{
     log_debug, log_info,
     menu::{Menu, MenuContext, MenuMotion},
     modal::{Modal, ModalContext},
-    theme,
+    notify_info, theme,
     tracker::Tracker,
     tui,
     variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
-use ratatui::{Terminal, prelude::Backend};
+use ratatui::{prelude::Backend, Terminal};
 use std::time::Duration;
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
@@ -43,7 +43,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
         }
 
         app.tracker.try_metrics_update();
-        app.tracker.check_completion();
+        if app.tracker.check_completion() {
+            app.try_save_results();
+        }
 
         terminal.draw(|frame| {
             // TODO: return the click actions
@@ -107,6 +109,22 @@ impl App {
         self.tracker
             .reset(self.lexicon.words.clone(), self.config.current_mode());
         Ok(())
+    }
+
+    pub fn try_save_results(&mut self) {
+        if !self.should_save_results() {
+            notify_info!("Test invalid - too short")
+        }
+        // TODO: actually save the results
+    }
+
+    fn should_save_results(&self) -> bool {
+        const MIN_TIME_FOR_SAVING: usize = 15;
+        const MIN_WORDS_FOR_SAVING: usize = 10;
+        match self.config.current_mode() {
+            Mode::Time(duration) => duration.get() >= MIN_TIME_FOR_SAVING,
+            Mode::Words(count) => count.get() >= MIN_WORDS_FOR_SAVING,
+        }
     }
 
     pub fn handle_input(&mut self, chr: char) -> Result<(), AppError> {

@@ -339,9 +339,9 @@ impl Tracker {
             self.mark_word_as_completed();
         }
 
-        if self.should_complete() {
-            self.complete();
-        }
+        // if self.should_complete() {
+        //     self.complete();
+        // }
 
         log_debug!("Tracker::type_char: {c}");
         Ok(())
@@ -446,11 +446,13 @@ impl Tracker {
         matches!(self.status, TypingStatus::Completed)
     }
 
-    pub fn check_completion(&mut self) {
+    pub fn check_completion(&mut self) -> bool {
         let typing_test_in_progress = self.is_typing() || self.is_resuming();
         if typing_test_in_progress && self.should_complete() {
             self.complete();
+            return true;
         }
+        false
     }
 
     fn is_previous_token_a_space(&self) -> bool {
@@ -1098,7 +1100,7 @@ mod tests {
         tracker.type_char('h').unwrap();
         tracker.type_char('i').unwrap();
 
-        assert!(tracker.is_complete());
+        assert!(tracker.check_completion());
         assert_eq!(tracker.status, TypingStatus::Completed);
     }
 
@@ -1110,12 +1112,13 @@ mod tests {
             tracker.type_char(c).unwrap()
         }
 
-        assert!(!tracker.is_complete());
+        assert!(!tracker.check_completion());
 
         for c in "world".chars() {
             tracker.type_char(c).unwrap()
         }
-        assert!(tracker.is_complete())
+
+        assert!(tracker.check_completion())
     }
 
     #[test]
@@ -1175,6 +1178,7 @@ mod tests {
         }
 
         tracker.start_time = Some(Instant::now() - Duration::from_secs(15));
+        tracker.check_completion(); // Complete the test to update metrics
 
         let summary = tracker.summary();
         assert!(summary.wpm >= 0.0);
@@ -1359,6 +1363,7 @@ mod tests {
             tracker.type_char(c).unwrap();
         }
 
+        assert!(tracker.check_completion());
         let summary = tracker.summary();
         assert_eq!(tracker.status, TypingStatus::Completed);
         assert!(summary.wpm > 0.0);
@@ -1390,13 +1395,15 @@ mod tests {
         let mut tracker = Tracker::new(target_text.clone(), Mode::with_time(60));
 
         for _ in 0..target_text.len() - 1 {
-            if tracker.is_complete() {
+            if tracker.check_completion() {
                 break;
             }
             for _ in 0..6 {
-                tracker.type_char('x').unwrap(); // no `x` in the target text
+                if tracker.type_char('x').is_err() {
+                    break;
+                }
             }
-            tracker.type_char(' ').unwrap();
+            let _ = tracker.type_char(' ');
         }
 
         let wpm = tracker.wpm();
@@ -1405,13 +1412,15 @@ mod tests {
         let mut tracker = Tracker::new(target_text.clone(), Mode::with_words(target_text.len()));
 
         for _ in 0..target_text.len() - 1 {
-            if tracker.is_complete() {
+            if tracker.check_completion() {
                 break;
             }
             for _ in 0..6 {
-                tracker.type_char('x').unwrap(); // no `x` in the target text
+                if tracker.type_char('x').is_err() {
+                    break;
+                }
             }
-            tracker.type_char(' ').unwrap();
+            let _ = tracker.type_char(' ');
         }
 
         let wpm = tracker.wpm();
@@ -1605,7 +1614,7 @@ mod tests {
             tracker.type_char(c).unwrap();
         }
         assert_eq!(tracker.current_word_idx, 0);
-        assert!(!tracker.is_complete());
+        assert!(!tracker.check_completion());
 
         // wrong tokens, should add extra tokens
         for c in "xxxyyyzzz".chars() {
@@ -1614,28 +1623,29 @@ mod tests {
 
         // we still at word `0`, not done yet
         assert_eq!(tracker.current_word_idx, 0);
-        assert!(!tracker.is_complete());
+        assert!(!tracker.check_completion());
 
         // move to next word
         tracker.type_char(' ').unwrap();
         assert_eq!(tracker.current_word_idx, 1);
-        assert!(!tracker.is_complete());
+        assert!(!tracker.check_completion());
 
         for c in "world".chars() {
             tracker.type_char(c).unwrap();
-            assert!(!tracker.is_complete()); // we still in word_idx=1 out of 2, not done yet
         }
+        assert!(!tracker.check_completion()); // we still in word_idx=1 out of 2, not done yet
 
         tracker.type_char(' ').unwrap();
 
-        // word_idx=2, but we haven't completed the word sow we are not done
-        assert!(!tracker.is_complete());
+        // word_idx=2, but we haven't completed the word so we are not done
+        assert!(!tracker.check_completion());
         assert_eq!(tracker.current_word_idx, 2);
 
         for c in "test".chars() {
             tracker.type_char(c).unwrap();
         }
-        assert!(tracker.is_complete());
+
+        assert!(tracker.check_completion());
     }
 
     #[test]
