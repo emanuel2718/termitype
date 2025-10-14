@@ -23,12 +23,26 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
 
     theme::init_from_config(config)?;
 
+    // NOTE(ema): this initial draw is needed do to the optimizations around reducing cpu usage on IDLE.
+    // These optmizations caused the first draw to happen after `250ms` which felt incredibly sluggish.
+    // To work around this, a good quick and easy solution is to do an immediate draw before
+    // entering the loop. Probably there's a better way to do this. If future me see this comment...
+    // you are probably thinking: "Who the f*k did this? What a sub-optimal way to handle this".
+    // ...It was you, always has been
+    terminal.draw(|frame| {
+        let _ = tui::renderer::draw_ui(frame, &mut app);
+    })?;
+    app.needs_redraw = false;
+
     log_info!("The config: {config:?}");
     loop {
         if app.should_quit {
             break;
         }
-        if event::poll(Duration::from_millis(75))? {
+
+        let poll_duration = app.get_poll_duration();
+
+        if event::poll(poll_duration)? {
             match event::read()? {
                 Event::Key(event) if event.kind == KeyEventKind::Press => {
                     let input_ctx = app.resolve_input_context();
@@ -37,6 +51,10 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
                         continue;
                     }
                     actions::handle_action(&mut app, input_result.action)?;
+                    app.mark_needs_redraw();
+                }
+                Event::Resize(_, _) => {
+                    app.mark_needs_redraw();
                 }
                 _ => {}
             }
@@ -45,12 +63,19 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
         app.tracker.try_metrics_update();
         if app.tracker.check_completion() {
             app.try_save_results();
+            app.mark_needs_redraw();
         }
 
-        terminal.draw(|frame| {
-            // TODO: return the click actions
-            let _ = tui::renderer::draw_ui(frame, &mut app);
-        })?;
+        if app.tracker.is_typing() {
+            app.mark_needs_redraw();
+        }
+
+        if app.take_needs_redraw() {
+            terminal.draw(|frame| {
+                // TODO: return the click actions
+                let _ = tui::renderer::draw_ui(frame, &mut app);
+            })?;
+        }
     }
 
     Ok(())
@@ -63,6 +88,7 @@ pub struct App {
     pub lexicon: Lexicon,
     pub tracker: Tracker,
     should_quit: bool,
+    needs_redraw: bool,
 }
 
 impl App {
@@ -83,13 +109,38 @@ impl App {
             tracker,
             lexicon,
             should_quit: false,
+            needs_redraw: true,
         }
     }
 
     pub fn quit(&mut self) -> Result<(), AppError> {
         self.sync_global_changes()?;
         self.should_quit = true;
+        self.mark_needs_redraw();
         Ok(())
+    }
+
+    /// Mark that the app needs to redraw on next iteration
+    fn mark_needs_redraw(&mut self) {
+        self.needs_redraw = true;
+    }
+
+    /// Check if redraw is needed and consume it
+    fn take_needs_redraw(&mut self) -> bool {
+        let needs = self.needs_redraw;
+        self.needs_redraw = false;
+        needs
+    }
+
+    /// Get the appropriate poll duration based on current state
+    fn get_poll_duration(&self) -> Duration {
+        let ctx = self.resolve_input_context();
+        match ctx {
+            InputContext::Typing => Duration::from_millis(75),
+            InputContext::Menu { .. } | InputContext::Modal => Duration::from_millis(100),
+            InputContext::Idle => Duration::from_millis(250),
+            InputContext::Completed => Duration::from_millis(1000),
+        }
     }
 
     pub fn redo(&mut self) -> Result<(), AppError> {

@@ -26,8 +26,8 @@ pub fn create_mode_line<'a>(
     if container_width < MODE_LINE_MIN_WIDTH {
         let compact_spans = vec![
             Span::styled("☰ ", fg_style),
-            Span::styled("Menu ", fg_style.remove_modifier(Modifier::DIM)),
-            Span::styled("<ctrl-space>", fg_style),
+            Span::styled("Menu ", fg_style),
+            Span::styled("<esc>", fg_style),
         ];
         let compact_line = Line::from(compact_spans);
         return Paragraph::new(compact_line)
