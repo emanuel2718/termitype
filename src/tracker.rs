@@ -301,9 +301,8 @@ impl Tracker {
                 self.tokens.insert(self.current_pos, new_token);
                 self.typed_text.push(c);
                 self.total_errors += 1;
-                if let Some(word) = self.current_word_mut() {
-                    word.error_count += 1;
-                }
+                // Note: we don't increment word.error_count for extra tokens at word boundaries
+                // because they are boundary errors, not errors within the word itself
                 self.extra_errors_count += 1;
                 self.current_pos += 1;
             }
@@ -387,13 +386,15 @@ impl Tracker {
         if let Some(token) = self.tokens.get(self.current_pos) {
             if token.is_extra_token() {
                 self.tokens.remove(self.current_pos);
+                self.total_errors = self.total_errors.saturating_sub(1);
                 self.extra_errors_count = self.extra_errors_count.saturating_sub(1);
+                return Ok(()); // do not process the extra token
             }
         }
 
         // if we are backspacing over a space that completed a word, unmark the word as completed
         if let Some(token) = self.current_token() {
-            if token.target == ' ' && self.current_word_idx > 0 {
+            if token.target == ' ' && token.typed.is_some() && self.current_word_idx > 0 {
                 self.current_word_idx -= 1;
                 if let Some(word) = self.current_word_mut() {
                     word.completed = false;
@@ -495,6 +496,14 @@ impl Tracker {
             .get(pos - 1)
             .is_some_and(|token| token.target == ' ')
             || pos >= self.tokens.len()
+    }
+
+    /// Checks if the word at the given position contains errors or not
+    #[inline]
+    pub fn is_word_wrong(&self, pos: usize) -> bool {
+        self.words
+            .get(pos)
+            .is_some_and(|w| w.completed && w.error_count > 0)
     }
 
     /// Gets the current token
@@ -1772,5 +1781,32 @@ mod tests {
 
         assert_eq!(tracker.words[0].error_count, 0);
         assert!(tracker.words[0].completed);
+    }
+
+    #[test]
+    fn test_bug_reproduction_wrong_words_completed() {
+        let text = "hello world test another text to test against".to_string();
+        let mut tracker = Tracker::new(text, Mode::with_words(8));
+        tracker.start_typing();
+
+        for c in "hello worlff".chars() {
+            tracker.type_char(c).unwrap();
+        }
+
+        tracker.backspace().unwrap();
+        tracker.backspace().unwrap();
+
+        for c in "d test ano".chars() {
+            tracker.type_char(c).unwrap();
+        }
+
+        assert!(tracker.words[0].completed);
+        assert!(!tracker.is_word_wrong(0));
+
+        assert!(tracker.words[1].completed);
+        assert!(!tracker.is_word_wrong(1));
+
+        assert!(tracker.words[2].completed);
+        assert!(!tracker.is_word_wrong(2));
     }
 }

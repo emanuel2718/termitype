@@ -86,11 +86,7 @@ fn create_target_text_line(state: &Tracker, theme: &Theme, max_width: u16) -> Ve
             word_idx += 1;
         }
 
-        let is_past_wrong_word = word_idx < state.current_word_idx
-            && state
-                .words
-                .get(word_idx)
-                .is_some_and(|w| w.completed && w.error_count > 0);
+        let is_past_wrong_word = word_idx < state.current_word_idx && state.is_word_wrong(word_idx);
 
         let fg_color = if token.is_skipped {
             theme.fg()
