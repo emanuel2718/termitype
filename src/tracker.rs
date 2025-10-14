@@ -359,12 +359,13 @@ impl Tracker {
         }
 
         // disallow backspace at word boundary after a correctly typed word,
-        // but allow backspacing over space-jumped words
+        // but allow backspacing over space-jumped words or words with extra tokens
         if self.is_previous_token_a_space() {
             if let Some(prev_word) = self.prev_word() {
                 if prev_word.completed
                     && prev_word.error_count == 0
                     && !self.prev_word_has_skipped_tokens()
+                    && !self.prev_word_has_extra_tokens()
                 {
                     return Ok(());
                 }
@@ -464,6 +465,30 @@ impl Tracker {
             return None;
         }
         self.tokens.get(self.current_pos - 1)
+    }
+
+    fn prev_word_has_extra_tokens(&self) -> bool {
+        if self.current_pos == 0 {
+            return false;
+        }
+
+        let mut pos = self.current_pos - 1;
+        let mut found_space = false;
+        while pos > 0 {
+            if let Some(token) = self.tokens.get(pos) {
+                if token.target == ' ' {
+                    if found_space {
+                        break;
+                    } else {
+                        found_space = true;
+                    }
+                } else if token.is_extra_token() {
+                    return true;
+                }
+            }
+            pos -= 1;
+        }
+        false
     }
 
     fn prev_word_has_skipped_tokens(&self) -> bool {
@@ -1808,5 +1833,24 @@ mod tests {
 
         assert!(tracker.words[2].completed);
         assert!(!tracker.is_word_wrong(2));
+    }
+
+    #[test]
+    fn test_allow_backspace_if_prev_word_is_correct_but_has_extra_chars() {
+        let text = "hello another test".to_string();
+        let mut tracker = Tracker::new(text, Mode::with_words(3));
+        tracker.start_typing();
+
+        for c in "helloFF".chars() {
+            tracker.type_char(c).unwrap();
+        }
+
+        tracker.type_char(' ').unwrap();
+
+        // at this point we have the `extra chars` and the word is typed correctly
+        assert_eq!(tracker.current_word().unwrap().target, "another");
+
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.current_word().unwrap().target, "hello"); // we should be able to go back
     }
 }
