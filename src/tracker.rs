@@ -675,6 +675,11 @@ impl Tracker {
             }
         }
 
+        // update error count for the currently skipped word
+        if let Some(word) = self.current_word_mut() {
+            word.error_count += jump_length;
+        }
+
         self.current_pos = target_pos;
 
         // did the jump complted a word
@@ -703,6 +708,13 @@ impl Tracker {
             if let Some(word) = self.current_word_mut() {
                 word.completed = false;
                 word.end_time = None;
+            }
+        }
+
+        // decrese the error count of the space jumped word equivalent to the undid positions
+        if word_was_completed {
+            if let Some(word) = self.current_word_mut() {
+                word.error_count = word.error_count.saturating_sub(positions_to_undo);
             }
         }
 
@@ -1707,7 +1719,9 @@ mod tests {
         assert_eq!(tracker.current_pos, 6);
         assert_eq!(tracker.current_word_idx, 1);
 
-        assert_eq!(tracker.words[0].error_count, 0);
+        // NOTE: we count the space as wrong even tho we don't render it in the ui, hence the `5`
+        assert_eq!(tracker.words[0].error_count, 5);
+        assert!(tracker.is_word_wrong(0));
 
         assert_eq!(tracker.words[1].error_count, 0);
     }
@@ -1795,7 +1809,8 @@ mod tests {
 
         tracker.type_char(' ').unwrap();
         assert!(tracker.words[0].completed);
-        assert_eq!(tracker.words[0].error_count, 1);
+        assert_eq!(tracker.words[0].error_count, 5);
+        assert!(tracker.is_word_wrong(0));
         assert_eq!(tracker.current_word_idx, 1);
         assert_eq!(tracker.current_pos, 6);
 
@@ -1862,5 +1877,16 @@ mod tests {
 
         tracker.backspace().unwrap();
         assert_eq!(tracker.current_word().unwrap().target, "hello"); // we should be able to go back
+    }
+
+    #[test]
+    fn test_space_jump_should_mark_word_as_wrong() {
+        let text = "hello another test".to_string();
+        let mut tracker = Tracker::new(text, Mode::with_words(3));
+        tracker.start_typing();
+        tracker.type_char('h').unwrap();
+        tracker.type_char(' ').unwrap();
+
+        assert!(tracker.is_word_wrong(0));
     }
 }
