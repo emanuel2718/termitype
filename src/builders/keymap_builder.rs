@@ -109,6 +109,8 @@ fn build_results_keymap() -> KeyMap {
         .bind( KeyCode::Char('m'), Action::SetResultVariant(ResultsVariant::Minimal))
         .bind( KeyCode::Char('g'), Action::SetResultVariant(ResultsVariant::Graph))
         .bind( KeyCode::Char('n'), Action::SetResultVariant(ResultsVariant::Neofetch))
+        .bind( KeyCode::Up, Action::CycleNextArt)
+        .bind( KeyCode::Down, Action::CyclePreviousArt)
         .bind_with_mod(SHIFT, KeyCode::Char('N'), Action::Restart)
         .bind_with_mod(SHIFT, KeyCode::Char('R'), Action::Redo)
 }

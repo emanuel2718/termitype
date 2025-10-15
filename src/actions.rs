@@ -53,6 +53,8 @@ pub enum Action {
     SetLanguage(String),
 
     RandomizeTheme,
+    CyclePreviousArt,
+    CycleNextArt,
 }
 
 pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
@@ -90,6 +92,8 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::SetLanguage(lang) => app.handle_set_language(lang),
         Action::SetAsciiArt(art) => app.handle_set_ascii_art(art),
         Action::RandomizeTheme => theme::use_random_theme(),
+        Action::CycleNextArt => app.handle_cycle_prev_art(),
+        Action::CyclePreviousArt => app.handle_cycle_next_art(),
         _ => Ok(()),
     }
 }

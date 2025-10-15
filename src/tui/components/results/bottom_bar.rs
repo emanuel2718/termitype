@@ -70,6 +70,23 @@ fn calculate_state(current_variant: ResultsVariant, width: u16) -> FooterState {
         entries.push(FooterEntry::Item(item));
     }
 
+    // NOTE(ema): this is a rapid solution for the cycle art feature. Maybe do this differently.
+    if current_variant == ResultsVariant::Neofetch {
+        let item = FooterItem {
+            label: "Cycle Art",
+            key: "↑/↓",
+            is_selected: false,
+        };
+        let item_width = calculate_item_width(&item);
+
+        if line_width + 1 + item_width <= width as usize {
+            line_width += 1;
+            line_width += item_width;
+            entries.push(FooterEntry::Splitter);
+            entries.push(FooterEntry::Item(item));
+        }
+    }
+
     for (label, key) in ACTIONS.iter() {
         let item = FooterItem {
             label,
@@ -130,7 +147,7 @@ fn create_footer_item<'a>(
 }
 
 fn calculate_item_width(item: &FooterItem) -> usize {
-    // Format: " Label [k] " (with padding inside the box)
+    // Format: " Label [k] "
     let content = format!(" {} [{}] ", item.label, item.key);
     UnicodeWidthStr::width(content.as_str())
 }

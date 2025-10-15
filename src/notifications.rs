@@ -111,6 +111,11 @@ pub fn has_any() -> bool {
     !get_active_notifications().is_empty()
 }
 
+/// Returns the count of currently active notification(s)
+pub fn count() -> usize {
+    get_active_notifications().len()
+}
+
 pub fn clear_notifications() {
     if let Ok(mut notifications) = get_notifications().lock() {
         notifications.clear()

@@ -1,5 +1,6 @@
 use crate::{
     actions::{self},
+    ascii,
     builders::lexicon_builder::Lexicon,
     config::{self, Config, Mode, Setting},
     error::AppError,
@@ -70,6 +71,16 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
             app.mark_needs_redraw();
         }
 
+        // if the # of active notification changes we must trigger a redraw, otherwise we end up
+        // we infinite duration notification in results  (we don't trigger redraws in `Results`
+        // until a `KeyEvent` or `Action`). This is easiest solution to that problem.
+        let current_count = crate::notifications::count();
+        if current_count != app.last_notification_count {
+            log_debug!("Notification count changed, trigger redraw!");
+            app.mark_needs_redraw();
+            app.last_notification_count = current_count;
+        }
+
         if app.take_needs_redraw() {
             terminal.draw(|frame| {
                 // TODO: return the click actions
@@ -89,6 +100,7 @@ pub struct App {
     pub tracker: Tracker,
     should_quit: bool,
     needs_redraw: bool,
+    last_notification_count: usize,
 }
 
 impl App {
@@ -110,13 +122,13 @@ impl App {
             lexicon,
             should_quit: false,
             needs_redraw: true,
+            last_notification_count: 0,
         }
     }
 
     pub fn quit(&mut self) -> Result<(), AppError> {
         self.sync_global_changes()?;
         self.should_quit = true;
-        self.mark_needs_redraw();
         Ok(())
     }
 
@@ -404,6 +416,30 @@ impl App {
 
     pub fn handle_set_ascii_art(&mut self, art: String) -> Result<(), AppError> {
         self.config.change_ascii_art(art);
+        Ok(())
+    }
+
+    // TODO: refactor this two `handle_cycle` functions into a single one that receives
+    // either `Direction::Next` or `Direction::Prev`
+    pub fn handle_cycle_next_art(&mut self) -> Result<(), AppError> {
+        let current = self.config.current_ascii_art();
+        let list = ascii::list_ascii();
+        if let Some(idx) = list.iter().position(|a| a == &current) {
+            let next_idx = (idx + 1) % list.len();
+            let next_art = list[next_idx].clone();
+            self.config.change_ascii_art(next_art);
+        }
+        Ok(())
+    }
+
+    pub fn handle_cycle_prev_art(&mut self) -> Result<(), AppError> {
+        let current = self.config.current_ascii_art();
+        let list = ascii::list_ascii();
+        if let Some(idx) = list.iter().position(|a| a == &current) {
+            let prev_idx = if idx == 0 { list.len() - 1 } else { idx - 1 };
+            let prev_art = list[prev_idx].clone();
+            self.config.change_ascii_art(prev_art);
+        }
         Ok(())
     }
 
