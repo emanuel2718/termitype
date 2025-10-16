@@ -29,6 +29,8 @@ pub fn list_ascii() -> Vec<String> {
         .unwrap_or_default()
 }
 
+// TODO: we must add support for all the major mainstream linux distributions
+// For example, if you are using Void Linux, it would be neat to detect that and show the void art
 pub fn get_default_art_by_os() -> &'static str {
     match () {
         _ if cfg!(target_os = "macos") => "Apple",

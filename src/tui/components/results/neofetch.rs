@@ -66,7 +66,6 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
         summary.snapshots.max(),
     );
 
-    // Format stats
     let stats = vec![
         (
             format!("{}@{}", username, APP_NAME),
@@ -142,11 +141,33 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     };
 
     let mut lines: Vec<Line> = Vec::new();
-    let max_lines = if show_ascii {
-        ascii_lines.len().saturating_add(1).max(stats.len())
+
+    // vertical offset for the vertical stats alignement
+    let stats_offset = if show_ascii {
+        let ascii_height = ascii_lines.len().saturating_add(1);
+        (ascii_height.saturating_sub(stats.len())) / 2
     } else {
-        stats.len()
+        0
     };
+
+    let max_lines = if show_ascii {
+        let ascii_height = ascii_lines.len().saturating_add(1);
+        let stats_and_colors_height = stats_offset + stats.len() + 2; // +2 for empty line and color blocks
+        ascii_height.max(stats_and_colors_height)
+    } else {
+        stats.len() + 2 // +2 for empty line and color blocks
+    };
+
+    let palette_colors = vec![
+        theme.muted(),
+        theme.error(),
+        theme.success(),
+        theme.warning(),
+        theme.info(),
+        theme.primary(),
+        theme.highlight(),
+        theme.fg(),
+    ];
 
     for i in 0..max_lines {
         let mut spans = Vec::new();
@@ -176,48 +197,39 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
             spans.push(Span::raw(" ".repeat(SPACING)));
         }
 
-        if i < stats.len() {
-            if i == 0 {
+        if i >= stats_offset && i < (stats_offset + stats.len()) {
+            let stat_idx = i - stats_offset;
+            if stat_idx == 0 {
                 // header
                 spans.push(Span::styled(username.clone(), header_style));
                 spans.push(Span::styled("@", value_style));
                 spans.push(Span::styled("termitype", header_style));
-            } else if i == 1 {
+            } else if stat_idx == 1 {
                 // separator
                 let sep = "─".repeat(username.len() + 1 + "termitype".len());
                 spans.push(Span::styled(sep, dim_style));
-            } else if i < values.len() {
+            } else if stat_idx < values.len() {
                 // stats
-                spans.push(Span::styled(format!("{}: ", stats[i].0), stats[i].1));
-                spans.push(Span::styled(values[i].to_string(), stats[i].2));
+                spans.push(Span::styled(
+                    format!("{}: ", stats[stat_idx].0),
+                    stats[stat_idx].1,
+                ));
+                spans.push(Span::styled(
+                    values[stat_idx].to_string(),
+                    stats[stat_idx].2,
+                ));
+            }
+        } else if i == stats_offset + stats.len() {
+            // empty line after stats
+        } else if i == stats_offset + stats.len() + 1 {
+            // color blocks
+            for color in &palette_colors {
+                spans.push(Span::styled("██", Style::default().fg(*color)));
             }
         }
 
         lines.push(Line::from(spans));
     }
-
-    // color blocks
-    lines.push(Line::from(""));
-    let palette_colors = vec![
-        theme.muted(),
-        theme.error(),
-        theme.success(),
-        theme.warning(),
-        theme.info(),
-        theme.primary(),
-        theme.highlight(),
-        theme.fg(),
-    ];
-
-    let mut palette_spans = Vec::new();
-    if show_ascii {
-        palette_spans.push(Span::raw(" ".repeat(ascii_width + SPACING)));
-    }
-
-    for color in palette_colors {
-        palette_spans.push(Span::styled("██", Style::default().fg(color)));
-    }
-    lines.push(Line::from(palette_spans));
 
     let content_height = lines.len() as u16;
     let vertical_padding = if height > content_height {
