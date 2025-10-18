@@ -24,6 +24,12 @@ pub enum Setting {
     LiveWPM,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ModeKind {
+    Time,
+    Words,
+}
+
 /// Represents a typing test mode, either time-based or word-count based.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Mode {
@@ -31,10 +37,20 @@ pub enum Mode {
     Words(usize),
 }
 
+impl ModeKind {
+    pub fn to_string(&self) -> String {
+        match self {
+            ModeKind::Time => "Time".to_string(),
+            ModeKind::Words => "Words".to_string(),
+        }
+    }
+}
+
 // TODO: maybe `duration` and `count()` are not needed anymore?
 //      maybe with `is_time_mode()` and `value()` is enough?
 
 impl Mode {
+    /// TODO: deprecate duration and count for just `value`
     /// Returns the duration of the test in seconds if is a time-limited test.
     pub fn duration(&self) -> Option<Duration> {
         if let Mode::Time(t) = self {
@@ -53,6 +69,23 @@ impl Mode {
         }
     }
 
+    /// Returns the value of the mode: seconds for time mode, word count for words mode.
+    pub fn value(&self) -> usize {
+        match self {
+            Mode::Time(secs) => *secs,
+            Mode::Words(count) => *count,
+        }
+    }
+
+    /// Returns the kind of the test.
+    pub fn kind(&self) -> ModeKind {
+        if let Mode::Time(_) = self {
+            ModeKind::Time
+        } else {
+            ModeKind::Words
+        }
+    }
+
     /// Returns true if this is a time-based mode.
     pub fn is_time_mode(&self) -> bool {
         matches!(self, Mode::Time(_))
@@ -61,14 +94,6 @@ impl Mode {
     /// Returns true if this is a word-count based mode.
     pub fn is_words_mode(&self) -> bool {
         matches!(self, Mode::Words(_))
-    }
-
-    /// Returns the value of the mode: seconds for time mode, word count for words mode.
-    pub fn value(&self) -> usize {
-        match self {
-            Mode::Time(t) => *t,
-            Mode::Words(w) => *w,
-        }
     }
 
     /// Creates a new time-based Mode with the specified duration in seconds.
@@ -501,6 +526,16 @@ mod tests {
         assert_eq!(config.current_mode().count(), Some(79));
         assert!(config.current_mode().is_words_mode());
         assert_eq!(config.current_mode().value(), 79);
+    }
+
+    #[test]
+    fn test_mode_type() {
+        let mut config = Config::default();
+
+        config.change_mode(Mode::with_default_time()).unwrap();
+
+        assert_eq!(config.current_mode().kind(), ModeKind::Time);
+        assert_eq!(config.current_mode().kind().to_string(), "Time");
     }
 
     #[test]

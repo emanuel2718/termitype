@@ -52,7 +52,7 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
 
     let language = app.config.current_language();
     let wpm_str = format!("{:.0}", summary.wpm);
-    let raw_wpm_str = format!("{:.0}", summary.net_wpm());
+    let raw_wpm_str = format!("{:.0}", summary.raw_wpm());
     let duration_str = format!("{:.1}s", summary.elapsed_time.as_secs_f64());
     let accuracy_str = format!("{:.0}%", summary.accuracy * 100.0);
     let consistency_str = format!("{:.0}%", summary.consistency);

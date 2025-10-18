@@ -175,7 +175,7 @@ fn simulate(
         total_errors: summary.total_errors,
         elapsed_time_ms: elapsed.as_millis(),
         text: text.to_string(),
-        net_wpm: summary.net_wpm(),
+        net_wpm: summary.raw_wpm(),
         consistency: summary.consistency,
     })
 }
@@ -317,7 +317,7 @@ fn display_live_progress(state: &mut Tracker, text: &str, target_wps: f64, itera
     let summary = state.summary();
     println!("WPS: {:.3}", summary.wps);
     println!("WPM: {:.1}", summary.wpm);
-    println!("Net WPM: {:.1}", summary.net_wpm());
+    println!("Net WPM: {:.1}", summary.raw_wpm());
     println!("Accuracy: {:.1}%", summary.accuracy * 100.0);
     println!("Progress: {:.1}%", summary.progress * 100.0);
     println!("Consistency: {:.3}", summary.consistency);

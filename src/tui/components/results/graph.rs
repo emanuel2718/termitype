@@ -142,7 +142,7 @@ fn render_performance_section(
         ]),
         Line::from(vec![
             Span::styled("Raw WPM: ", label_style),
-            Span::styled(format!("{:.0}", summary.net_wpm()), value_style),
+            Span::styled(format!("{:.0}", summary.raw_wpm()), value_style),
         ]),
         Line::from(vec![
             Span::styled("Accuracy: ", label_style),

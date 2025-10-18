@@ -26,7 +26,7 @@ pub const STATE_FILE: &str = ".state";
 pub fn logger_file() -> &'static str {
     #[cfg(debug_assertions)]
     {
-        ".dev.log"
+        ".log-dev"
     }
     #[cfg(not(debug_assertions))]
     {

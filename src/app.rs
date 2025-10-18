@@ -3,12 +3,14 @@ use crate::{
     ascii,
     builders::lexicon_builder::Lexicon,
     config::{self, Config, Mode, Setting},
+    constants::db_file,
+    db::Db,
     error::AppError,
     input::{Input, InputContext},
-    log_debug, log_info,
+    log_debug, log_error, log_info,
     menu::{Menu, MenuContext, MenuMotion},
     modal::{Modal, ModalContext},
-    notify_info, theme,
+    notify_error, notify_info, theme,
     tracker::Tracker,
     tui,
     variants::{CursorVariant, PickerVariant, ResultsVariant},
@@ -93,6 +95,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::R
 }
 
 pub struct App {
+    pub db: Option<Db>,
     pub config: Config,
     pub menu: Menu,
     pub modal: Option<Modal>,
@@ -114,7 +117,18 @@ impl App {
             Self::force_show_results_screen(&mut tracker);
         }
 
+        // TODO: add support for `--no-track`
+        let db = match Db::new(db_file()) {
+            Ok(db) => Some(db),
+            Err(err) => {
+                log_error!("DB: Failed to initialize local database with: {err}");
+                notify_error!("Faled to initialize Local Database");
+                None
+            }
+        };
+
         Self {
+            db,
             config: config.clone(),
             menu: Menu::new(),
             modal: None,
@@ -178,12 +192,24 @@ impl App {
         if !self.should_save_results() {
             notify_info!("Test invalid - too short")
         }
-        // TODO: actually save the results
+
+        let Some(db) = &mut self.db else {
+            log_debug!("DB: No database availabe, skipping saving results");
+            notify_error!("Could not save results");
+            return;
+        };
+
+        // TODO: check for high scores
+
+        if let Err(err) = db.write(&self.config, &self.tracker) {
+            log_error!("DB: Failed trying to save results with error: {err}");
+            notify_error!("Could not save results")
+        };
     }
 
     fn should_save_results(&self) -> bool {
-        const MIN_TIME_FOR_SAVING: usize = 15;
-        const MIN_WORDS_FOR_SAVING: usize = 10;
+        const MIN_TIME_FOR_SAVING: usize = if cfg!(debug_assertions) { 1 } else { 15 };
+        const MIN_WORDS_FOR_SAVING: usize = if cfg!(debug_assertions) { 1 } else { 10 };
         match self.config.current_mode() {
             Mode::Time(duration) => duration >= MIN_TIME_FOR_SAVING,
             Mode::Words(count) => count >= MIN_WORDS_FOR_SAVING,

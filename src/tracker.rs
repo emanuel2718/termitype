@@ -941,7 +941,7 @@ pub struct Summary {
 }
 
 impl Summary {
-    pub fn net_wpm(&self) -> f64 {
+    pub fn raw_wpm(&self) -> f64 {
         // basically raw wpm
         let total_typed = (self.correct_chars + self.total_errors) as f64;
         if total_typed <= 0.0 {
