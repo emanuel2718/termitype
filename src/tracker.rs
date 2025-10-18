@@ -610,12 +610,12 @@ impl Tracker {
         match self.mode {
             Mode::Time(secs) => {
                 if self.start_time.is_some() {
-                    self.elapsed_time() >= Duration::from_secs(secs.get() as u64)
+                    self.elapsed_time() >= Duration::from_secs(secs as u64)
                 } else {
                     false
                 }
             }
-            Mode::Words(count) => self.current_word_idx >= count.get(),
+            Mode::Words(count) => self.current_word_idx >= count,
         }
     }
 
@@ -795,7 +795,7 @@ impl Tracker {
                     1.0
                 } else if let Some(start) = self.start_time {
                     let elapsed = start.elapsed().as_secs_f64();
-                    (elapsed / total_seconds.get() as f64).min(1.0)
+                    (elapsed / total_seconds as f64).min(1.0)
                 } else {
                     0.0
                 }
@@ -1046,7 +1046,6 @@ impl WpmSnapshots {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::num::NonZeroUsize;
 
     #[test]
     fn test_new_tracker() {
@@ -1144,28 +1143,21 @@ mod tests {
     #[test]
     fn test_progress_words_mode() {
         let text = "testing termitype";
-        let mut tracker = Tracker::new(
-            text.to_string(),
-            Mode::Words(NonZeroUsize::new(10).unwrap()),
-        );
+        let mut tracker = Tracker::new(text.to_string(), Mode::Words(10));
         tracker.current_pos = 5;
         assert_eq!(tracker.progress(), 5.0 / text.len() as f64);
 
         tracker.current_pos = text.len();
         assert_eq!(tracker.progress(), 1.0);
 
-        let empty_tracker =
-            Tracker::new("".to_string(), Mode::Words(NonZeroUsize::new(10).unwrap()));
+        let empty_tracker = Tracker::new("".to_string(), Mode::Words(10));
         assert_eq!(empty_tracker.progress(), 1.0);
     }
 
     #[test]
     fn test_progress_time_mode() {
         let total_seconds = 10;
-        let mut tracker = Tracker::new(
-            "test".to_string(),
-            Mode::Time(NonZeroUsize::new(total_seconds).unwrap()),
-        );
+        let mut tracker = Tracker::new("test".to_string(), Mode::Time(total_seconds));
 
         // NotStarted
         assert_eq!(tracker.progress(), 0.0);

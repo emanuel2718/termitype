@@ -1,5 +1,4 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use std::num::NonZeroUsize;
 use termitype::{
     builders::lexicon_builder::LexiconBuilder,
     config::{self, Config},
@@ -35,7 +34,7 @@ fn bench_lexicon(c: &mut Criterion) {
     group.bench_function("words 10k", |b| {
         b.iter(|| {
             let mut config = Config::default();
-            let _ = config.change_mode(config::Mode::Words(NonZeroUsize::new(10_000).unwrap()));
+            let _ = config.change_mode(config::Mode::Words(10_000));
             let _ = black_box(builder.generate_test(&config));
         });
     });

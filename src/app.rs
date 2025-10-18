@@ -185,8 +185,8 @@ impl App {
         const MIN_TIME_FOR_SAVING: usize = 15;
         const MIN_WORDS_FOR_SAVING: usize = 10;
         match self.config.current_mode() {
-            Mode::Time(duration) => duration.get() >= MIN_TIME_FOR_SAVING,
-            Mode::Words(count) => count.get() >= MIN_WORDS_FOR_SAVING,
+            Mode::Time(duration) => duration >= MIN_TIME_FOR_SAVING,
+            Mode::Words(count) => count >= MIN_WORDS_FOR_SAVING,
         }
     }
 

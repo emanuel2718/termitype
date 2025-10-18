@@ -13,7 +13,7 @@ use crate::{
 use anyhow::Result;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use std::{fmt, num::NonZeroUsize, time::Duration};
+use std::{fmt, time::Duration};
 
 /// General settings that are toggleable
 #[derive(Debug, Clone, PartialEq)]
@@ -27,8 +27,8 @@ pub enum Setting {
 /// Represents a typing test mode, either time-based or word-count based.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Mode {
-    Time(NonZeroUsize),
-    Words(NonZeroUsize),
+    Time(usize),
+    Words(usize),
 }
 
 // TODO: maybe `duration` and `count()` are not needed anymore?
@@ -38,7 +38,7 @@ impl Mode {
     /// Returns the duration of the test in seconds if is a time-limited test.
     pub fn duration(&self) -> Option<Duration> {
         if let Mode::Time(t) = self {
-            Some(Duration::from_secs(t.get() as u64))
+            Some(Duration::from_secs(*t as u64))
         } else {
             None
         }
@@ -47,7 +47,7 @@ impl Mode {
     /// Returns the number of words in the test word pool if is a word based test.
     pub fn count(&self) -> Option<usize> {
         if let Mode::Words(w) = self {
-            Some(w.get())
+            Some(*w)
         } else {
             None
         }
@@ -66,8 +66,8 @@ impl Mode {
     /// Returns the value of the mode: seconds for time mode, word count for words mode.
     pub fn value(&self) -> usize {
         match self {
-            Mode::Time(t) => t.get(),
-            Mode::Words(w) => w.get(),
+            Mode::Time(t) => *t,
+            Mode::Words(w) => *w,
         }
     }
 
@@ -88,10 +88,7 @@ impl Mode {
     /// let mode = Mode::with_time(60); // 1-minute test
     /// ```
     pub fn with_time(secs: usize) -> Self {
-        Mode::Time(
-            NonZeroUsize::new(secs)
-                .unwrap_or(NonZeroUsize::new(DEFAULT_TIME_MODE_DURATION_IN_SECS).unwrap()),
-        )
+        Mode::Time(secs)
     }
 
     /// Creates a new word-count based Mode with the specified number of words.
@@ -111,9 +108,7 @@ impl Mode {
     /// let mode = Mode::with_words(50); // 50-word test
     /// ```
     pub fn with_words(count: usize) -> Self {
-        Mode::Words(
-            NonZeroUsize::new(count).unwrap_or(NonZeroUsize::new(DEFAULT_WORD_MODE_COUNT).unwrap()),
-        )
+        Mode::Words(count)
     }
 
     /// Creats a new time-based Mode with the default time of `30 seconds`
@@ -126,7 +121,7 @@ impl Mode {
     /// let mode = Mode::with_default_time();
     /// ```
     pub fn with_default_time() -> Self {
-        Mode::Time(NonZeroUsize::new(DEFAULT_TIME_MODE_DURATION_IN_SECS).unwrap())
+        Mode::Time(DEFAULT_TIME_MODE_DURATION_IN_SECS)
     }
 
     /// Creats a new words-based Mode with the default word count of `50 words`
@@ -139,15 +134,15 @@ impl Mode {
     /// let mode = Mode::with_default_words();
     /// ```
     pub fn with_default_words() -> Self {
-        Mode::Words(NonZeroUsize::new(DEFAULT_WORD_MODE_COUNT).unwrap())
+        Mode::Words(DEFAULT_WORD_MODE_COUNT)
     }
 }
 
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Mode::Time(t) => write!(f, "Time: {} seconds", t.get()),
-            Mode::Words(w) => write!(f, "Words: {}", w.get()),
+            Mode::Time(t) => write!(f, "Time: {} seconds", t),
+            Mode::Words(w) => write!(f, "Words: {}", w),
         }
     }
 }
@@ -550,10 +545,7 @@ mod tests {
 
         config.apply_cli_args(cli);
 
-        assert_eq!(
-            config.current_mode(),
-            Mode::Words(NonZeroUsize::new(3).unwrap())
-        );
+        assert_eq!(config.current_mode(), Mode::Words(3));
     }
 
     #[test]
