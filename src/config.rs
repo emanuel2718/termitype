@@ -22,6 +22,7 @@ pub enum Setting {
     Numbers,
     Punctuation,
     LiveWPM,
+    TrackResults,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -38,7 +39,7 @@ pub enum Mode {
 }
 
 impl ModeKind {
-    pub fn to_string(&self) -> String {
+    pub fn to_display(&self) -> String {
         match self {
             ModeKind::Time => "Time".to_string(),
             ModeKind::Words => "Words".to_string(),
@@ -206,6 +207,8 @@ pub struct ConfigState {
     pub lines: u8,
     #[serde(default)]
     pub hide_live_wpm: bool,
+    #[serde(default)]
+    pub no_track: bool,
 }
 
 impl Default for ConfigState {
@@ -224,6 +227,7 @@ impl Default for ConfigState {
             picker_variant: PickerVariant::default(),
             results_variant: ResultsVariant::default(),
             hide_live_wpm: false,
+            no_track: false,
         }
     }
 }
@@ -335,6 +339,10 @@ impl Config {
             self.state.hide_live_wpm = true;
         }
 
+        if cli.no_track {
+            self.state.no_track = true;
+        }
+
         self.state.lines = cli.visible_lines;
 
         #[cfg(debug_assertions)]
@@ -428,12 +436,17 @@ impl Config {
         self.state.hide_live_wpm
     }
 
+    pub fn can_track_results(&self) -> bool {
+        !self.state.no_track
+    }
+
     pub fn is_enabled(&self, setting: Setting) -> bool {
         match setting {
             Setting::Symbols => self.state.symbols,
             Setting::Numbers => self.state.numbers,
             Setting::Punctuation => self.state.punctuation,
             Setting::LiveWPM => !self.state.hide_live_wpm,
+            Setting::TrackResults => !self.state.no_track,
         }
     }
 
@@ -443,6 +456,7 @@ impl Config {
             Setting::Numbers => self.state.numbers = !self.state.numbers,
             Setting::Punctuation => self.state.punctuation = !self.state.punctuation,
             Setting::LiveWPM => self.state.hide_live_wpm = !self.state.hide_live_wpm,
+            Setting::TrackResults => self.state.no_track = !self.state.no_track,
         };
         Ok(())
     }
@@ -535,7 +549,7 @@ mod tests {
         config.change_mode(Mode::with_default_time()).unwrap();
 
         assert_eq!(config.current_mode().kind(), ModeKind::Time);
-        assert_eq!(config.current_mode().kind().to_string(), "Time");
+        assert_eq!(config.current_mode().kind().to_display(), "Time");
     }
 
     #[test]

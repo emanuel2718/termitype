@@ -6,7 +6,7 @@ use crate::{
     tracker::Tracker,
 };
 use chrono::{DateTime, Local};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 const SCHEMA_VERSION: i32 = 2;
@@ -213,7 +213,7 @@ impl Db {
         let summary = tracker.summary();
         let result = LeaderboardResult {
             id: None,
-            mode_kind: current_mode.kind().to_string(),
+            mode_kind: current_mode.kind().to_display(),
             mode_value: current_mode.value() as i32,
             language: config.current_language(),
             wpm: summary.wpm.round() as u16,

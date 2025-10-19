@@ -18,7 +18,7 @@ use crate::{
 };
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
-use ratatui::{prelude::Backend, Terminal};
+use ratatui::{Terminal, prelude::Backend};
 use std::time::Duration;
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
@@ -194,6 +194,12 @@ impl App {
     }
 
     pub fn try_save_results(&mut self) {
+        if !self.config.can_track_results() {
+            // QUESTION: should we notify here that we are not storing the results due to the option of `no_track`?
+            log_info!("DB: not saving test result to database due to `--no-track` flag");
+            return;
+        }
+
         if !self.should_save_results() {
             notify_info!("Test invalid - too short")
         }
@@ -595,25 +601,11 @@ impl App {
     // NOTE(ema): this is order dependet which can be dangerous and confusing.
     // For example, if we put the modal `if` after the menu check it will never reach the modal if
     // we opened the modal from the menu (as in this case we, currently, keep the menu open.
-    // TODO: improve this
     fn resolve_input_context(&self) -> InputContext {
         if self.modal.is_some() {
             InputContext::Modal
-        } else if let Some(ref leaderboard) = self.leaderboard {
-            if leaderboard.is_open() {
-                return InputContext::Leaderboard;
-            }
-            if self.menu.is_open() {
-                InputContext::Menu {
-                    searching: self.menu.is_searching(),
-                }
-            } else if self.tracker.is_complete() {
-                InputContext::Completed
-            } else if self.tracker.is_typing() {
-                InputContext::Typing
-            } else {
-                InputContext::Idle
-            }
+        } else if self.leaderboard.as_ref().is_some_and(|l| l.is_open()) {
+            InputContext::Leaderboard
         } else if self.menu.is_open() {
             InputContext::Menu {
                 searching: self.menu.is_searching(),

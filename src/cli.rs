@@ -80,6 +80,10 @@ pub struct Cli {
     /// Hide live WPM counter
     #[arg(long = "hide-live-wpm")]
     pub hide_live_wpm: bool,
+
+    /// Do not locally track tests results
+    #[arg(long = "no-track")]
+    pub no_track: bool,
 }
 
 impl Cli {
