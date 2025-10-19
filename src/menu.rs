@@ -17,6 +17,7 @@ pub enum MenuContext {
     Cursor,
     Ascii,
     VisibleLines,
+    Leaderboard,
     About,
 }
 

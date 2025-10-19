@@ -3,9 +3,9 @@ use crate::{
     theme::{self, Theme},
     tui::{
         components::{
-            command_bar, footer, modal_dialog::ModalDialog, mode_bar,
-            notifications::NotificationComponent, pickers::Picker, results::Results, size_warning,
-            title, typing_area,
+            command_bar, footer, leaderboard::LeaderboardOverlay, modal_dialog::ModalDialog,
+            mode_bar, notifications::NotificationComponent, pickers::Picker, results::Results,
+            size_warning, title, typing_area,
         },
         layout::{
             create_main_layout, create_results_layout, AppLayout, LayoutBuilder, ResultsLayout,
@@ -133,12 +133,25 @@ fn render_results_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout
     Results::render(frame, app, theme, layout);
 }
 
+/// Tries to render any of the apps overlays
 fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
+    // modal overlay
     if let Some(ref modal) = app.modal {
         ModalDialog::render(frame, modal, theme, area);
-    } else if app.menu.is_open() {
+        return;
+    }
+
+    // leaderboard overlay
+    if app.leaderboard.is_some() {
+        LeaderboardOverlay::render(frame, app, theme, area);
+        return;
+    }
+
+    // menu overlay
+    if app.menu.is_open() {
         Picker::render(frame, app, theme, area);
     }
 
+    // notification overlay (if any)
     NotificationComponent::render(frame, theme, area);
 }

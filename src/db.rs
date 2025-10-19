@@ -1,7 +1,7 @@
 use crate::{
     common::filesystem::config_dir,
     config::{Config, Setting},
-    error::AppResult,
+    error::{AppError, AppResult},
     log_debug, log_info,
     tracker::Tracker,
 };
@@ -9,7 +9,7 @@ use chrono::{DateTime, Local};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
-const SCHEMA_VERSION: i32 = 1;
+const SCHEMA_VERSION: i32 = 2;
 const DEFAULT_LEADERBOARD_LIMIT: usize = 25;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,10 +45,38 @@ pub enum LeaderboardColumn {
     CreatedAt,
 }
 
+impl LeaderboardColumn {
+    pub fn to_value(&self) -> &'static str {
+        match self {
+            LeaderboardColumn::ModeKind => "mode_kind",
+            LeaderboardColumn::ModeValue => "mode_value",
+            LeaderboardColumn::Language => "language",
+            LeaderboardColumn::Wpm => "wpm",
+            LeaderboardColumn::RawWpm => "raw_wpm",
+            LeaderboardColumn::Accuracy => "accuracy",
+            LeaderboardColumn::Consistency => "consistency",
+            LeaderboardColumn::ErrorCount => "error_count",
+            LeaderboardColumn::Numbers => "numbers",
+            LeaderboardColumn::Symbols => "symbols",
+            LeaderboardColumn::Punctuation => "punctuation",
+            LeaderboardColumn::CreatedAt => "created_at",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum SortOrder {
     Ascending,
     Descending,
+}
+
+impl SortOrder {
+    pub fn to_value(&self) -> &'static str {
+        match self {
+            SortOrder::Ascending => "ASC",
+            SortOrder::Descending => "DESC",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -108,7 +136,7 @@ impl Db {
         let current_version: i32 = self
             .conn
             .query_row(
-                "SELECT version FROM schema_version ORDER_BY version DESC LIMIT 1",
+                "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1",
                 [],
                 |row| row.get(0),
             )
@@ -136,7 +164,7 @@ impl Db {
                 wpm REAL NOT NULL,
                 raw_wpm REAL DEFAULT 0,
                 accuracy INTEGER NOT NULL,
-                consistency REAL NOT NULL,
+                consistency INTEGER NOT NULL,
                 error_count INTEGER NOT NULL,
                 numbers BOOLEAN NOT NULL,
                 punctuation BOOLEAN NOT NULL,
@@ -146,14 +174,36 @@ impl Db {
             [],
         )?;
 
+        self.create_indexes()?;
+        log_debug!("DB: tables and indexes created successfully");
+
+        Ok(())
+    }
+
+    fn create_indexes(&mut self) -> AppResult<()> {
         self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idexes ON results (
+            "CREATE INDEX IF NOT EXISTS idx_filters ON results (
                 mode_kind, mode_value, language, numbers, punctuation, symbols
             )",
             [],
         )?;
 
-        log_debug!("DB: tables created successfully");
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_wpm ON results (wpm DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_accuracy ON results (accuracy DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_consistency ON results (consistency DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_created_at ON results (created_at DESC)",
+            [],
+        )?;
 
         Ok(())
     }
@@ -202,8 +252,8 @@ impl Db {
                 result.consistency,
                 result.error_count,
                 result.numbers,
-                result.punctuation,
                 result.symbols,
+                result.punctuation,
                 result.created_at
             ],
         )?;
@@ -213,6 +263,151 @@ impl Db {
         log_debug!("DB: saved test result to database with ID: '{id}'");
 
         Ok(id)
+    }
+
+    pub fn reset(&self) -> AppResult<usize> {
+        let affected_rows = self.conn.execute("DELETE FROM results", [])?;
+        log_info!("DB: reset database, deleted {affected_rows} results");
+        Ok(affected_rows)
+    }
+
+    pub fn insert_dummy_result(&mut self, result: LeaderboardResult) -> AppResult<i64> {
+        self.conn.execute(
+            "INSERT INTO results (
+                mode_kind,
+                mode_value,
+                language,
+                wpm,
+                raw_wpm,
+                accuracy,
+                consistency,
+                error_count,
+                numbers,
+                symbols,
+                punctuation,
+                created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                result.mode_kind,
+                result.mode_value,
+                result.language,
+                result.wpm,
+                result.raw_wpm,
+                result.accuracy,
+                result.consistency,
+                result.error_count,
+                result.numbers,
+                result.symbols,
+                result.punctuation,
+                result.created_at
+            ],
+        )?;
+
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    #[cfg(test)]
+    pub fn insert_test_result(
+        &mut self,
+        mode_kind: &str,
+        mode_value: i32,
+        language: &str,
+        wpm: u16,
+        accuracy: u16,
+    ) {
+        let created_at_str = "2023-10-18T12:00:00+00:00";
+        self.conn.execute(
+            "INSERT INTO results (mode_kind, mode_value, language, wpm, raw_wpm, accuracy, consistency, error_count, numbers, symbols, punctuation, created_at)
+             VALUES (?, ?, ?, ?, 0, ?, 100, 0, 0, 0, 0, ?)",
+            params![mode_kind, mode_value, language, wpm, accuracy, created_at_str],
+        ).unwrap();
+    }
+
+    pub fn query_data(&self, query: &LeaderboardQuery) -> AppResult<LeaderboardState> {
+        if !self.is_valid_column(&query.sort_by) {
+            return Err(AppError::TermiDB(format!(
+                "Invalid sort column: {}",
+                query.sort_by.to_value()
+            )));
+        }
+        let sort_direction = query.sort_order.to_value();
+        let sort_col = query.sort_by.to_value();
+        let count: usize = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM results", [], |row| row.get(0))?;
+
+        let sql_payload = format!(
+            "SELECT
+                id,
+                mode_kind,
+                mode_value,
+                language,
+                wpm,
+                raw_wpm,
+                accuracy,
+                consistency,
+                error_count,
+                numbers,
+                symbols,
+                punctuation,
+                created_at
+              FROM results
+             ORDER BY {} {}
+             LIMIT {} OFFSET {}",
+            sort_col, sort_direction, query.limit, query.offset
+        );
+
+        let mut statement = self.conn.prepare(&sql_payload)?;
+
+        let results: Result<Vec<LeaderboardResult>, rusqlite::Error> = statement
+            .query_map([], |row| {
+                let created_at: DateTime<Local> = row.get(12)?;
+
+                Ok(LeaderboardResult {
+                    id: Some(row.get(0)?),
+                    mode_kind: row.get(1)?,
+                    mode_value: row.get(2)?,
+                    language: row.get(3)?,
+                    wpm: row.get::<_, f64>(4)?.round() as u16,
+                    raw_wpm: row.get::<_, f64>(5).unwrap_or(0.0).round() as u16,
+                    accuracy: row.get(6)?,
+                    consistency: row.get::<_, f64>(7)?.round() as u16,
+                    error_count: row.get(8)?,
+                    numbers: row.get(9)?,
+                    symbols: row.get(10)?,
+                    punctuation: row.get(11)?,
+                    created_at,
+                })
+            })?
+            .collect();
+        let results = results?;
+        let has_more = query.offset + results.len() < count;
+
+        Ok(LeaderboardState {
+            count,
+            has_more,
+            data: results,
+        })
+    }
+
+    fn is_valid_column(&self, column: &LeaderboardColumn) -> bool {
+        let col = column.to_value();
+        let valid_cols = [
+            "mode_kind",
+            "mode_value",
+            "language",
+            "wpm",
+            "raw_wpm",
+            "accuracy",
+            "consistency",
+            "error_count",
+            "numbers",
+            "punctuation",
+            "symbols",
+            "created_at",
+        ];
+
+        valid_cols.contains(&col)
     }
 }
 
@@ -244,6 +439,22 @@ mod tests {
         Db::new(".test.db").expect("Failed to create test database")
     }
 
+    fn insert_test_result(
+        db: &mut Db,
+        mode_kind: &str,
+        mode_value: i32,
+        language: &str,
+        wpm: u16,
+        accuracy: u16,
+    ) {
+        let created_at_str = "2023-10-18T12:00:00+00:00";
+        db.conn.execute(
+            "INSERT INTO results (mode_kind, mode_value, language, wpm, raw_wpm, accuracy, consistency, error_count, numbers, symbols, punctuation, created_at)
+             VALUES (?, ?, ?, ?, 0, ?, 100, 0, 0, 0, 0, ?)",
+            params![mode_kind, mode_value, language, wpm, accuracy, created_at_str],
+        ).unwrap();
+    }
+
     #[test]
     fn test_save_results() {
         let mut db = create_test_db();
@@ -259,5 +470,68 @@ mod tests {
         let id = db.write(&config, &tracker).unwrap();
 
         assert!(id > 0)
+    }
+
+    #[test]
+    fn test_query_data() {
+        let mut db = create_test_db();
+        db.reset().unwrap();
+        insert_test_result(&mut db, "time", 60, "english", 80, 95);
+        insert_test_result(&mut db, "words", 25, "english", 70, 90);
+
+        let query = LeaderboardQuery::default();
+        let state = db.query_data(&query).unwrap();
+
+        assert_eq!(state.count, 2);
+        assert_eq!(state.data.len(), 2);
+        assert!(!state.has_more);
+    }
+
+    #[test]
+    fn test_query_data_sorting() {
+        let mut db = create_test_db();
+        db.reset().unwrap();
+        insert_test_result(&mut db, "words", 25, "english", 70, 90);
+        insert_test_result(&mut db, "time", 60, "english", 80, 95);
+
+        let query = LeaderboardQuery {
+            sort_by: LeaderboardColumn::Wpm,
+            sort_order: SortOrder::Descending,
+            ..Default::default()
+        };
+        let state = db.query_data(&query).unwrap();
+
+        assert_eq!(state.data[0].wpm, 80);
+        assert_eq!(state.data[1].wpm, 70);
+    }
+
+    #[test]
+    fn test_query_data_limit_offset() {
+        let mut db = create_test_db();
+        // db.conn.execute("DELETE FROM results", []).unwrap();
+        db.reset().unwrap();
+        for i in 0..5 {
+            insert_test_result(&mut db, "time", 60, "english", (50 + i) as u16, 90);
+        }
+
+        let query = LeaderboardQuery {
+            limit: 2,
+            offset: 0,
+            ..Default::default()
+        };
+        let state = db.query_data(&query).unwrap();
+
+        assert_eq!(state.count, 5);
+        assert_eq!(state.data.len(), 2);
+        assert!(state.has_more);
+
+        let query2 = LeaderboardQuery {
+            limit: 2,
+            offset: 2,
+            ..Default::default()
+        };
+        let state2 = db.query_data(&query2).unwrap();
+        assert_eq!(state2.data.len(), 2);
+        assert!(state2.has_more);
     }
 }

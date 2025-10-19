@@ -37,6 +37,10 @@ pub fn set_cursor_position(
     layout: &AppLayout,
     pad_size: usize,
 ) {
+    if !should_show_cursor(app) {
+        // don't even bother calculating stuff if we should not set the cursor position
+        return;
+    }
     let mut cumulative = 0;
     let mut cursor_x = 0;
     let mut cursor_y = 0;
@@ -55,17 +59,16 @@ pub fn set_cursor_position(
     let visible_cursor_y = cursor_y - visible_start;
     let header_offset = 2;
 
-    // should we render the typing area cursor question mark
-    let overlay_open = app.menu.is_open() || app.modal.is_some();
-    if !overlay_open && !app.tracker.is_complete() && !app.tracker.should_complete() {
-        frame.set_cursor_position(Position {
-            x: layout.center_area.x + cursor_x,
-            y: layout.center_area.y
-                + pad_size as u16
-                + visible_cursor_y as u16
-                + header_offset as u16,
-        });
-    }
+    frame.set_cursor_position(Position {
+        x: layout.center_area.x + cursor_x,
+        y: layout.center_area.y + pad_size as u16 + visible_cursor_y as u16 + header_offset as u16,
+    });
+}
+
+/// Checks if we should render the cursor in the typing area or not
+fn should_show_cursor(app: &App) -> bool {
+    let overlay_open = app.menu.is_open() || app.modal.is_some() || app.leaderboard.is_some();
+    !overlay_open && !app.tracker.is_complete() && !app.tracker.should_complete()
 }
 
 pub fn wrap_text(text: &str, max_width: u16) -> Vec<Line<'static>> {

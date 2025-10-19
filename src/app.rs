@@ -7,7 +7,8 @@ use crate::{
     db::Db,
     error::AppError,
     input::{Input, InputContext},
-    log_debug, log_error, log_info,
+    leaderboard::{Leaderboard, LeaderboardMotion, SortColumn},
+    log_debug, log_error, log_info, log_warn,
     menu::{Menu, MenuContext, MenuMotion},
     modal::{Modal, ModalContext},
     notify_error, notify_info, theme,
@@ -99,6 +100,7 @@ pub struct App {
     pub config: Config,
     pub menu: Menu,
     pub modal: Option<Modal>,
+    pub leaderboard: Option<Leaderboard>,
     pub lexicon: Lexicon,
     pub tracker: Tracker,
     should_quit: bool,
@@ -132,6 +134,7 @@ impl App {
             config: config.clone(),
             menu: Menu::new(),
             modal: None,
+            leaderboard: None,
             tracker,
             lexicon,
             should_quit: false,
@@ -163,7 +166,9 @@ impl App {
         let ctx = self.resolve_input_context();
         match ctx {
             InputContext::Typing => Duration::from_millis(75),
-            InputContext::Menu { .. } | InputContext::Modal => Duration::from_millis(100),
+            InputContext::Menu { .. } | InputContext::Modal | InputContext::Leaderboard => {
+                Duration::from_millis(100)
+            }
             InputContext::Idle => Duration::from_millis(250),
             InputContext::Completed => Duration::from_millis(1000),
         }
@@ -469,6 +474,79 @@ impl App {
         Ok(())
     }
 
+    pub fn handle_leaderboard_open(&mut self) -> Result<(), AppError> {
+        let Some(ref db) = self.db else {
+            log_warn!("Tried opening the leaderboard without a db instance");
+            return Ok(());
+        };
+
+        if self.leaderboard.is_none() {
+            self.leaderboard = Some(Leaderboard::new());
+        }
+
+        if let Some(ref mut leaderboard) = self.leaderboard {
+            leaderboard.open(db);
+        }
+
+        Ok(())
+    }
+
+    pub fn handle_leaderboard_close(&mut self) -> Result<(), AppError> {
+        if let Some(ref mut leaderboard) = self.leaderboard {
+            leaderboard.close();
+            self.leaderboard = None;
+        }
+        Ok(())
+    }
+
+    pub fn handle_leaderboard_toggle(&mut self) -> Result<(), AppError> {
+        let Some(ref db) = self.db else {
+            log_warn!("Tried toggling the leaderboard without a db instance");
+            return Ok(());
+        };
+
+        // don't be opening wild leaderboard overlays if we have other overlays alreay opened.
+        if self.modal.is_some() || self.menu.is_open() {
+            return Ok(());
+        }
+
+        if self.leaderboard.is_some() {
+            self.leaderboard = None;
+        } else if self.leaderboard.is_none() {
+            self.leaderboard = Some(Leaderboard::new());
+        }
+
+        if let Some(ref mut leaderboard) = self.leaderboard {
+            leaderboard.toggle(db);
+        }
+
+        Ok(())
+    }
+
+    pub fn handle_leaderboard_sort(&mut self, col: SortColumn) -> Result<(), AppError> {
+        let Some(ref db) = self.db else {
+            return Ok(());
+        };
+
+        if let Some(ref mut leaderboard) = self.leaderboard {
+            leaderboard.sort(col, db);
+        }
+
+        Ok(())
+    }
+
+    pub fn handle_leaderboard_nav(&mut self, motion: LeaderboardMotion) -> Result<(), AppError> {
+        let Some(ref db) = self.db else {
+            return Ok(());
+        };
+
+        if let Some(ref mut leaderboard) = self.leaderboard {
+            leaderboard.navigate(db, motion);
+        }
+
+        Ok(())
+    }
+
     // TODO: do this cleanly
     fn try_preview(&mut self) -> Result<(), AppError> {
         if let Some(menu) = self.menu.current_menu() {
@@ -521,6 +599,21 @@ impl App {
     fn resolve_input_context(&self) -> InputContext {
         if self.modal.is_some() {
             InputContext::Modal
+        } else if let Some(ref leaderboard) = self.leaderboard {
+            if leaderboard.is_open() {
+                return InputContext::Leaderboard;
+            }
+            if self.menu.is_open() {
+                InputContext::Menu {
+                    searching: self.menu.is_searching(),
+                }
+            } else if self.tracker.is_complete() {
+                InputContext::Completed
+            } else if self.tracker.is_typing() {
+                InputContext::Typing
+            } else {
+                InputContext::Idle
+            }
         } else if self.menu.is_open() {
             InputContext::Menu {
                 searching: self.menu.is_searching(),

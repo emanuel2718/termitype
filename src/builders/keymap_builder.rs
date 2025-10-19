@@ -1,4 +1,5 @@
 use crate::actions::Action;
+use crate::leaderboard::{LeaderboardMotion, SortColumn};
 use crate::log_debug;
 use crate::menu::{MenuContext, MenuMotion};
 use crate::variants::ResultsVariant;
@@ -13,6 +14,7 @@ pub static RESULTS_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static MENU_BASE_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static MENU_SEARCH_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 pub static MODAL_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
+pub static LEADERBOARD_KEYMAP: OnceLock<KeyMap> = OnceLock::new();
 
 const CTRL: KeyModifiers = KeyModifiers::CONTROL;
 const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
@@ -76,16 +78,17 @@ pub fn modal_keymap() -> &'static KeyMap {
     MODAL_KEYMAP.get_or_init(build_modal_keymap)
 }
 
+pub fn leaderboard_keymap() -> &'static KeyMap {
+    LEADERBOARD_KEYMAP.get_or_init(build_leaderboard_keymap)
+}
+
 /// Global keybinds are those keybinds that no matter the current context they will have the same`
 /// resulting action
 fn build_global_keymap() -> KeyMap {
     log_debug!("building the global keymap");
     KeyMap::new()
-        .bind(KeyCode::F(1), Action::NoOp)
-        .bind(KeyCode::F(2), Action::NoOp)
-        .bind(KeyCode::F(3), Action::NoOp)
         .bind_with_mod(CTRL, KeyCode::Char(' '), Action::MenuToggle)
-        .bind_with_mod(CTRL, KeyCode::Char('l'), Action::SetLineCount(1))
+        .bind_with_mod(CTRL, KeyCode::Char('l'), Action::LeaderboardToggle)
         .bind_with_mod(CTRL, KeyCode::Char('t'), Action::RandomizeTheme)
         .bind_with_mod(CTRL, KeyCode::Char('c'), Action::Quit)
         .bind_with_mod(CTRL, KeyCode::Char('z'), Action::Quit)
@@ -124,8 +127,8 @@ fn build_menu_base_keymap() -> KeyMap {
         .bind(KeyCode::Down, Action::MenuNav(MenuMotion::Down))
         .bind(KeyCode::Char('k'), Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Char('j'), Action::MenuNav(MenuMotion::Down))
-        .bind(KeyCode::Char('l'), Action::MenuSelect)
-        .bind(KeyCode::Char('h'), Action::MenuGoBack)
+        // .bind(KeyCode::Char('l'), Action::MenuSelect)
+        // .bind(KeyCode::Char('h'), Action::MenuGoBack)
         .bind(KeyCode::Char('/'), Action::MenuInitSearch)
         .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
         .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
@@ -145,6 +148,26 @@ fn build_modal_keymap() -> KeyMap {
         .bind(KeyCode::Esc, Action::ModalClose)
         .bind(KeyCode::Enter, Action::ModalConfirm)
         .bind(KeyCode::Backspace, Action::ModalBackspace)
+}
+
+#[rustfmt::skip]
+fn build_leaderboard_keymap() -> KeyMap {
+    KeyMap::new()
+        .bind(KeyCode::Esc, Action::LeaderboardClose)
+        .bind(KeyCode::Char('j'), Action::LeaderboardNav(LeaderboardMotion::Down))
+        .bind(KeyCode::Char('k'), Action::LeaderboardNav(LeaderboardMotion::Up))
+        .bind(KeyCode::Down, Action::LeaderboardNav(LeaderboardMotion::Down))
+        .bind(KeyCode::Up, Action::LeaderboardNav(LeaderboardMotion::Up))
+        .bind(KeyCode::Char('g'), Action::LeaderboardNav(LeaderboardMotion::Home))
+        .bind(KeyCode::Char('m'), Action::LeaderboardSort(SortColumn::Mode))
+        .bind(KeyCode::Char('l'), Action::LeaderboardSort(SortColumn::Language))
+        .bind(KeyCode::Char('w'), Action::LeaderboardSort(SortColumn::Wpm))
+        .bind(KeyCode::Char('r'), Action::LeaderboardSort(SortColumn::RawWpm))
+        .bind(KeyCode::Char('a'), Action::LeaderboardSort(SortColumn::Accuracy))
+        .bind(KeyCode::Char('c'), Action::LeaderboardSort(SortColumn::Consistency))
+        .bind(KeyCode::Char('e'), Action::LeaderboardSort(SortColumn::ErrorCount))
+        .bind(KeyCode::Char('d'), Action::LeaderboardSort(SortColumn::CreatedAt))
+        .bind_with_mod(SHIFT, KeyCode::Char('G'), Action::LeaderboardNav(LeaderboardMotion::End))
 }
 
 #[cfg(test)]

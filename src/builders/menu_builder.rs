@@ -120,6 +120,7 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
         MenuContext::Cursor => build_cursor_menu(config),
         MenuContext::VisibleLines => build_visible_lines_menu(),
         MenuContext::Ascii => build_ascii_menu(config),
+        MenuContext::Leaderboard => build_leaderboard_menu(),
         MenuContext::About => build_about_menu(),
     }
 }
@@ -135,6 +136,7 @@ fn build_root_menu() -> MenuContent {
         .submenu("Ascii Art", MenuContext::Ascii) .shortcut('a') .description("View ASCII Arts")
         .submenu("Lines", MenuContext::VisibleLines) .shortcut('n') .description("Visible Lines")
         .submenu("Cursor", MenuContext::Cursor) .shortcut('c') .description("Available Cursors")
+        .action("Leaderboard", Action::LeaderboardOpen) .shortcut('l') .description("Show Local Leaderboard") .close_on_select()
         .submenu("About", MenuContext::About) .shortcut('A') .description("About termitype")
         .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)) .shortcut('Q')
         .build()
@@ -270,6 +272,18 @@ fn build_ascii_menu(config: &Config) -> MenuContent {
         menu.set_current_index(idx);
     }
     menu
+}
+
+fn build_leaderboard_menu() -> MenuContent {
+    // TODO: find a better way to handle this. In theory, this builder is never reached because
+    // the `Leaderboards` open directly through the overlay system based on the presence of
+    // `app::leaderboard` instance.
+
+    // unreachable!("we should not get here, since the leaderboard opens directly");
+    MenuBuilder::new("Leaderboard", MenuContext::Leaderboard)
+        .informational()
+        .info("Status", "Opening leaderboard...")
+        .build()
 }
 
 fn build_about_menu() -> MenuContent {

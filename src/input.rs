@@ -1,8 +1,8 @@
 use crate::{
     actions::Action,
     builders::keymap_builder::{
-        global_keymap, idle_keymap, menu_base_keymap, menu_search_keymap, modal_keymap,
-        results_keymap, typing_keymap,
+        global_keymap, idle_keymap, leaderboard_keymap, menu_base_keymap, menu_search_keymap,
+        modal_keymap, results_keymap, typing_keymap,
     },
     log_debug,
 };
@@ -16,6 +16,7 @@ pub enum InputContext {
     Completed,
     Modal,
     Menu { searching: bool },
+    Leaderboard,
 }
 
 #[derive(Default)]
@@ -77,6 +78,7 @@ impl Input {
             InputContext::Modal => modal_keymap(),
             InputContext::Menu { searching: false } => menu_base_keymap(),
             InputContext::Menu { searching: true } => menu_search_keymap(),
+            InputContext::Leaderboard => leaderboard_keymap(),
         };
 
         self.last_keycode = Some(event.code);
