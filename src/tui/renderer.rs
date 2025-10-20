@@ -152,6 +152,8 @@ fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Re
         Picker::render(frame, app, theme, area);
     }
 
-    // notification overlay (if any)
-    NotificationComponent::render(frame, theme, area);
+    // notification overlay (if any or we are not hiding them)
+    if !app.config.should_hide_notifications() {
+        NotificationComponent::render(frame, theme, area);
+    }
 }

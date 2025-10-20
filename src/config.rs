@@ -22,6 +22,7 @@ pub enum Setting {
     Numbers,
     Punctuation,
     LiveWPM,
+    ShowNotifications,
     TrackResults,
 }
 
@@ -208,6 +209,8 @@ pub struct ConfigState {
     #[serde(default)]
     pub hide_live_wpm: bool,
     #[serde(default)]
+    pub hide_notifications: bool,
+    #[serde(default)]
     pub no_track: bool,
 }
 
@@ -227,6 +230,7 @@ impl Default for ConfigState {
             picker_variant: PickerVariant::default(),
             results_variant: ResultsVariant::default(),
             hide_live_wpm: false,
+            hide_notifications: false,
             no_track: false,
         }
     }
@@ -339,6 +343,10 @@ impl Config {
             self.state.hide_live_wpm = true;
         }
 
+        if cli.hide_notifications {
+            self.state.hide_notifications = true;
+        }
+
         if cli.no_track {
             self.state.no_track = true;
         }
@@ -436,6 +444,10 @@ impl Config {
         self.state.hide_live_wpm
     }
 
+    pub fn should_hide_notifications(&self) -> bool {
+        self.state.hide_notifications
+    }
+
     pub fn can_track_results(&self) -> bool {
         !self.state.no_track
     }
@@ -446,16 +458,19 @@ impl Config {
             Setting::Numbers => self.state.numbers,
             Setting::Punctuation => self.state.punctuation,
             Setting::LiveWPM => !self.state.hide_live_wpm,
+            Setting::ShowNotifications => !self.state.hide_notifications,
             Setting::TrackResults => !self.state.no_track,
         }
     }
 
+    #[rustfmt::skip]
     pub fn toggle(&mut self, setting: Setting) -> Result<(), AppError> {
         match setting {
             Setting::Symbols => self.state.symbols = !self.state.symbols,
             Setting::Numbers => self.state.numbers = !self.state.numbers,
             Setting::Punctuation => self.state.punctuation = !self.state.punctuation,
             Setting::LiveWPM => self.state.hide_live_wpm = !self.state.hide_live_wpm,
+            Setting::ShowNotifications => self.state.hide_notifications = !self.state.hide_notifications,
             Setting::TrackResults => self.state.no_track = !self.state.no_track,
         };
         Ok(())
@@ -518,10 +533,20 @@ mod tests {
         config.toggle(Setting::Punctuation).unwrap();
         assert!(config.is_enabled(Setting::Punctuation));
 
+        assert!(!config.state.no_track);
+        assert!(config.can_track_results());
+        config.toggle(Setting::TrackResults).unwrap();
+        assert!(!config.can_track_results());
+
         assert!(!config.state.hide_live_wpm);
         assert!(!config.should_hide_live_wpm());
         config.toggle(Setting::LiveWPM).unwrap();
-        assert!(config.should_hide_live_wpm())
+        assert!(config.should_hide_live_wpm());
+
+        assert!(!config.state.hide_notifications);
+        assert!(!config.should_hide_notifications());
+        config.toggle(Setting::ShowNotifications).unwrap();
+        assert!(config.should_hide_notifications())
     }
 
     #[test]

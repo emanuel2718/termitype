@@ -81,6 +81,10 @@ pub struct Cli {
     #[arg(long = "hide-live-wpm")]
     pub hide_live_wpm: bool,
 
+    /// Hide notifications
+    #[arg(long = "hide-notifications")]
+    pub hide_notifications: bool,
+
     /// Do not locally track tests results
     #[arg(long = "no-track")]
     pub no_track: bool,
