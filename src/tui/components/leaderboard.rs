@@ -95,6 +95,24 @@ impl LeaderboardOverlay {
         let data = leaderboard.data();
         let width = area.width;
 
+        // We don't have any results to show
+        if data.is_empty() {
+            let message = Paragraph::new("No results found")
+                .style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
+                .alignment(Alignment::Center);
+
+            let vertical_padding = area.height / 2;
+            let message_area = Rect {
+                x: area.x,
+                y: area.y + vertical_padding,
+                width: area.width,
+                height: 1,
+            };
+
+            frame.render_widget(message, message_area);
+            return;
+        }
+
         let sort_info = SortInfo {
             col: sort_col.clone(),
             order: sort_order.clone(),
