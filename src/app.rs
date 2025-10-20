@@ -18,7 +18,7 @@ use crate::{
 };
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
-use ratatui::{Terminal, prelude::Backend};
+use ratatui::{prelude::Backend, Terminal};
 use std::time::Duration;
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
@@ -236,6 +236,18 @@ impl App {
             Err(AppError::IllegalSpaceCharacter) => Ok(()),
             Err(e) => Err(e),
         }
+    }
+
+    pub fn handle_change_theme(&mut self, theme_name: String) -> Result<(), AppError> {
+        theme::set_as_current_theme(&theme_name)?;
+        notify_info!(format!("Theme change: {theme_name}"));
+        Ok(())
+    }
+
+    pub fn handle_randomize_theme(&mut self) -> Result<(), AppError> {
+        theme::use_random_theme()?;
+        notify_info!(format!("Theme change: {}", theme::current_theme().id));
+        Ok(())
     }
 
     pub fn handle_toggle_setting(&mut self, setting: Setting) -> Result<(), AppError> {

@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-const MAX_NOTIFICATION_COUNT: usize = 3;
+const MAX_NOTIFICATION_COUNT: usize = 1;
 const DEFAULT_DUATION: Duration = Duration::from_secs(3);
 
 type NotificationStore = Arc<Mutex<Vec<Notification>>>;

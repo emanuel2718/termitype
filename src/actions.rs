@@ -5,7 +5,6 @@ use crate::{
     leaderboard::{LeaderboardMotion, SortColumn},
     menu::{MenuContext, MenuMotion},
     modal::ModalContext,
-    theme,
     variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
@@ -94,7 +93,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::LeaderboardNav(motion) => app.handle_leaderboard_nav(motion),
         Action::Toggle(setting) => app.handle_toggle_setting(setting),
         Action::SetLineCount(count) => app.handle_set_line_count(count),
-        Action::SetTheme(name) => theme::set_as_current_theme(&name),
+        Action::SetTheme(name) => app.handle_change_theme(name),
         Action::SetCursorVariant(variant) => app.handle_set_cursor(variant),
         Action::SetPickerVariant(variant) => app.handle_set_picker(variant),
         Action::SetResultVariant(variant) => app.handle_set_result(variant),
@@ -102,7 +101,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::SetWords(count) => app.handle_set_words(count as usize),
         Action::SetLanguage(lang) => app.handle_set_language(lang),
         Action::SetAsciiArt(art) => app.handle_set_ascii_art(art),
-        Action::RandomizeTheme => theme::use_random_theme(),
+        Action::RandomizeTheme => app.handle_randomize_theme(),
         Action::CycleNextArt => app.handle_cycle_prev_art(),
         Action::CyclePreviousArt => app.handle_cycle_next_art(),
         _ => Ok(()),

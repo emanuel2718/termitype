@@ -149,8 +149,8 @@ fn build_options_menu() -> MenuContent {
         .action("Use numbers", Action::Toggle(Setting::Numbers)) .shortcut('n') .description("Include numbers in the generated test")
         .action("Use punctuation", Action::Toggle(Setting::Punctuation)) .shortcut('p') .description("Include punctuation in the generated test (!, ?, etc)")
         .action("Show live WPM", Action::Toggle(Setting::LiveWPM)) .shortcut('w') .description("Show the live word per minutes during the test")
-        .action("Show Notifications", Action::Toggle(Setting::ShowNotifications)) .shortcut('N') .description("Show notifications")
-        .action("Track Results", Action::Toggle(Setting::TrackResults)) .shortcut('t') .description("Locally track test results")
+        .action("Show notifications", Action::Toggle(Setting::ShowNotifications)) .shortcut('N') .description("Show notifications")
+        .action("Track results", Action::Toggle(Setting::TrackResults)) .shortcut('t') .description("Locally track test results")
         .build()
 }
 
