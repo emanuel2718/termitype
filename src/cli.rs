@@ -26,15 +26,15 @@ pub struct Cli {
     #[arg(short = 'c', long = "count", group = "mode", value_name = "COUNT")]
     pub words_count: Option<usize>,
 
-    /// Should use number in the test word pool or not
+    /// Include numbers in the test word pool
     #[arg(short = 'n', long = "numbers")]
     pub use_numbers: bool,
 
-    /// Should use symbols in the test word pool or not
+    /// Include symbols in the test word pool
     #[arg(short = 's', long = "symbols")]
     pub use_symbols: bool,
 
-    /// Should use punctuation in the test word pool or not
+    /// Include symbols in the test word pool
     #[arg(short = 'p', long = "punctuation")]
     pub use_punctuation: bool,
 
@@ -42,11 +42,11 @@ pub struct Cli {
     #[arg(short = 'l', long, value_name = "LANG")]
     pub language: Option<String>,
 
-    /// The theme that is going to be used
+    /// The theme of the application
     #[arg(long = "theme")]
     pub theme: Option<String>,
 
-    /// The ASCII art for results screen
+    /// The ASCII art used in the `Neofetch` results
     #[arg(long = "ascii")]
     pub ascii: Option<String>,
 
@@ -58,7 +58,7 @@ pub struct Cli {
     #[arg(long = "picker", value_name = "STYLE")]
     pub picker: Option<String>,
 
-    /// Results style variatn: minimal, neofetch, graph
+    /// Results style variant: minimal, neofetch, graph
     #[arg(long = "results", value_name = "STYLE")]
     pub results: Option<String>,
 
