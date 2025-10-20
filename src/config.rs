@@ -243,11 +243,10 @@ pub struct Config {
     persistence: Persistence,
 }
 
-// impl Default for Config {}
-
 impl Config {
     pub fn new() -> Result<Self> {
         let args = Cli::parse();
+        args.validate().map_err(|e| anyhow::anyhow!(e))?;
         let persistence = Persistence::new()?;
         let mut config = Self {
             cli: args.clone(),

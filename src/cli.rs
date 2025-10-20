@@ -1,4 +1,7 @@
-use crate::constants::DEFAULT_LINE_COUNT;
+use crate::constants::{
+    DEFAULT_LINE_COUNT, MAX_CUSTOM_TIME, MAX_CUSTOM_WORD_COUNT, MIN_CUSTOM_TIME,
+    MIN_CUSTOM_WORD_COUNT,
+};
 use clap::Parser;
 
 /// The CLI arguments
@@ -91,10 +94,150 @@ pub struct Cli {
 }
 
 impl Cli {
+    pub fn validate(&self) -> Result<(), String> {
+        if let Some(t) = self.time {
+            if t < MIN_CUSTOM_TIME as u64 || t > MAX_CUSTOM_TIME as u64 {
+                return Err(format!(
+                    "Time must be between {} and {} seconds",
+                    MIN_CUSTOM_TIME, MAX_CUSTOM_TIME
+                ));
+            }
+        }
+        if let Some(c) = self.words_count {
+            if !(MIN_CUSTOM_WORD_COUNT..=MAX_CUSTOM_WORD_COUNT).contains(&c) {
+                return Err(format!(
+                    "Word count must be between {} and {}",
+                    MIN_CUSTOM_WORD_COUNT, MAX_CUSTOM_WORD_COUNT
+                ));
+            }
+        }
+
+        if let Some(c) = &self.words {
+            if !(MIN_CUSTOM_WORD_COUNT..=MAX_CUSTOM_WORD_COUNT).contains(&c.len()) {
+                return Err(format!(
+                    "Word count must be between {} and {}",
+                    MIN_CUSTOM_WORD_COUNT, MAX_CUSTOM_WORD_COUNT
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn clear_custom_words_flag(&mut self) {
         if self.words.is_some() {
             self.words = None
         }
     }
     // TODO: add here the check to print to console (i.e languages, themes, etc.)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_default() {
+        let cli = Cli::default();
+        assert!(cli.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_valid_time() {
+        // good
+        let cli = Cli {
+            time: Some(30),
+            words_count: None,
+            ..Default::default()
+        };
+        assert!(cli.validate().is_ok());
+
+        // too low
+        let cli = Cli {
+            time: Some(0),
+            words_count: None,
+            ..Default::default()
+        };
+        assert!(cli.validate().is_err());
+        assert_eq!(
+            cli.validate().unwrap_err(),
+            "Time must be between 1 and 300 seconds"
+        );
+
+        // too high
+        let cli = Cli {
+            time: Some(301),
+            words_count: None,
+            ..Default::default()
+        };
+        assert!(cli.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_valid_count() {
+        // good
+        let cli = Cli {
+            time: None,
+            words_count: Some(100),
+            ..Default::default()
+        };
+        assert!(cli.validate().is_ok());
+
+        // too low
+        let cli = Cli {
+            time: None,
+            words_count: Some(0),
+            ..Default::default()
+        };
+        assert!(cli.validate().is_err());
+        assert_eq!(
+            cli.validate().unwrap_err(),
+            "Word count must be between 1 and 5000"
+        );
+
+        // too high
+        let cli = Cli {
+            time: None,
+            words_count: Some(5001),
+            ..Default::default()
+        };
+        assert!(cli.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_words_should_respect_count_rules() {
+        // good
+        let normal_text = "*".repeat(MAX_CUSTOM_WORD_COUNT);
+        let empty_text = "".to_string();
+        let long_text = "*".repeat(MAX_CUSTOM_WORD_COUNT + 1);
+        let cli = Cli {
+            time: None,
+            words: Some(normal_text),
+            ..Default::default()
+        };
+        assert!(cli.validate().is_ok());
+
+        // lower than min count
+        let cli = Cli {
+            time: None,
+            words: Some(empty_text),
+            ..Default::default()
+        };
+        assert!(cli.validate().is_err());
+        assert_eq!(
+            cli.validate().unwrap_err(),
+            "Word count must be between 1 and 5000"
+        );
+
+        // higher than min count
+        let cli = Cli {
+            time: None,
+            words: Some(long_text.clone()),
+            ..Default::default()
+        };
+        assert!(cli.validate().is_err());
+        assert_eq!(
+            cli.validate().unwrap_err(),
+            "Word count must be between 1 and 5000"
+        );
+    }
 }

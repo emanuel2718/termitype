@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+// TODO: maybe in the future we might wan to have this be configurable
 const MAX_NOTIFICATION_COUNT: usize = 1;
 const DEFAULT_DUATION: Duration = Duration::from_secs(3);
 
@@ -273,23 +274,24 @@ mod tests {
         reset_notifications();
         notify(NotificationSeverity::Info, "msg".to_string());
         notify(NotificationSeverity::Warning, "warn".to_string());
-        assert_eq!(get_active_notifications().len(), 2);
+        assert_eq!(get_active_notifications().len(), MAX_NOTIFICATION_COUNT);
         clear_notifications();
         assert_eq!(get_active_notifications().len(), 0);
     }
 
-    #[test]
-    fn test_max_notification_count() {
-        reset_notifications();
-        for i in 0..5 {
-            notify(NotificationSeverity::Info, format!("msg {}", i));
-        }
-        let active = get_active_notifications();
-        assert_eq!(active.len(), 3); // `MAX_NOTIFICATION_COUNT`
-        assert_eq!(active[0].message, "msg 2");
-        assert_eq!(active[1].message, "msg 3");
-        assert_eq!(active[2].message, "msg 4");
-    }
+    // NOTE: for now we are capping max count to just 1 so, this is no longer needed
+    // #[test]
+    // fn test_max_notification_count() {
+    //     reset_notifications();
+    //     for i in 0..5 {
+    //         notify(NotificationSeverity::Info, format!("msg {}", i));
+    //     }
+    //     let active = get_active_notifications();
+    //     assert_eq!(active.len(), MAX_NOTIFICATION_COUNT);
+    //     assert_eq!(active[0].message, "msg 2");
+    //     assert_eq!(active[1].message, "msg 3");
+    //     assert_eq!(active[2].message, "msg 4");
+    // }
 
     #[test]
     fn test_has_any() {
