@@ -281,7 +281,7 @@ mod tests {
         assert_eq!(variant.value(), "graph");
         assert_eq!(variant.label(), "Graph");
         assert_eq!(ResultsVariant::name(), "results");
-        assert_eq!(ResultsVariant::default(), ResultsVariant::Minimal);
+        assert_eq!(ResultsVariant::default(), ResultsVariant::Graph);
     }
 
     #[test]

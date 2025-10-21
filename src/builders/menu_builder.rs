@@ -118,7 +118,7 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
         MenuContext::Words => build_words_menu(),
         MenuContext::Language => build_language_menu(config),
         MenuContext::Cursor => build_cursor_menu(config),
-        MenuContext::VisibleLines => build_visible_lines_menu(),
+        MenuContext::VisibleLines => build_visible_lines_menu(config),
         MenuContext::Ascii => build_ascii_menu(config),
         MenuContext::Leaderboard => build_leaderboard_menu(),
         MenuContext::About => build_about_menu(),
@@ -247,15 +247,22 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
 }
 
 #[rustfmt::skip]
-fn build_visible_lines_menu() -> MenuContent {
-    MenuBuilder::new("Select Line Count", MenuContext::VisibleLines)
+fn build_visible_lines_menu(config: &Config) -> MenuContent {
+    let builder = MenuBuilder::new("Select Line Count", MenuContext::VisibleLines)
         .action("1", Action::SetLineCount(1)) .shortcut('1') .close_on_select()
         .action("2", Action::SetLineCount(2)) .shortcut('2') .close_on_select()
         .action("3", Action::SetLineCount(3)) .shortcut('3') .close_on_select()
         .action("4", Action::SetLineCount(4)) .shortcut('4') .close_on_select()
         .action("5", Action::SetLineCount(5)) .shortcut('5') .close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)) .shortcut('c')
-        .build()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)) .shortcut('c');
+
+    let mut menu = builder.build();
+    let current_line_count = config.current_line_count();
+    if let Some(idx) = [1, 2, 3, 4, 5].iter().position(|count| *count == current_line_count) {
+        menu.set_current_index(idx);
+
+    }
+    menu
 }
 
 fn build_ascii_menu(config: &Config) -> MenuContent {
