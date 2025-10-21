@@ -35,7 +35,7 @@ pub fn get_default_art_by_os() -> &'static str {
     match () {
         _ if cfg!(target_os = "macos") => "Apple",
         _ if cfg!(target_os = "windows") => "Windows7",
-        _ if cfg!(target_os = "linux") => "Linux",
+        _ if cfg!(target_os = "linux") => "Termitype", // TODO: eventually we want to do per distro art, but default to this for now
         _ => "Termitype",
     }
 }

@@ -2,6 +2,8 @@ pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const DEFAULT_LINE_COUNT: u8 = 3;
 pub const DEFAULT_LANGUAGE: &str = "english";
 pub const DEFAULT_THEME: &str = "tokyonight";
+pub const DEFAULT_ASCII_ART: &str = "Termitype";
+pub const DEFAULT_RESULTS_VARIANT: &str = "graph";
 
 pub const WPS_TARGET: usize = 6; // words per second target; approx 350 / 60
 
@@ -18,9 +20,7 @@ pub const MAX_CUSTOM_LINE_COUNT: usize = 10;
 
 pub const MAX_EXTRA_WRONG_CHARS: usize = 19;
 
-pub const DEFAULT_ASCII_ART: &str = "Termitype";
-
-pub const STATE_FILE: &str = ".state";
+pub const STATE_FILE: &str = "state";
 
 /// Returns the logger file name
 pub fn logger_file() -> &'static str {

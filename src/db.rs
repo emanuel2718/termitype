@@ -6,10 +6,10 @@ use crate::{
     tracker::Tracker,
 };
 use chrono::{DateTime, Local};
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
-const SCHEMA_VERSION: i32 = 2;
+const SCHEMA_VERSION: i32 = 3;
 const DEFAULT_LEADERBOARD_LIMIT: usize = 25;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

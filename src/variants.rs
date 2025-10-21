@@ -203,9 +203,9 @@ impl PickerVariant {
 #[derive(Debug, Clone, Default, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ResultsVariant {
     /// Minimal text display.
-    #[default]
     Minimal,
     /// Graphical display style (default).
+    #[default]
     Graph,
     /// Neofetch-style display.
     Neofetch,
