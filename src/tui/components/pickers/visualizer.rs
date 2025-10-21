@@ -29,18 +29,19 @@ fn render_theme_visualizer(frame: &mut Frame, theme: &Theme, area: Rect) {
     let visualizer_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(5), // header + spacing
-            Constraint::Length(1), // action bar
-            Constraint::Length(8), // space
-            Constraint::Min(5),    // typing area
-            Constraint::Length(4), // bottom section
+            Constraint::Length(3), // header
+            Constraint::Length(1), // mode bar
+            Constraint::Min(1),    // spacing
+            Constraint::Length(5), // typing area
+            Constraint::Min(1),    // spcing
+            Constraint::Length(4), // cmd bar
         ])
         .split(area);
 
     render_theme_header_visualizer(frame, theme, visualizer_layout[0]);
     render_theme_mode_bar_visualizer(frame, theme, visualizer_layout[1]);
     render_theme_typing_area_visualizer(frame, theme, visualizer_layout[3]);
-    render_theme_cmd_bar_visualizer(frame, theme, visualizer_layout[4]);
+    render_theme_cmd_bar_visualizer(frame, theme, visualizer_layout[5]);
 }
 
 fn render_theme_header_visualizer(frame: &mut Frame, theme: &Theme, area: Rect) {
@@ -49,7 +50,7 @@ fn render_theme_header_visualizer(frame: &mut Frame, theme: &Theme, area: Rect) 
         .constraints([
             Constraint::Length(1), // p-top
             Constraint::Length(1), // title
-            Constraint::Min(0),    // space
+            Constraint::Length(1), // p-bottom
         ])
         .split(area);
 
