@@ -256,25 +256,8 @@ impl Leaderboard {
 mod tests {
     use super::*;
 
-    use std::sync::Mutex;
-    use tempfile::TempDir;
-
-    static ENV_MUTEX: Mutex<()> = Mutex::new(());
-
     fn create_test_db() -> Db {
-        let _guard = ENV_MUTEX.lock().unwrap();
-
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.path().to_path_buf();
-
-        if cfg!(target_os = "macos") {
-            unsafe { std::env::set_var("HOME", &temp_path) };
-        } else if cfg!(target_os = "windows") {
-            unsafe { std::env::set_var("APPDATA", &temp_path) };
-        } else {
-            unsafe { std::env::set_var("XDG_CONFIG_HOME", &temp_path) };
-        }
-        Db::new("testdb").expect("Failed to create test database")
+        Db::new_in_memory().expect("Failed to create test database")
     }
 
     #[test]

@@ -125,6 +125,16 @@ impl Db {
         Ok(db)
     }
 
+    #[cfg(test)]
+    pub fn new_in_memory() -> AppResult<Self> {
+        let connection = Connection::open_in_memory()?;
+        let mut db = Self { conn: connection };
+
+        db.init()?;
+
+        Ok(db)
+    }
+
     fn init(&mut self) -> AppResult<()> {
         self.conn.execute("PRAGMA foreign_keys = ON", [])?;
 
@@ -416,27 +426,9 @@ mod tests {
     use super::*;
 
     use crate::config::Mode;
-    use std::sync::Mutex;
-    use tempfile::TempDir;
-
-    static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
     fn create_test_db() -> Db {
-        let _guard = ENV_MUTEX.lock().unwrap();
-
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.path().to_path_buf();
-
-        // NOTE: Rust 2024 edition marks as unsafe `env::set_var()`, we only use this on tests.
-        // https://github.com/rust-lang/rust/pull/124636
-        if cfg!(target_os = "macos") {
-            unsafe { std::env::set_var("HOME", &temp_path) };
-        } else if cfg!(target_os = "windows") {
-            unsafe { std::env::set_var("APPDATA", &temp_path) };
-        } else {
-            unsafe { std::env::set_var("XDG_CONFIG_HOME", &temp_path) };
-        }
-        Db::new(".test.db").expect("Failed to create test database")
+        Db::new_in_memory().expect("Failed to create test database")
     }
 
     fn insert_test_result(
