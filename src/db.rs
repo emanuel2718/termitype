@@ -218,7 +218,7 @@ impl Db {
             language: config.current_language(),
             wpm: summary.wpm.round() as u16,
             raw_wpm: summary.raw_wpm().round() as u16,
-            accuracy: summary.accuracy as u16,
+            accuracy: (summary.accuracy * 100.0) as u16,
             consistency: summary.consistency as u16,
             error_count: summary.total_errors as u32,
             numbers: config.is_enabled(Setting::Numbers),
