@@ -9,4 +9,6 @@ flamegraph.svg
 
 .idea/*
 
-assets/**
+assets/themes/
+assets/languages/
+assets/demo.gif

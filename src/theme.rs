@@ -1,53 +1,77 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    str::FromStr,
-    sync::{OnceLock, RwLock},
-    thread_local,
-};
-
+use crate::{config::Config, constants::DEFAULT_THEME, error::AppError};
+use anyhow::Result;
+use rand::{Rng, rng};
 use ratatui::style::Color;
-
-use crate::{assets, config::Config, constants::DEFAULT_THEME, notify_warning};
-
-static THEME_LOADER: OnceLock<RwLock<ThemeLoader>> = OnceLock::new();
+use std::{
+    collections::HashMap,
+    convert::Infallible,
+    str::FromStr,
+    sync::{Arc, RwLock},
+};
 
 const NUM_COLORS: usize = 14;
 
-#[derive(Debug)]
-pub struct ThemeLoader {
-    themes: HashMap<String, Theme>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Theme {
-    pub id: Box<str>,
-    colors: [Color; NUM_COLORS],
-    pub color_support: ColorSupport,
-}
-
-#[derive(Debug, Clone, Copy)]
-#[repr(usize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ThemeColor {
-    Background = 0, // Main Backround
-    Foreground,     // Default Text
-    Muted,          // Dimmed Text
-    Accent,         // Carets and Arrows
-    Info,           // Information
-    Primary,        // Primary
-    Highlight,      // Selected items
-    Success,        // Correct Words
-    Error,          // Wrong Words
-    Warning,        // Warning messages
-    Cursor,         // Cursor Color
-    CursorText,     // Text under Cursor
-    SelectionBg,    // Text Selection Background
-    SelectionFg,    // Text Selection Foreground
+    Background = 0,
+    Foreground,
+    Muted,
+    Accent,
+    Info,
+    Primary,
+    Highlight,
+    Success,
+    Error,
+    Warning,
+    Cursor,
+    CursorText,
+    SelectionBg,
+    SelectionFg,
 }
 
-/// Represents the terminal's color support capabilities
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+impl ThemeColor {
+    pub fn all() -> &'static [Self] {
+        &[
+            ThemeColor::Background,
+            ThemeColor::Foreground,
+            ThemeColor::Muted,
+            ThemeColor::Accent,
+            ThemeColor::Info,
+            ThemeColor::Primary,
+            ThemeColor::Highlight,
+            ThemeColor::Success,
+            ThemeColor::Error,
+            ThemeColor::Warning,
+            ThemeColor::Cursor,
+            ThemeColor::CursorText,
+            ThemeColor::SelectionBg,
+            ThemeColor::SelectionFg,
+        ]
+    }
+
+    fn map_to_palette_key(self) -> &'static str {
+        match self {
+            ThemeColor::Background => "background",
+            ThemeColor::Foreground => "foreground",
+            ThemeColor::Muted => "palette7", // NOTE: originally was palette8
+            ThemeColor::Accent => "palette10",
+            ThemeColor::Info => "palette4",
+            ThemeColor::Primary => "palette5",
+            ThemeColor::Highlight => "palette6",
+            ThemeColor::Success => "palette2",
+            ThemeColor::Error => "palette1",
+            ThemeColor::Warning => "palette3",
+            ThemeColor::Cursor => "cursor-color",
+            ThemeColor::CursorText => "palette0",
+            ThemeColor::SelectionBg => "selection-background",
+            ThemeColor::SelectionFg => "selection-foreground",
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ColorSupport {
+    #[default]
     /// Basic ANSI colors (8 colors)
     Basic = 4,
     /// Extended color palette (256 colors)
@@ -57,290 +81,26 @@ pub enum ColorSupport {
 }
 
 impl ColorSupport {
-    /// Checks if the terminal likely supports theming
-    pub fn supports_themes(self) -> bool {
+    pub fn support_themes(self) -> bool {
         self >= ColorSupport::Extended
     }
 
-    /// Checks if the terminal likely supports Unicode characters
-    pub fn supports_unicode(self) -> bool {
-        // TODO: improve this detection. This heuristic will probably be wrong in some cases
+    pub fn support_unicode(self) -> bool {
         self >= ColorSupport::Extended
     }
-}
 
-impl Default for Theme {
-    fn default() -> Self {
-        Self::new(&Config::default())
-    }
-}
-
-thread_local! {
-    static THEME_CACHE: RefCell<HashMap<String, Theme>> = RefCell::new(HashMap::new());
-    static CACHE_INITIALIZED: RefCell<bool> = const { RefCell::new(false) };
-}
-
-impl Theme {
-    pub fn new(config: &Config) -> Self {
-        let color_support = config
-            .color_mode
-            .as_deref()
-            .and_then(|s| ColorSupport::from_str(s).ok())
-            .unwrap_or_else(Self::detect_color_support);
-
-        // No theme support. Get a better terminal m8
-        if !color_support.supports_themes() {
-            return Self::fallback_theme_with_support(color_support);
-        }
-        let loader = ThemeLoader::init();
-        let theme_name = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
-
-        let mut theme = match loader.write() {
-            Ok(mut loader_guard) => {
-                match loader_guard.get_theme(theme_name) {
-                    Ok(theme) => theme,
-                    Err(_) => {
-                        // if fail, then default to `DEFAULT_THEME`.
-                        match loader_guard.get_theme(DEFAULT_THEME) {
-                            Ok(theme) => {
-                                notify_warning!(format!("Could not find theme '{theme_name}'"));
-                                theme
-                            }
-                            Err(_) => {
-                                // if all else fails then use the fallback theme
-                                Self::fallback_theme_with_support(color_support)
-                            }
-                        }
-                    }
-                }
-            }
-            Err(_) => Self::fallback_theme_with_support(color_support),
-        };
-
-        theme.color_support = color_support;
-        theme
-    }
-
-    /// Detects the terminal's color support level
-    pub fn detect_color_support() -> ColorSupport {
-        // $COLORTERM
-        if let Ok(colorterm) = std::env::var("COLORTERM") {
-            match colorterm.to_lowercase().as_str() {
-                "truecolor" | "24bit" => return ColorSupport::TrueColor,
-                // NOTE: don't assume Basic support yet.
-                _ => {}
-            }
-        }
-
-        // known problematic terminal overrides. this might be dumb but good enough for now
-        if cfg!(target_os = "macos") {
-            if let Ok(term_program) = std::env::var("TERM_PROGRAM") {
-                #[allow(clippy::single_match)]
-                match term_program.as_str() {
-                    // MacOS Terminal.app blatanly lies about 256color support and do not really supports it
-                    "Apple_Terminal" => return ColorSupport::Basic,
-                    _ => {}
-                }
-            }
-        }
-
-        // TODO: spin up termitype on a windows VM and check
-
-        // $TERM
-        if let Ok(term) = std::env::var("TERM") {
-            let target = term.to_lowercase();
-
-            if target.contains("truecolor") {
+    pub fn detect_color_support() -> Self {
+        // TODO: improve this
+        if let Ok(ct) = std::env::var("COLORTERM") {
+            if Self::is_truecolor_term(&ct) {
                 return ColorSupport::TrueColor;
             }
-
-            // known terminals that support truecolor
-            if matches!(target.as_str(), "alacritty" | "kitty" | "wezterm") {
-                return ColorSupport::TrueColor;
-            }
-
-            if target.contains("256color") {
-                return ColorSupport::Extended;
-            }
-
-            if target.starts_with("screen") || target.starts_with("tmux") {
-                return ColorSupport::Extended;
-            }
         }
-
-        // use fallback theme, at this point I don't know if theres something else we can do
         ColorSupport::Basic
     }
 
-    fn fallback_theme() -> Self {
-        // TODO: detect system color (dark/light) and show a respective fallback theme.
-        //      could use: https://crates.io/crates/terminal-light
-        notify_warning!("Using fallback theme");
-        Self {
-            id: Box::from("Fallback"),
-            colors: [
-                Color::Black,        // Background
-                Color::White,        // Foreground
-                Color::Gray,         // Muted
-                Color::LightMagenta, // Accent
-                Color::Cyan,         // Info
-                Color::LightCyan,    // Primary
-                Color::LightGreen,   // Highlight
-                Color::Green,        // Success
-                Color::Red,          // Error
-                Color::LightYellow,  // Warning
-                Color::White,        // Cursor
-                Color::Black,        // CursorText
-                Color::DarkGray,     // SelectionBg
-                Color::White,        // SelectionFg
-            ],
-            color_support: ColorSupport::Basic,
-        }
-    }
-
-    fn fallback_theme_with_support(color_support: ColorSupport) -> Self {
-        let mut theme = Self::fallback_theme();
-        theme.color_support = color_support;
-        theme
-    }
-
-    fn ensure_all_themes_loaded() {
-        let initialized = CACHE_INITIALIZED.with(|init| *init.borrow());
-        if initialized {
-            return;
-        }
-
-        let loader = ThemeLoader::init();
-        let themes = available_themes();
-
-        // loader
-        for theme_name in themes {
-            let needs_loading = {
-                let read_guard = loader.read().unwrap();
-                !read_guard.themes.contains_key(theme_name)
-            };
-
-            if needs_loading {
-                loader.write().unwrap().load_theme(theme_name).ok();
-            }
-        }
-
-        // thread-local cache
-        {
-            let read_guard = loader.read().unwrap();
-            THEME_CACHE.with(|cache| {
-                let mut cache = cache.borrow_mut();
-                for (name, theme) in &read_guard.themes {
-                    cache.insert(name.clone(), theme.clone());
-                }
-            });
-        }
-
-        // Mark it as good
-        CACHE_INITIALIZED.with(|init| {
-            *init.borrow_mut() = true;
-        });
-    }
-
-    pub fn from_name(name: &str) -> Self {
-        Self::ensure_all_themes_loaded();
-
-        // cache hit from thread-local
-        let cached_theme = THEME_CACHE.with(|cache| {
-            let cache = cache.borrow();
-            cache.get(name).cloned()
-        });
-
-        if let Some(theme) = cached_theme {
-            return theme;
-        }
-
-        // fallback to loader (this should not happen often)
-        let loader = ThemeLoader::init();
-        let theme = loader
-            .read()
-            .unwrap()
-            .themes
-            .get(name)
-            .cloned()
-            .unwrap_or_else(|| {
-                let fallback = Self::fallback_theme();
-
-                THEME_CACHE.with(|cache| {
-                    let mut cache = cache.borrow_mut();
-                    cache.insert(name.to_string(), fallback.clone());
-                });
-
-                fallback
-            });
-
-        theme
-    }
-
-    // ************** COLORS_FN **************
-    pub fn bg(&self) -> Color {
-        self.colors[ThemeColor::Background as usize]
-    }
-
-    pub fn fg(&self) -> Color {
-        self.colors[ThemeColor::Foreground as usize]
-    }
-
-    pub fn muted(&self) -> Color {
-        self.colors[ThemeColor::Muted as usize]
-    }
-
-    pub fn accent(&self) -> Color {
-        self.colors[ThemeColor::Accent as usize]
-    }
-
-    pub fn info(&self) -> Color {
-        self.colors[ThemeColor::Info as usize]
-    }
-
-    pub fn primary(&self) -> Color {
-        self.colors[ThemeColor::Primary as usize]
-    }
-
-    pub fn highlight(&self) -> Color {
-        self.colors[ThemeColor::Highlight as usize]
-    }
-
-    pub fn success(&self) -> Color {
-        self.colors[ThemeColor::Success as usize]
-    }
-
-    pub fn error(&self) -> Color {
-        self.colors[ThemeColor::Error as usize]
-    }
-
-    pub fn warning(&self) -> Color {
-        self.colors[ThemeColor::Warning as usize]
-    }
-
-    pub fn border(&self) -> Color {
-        self.colors[ThemeColor::Muted as usize]
-    }
-
-    pub fn cursor(&self) -> Color {
-        self.colors[ThemeColor::Cursor as usize]
-    }
-
-    pub fn cursor_text(&self) -> Color {
-        self.colors[ThemeColor::CursorText as usize]
-    }
-
-    pub fn selection_bg(&self) -> Color {
-        self.colors[ThemeColor::SelectionBg as usize]
-    }
-
-    pub fn selection_fg(&self) -> Color {
-        self.colors[ThemeColor::SelectionFg as usize]
-    }
-
-    /// Checks if the terminal likely supports Unicode characters
-    pub fn supports_unicode(&self) -> bool {
-        self.color_support.supports_unicode()
+    fn is_truecolor_term(colorterm: &str) -> bool {
+        matches!(colorterm.to_lowercase().as_str(), "truecolor | 24bit")
     }
 }
 
@@ -357,371 +117,426 @@ impl std::str::FromStr for ColorSupport {
     }
 }
 
-impl ThemeLoader {
-    fn init() -> &'static RwLock<ThemeLoader> {
-        THEME_LOADER.get_or_init(|| {
-            let loader = Self {
-                themes: HashMap::new(),
-            };
+#[derive(Debug, Clone)]
+pub struct Theme {
+    pub id: Arc<str>,
+    colors: [Color; NUM_COLORS],
+}
 
-            // NOTE: is this tradeoff worth it? The increase in startup time is neglible
-            //       but we should consider the memory overheaad of having all the themes
-            //       loaded when in reality not everytime the user will use the theme previewer.
-            // for theme_name in assets::list_themes() {
-            //     loader.load_theme(&theme_name).ok();
-            // }
+impl Default for Theme {
+    fn default() -> Self {
+        Self::fallback()
+    }
+}
 
-            RwLock::new(loader)
+impl FromStr for Theme {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(theme_manager()
+            .get_theme(s)
+            .unwrap_or_else(|_| Theme::fallback()))
+    }
+}
+
+impl Theme {
+    pub fn get(&self, color: ThemeColor) -> Color {
+        self.colors[color as usize]
+    }
+
+    pub fn from_colorscheme(name: impl Into<Arc<str>>, colorscheme: &str) -> Result<Self> {
+        let color_map = Self::parse_colors(colorscheme)?;
+        let colors = Self::build_colors(&color_map)?;
+        Ok(Theme {
+            id: name.into(),
+            colors,
         })
+        // TODO: implement this
     }
 
-    /// Checks if the given theme is available
-    pub fn has_theme(theme: &str) -> bool {
-        assets::get_theme(theme).is_some()
+    fn parse_colors(scheme: &str) -> Result<HashMap<String, String>> {
+        let mut color_map = HashMap::new();
+        for line in scheme.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            /*
+            Possible cases by shape:
+                background = #000000
+                palette = 0=#000000
+            */
+
+            if line.starts_with("palette =") {
+                // case: palette = 0=#000000
+                let parts: Vec<&str> = line.split('=').collect();
+                if parts.len() == 3 {
+                    let idx = parts[1].trim();
+                    let color = parts[2].trim();
+                    let color_value = if color.starts_with('#') {
+                        color.to_string()
+                    } else {
+                        format!("#{}", color) // TODO: further validate is a valid hex
+                    };
+
+                    color_map.insert(format!("palette{}", idx), color_value);
+                }
+            } else if let Some((key, val)) = line.split_once('=') {
+                // case: background = #000000
+                let key = key.trim();
+                let value = val.trim();
+                let color_value = if value.starts_with('#') {
+                    value.to_string()
+                } else {
+                    format!("#{}", value) // TODO: further validate is a valid hex
+                };
+                color_map.insert(key.to_string(), color_value);
+            }
+        }
+        Ok(color_map)
     }
 
-    /// Loads a theme from assets
-    fn load_theme(&mut self, theme_name: &str) -> Result<(), Box<dyn std::error::Error>> {
-        if !Self::has_theme(theme_name) {
-            return Err(format!("[ERROR] Theme '{theme_name}' is not available.").into());
+    fn build_colors(color_map: &HashMap<String, String>) -> Result<[Color; NUM_COLORS]> {
+        let mut colors = [Color::Black; NUM_COLORS];
+        for &theme_color in ThemeColor::all() {
+            let key = theme_color.map_to_palette_key();
+            let color_hex = color_map
+                .get(key)
+                .ok_or_else(|| anyhow::anyhow!("Missing required color: {}", key))?;
+            let color = Color::from_str(color_hex.as_str())
+                .map_err(|e| anyhow::anyhow!("Invalid color for {}: {}", key, e))?;
+            colors[theme_color as usize] = color;
         }
+        Ok(colors)
+    }
 
-        if self.themes.contains_key(theme_name) {
-            return Ok(());
+    pub fn fallback() -> Self {
+        Self {
+            id: Arc::from("Fallback"),
+            colors: [
+                Color::Black,        // Background
+                Color::White,        // Foreground
+                Color::Gray,         // Muted
+                Color::LightMagenta, // Accent
+                Color::Cyan,         // Info
+                Color::LightCyan,    // Primary
+                Color::LightGreen,   // Highlight
+                Color::Green,        // Success
+                Color::Red,          // Error
+                Color::LightYellow,  // Warning
+                Color::White,        // Cursor
+                Color::Black,        // CursorText
+                Color::DarkGray,     // SelectionBg
+                Color::White,        // SelectionFg
+            ],
         }
+    }
 
-        let content = assets::get_theme(theme_name)
-            .ok_or_else(|| format!("Theme '{theme_name}' not found"))?;
-        let theme = Self::parse_theme_file(&content, theme_name)?;
+    pub fn bg(&self) -> Color {
+        self.get(ThemeColor::Background)
+    }
+    pub fn fg(&self) -> Color {
+        self.get(ThemeColor::Foreground)
+    }
+    pub fn muted(&self) -> Color {
+        self.get(ThemeColor::Muted)
+    }
+    pub fn accent(&self) -> Color {
+        self.get(ThemeColor::Accent)
+    }
+    pub fn info(&self) -> Color {
+        self.get(ThemeColor::Info)
+    }
+    pub fn primary(&self) -> Color {
+        self.get(ThemeColor::Primary)
+    }
+    pub fn highlight(&self) -> Color {
+        self.get(ThemeColor::Highlight)
+    }
+    pub fn success(&self) -> Color {
+        self.get(ThemeColor::Success)
+    }
+    pub fn error(&self) -> Color {
+        self.get(ThemeColor::Error)
+    }
+    pub fn warning(&self) -> Color {
+        self.get(ThemeColor::Warning)
+    }
+    pub fn cursor(&self) -> Color {
+        self.get(ThemeColor::Cursor)
+    }
+    pub fn cursor_text(&self) -> Color {
+        self.get(ThemeColor::CursorText)
+    }
+    pub fn selection_bg(&self) -> Color {
+        self.get(ThemeColor::SelectionBg)
+    }
+    pub fn selection_fg(&self) -> Color {
+        self.get(ThemeColor::SelectionFg)
+    }
 
-        self.themes.insert(theme_name.to_string(), theme);
+    pub fn border(&self) -> Color {
+        self.muted()
+    }
+}
+
+#[derive(Default)]
+pub struct ThemeManager {
+    themes: Arc<RwLock<HashMap<String, Theme>>>,
+    current_theme: Arc<RwLock<Option<Theme>>>,
+    preview_theme: Arc<RwLock<Option<Theme>>>,
+    color_support: ColorSupport,
+}
+
+impl ThemeManager {
+    pub fn new() -> Self {
+        let color_support = ColorSupport::detect_color_support();
+        Self {
+            themes: Arc::new(RwLock::new(HashMap::new())),
+            current_theme: Arc::new(RwLock::new(None)),
+            preview_theme: Arc::new(RwLock::new(None)),
+            color_support,
+        }
+    }
+
+    pub fn init_from_config(&self, config: &Config) -> Result<()> {
+        let theme = config.current_theme();
+        let theme_name = theme.as_deref().unwrap_or(DEFAULT_THEME);
+        self.set_as_current_theme(theme_name)?;
         Ok(())
     }
 
-    /// Get a theme by name, loading it if necessary
-    pub fn get_theme(&mut self, theme_name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
-        if let Some(theme) = self.themes.get(theme_name) {
-            return Ok(theme.clone());
-        }
-
-        self.load_theme(theme_name)?;
-
-        Ok(self
-            .themes
-            .get(theme_name)
-            .cloned()
-            .unwrap_or_else(Theme::fallback_theme))
-    }
-
-    fn parse_theme_file(content: &str, name: &str) -> Result<Theme, Box<dyn std::error::Error>> {
-        let mut color_map: HashMap<String, String> = HashMap::new();
-
-        for line in content.lines() {
-            if line.starts_with("palette =") {
-                let parts: Vec<&str> = line.split('=').collect();
-                if parts.len() == 3 {
-                    let index = parts[1].trim();
-                    let color = parts[2].trim().trim_start_matches('#');
-                    color_map.insert(format!("palette{index}"), color.to_string());
-                }
-            } else if let Some((key, value)) = line.split_once('=') {
-                let key = key.trim();
-                let value = value.trim().trim_start_matches('#');
-                color_map.insert(key.to_string(), value.to_string());
+    pub fn load_theme(&self, name: &str) -> Result<()> {
+        if !self.themes.read().unwrap().contains_key(name) {
+            if let Some(scheme) = crate::assets::get_theme(name) {
+                let theme = Theme::from_colorscheme(name, &scheme)?;
+                self.themes.write().unwrap().insert(name.to_string(), theme);
+            } else {
+                return Err(anyhow::anyhow!("Theme '{name}' not found"));
             }
         }
-
-        let parse_color = |key: &str| -> Result<Color, Box<dyn std::error::Error>> {
-            let value = color_map.get(key).ok_or(format!("Missing {key}"))?;
-            Color::from_str(&format!("#{value}"))
-                .map_err(|e| format!("Invalid color for {key}: {e}").into())
-        };
-
-        let mut colors = [Color::Black; NUM_COLORS];
-        colors[ThemeColor::Background as usize] = parse_color("background")?;
-        colors[ThemeColor::Foreground as usize] = parse_color("foreground")?;
-        // colors[ThemeColor::Muted as usize] = parse_color("palette0")?;
-        colors[ThemeColor::Muted as usize] = parse_color("foreground")?;
-        // colors[ThemeColor::Muted as usize] = parse_color("cursor-color")?;
-        // colors[ThemeColor::Muted as usize] = parse_color("palette12")?;
-        // colors[ThemeColor::Muted as usize] = parse_color("selection-foreground")?;
-        // colors[ThemeColor::Muted as usize] = parse_color("palette15")?;
-        colors[ThemeColor::Warning as usize] = parse_color("palette3")?;
-        colors[ThemeColor::Accent as usize] = parse_color("palette10")?;
-        colors[ThemeColor::Info as usize] = parse_color("palette4")?;
-        colors[ThemeColor::Primary as usize] = parse_color("palette5")?;
-        colors[ThemeColor::Highlight as usize] = parse_color("palette6")?;
-        colors[ThemeColor::Success as usize] = parse_color("palette2")?;
-        colors[ThemeColor::Error as usize] = parse_color("palette1")?;
-        colors[ThemeColor::Cursor as usize] = parse_color("cursor-color")?;
-        colors[ThemeColor::CursorText as usize] = parse_color("palette0")?;
-        colors[ThemeColor::SelectionBg as usize] = parse_color("selection-background")?;
-        colors[ThemeColor::SelectionFg as usize] = parse_color("selection-foreground")?;
-
-        Ok(Theme {
-            id: Box::from(name),
-            colors,
-            color_support: ColorSupport::Extended,
-        })
+        Ok(())
     }
-}
 
-/// Returns the list of available themes.
-pub fn available_themes() -> &'static [String] {
-    static THEMES: OnceLock<Vec<String>> = OnceLock::new();
-    THEMES.get_or_init(|| {
-        let mut themes = assets::list_themes();
-        themes.sort_by_key(|a| a.to_lowercase());
-        themes
-    })
-}
+    pub fn get_theme(&self, name: &str) -> Result<Theme> {
+        // get with read lock first
+        {
+            let themes = self.themes.read().unwrap();
+            if let Some(theme) = themes.get(name) {
+                return Ok(theme.clone());
+            }
+        } // drop
 
-pub fn print_theme_list() {
-    let mut themes: Vec<String> = available_themes().to_vec();
-    themes.sort_by_key(|a| a.to_lowercase());
-
-    println!("\n• Available Themes ({}):", themes.len());
-
-    println!("{}", "─".repeat(40));
-
-    for theme in themes {
-        let is_default = theme == DEFAULT_THEME;
-        let theme_name = if is_default {
-            format!("{theme} (default)")
+        // try to load then
+        if let Some(scheme) = crate::assets::get_theme(name) {
+            let theme = Theme::from_colorscheme(name, &scheme)?;
+            let mut themes = self.themes.write().unwrap();
+            if let Some(existing) = themes.get(name) {
+                return Ok(existing.clone());
+            }
+            themes.insert(name.to_string(), theme.clone());
+            Ok(theme)
         } else {
-            theme
-        };
-        println!("  • {theme_name}");
+            Ok(Theme::fallback())
+        }
     }
 
-    println!("\nUsage:");
-    println!("  • Set theme:    termitype --theme <name>");
-    println!("  • List themes:  termitype --list-themes");
-    println!();
+    /// Gets the currently active theme. If there's a an active `preview_theme` it takes
+    /// precedence over the `current_theme`.
+    pub fn get_active_theme(&self) -> Option<Theme> {
+        if let Some(preview) = self.preview_theme.read().unwrap().as_ref() {
+            Some(preview.clone())
+        } else {
+            self.current_theme.read().unwrap().clone()
+        }
+    }
+
+    pub fn set_as_current_theme(&self, name: &str) -> Result<(), AppError> {
+        let theme = self.get_theme(name)?;
+        *self.current_theme.write().unwrap() = Some(theme);
+        Ok(())
+    }
+
+    pub fn set_as_preview_theme(&self, name: &str) -> Result<()> {
+        let theme = self.get_theme(name)?;
+        *self.preview_theme.write().unwrap() = Some(theme);
+        Ok(())
+    }
+
+    pub fn confirm_preview_as_current_theme(&self) -> Result<()> {
+        if let Some(preview) = self.preview_theme.write().unwrap().take() {
+            *self.current_theme.write().unwrap() = Some(preview);
+        }
+        Ok(())
+    }
+
+    pub fn cancel_theme_preview(&self) {
+        *self.preview_theme.write().unwrap() = None;
+    }
+
+    pub fn is_theme_loaded(&self, name: &str) -> bool {
+        self.themes.read().unwrap().contains_key(name)
+    }
+
+    pub fn is_using_preview_theme(&self) -> bool {
+        self.preview_theme.read().unwrap().as_ref().is_some()
+    }
+
+    pub fn loaded_theme_count(&self) -> usize {
+        self.themes.read().unwrap().len()
+    }
+
+    pub fn clear_cache(&self) {
+        self.themes.write().unwrap().clear();
+    }
+
+    pub fn available_themes(&self) -> Vec<String> {
+        crate::assets::list_themes()
+    }
+
+    pub fn color_support(&self) -> ColorSupport {
+        self.color_support
+    }
+
+    pub fn use_random_theme(&self) -> Result<(), AppError> {
+        let available = self.available_themes();
+        if available.is_empty() {
+            return Err(AppError::ThemesNotFound);
+        }
+        let mut rng = rng();
+        let idx = rng.random_range(0..available.len());
+        let name = &available[idx];
+        self.set_as_current_theme(name)?;
+        Ok(())
+    }
+
+    pub fn randomize_theme(&self) -> Result<()> {
+        let mut rng = rng();
+        let colors: [Color; NUM_COLORS] = ThemeColor::all()
+            .iter()
+            .map(|_| {
+                let r = rng.random::<u8>();
+                let g = rng.random::<u8>();
+                let b = rng.random::<u8>();
+                Color::Rgb(r, g, b)
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let theme = Theme {
+            id: Arc::from("Random"),
+            colors,
+        };
+        *self.current_theme.write().unwrap() = Some(theme);
+        Ok(())
+    }
+}
+
+static THEME_MANAGER: once_cell::sync::Lazy<ThemeManager> =
+    once_cell::sync::Lazy::new(ThemeManager::new);
+
+pub fn theme_manager() -> &'static ThemeManager {
+    &THEME_MANAGER
+}
+
+pub fn init_from_config(config: &Config) -> Result<()> {
+    theme_manager().init_from_config(config)
+}
+
+pub fn current_theme() -> Theme {
+    theme_manager()
+        .get_active_theme()
+        .unwrap_or_else(Theme::fallback)
+}
+
+pub fn is_using_preview_theme() -> bool {
+    theme_manager().is_using_preview_theme()
+}
+
+pub fn set_as_preview_theme(name: &str) -> Result<()> {
+    theme_manager().set_as_preview_theme(name)
+}
+
+pub fn set_as_current_theme(name: &str) -> Result<(), AppError> {
+    theme_manager().set_as_current_theme(name)
+}
+
+pub fn confirm_preview_as_current_theme() -> Result<()> {
+    theme_manager().confirm_preview_as_current_theme()
+}
+
+pub fn cancel_theme_preview() {
+    theme_manager().cancel_theme_preview()
+}
+
+pub fn available_themes() -> Vec<String> {
+    theme_manager().available_themes()
+}
+
+pub fn use_random_theme() -> Result<(), AppError> {
+    theme_manager().use_random_theme()
+}
+
+pub fn randomize_theme() -> Result<()> {
+    theme_manager().randomize_theme()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-    use std::fs;
-    use tempfile::TempDir;
 
-    fn create_test_theme(dir: &TempDir, name: &str, content: &str) {
-        let theme_dir = dir.path().join("assets").join("themes");
-        fs::create_dir_all(&theme_dir).unwrap();
-        fs::write(theme_dir.join(name), content).unwrap();
+    const COLORSCHEME: &str = r#"
+background = #000000
+foreground = #ffffff
+palette0 = #000000
+palette1 = #ff0000
+palette2 = #00ff00
+palette3 = #ffff00
+palette4 = #0000ff
+palette5 = #ff00ff
+palette6 = #00ffff
+palette7 = #ffffff
+palette8 = #808080
+palette9 = #ff8080
+palette10 = #80ff80
+palette11 = #ffff80
+palette12 = #8080ff
+palette13 = #ff80ff
+cursor-color = #ffffff
+selection-background = #808080
+selection-foreground = #ffffff
+"#;
+
+    #[test]
+    fn test_all_theme_colors() {
+        let all_colors = ThemeColor::all();
+        assert_eq!(all_colors.len(), NUM_COLORS);
+        assert_eq!(all_colors[0], ThemeColor::Background);
     }
 
     #[test]
-    fn test_theme_parsing() {
-        let content = r#"
-            background = #000000
-            foreground = #ffffff
-            cursor-color = #cccccc
-            cursor-text = #000000
-            selection-background = #333333
-            selection-foreground =  #ffffff
-            palette0 = #ff0000
-            palette1 = #ff0000
-            palette2 = #00ff00
-            palette3 = #ffff00
-            palette4 = #0000ff
-            palette5 = #ff00ff
-            palette6 = #00ffff
-            palette7 = #888888
-            palette8 = #008888
-            palette10 = #008888
-            palette14 = #00ffff
-        "#;
-
-        let theme = ThemeLoader::parse_theme_file(content, "test").unwrap();
-
-        assert_eq!(theme.bg(), Color::Rgb(0, 0, 0));
-        assert_eq!(theme.fg(), Color::Rgb(255, 255, 255));
-        assert_eq!(theme.error(), Color::Rgb(255, 0, 0));
-        assert_eq!(theme.success(), Color::Rgb(0, 255, 0));
+    fn test_get_theme() {
+        let theme = Theme::fallback();
+        assert_eq!(theme.get(ThemeColor::Background), Color::Black);
     }
 
     #[test]
-    fn test_theme_loading() {
-        let temp_dir = TempDir::new().unwrap();
-        let test_theme_content = r#"
-            background = #000000
-            foreground = #ffffff
-            cursor-color = #cccccc
-            cursor-text = #000000
-            selection-background = #333333
-            selection-foreground = #ffffff
-            palette0 = #ff0000
-            palette1 = #ff0000
-            palette2 = #00ff00
-            palette3 = #ffff00
-            palette4 = #0000ff
-            palette5 = #ff00ff
-            palette6 = #00ffff
-            palette8 = #888888
-            palette10 = #008888
-        "#;
-
-        create_test_theme(&temp_dir, "test_theme", test_theme_content);
-
-        let mut loader = ThemeLoader {
-            themes: HashMap::new(),
-        };
-        let result = loader.load_theme("test_theme");
-        assert!(result.is_err()); // should fail because wer not using the real assets dir
+    fn test_parse_colorscheme() {
+        let theme = Theme::from_colorscheme("test1", COLORSCHEME).unwrap();
+        assert_eq!(theme.id.as_ref(), "test1");
+        assert_eq!(
+            theme.get(ThemeColor::Background),
+            Color::from_str("#000000").unwrap()
+        );
+        assert_eq!(
+            theme.get(ThemeColor::SelectionBg),
+            Color::from_str("#808080").unwrap()
+        );
     }
 
     #[test]
-    fn test_loading_incorrect_theme_with_truecolor() {
-        env::set_var("COLORTERM", "truecolor");
-        let mut config = Config::new();
-        config.theme = Some("random-theme-that-does-not-exists".to_string());
-        let theme = Theme::new(&config);
-        // if the given theme does not exists, it will default to the `DEFAULT_THEME`,
-        // if that is not found it will default to `Fallbakck` as last measure.
-        assert!(theme.id.as_ref() == DEFAULT_THEME || theme.id.as_ref() == "Fallback");
-    }
-
-    #[test]
-    fn test_loading_incorrect_theme_without_truecolor() {
-        env::remove_var("TERM");
-        env::remove_var("COLORTERM");
-        let mut config = Config::new();
-        config.theme = Some("random-theme-that-does-not-exists".to_string());
-        let theme = Theme::new(&config);
-        assert_eq!(theme.id.as_ref(), "Fallback");
-    }
-
-    #[test]
-    fn test_invalid_theme_color() {
-        let content = r#"
-            background = #GGGGGG  # Invalid hex color
-            foreground = #ffffff
-            cursor-color = #cccccc
-            cursor-text = #000000
-            selection-background = #333333
-            palette0 = #ff0000
-            palette1 = #ff0000
-            palette2 = #00ff00
-            palette3 = #ffff00
-            palette4 = #0000ff
-            palette5 = #ff00ff
-            palette6 = #00ffff
-            palette8 = #888888
-            palette10 = #008888
-        "#;
-
-        let result = ThemeLoader::parse_theme_file(content, "test");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_missing_required_color() {
-        let content = r#"
-            # Missing background color
-            foreground = #ffffff
-            cursor-color = #cccccc
-            cursor-text = #000000
-            selection-background = #333333
-            palette0 = #ff0000
-            palette1 = #ff0000
-            palette2 = #00ff00
-            palette3 = #ffff00
-            palette4 = #0000ff
-            palette5 = #ff00ff
-            palette6 = #00ffff
-            palette8 = #888888
-            palette10 = #008888
-        "#;
-
-        let result = ThemeLoader::parse_theme_file(content, "test");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_color_support_comparison() {
-        assert!(ColorSupport::TrueColor > ColorSupport::Extended);
-        assert!(ColorSupport::Extended > ColorSupport::Basic);
-        assert!(ColorSupport::TrueColor > ColorSupport::Basic);
-    }
-
-    #[test]
-    fn test_supports_themes() {
-        assert!(!ColorSupport::Basic.supports_themes());
-        assert!(ColorSupport::Extended.supports_themes());
-        assert!(ColorSupport::TrueColor.supports_themes());
-    }
-
-    #[test]
-    fn test_detect_color_support() {
-        env::remove_var("TERM");
-        env::remove_var("TERM_PROGRAM");
-
-        env::set_var("COLORTERM", "truecolor");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::TrueColor);
-
-        env::set_var("COLORTERM", "24bit");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::TrueColor);
-
-        env::set_var("COLORTERM", "256color");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::Basic);
-
-        env::set_var("COLORTERM", "other");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::Basic);
-
-        env::remove_var("COLORTERM");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::Basic);
-
-        env::remove_var("COLORTERM");
-        env::set_var("TERM", "xterm-256color");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::Extended);
-
-        env::set_var("TERM", "screen-256color");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::Extended);
-
-        env::set_var("TERM", "tmux-256color");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::Extended);
-
-        env::set_var("TERM", "alacritty");
-        assert_eq!(Theme::detect_color_support(), ColorSupport::TrueColor);
-    }
-
-    #[test]
-    fn test_fallback_theme() {
-        let theme = Theme::fallback_theme();
-        assert_eq!(theme.color_support, ColorSupport::Basic);
-        assert_eq!(theme.bg(), Color::Black);
-        assert_eq!(theme.fg(), Color::White);
-        assert_eq!(theme.id.as_ref(), "Fallback");
-    }
-
-    #[test]
-    fn test_color_mode_from_config() {
-        let mut config = Config::default();
-        config.color_mode = Some("basic".to_string());
-        config.color_mode = Some("basic".to_string());
-        assert_eq!(Theme::new(&config).color_support, ColorSupport::Basic);
-
-        config.color_mode = Some("extended".to_string());
-        assert_eq!(Theme::new(&config).color_support, ColorSupport::Extended);
-
-        config.color_mode = Some("truecolor".to_string());
-        assert_eq!(Theme::new(&config).color_support, ColorSupport::TrueColor);
-
-        // Invalid mode given - should fallback to auto-detection
-        config.color_mode = Some("invalid".to_string());
-        let detected = Theme::detect_color_support();
-        assert_eq!(Theme::new(&config).color_support, detected);
-
-        // should auto-detect if no mode was given
-        config.color_mode = None;
-        assert_eq!(Theme::new(&config).color_support, detected);
-
-        // Config given have higher priority than the current terminal "capabiilities"
-        env::set_var("COLORTERM", "truecolor");
-        config.color_mode = Some("basic".to_string());
-        assert_eq!(Theme::new(&config).color_support, ColorSupport::Basic);
+    fn test_parse_incomplete_colorscheme() {
+        let content = "background = #000000\nforeground = #ffffff";
+        assert!(Theme::from_colorscheme(content, "test").is_err());
     }
 }

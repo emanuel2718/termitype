@@ -1,25 +1,23 @@
+use crate::{
+    common::filesystem::{config_dir, create_file},
+    constants::STATE_FILE,
+    error::{AppError, AppResult},
+};
 use std::{
     collections::HashMap,
     fs::{self, File},
     io::{self, BufRead, BufWriter, Write},
     path::PathBuf,
-    sync::atomic::{AtomicBool, Ordering},
-    time::{Duration, Instant},
 };
 
-use crate::{constants::STATE_FILE, error::TResult, helpers::get_config_dir, log_error, log_info};
-use crate::{error::TError, helpers::create_file};
-
-// TOOD: Evaluate when done with the settings to ensure we set a sane default here
+// TODO: Evaluate when done with the settings to ensure we set a sane default here
 const DEFAULT_CAPACITY: usize = 10;
-const SAVE_DEBOUNCE_MS: u64 = 1_000; // 1 second as u64 because of Duration::from_millis
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Persistence {
     path: PathBuf,
     values: HashMap<String, String>,
-    last_save: Instant,
-    has_pending_changes: AtomicBool,
+    dirty: bool,
 }
 
 impl Clone for Persistence {
@@ -27,26 +25,24 @@ impl Clone for Persistence {
         Self {
             path: self.path.clone(),
             values: self.values.clone(),
-            last_save: self.last_save,
-            has_pending_changes: AtomicBool::new(self.has_pending_changes.load(Ordering::Relaxed)),
-        }
-    }
-}
-
-impl Drop for Persistence {
-    fn drop(&mut self) {
-        if self.has_pending_changes.load(Ordering::Relaxed) {
-            if let Err(_e) = self.save() {
-                log_error!("Failed to save state on drop: {_e}")
-            }
+            dirty: self.dirty,
         }
     }
 }
 
 impl Persistence {
-    /// Creates new persistence instnace
-    pub fn new() -> TResult<Self> {
-        let config_dir = get_config_dir()?;
+    /// Creates a new persistence instance for storing key-value data.
+    ///
+    /// This initializes the persistence layer, creating the config directory if needed,
+    /// and loads existing state from disk if available.
+    ///
+    /// # Returns
+    /// Returns an `AppResult<Self>` containing the new Persistence instance.
+    ///
+    /// # Errors
+    /// Returns an error if the config directory cannot be created or accessed.
+    pub fn new() -> AppResult<Self> {
+        let config_dir = config_dir()?;
         let path = config_dir.join(STATE_FILE);
 
         if !config_dir.exists() {
@@ -56,48 +52,114 @@ impl Persistence {
         let mut persistence = Self {
             path: path.clone(),
             values: HashMap::with_capacity(DEFAULT_CAPACITY),
-            last_save: Instant::now(),
-            has_pending_changes: AtomicBool::new(false),
+            dirty: false,
         };
 
         if path.exists() {
             if let Err(e) = persistence.load() {
-                log_error!("Failed to load state file: {e}");
+                eprintln!("Failed to load state file: {e}");
             } else {
-                log_info!("Successfully loaded state file");
+                eprintln!("Successfully loaded state file");
             }
         }
 
         Ok(persistence)
     }
 
-    // Gets a value from state
+    /// Gets a value from the persistent state.
+    ///
+    /// # Arguments
+    /// * `key` - The key to look up
+    ///
+    /// # Returns
+    /// Returns `Some(&str)` if the key exists, `None` otherwise.
     pub fn get(&self, key: &str) -> Option<&str> {
         self.values.get(key).map(String::as_str)
     }
 
-    // Sets a value to the sate (may be deffered)
-    pub fn set(&mut self, key: &str, value: &str) -> TResult<()> {
-        match self.values.get(key) {
-            Some(existing) if existing == value => {
-                return Ok(());
-            }
-            _ => {
-                self.values.insert(key.to_string(), value.to_string());
-                self.has_pending_changes.store(true, Ordering::Relaxed);
-            }
-        }
+    /// Gets a value from the persistent state, or returns the default if not found.
+    ///
+    /// # Arguments
+    /// * `key` - The key to look up
+    /// * `default` - The default value to return if key is not found
+    ///
+    /// # Returns
+    /// Returns the value if found, otherwise the default.
+    pub fn get_or<'a>(&'a self, key: &str, default: &'a str) -> &'a str {
+        self.get(key).unwrap_or(default)
+    }
 
-        let now = Instant::now();
-        if now.duration_since(self.last_save) >= Duration::from_millis(SAVE_DEBOUNCE_MS) {
-            self.save()?;
+    /// Deletes a key from the persistent state.
+    ///
+    /// Marks the state as dirty if the key existed. Call `flush()` to save to disk.
+    ///
+    /// # Arguments
+    /// * `key` - The key to delete
+    ///
+    /// # Returns
+    /// Returns `true` if the key existed and was removed, `false` otherwise.
+    pub fn delete(&mut self, key: &str) -> bool {
+        if self.values.remove(key).is_some() {
+            self.dirty = true;
+            true
+        } else {
+            false
         }
+    }
 
+    /// Returns true if there are unsaved changes.
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// Returns the number of stored key-value pairs.
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    /// Returns true if no key-value pairs are stored.
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    /// Clears all stored key-value pairs.
+    ///
+    /// Marks the state as dirty. Call `flush()` to save to disk.
+    pub fn clear(&mut self) {
+        if !self.values.is_empty() {
+            self.values.clear();
+            self.dirty = true;
+        }
+    }
+
+    /// Sets a value in the persistent state.
+    ///
+    /// Marks the state as dirty. Call `flush()` to save to disk.
+    ///
+    /// # Arguments
+    /// * `key` - The key to set
+    /// * `value` - The value to store
+    ///
+    /// # Returns
+    /// Returns `Ok(())` on success.
+    pub fn set(&mut self, key: &str, value: &str) -> AppResult<()> {
+        if self.values.get(key).map(|v| v.as_str()) != Some(value) {
+            self.values.insert(key.to_string(), value.to_string());
+            self.dirty = true;
+        }
         Ok(())
     }
 
-    /// Loads state form disk
-    fn load(&mut self) -> TResult<()> {
+    /// Loads state from disk.
+    ///
+    /// Parses the state file in key=value format, ignoring empty lines and comments.
+    ///
+    /// # Returns
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    /// Returns an error if the file cannot be read or contains invalid format.
+    fn load(&mut self) -> AppResult<()> {
         let file = File::open(&self.path)?;
         let reader = io::BufReader::new(file);
         let mut values = HashMap::with_capacity(DEFAULT_CAPACITY);
@@ -119,19 +181,27 @@ impl Persistence {
                 loaded_count += 1;
             } else {
                 let err = format!("Invalid format at line {}: {line}", idx + 1);
-                log_error!("{err}");
-                return Err(TError::InvalidConfigData(err));
+                eprintln!("{err}");
+                return Err(AppError::InvalidConfigData(err));
             }
         }
-        log_info!("Successfully loaded {loaded_count} settings");
+        eprintln!("Successfully loaded {loaded_count} settings");
         self.values = values;
-        self.has_pending_changes.store(false, Ordering::Relaxed);
+        self.dirty = false;
 
         Ok(())
     }
 
-    /// Saves current state to disk
-    fn save(&mut self) -> TResult<()> {
+    /// Saves current state to disk.
+    ///
+    /// Uses atomic writes by saving to a temporary file first, then renaming.
+    ///
+    /// # Returns
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    /// Returns an error if writing or renaming fails.
+    fn save(&mut self) -> AppResult<()> {
         let temp_path = self.path.with_extension("tmp");
         let file = create_file(&temp_path)?;
         let mut writer = BufWriter::new(file);
@@ -143,18 +213,22 @@ impl Persistence {
         writer.flush()?;
 
         fs::rename(temp_path, &self.path)?;
-        self.last_save = Instant::now();
-        self.has_pending_changes.store(false, Ordering::Relaxed);
+        self.dirty = false;
 
         Ok(())
     }
 
-    /// Forces an immediate save to disk if there are pending changes
-    pub fn flush(&mut self) -> TResult<()> {
-        if self.has_pending_changes.load(Ordering::Relaxed) {
+    /// Forces an immediate save to disk if there are unsaved changes.
+    ///
+    /// # Returns
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    /// Returns an error if saving fails.
+    pub fn flush(&mut self) -> AppResult<()> {
+        if self.dirty {
             self.save()?;
         }
-
         Ok(())
     }
 }
@@ -166,52 +240,75 @@ mod tests {
     use std::sync::Mutex;
     use tempfile::TempDir;
 
-    // NOTE: thsi is to prevent concurrent ENV variables access causing tests to somtimes fail due to race conditions
+    // NOTE: this is to prevent concurrent ENV variables access causing tests to sometimes fail due to race conditions
     static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
-    fn init() -> (Persistence, TempDir) {
+    struct EnvGuard {
+        original_home: Option<String>,
+        original_appdata: Option<String>,
+        original_xdg: Option<String>,
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            // NOTE: Rust 2024 edition marks as unsafe `env::set_var()`, we only use this on tests so it's fine
+            // https://github.com/rust-lang/rust/pull/124636
+            unsafe {
+                if let Some(ref h) = self.original_home {
+                    std::env::set_var("HOME", h);
+                }
+                if let Some(ref a) = self.original_appdata {
+                    std::env::set_var("APPDATA", a);
+                }
+                if let Some(ref x) = self.original_xdg {
+                    std::env::set_var("XDG_CONFIG_HOME", x);
+                }
+            }
+        }
+    }
+
+    fn init() -> (Persistence, TempDir, EnvGuard) {
         let _guard = ENV_MUTEX.lock().unwrap();
+
+        let original_home = std::env::var("HOME").ok();
+        let original_appdata = std::env::var("APPDATA").ok();
+        let original_xdg = std::env::var("XDG_CONFIG_HOME").ok();
 
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.path().to_path_buf();
 
-        if cfg!(target_os = "macos") {
-            std::env::remove_var("HOME");
+        let config_dir = if cfg!(target_os = "macos") {
+            temp_path.join("Library/Application Support/termitype")
         } else if cfg!(target_os = "windows") {
-            std::env::remove_var("APPDATA");
+            temp_path.join("AppData/Roaming/termitype")
         } else {
-            std::env::remove_var("XDG_CONFIG_HOME");
-            std::env::remove_var("HOME");
-        }
-
-        // fake config dir
-        if cfg!(target_os = "macos") {
-            std::env::set_var("HOME", temp_path);
-        } else if cfg!(target_os = "windows") {
-            std::env::set_var("APPDATA", temp_path);
-        } else {
-            std::env::set_var("XDG_CONFIG_HOME", temp_path);
-        }
-
-        let config_dir = get_config_dir().unwrap();
+            temp_path.join(".config/termitype")
+        };
         fs::create_dir_all(&config_dir).unwrap();
 
-        let path = config_dir.join(STATE_FILE);
+        let path = config_dir.join(".tmp.state");
 
         let persistence = Persistence {
             path,
             values: HashMap::with_capacity(DEFAULT_CAPACITY),
-            last_save: Instant::now(),
-            has_pending_changes: AtomicBool::new(false),
+            dirty: false,
         };
 
-        (persistence, temp_dir)
+        (
+            persistence,
+            temp_dir,
+            EnvGuard {
+                original_home,
+                original_appdata,
+                original_xdg,
+            },
+        )
     }
 
     #[test]
     fn test_config_dir_creation() {
         #[allow(unused_variables)]
-        let (ps, tmp) = init();
+        let (ps, tmp, guard) = init();
         assert!(ps.path.parent().unwrap().exists());
         assert!(ps.path.parent().unwrap().is_dir());
     }
@@ -219,28 +316,45 @@ mod tests {
     #[test]
     fn test_set_and_get() {
         #[allow(unused_variables)]
-        let (mut ps, tmp) = init();
-        ps.set("vizquit", "test").unwrap();
+        let (mut ps, tmp, guard) = init();
+        let config_json = r#"{"mode":"Words","language":"en","numbers":true}"#;
+        ps.set("config", config_json).unwrap();
         ps.flush().unwrap();
-        assert_eq!(ps.get("vizquit"), Some("test"))
+        assert_eq!(ps.get("config"), Some(config_json))
+    }
+
+    #[test]
+    fn test_set_and_get_json() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        let json_value = r#"{"mode":"Time","language":"en","numbers":false}"#;
+        ps.set("config", json_value).unwrap();
+        ps.flush().unwrap();
+        assert_eq!(ps.get("config"), Some(json_value))
     }
 
     #[test]
     fn test_empty_lines() {
         #[allow(unused_variables)]
-        let (mut ps, tmp) = init();
-        fs::write(&ps.path, "\n\n\nkey1 = value1\n").unwrap();
+        let (mut ps, tmp, guard) = init();
+        let config_json = r#"{"mode":"Time","language":"en"}"#;
+        fs::write(&ps.path, format!("\n\n\nconfig = {}\n", config_json)).unwrap();
 
         ps.load().unwrap();
         assert_eq!(ps.values.len(), 1);
-        assert_eq!(ps.get("key1"), Some("value1"));
+        assert_eq!(ps.get("config"), Some(config_json));
     }
 
     #[test]
     fn test_invalid_lines() {
         #[allow(unused_variables)]
-        let (mut ps, tmp) = init();
-        fs::write(&ps.path, "\ninvalid line - random\nkey1 = value1\n").unwrap();
+        let (mut ps, tmp, guard) = init();
+        let config_json = r#"{"mode":"Words","language":"en"}"#;
+        fs::write(
+            &ps.path,
+            format!("\ninvalid line - random\nconfig = {}\n", config_json),
+        )
+        .unwrap();
 
         assert!(ps.load().is_err())
     }
@@ -248,35 +362,104 @@ mod tests {
     #[test]
     fn test_comment_lines() {
         #[allow(unused_variables)]
-        let (mut ps, tmp) = init();
-        fs::write(&ps.path, "key1 = value1\n#key2 = should_be_ignored").unwrap();
+        let (mut ps, tmp, guard) = init();
+        let config_json = r#"{"mode":"Time","language":"en"}"#;
+        fs::write(
+            &ps.path,
+            format!("config = {}\n#other = ignored", config_json),
+        )
+        .unwrap();
 
         ps.load().unwrap();
         assert_eq!(ps.values.len(), 1);
-        assert_eq!(ps.get("key1"), Some("value1"));
+        assert_eq!(ps.get("config"), Some(config_json));
     }
 
     #[test]
     fn test_save_and_load() {
         #[allow(unused_variables)]
-        let (mut ps1, tmp) = init();
-        ps1.set("key1", "value1").unwrap();
-        ps1.set("key2", "value2").unwrap();
+        let (mut ps1, tmp, guard) = init();
+        let config_json = r#"{"mode":"Time","language":"en","numbers":false,"symbols":true}"#;
+        ps1.set("config", config_json).unwrap();
+        ps1.set("other_key", "other_value").unwrap();
         ps1.flush().unwrap();
 
-        let config_dir = ps1.path.parent().unwrap().to_path_buf();
-        let path = config_dir.join(STATE_FILE);
-
         let mut ps2 = Persistence {
-            path,
+            path: ps1.path.clone(),
             values: HashMap::with_capacity(DEFAULT_CAPACITY),
-            last_save: Instant::now(),
-            has_pending_changes: AtomicBool::new(false),
+            dirty: false,
         };
 
         ps2.load().unwrap();
 
-        assert_eq!(ps2.get("key1"), Some("value1"));
-        assert_eq!(ps2.get("key2"), Some("value2"));
+        assert_eq!(ps2.get("config"), Some(config_json));
+        assert_eq!(ps2.get("other_key"), Some("other_value"));
+    }
+
+    #[test]
+    fn test_get_or() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        ps.set("existing", "value").unwrap();
+        assert_eq!(ps.get_or("existing", "default"), "value");
+        assert_eq!(ps.get_or("nonexistent", "default"), "default");
+    }
+
+    #[test]
+    fn test_delete() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        ps.set("key1", "value1").unwrap();
+        ps.set("key2", "value2").unwrap();
+        ps.flush().unwrap();
+
+        assert!(ps.delete("key1"));
+        assert!(ps.is_dirty());
+        assert_eq!(ps.get("key1"), None);
+        assert_eq!(ps.get("key2"), Some("value2"));
+
+        assert!(!ps.delete("nonexistent"));
+        assert_eq!(ps.len(), 1);
+    }
+
+    #[test]
+    fn test_is_dirty_and_len() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        assert!(!ps.is_dirty());
+        assert_eq!(ps.len(), 0);
+        assert!(ps.is_empty());
+
+        ps.set("key", "value").unwrap();
+        assert!(ps.is_dirty());
+        assert_eq!(ps.len(), 1);
+        assert!(!ps.is_empty());
+
+        ps.flush().unwrap();
+        assert!(!ps.is_dirty());
+    }
+
+    #[test]
+    fn test_flush_when_not_dirty() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        // should to nothing
+        ps.flush().unwrap();
+        assert!(!ps.is_dirty());
+    }
+
+    #[test]
+    fn test_clear() {
+        #[allow(unused_variables)]
+        let (mut ps, tmp, guard) = init();
+        ps.set("key1", "value1").unwrap();
+        ps.set("key2", "value2").unwrap();
+        assert_eq!(ps.len(), 2);
+
+        ps.clear();
+        assert!(ps.is_dirty());
+        assert_eq!(ps.len(), 0);
+        assert!(ps.is_empty());
+        assert_eq!(ps.get("key1"), None);
     }
 }

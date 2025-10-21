@@ -1,95 +1,47 @@
-pub const APPNAME: &str = env!("CARGO_PKG_NAME");
+pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const DEFAULT_LINE_COUNT: u8 = 3;
 pub const DEFAULT_LANGUAGE: &str = "english";
-pub const DEFAULT_CURSOR_STYLE: &str = "blinking-beam";
 pub const DEFAULT_THEME: &str = "tokyonight";
-pub const DEFAULT_PICKER_STYLE: &str = "quake";
-pub const DEFAULT_RESULTS_STYLE: &str = "graph";
-// pub const DEFAULT_THEME: &str = "termitype-dark";
+pub const DEFAULT_ASCII_ART: &str = "Termitype";
+pub const DEFAULT_RESULTS_VARIANT: &str = "graph";
 
-pub const DEFAULT_TIME_MODE_DURATION: usize = 30;
-pub const DEFAULT_TIME_DURATION_LIST: [usize; 4] = [15, 30, 60, 120];
+pub const WPS_TARGET: usize = 6; // words per second target; approx 350 / 60
 
-// This is the target wps that we use. This assument as constant 350wpm as our upper bound
-pub const WPS_TARGET: f64 = 6.0;
+pub const MIN_CUSTOM_TIME: usize = 1;
+pub const MAX_CUSTOM_TIME: usize = 300; // 5 mins
+pub const DEFAULT_TIME_MODE_DURATION_IN_SECS: usize = 30; // 30 seconds
 
-pub const DEFAULT_WORD_MODE_COUNT: usize = 50;
-pub const DEFAULT_WORD_COUNT_LIST: [usize; 4] = [10, 25, 50, 100];
+pub const MIN_CUSTOM_WORD_COUNT: usize = 1;
+pub const MAX_CUSTOM_WORD_COUNT: usize = 5_000;
+pub const DEFAULT_WORD_MODE_COUNT: usize = 50; // 50 words
 
-pub const STATE_FILE: &str = ".state";
-pub const LOG_FILE: &str = "termitype.log";
-pub const DB_FILE: &str = ".termitype.db";
+pub const MIN_CUSTOM_LINE_COUNT: usize = 1;
+pub const MAX_CUSTOM_LINE_COUNT: usize = 10;
 
-/// Returns the log file name
-pub fn get_log_file() -> &'static str {
+pub const MAX_EXTRA_WRONG_CHARS: usize = 19;
+
+pub const STATE_FILE: &str = "state";
+
+/// Returns the logger file name
+pub fn logger_file() -> &'static str {
     #[cfg(debug_assertions)]
     {
-        "termitype-dev.log"
+        ".log-dev"
     }
     #[cfg(not(debug_assertions))]
     {
-        LOG_FILE
+        ".log"
     }
 }
 
 /// Returns the database file name
-pub fn get_db_file() -> &'static str {
+pub fn db_file() -> &'static str {
     #[cfg(debug_assertions)]
     {
         ".termitype-dev.db"
     }
     #[cfg(not(debug_assertions))]
     {
-        DB_FILE
+        ".termitype.db"
     }
 }
-
-pub const BACKSPACE_CHAR: char = '\x08';
-
-pub const SECS_PER_MIN: u64 = 60;
-pub const SECS_PER_HOUR: u64 = 3_600;
-pub const SECS_PER_DAY: u64 = 86_400;
-pub const DAYS_PER_YEAR: u64 = 365;
-pub const DAYS_PER_MONTH: u64 = 30;
-
-// ui
-pub const MIN_TERM_HEIGHT: u16 = 15;
-pub const MIN_TERM_WIDTH: u16 = 25;
-
-pub const MIN_WIDTH_FOR_NOTIFICATIONS: u16 = 35;
-
-pub const SMALL_TERM_HEIGHT: u16 = 20;
-pub const SMALL_TERM_WIDTH: u16 = 70;
-
-pub const SMALL_RESULTS_WIDTH: u16 = 60;
-pub const SMALL_RESULTS_HEIGHT: u16 = 20;
-
-pub const MIN_FOOTER_WIDTH: u16 = 55;
-pub const MIN_THEME_PREVIEW_WIDTH: u16 = 60;
-
-pub const MENU_HEIGHT: u16 = 25;
-
-pub const MODAL_WIDTH: u16 = 50;
-pub const MODAL_HEIGHT: u16 = 11;
-
-// top area
-pub const HEADER_HEIGHT: u16 = 4;
-pub const ACTION_BAR_HEIGHT: u16 = 1;
-pub const TOP_AREA_HEIGHT: u16 = HEADER_HEIGHT + ACTION_BAR_HEIGHT;
-
-// mid area
-pub const MODE_BAR_HEIGHT: u16 = 2;
-pub const TYPING_AREA_WIDTH: u16 = 80;
-
-// bottom area
-pub const COMMAND_BAR_HEIGHT: u16 = 3;
-pub const FOOTER_HEIGHT: u16 = 1;
-pub const BOTTOM_PADDING: u16 = 1;
-pub const BOTTOM_AREA_HEIGHT: u16 = COMMAND_BAR_HEIGHT + BOTTOM_PADDING + FOOTER_HEIGHT;
-
-// Modals
-pub const MIN_CUSTOM_TIME: u16 = 1;
-pub const MAX_CUSTOM_TIME: u16 = 300; // 5 minutes
-
-pub const MIN_CUSTOM_WORD_COUNT: u16 = 1;
-pub const MAX_CUSTOM_WORD_COUNT: u16 = 5000;

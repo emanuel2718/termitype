@@ -6,5 +6,6 @@
   "lldb.showDisassembly": "never",
   "lldb.dereferencePointers": true,
   "lldb.suppressMissingSourceFiles": false,
-  "debug.allowBreakpointsEverywhere": true
+  "debug.allowBreakpointsEverywhere": true,
+  "rust-analyzer.checkOnSave": true
 }

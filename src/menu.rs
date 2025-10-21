@@ -1,748 +1,863 @@
 use crate::{
-    actions::{MenuContext, MenuNavAction, MenuSearchAction, PreviewType, TermiAction},
-    ascii::DEFAULT_ASCII_ART_NAME,
+    actions::{self, Action},
+    builders::menu_builder,
+    common::strings::fuzzy_match,
     config::Config,
-    constants::{DEFAULT_TIME_DURATION_LIST, DEFAULT_TIME_MODE_DURATION},
-    helpers::fuzzy_match,
-    log_debug,
-    menu_builder::build_menu,
-    styles::TermiStyle,
+    error::AppError,
 };
 
-/// Represents the resulting action of selecting a menu item
-#[derive(Debug, Clone, PartialEq)]
-pub enum MenuItemResult {
-    TriggerAction(TermiAction),
-    OpenSubMenu(MenuContext),
-    ToggleState,
-    NoOp,
+#[derive(Clone, Debug, PartialEq)]
+pub enum MenuContext {
+    Root,
+    Options,
+    Themes,
+    Time,
+    Words,
+    Language,
+    Cursor,
+    Ascii,
+    VisibleLines,
+    Leaderboard,
+    About,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum MenuMotion {
+    Up,
+    Down,
+    PageUp,
+    PageDown,
+    Home,
+    End,
+    Back,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum MenuAction {
+    Action(actions::Action),
+    SubMenu(MenuContext),
+    Info(String, String),
+}
+
+impl MenuAction {
+    /// Checks if this menu action opens a submenu or not
+    pub fn is_submenu(&self) -> bool {
+        matches!(self, MenuAction::SubMenu(_))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct MenuItem {
-    pub id: String,
-    pub key: Option<String>,
-    pub label: String,
-    pub result: MenuItemResult,
-    // TODO: this is weird, want to find a better name represantion than `is_active`.
-    pub is_active: Option<bool>, // true/false if toggleable, None otherwise
+    label: String,
     pub is_disabled: bool,
-    pub preview_type: Option<PreviewType>,
+    pub has_preview: bool,
+    pub action: MenuAction,
+    pub shortcut: Option<char>,
+    pub description: Option<String>,
+    pub close_on_select: bool,
 }
 
 impl MenuItem {
-    pub fn action(id: &str, label: &str, action: TermiAction) -> Self {
+    pub fn new<S: Into<String>>(label: S, action: MenuAction) -> Self {
         Self {
-            id: id.to_string(),
-            key: None,
-            label: label.to_string(),
-            result: MenuItemResult::TriggerAction(action),
-            is_active: None,
+            label: label.into(),
             is_disabled: false,
-            preview_type: None,
+            has_preview: false,
+            action,
+            shortcut: None,
+            description: None,
+            close_on_select: false,
         }
     }
+    // TODO: when doing the builder for this, ensure you only allow either action() or submenu()
 
-    // NOTE: eventually info items could have an action (i.e opening the url for the repo etc.)
-    /// MenuItem with Key Value pair information
-    pub fn info(id: &str, key: &str, desc: &str) -> Self {
-        Self {
-            id: id.to_string(),
-            key: Some(key.to_string()),
-            label: desc.to_string(),
-            result: MenuItemResult::NoOp,
-            is_active: None,
-            is_disabled: false,
-            preview_type: None,
-        }
+    pub fn action<S: Into<String>>(label: S, action: actions::Action) -> Self {
+        Self::new(label, MenuAction::Action(action))
     }
 
-    pub fn toggle(id: &str, label: &str, is_active: bool) -> Self {
-        Self {
-            id: id.to_string(),
-            key: None,
-            label: label.to_string(),
-            result: MenuItemResult::ToggleState,
-            is_active: Some(is_active),
-            is_disabled: false,
-            preview_type: None,
-        }
+    pub fn submenu<S: Into<String>>(label: S, context: MenuContext) -> Self {
+        Self::new(label, MenuAction::SubMenu(context))
     }
 
-    pub fn sub_menu(id: &str, label: &str, ctx: MenuContext) -> Self {
-        Self {
-            id: id.to_string(),
-            key: None,
-            label: label.to_string(),
-            result: MenuItemResult::OpenSubMenu(ctx),
-            is_active: None,
-            is_disabled: false,
-            preview_type: None,
-        }
-    }
-
-    pub fn with_preview(mut self, preview: PreviewType) -> Self {
-        self.preview_type = Some(preview);
-        self
+    pub fn info<S: Into<String>>(key: S, value: S) -> Self {
+        let key = key.into();
+        let value = value.into();
+        Self::new(format!("{} {}", key, value), MenuAction::Info(key, value))
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.is_disabled = disabled;
         self
     }
+
+    pub fn shortcut(mut self, shortcut: char) -> Self {
+        self.shortcut = Some(shortcut);
+        self
+    }
+
+    pub fn preivew(mut self) -> Self {
+        self.has_preview = true;
+        self
+    }
+
+    pub fn description<S: Into<String>>(mut self, description: S) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    pub fn label(&self) -> String {
+        if let Some(shortcut) = self.shortcut {
+            format!("{} [{}]", self.label, shortcut)
+        } else {
+            self.label.clone()
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
-pub struct Menu {
-    pub ctx: MenuContext,
-    pub title: String,
-    _items: Vec<MenuItem>,
+#[derive(Debug, Clone, PartialEq)]
+pub enum MenuVisualizer {
+    ThemeVisualizer,
+    CursorVisualizer,
+    AsciiVisualizer,
+}
+
+#[derive(Clone, Debug)]
+pub struct MenuContent {
+    items: Vec<MenuItem>,
     current_index: usize,
-    filtered_indices: Option<Vec<usize>>,
+    pub title: String,
+    pub ctx: MenuContext,
+    pub scroll_offset: usize,
+    pub visualizer: Option<MenuVisualizer>,
+    pub is_informational: bool,
 }
 
-impl Menu {
-    pub fn new(ctx: MenuContext, title: String, items: Vec<MenuItem>) -> Self {
-        Menu {
+impl Default for MenuContent {
+    fn default() -> Self {
+        Self::new("Root", MenuContext::Root, Vec::new(), None, false)
+    }
+}
+
+impl MenuContent {
+    pub fn new<S: Into<String>>(
+        title: S,
+        ctx: MenuContext,
+        items: Vec<MenuItem>,
+        visualizer: Option<MenuVisualizer>,
+        is_informational: bool,
+    ) -> Self {
+        Self {
+            title: title.into(),
             ctx,
-            title,
-            _items: items,
+            items,
             current_index: 0,
-            filtered_indices: None,
+            scroll_offset: 0,
+            visualizer,
+            is_informational,
         }
     }
 
-    pub fn current_selection_index(&self) -> usize {
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    pub fn current_index(&self) -> usize {
         self.current_index
     }
 
-    pub fn navigate(&mut self, nav: MenuNavAction, ui_height: usize) {
-        let items_count = self.size();
-        if items_count == 0 {
-            return;
-        }
-
-        match nav {
-            MenuNavAction::Up => self.current_index = self.current_index.saturating_sub(1),
-            MenuNavAction::Down => {
-                self.current_index = (self.current_index + 1).min(items_count - 1)
-            }
-            MenuNavAction::PageUp => {
-                let scroll_amount = (ui_height / 2).max(1);
-                self.current_index = self.current_index.saturating_sub(scroll_amount).max(0)
-            }
-            MenuNavAction::PageDown => {
-                let scroll_amount = (ui_height / 2).max(1);
-                self.current_index = (self.current_index + scroll_amount).min(items_count - 1)
-            }
-            MenuNavAction::Home => {
-                self.current_index = 0;
-            }
-            MenuNavAction::End => self.current_index = items_count - 1,
-            MenuNavAction::Back => {} // handled by MenuState
-        }
-    }
-
-    /// Amount of items in the current menu. Takes into consideration if there is a current filer
-    pub fn size(&self) -> usize {
-        if let Some(indices) = &self.filtered_indices {
-            indices.len()
-        } else {
-            self._items.len()
-        }
+    pub fn set_current_index(&mut self, idx: usize) {
+        self.current_index = idx;
     }
 
     pub fn current_item(&self) -> Option<&MenuItem> {
-        // if filtering, `selected_index` is an index into `filtered_indexes`
-        // which then itself points to the actual item in `self.items`. cool
-        if let Some(indices) = &self.filtered_indices {
-            indices
-                .get(self.current_index)
-                .and_then(|&og_idx| self._items.get(og_idx))
+        self.items.get(self.current_index)
+    }
+
+    pub fn items(&self, query: &str) -> Vec<&MenuItem> {
+        if query.is_empty() {
+            self.items.iter().collect()
         } else {
-            self._items.get(self.current_index)
+            let query = query.to_lowercase();
+            self.items
+                .iter()
+                .filter(|item| !item.is_disabled && fuzzy_match(&item.label.to_lowercase(), &query))
+                .collect()
         }
     }
 
-    /// Toggles the state of the current item if is a toggleable item
-    pub fn toggle_item(&mut self, id: &str) {
-        if let Some(item) = self._items.iter_mut().find(|item| item.id == id) {
-            if let Some(is_active) = item.is_active {
-                item.is_active = Some(!is_active)
+    pub fn find_by_shortcut(&self, shortcut: char) -> Option<(usize, &MenuItem)> {
+        self.items
+            .iter()
+            .enumerate()
+            .find(|(_, item)| item.shortcut == Some(shortcut) && !item.is_disabled)
+    }
+
+    pub fn has_visualizer(&self) -> bool {
+        self.visualizer.is_some()
+    }
+
+    pub fn nav(&mut self, motion: MenuMotion, ui_height: usize, query: Option<&str>) {
+        let query = query.unwrap_or("");
+        if query.is_empty() {
+            if self.items.is_empty() {
+                return;
+            }
+
+            let len = self.items.len();
+            self.current_index =
+                Self::calculate_new_index(motion, self.current_index, len, ui_height);
+
+            Self::update_scroll_offset(self, self.current_index, ui_height);
+        } else {
+            // nav while searching
+            let filtered_items: Vec<MenuItem> = self.items(query).into_iter().cloned().collect();
+            if filtered_items.is_empty() {
+                return;
+            }
+
+            let current_filtered_index = Self::get_current_filtered_index(self, &filtered_items);
+            let new_filtered_index = Self::calculate_new_index(
+                motion,
+                current_filtered_index,
+                filtered_items.len(),
+                ui_height,
+            );
+
+            Self::update_menu_indices(self, &filtered_items, new_filtered_index);
+            Self::update_scroll_offset(self, current_filtered_index, ui_height);
+        }
+    }
+
+    fn get_current_filtered_index(menu: &MenuContent, filtered_items: &[MenuItem]) -> usize {
+        filtered_items
+            .iter()
+            .position(|item| *item == menu.items[menu.current_index])
+            .unwrap_or(0)
+    }
+
+    fn calculate_new_index(
+        motion: MenuMotion,
+        current_index: usize,
+        len: usize,
+        viewport_height: usize,
+    ) -> usize {
+        match motion {
+            MenuMotion::Up => current_index.saturating_sub(1),
+            MenuMotion::Down => (current_index + 1).min(len.saturating_sub(1)),
+            MenuMotion::PageUp => {
+                let scroll = viewport_height.saturating_sub(1) / 2;
+                current_index.saturating_sub(scroll)
+            }
+            MenuMotion::PageDown => {
+                let scroll = viewport_height.saturating_sub(1) / 2;
+                (current_index + scroll).min(len.saturating_sub(1))
+            }
+            MenuMotion::Home => 0,
+            MenuMotion::End => len.saturating_sub(1),
+            MenuMotion::Back => current_index,
+        }
+    }
+
+    fn update_menu_indices(
+        menu: &mut MenuContent,
+        filtered_items: &[MenuItem],
+        new_filtered_index: usize,
+    ) {
+        if let Some(item) = filtered_items.get(new_filtered_index) {
+            for (original_idx, original_item) in menu.items.iter().enumerate() {
+                if *item == *original_item {
+                    menu.set_current_index(original_idx);
+                    break;
+                }
             }
         }
     }
 
-    pub fn items(&self) -> Vec<MenuItem> {
-        if let Some(indices) = &self.filtered_indices {
-            indices
-                .iter()
-                .filter_map(|&i| self._items.get(i).cloned())
-                .collect()
-        } else {
-            self._items.clone()
+    pub fn update_scroll_offset(
+        menu: &mut MenuContent,
+        current_filtered_index: usize,
+        viewport_height: usize,
+    ) {
+        if current_filtered_index < menu.scroll_offset {
+            menu.scroll_offset = current_filtered_index;
+        } else if current_filtered_index >= menu.scroll_offset + viewport_height {
+            menu.scroll_offset = current_filtered_index - viewport_height + 1;
         }
-    }
-
-    pub fn items_with_indices(&self) -> Vec<(usize, &MenuItem)> {
-        self._items.iter().enumerate().collect()
-    }
-
-    pub fn filtered_items(&self, query: &str) -> Vec<(usize, &MenuItem)> {
-        if query.is_empty() {
-            return self._items.iter().enumerate().collect();
-        }
-
-        let query = query.to_lowercase();
-        self._items
-            .iter()
-            .enumerate()
-            .filter(|(_, item)| {
-                !item.is_disabled && fuzzy_match(&item.label.to_lowercase(), &query)
-            })
-            .collect()
-    }
-
-    pub fn filter_items(&mut self, query: &str) -> Vec<MenuItem> {
-        self.update_filtered_indices(query);
-        self.items()
-    }
-
-    fn update_filtered_indices(&mut self, query: &str) {
-        if query.is_empty() {
-            self.filtered_indices = None;
-            // self.current_index = 0;
-            return;
-        }
-
-        let query = query.to_lowercase();
-        let indices: Vec<usize> = self
-            ._items
-            .iter()
-            .enumerate()
-            .filter(|(_, item)| {
-                !item.is_disabled && fuzzy_match(&item.label.to_lowercase(), &query)
-            })
-            .map(|(i, _)| i)
-            .collect();
-
-        self.filtered_indices = Some(indices);
-        self.current_index = 0
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct MenuState {
-    stack: Vec<Menu>,
+#[derive(Clone, Debug)]
+pub struct Menu {
+    stack: Vec<MenuContent>,
     search_query: String,
-    is_searching: bool,
+    search_mode: bool,
     pub ui_height: usize,
 }
 
-impl MenuState {
+impl Default for Menu {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Menu {
     pub fn new() -> Self {
-        Default::default()
+        Self {
+            stack: Vec::new(),
+            search_query: String::new(),
+            search_mode: false,
+            ui_height: 10,
+        }
     }
 
     pub fn is_open(&self) -> bool {
         !self.stack.is_empty()
     }
 
-    pub fn is_searching(&self) -> bool {
-        self.is_searching
-    }
-
-    /// Checks if the given `MenuContext` is the current active context
-    pub fn is_current_ctx(&self, ctx: MenuContext) -> bool {
-        if let Some(menu) = self.current_menu() {
-            return menu.ctx == ctx;
+    pub fn open(&mut self, ctx: MenuContext, config: &Config) -> Result<(), AppError> {
+        let menu = menu_builder::build_menu_from_context(ctx, config);
+        self.stack.push(menu);
+        let ui_height = self.ui_height;
+        if let Some(current_menu) = self.current_menu_mut() {
+            MenuContent::update_scroll_offset(current_menu, current_menu.current_index, ui_height);
         }
-        false
+        Ok(())
     }
 
-    pub fn current_menu(&self) -> Option<&Menu> {
+    pub fn close(&mut self) -> Result<(), AppError> {
+        self.stack.clear();
+        Ok(())
+    }
+
+    pub fn back(&mut self) -> Result<(), AppError> {
+        // TODO: handle clear previews
+        if !self.stack.is_empty() {
+            self.stack.pop();
+        } else {
+            self.stack.clear();
+        }
+        Ok(())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.current_items().len() == 0
+    }
+
+    pub fn current_menu(&self) -> Option<&MenuContent> {
         self.stack.last()
     }
 
-    pub fn current_menu_mut(&mut self) -> Option<&mut Menu> {
+    pub fn current_menu_mut(&mut self) -> Option<&mut MenuContent> {
         self.stack.last_mut()
     }
 
-    // =============== HANDLERS ===============
-    pub fn handle_action(&mut self, action: TermiAction, config: &Config) -> Option<TermiAction> {
-        match action {
-            // Open
-            TermiAction::MenuOpen(ctx) => {
-                if self.is_current_ctx(MenuContext::Theme)
-                    || self.is_current_ctx(MenuContext::Help)
-                    || self.is_current_ctx(MenuContext::About)
-                    || self.is_current_ctx(MenuContext::AsciiArt)
-                    || self.is_current_ctx(MenuContext::Options)
-                {
-                    self.close();
-                } else {
-                    self.open(ctx, config);
-                }
-                self.preview_selection()
-            }
-            // Close
-            TermiAction::MenuClose => {
-                self.stack.clear();
-                self.clear_search();
-                return Some(TermiAction::ClearPreview);
-            }
-            // Select
-            TermiAction::MenuSelect => {
-                return self.execute_menu_action(config);
-            }
-            // Search
-            TermiAction::MenuSearch(search_action) => {
-                let action = self.handle_search_action(search_action.clone(), config);
-                if action.is_some() {
-                    return action;
-                }
-                self.preview_selection()
-            }
-            // Navigate
-            TermiAction::MenuNavigate(nav_action) => {
-                // TODO: this could be simplified
-                if nav_action == MenuNavAction::Back {
-                    if self.is_searching {
-                        self.clear_search();
-                        if let Some(menu) = self.stack.last_mut() {
-                            menu.filter_items("");
-                        }
-                    } else {
-                        self.stack.pop();
-                        if self.stack.is_empty() {
-                            return Some(TermiAction::ClearPreview);
-                        }
-                    }
-                } else if let Some(menu) = self.stack.last_mut() {
-                    menu.navigate(nav_action, self.ui_height);
-                }
-                return self.preview_selection();
-            }
-            _ => Some(TermiAction::NoOp),
-        };
-        None
+    pub fn current_item(&self) -> Option<&MenuItem> {
+        self.current_menu()?.current_item()
     }
 
-    fn handle_search_action(
-        &mut self,
-        action: MenuSearchAction,
-        config: &Config,
-    ) -> Option<TermiAction> {
-        match action {
-            MenuSearchAction::Start => self.is_searching = true,
-            MenuSearchAction::Close => self.clear_search(),
-            MenuSearchAction::Confirm => {
-                self.is_searching = false;
-                return self.execute_menu_action(config);
-            }
-            MenuSearchAction::Clear => self.search_query.clear(),
-            MenuSearchAction::Backspace => {
-                self.search_query.pop();
-            }
-            MenuSearchAction::Input(c) if self.is_searching => self.search_query.push(c),
-            _ => {}
-        }
-
-        if let Some(menu) = self.stack.last_mut() {
-            let query = &self.search_query;
-            menu.filter_items(query);
-        }
-
-        self.preview_selection()
-    }
-
-    // =============== EXECUTOR ===============
-    fn execute_menu_action(&mut self, config: &Config) -> Option<TermiAction> {
-        let item_action = self
-            .stack
-            .last()
-            .and_then(|menu| menu.current_item())
-            .filter(|item| !item.is_disabled)
-            .map(|item| item.result.clone());
-
-        log_debug!("item action: {:?}", item_action);
-        if let Some(action) = item_action {
-            match action {
-                MenuItemResult::TriggerAction(action) => {
-                    // self.stack.clear();
-                    // self.clear_search();
-                    return Some(action);
-                }
-                MenuItemResult::OpenSubMenu(ctx) => {
-                    self.open(ctx, config);
-                    return self.preview_selection();
-                }
-                MenuItemResult::ToggleState => {
-                    // TODO: extract this to a fn
-                    if let Some(id) = self
-                        .stack
-                        .last()
-                        .and_then(|m| m.current_item().map(|i| i.id.clone()))
-                    {
-                        // TODO: maybe this ids need to be MenuItemId enum
-                        let act = match id.as_str() {
-                            "options/symbols" => TermiAction::ToggleSymbols,
-                            "options/punctuation" => TermiAction::TogglePunctuation,
-                            "options/numbers" => TermiAction::ToggleNumbers,
-                            "options/fps" => TermiAction::ToggleFPS,
-                            "options/show_live_wpm" => TermiAction::ToggleLiveWPM,
-                            "options/monochromatic" => TermiAction::ToggleMonochromaticResults,
-                            "options/show_cursorline" => TermiAction::ToggleCursorline,
-                            "options/show_notifications" => TermiAction::ToggleNotifications,
-                            _ => TermiAction::NoOp,
-                        };
-                        return Some(act);
-                    }
-                }
-                MenuItemResult::NoOp => return None,
-            }
-        }
-        None
-    }
-
-    fn preview_selection(&self) -> Option<TermiAction> {
-        self.stack
-            .last()
-            .and_then(|menu| menu.current_item())
-            .and_then(|item| item.preview_type.clone())
-            .map(TermiAction::ApplyPreview)
-            .or(Some(TermiAction::ClearPreview))
-    }
-
-    fn open(&mut self, ctx: MenuContext, config: &Config) {
-        self.stack.push(build_menu(ctx, config));
-        self.clear_search();
-        if let Some(menu) = self.stack.last_mut() {
-            let index = MenuState::resolve_index(menu, config);
-            if index < menu.items().len() {
-                menu.current_index = index;
-            }
-        }
-    }
-
-    pub fn close(&mut self) {
-        self.stack.clear();
-        self.clear_search();
-    }
-
-    pub fn toggle(&mut self, config: &Config) {
-        if self.is_open() {
-            self.close();
-        } else {
-            self.open(MenuContext::Root, config);
-        }
-    }
-
-    fn clear_search(&mut self) {
-        self.is_searching = false;
-        self.search_query.clear();
+    pub fn current_items(&self) -> Vec<&MenuItem> {
+        self.current_menu()
+            .map(|menu| menu.items(&self.search_query))
+            .unwrap_or_default()
     }
 
     pub fn search_query(&self) -> &str {
         &self.search_query
     }
 
-    pub fn sync_toggle_items(&mut self, config: &Config) {
-        if let Some(menu) = self.stack.last_mut() {
-            // TODO: there has to be a better way of doing this
-            // FIXME: having to iterate throught the items to find every item and match to a toggle is not smart.
-            // Options menu - basically will contain all the toggles of the game
-            if let Some(item) = menu
-                ._items
-                .iter_mut()
-                .find(|i| i.id == "options/punctuation")
-            {
-                item.is_active = Some(config.use_punctuation);
+    pub fn clear_search(&mut self) {
+        self.search_query.clear();
+        self.search_mode = false;
+    }
+
+    pub fn init_search(&mut self) {
+        self.search_mode = true;
+        self.search_query.clear();
+    }
+
+    pub fn exit_search(&mut self) {
+        self.search_mode = false;
+        self.search_query.clear();
+    }
+
+    pub fn is_searching(&self) -> bool {
+        self.search_mode
+    }
+
+    pub fn has_search_query(&self) -> bool {
+        !self.search_query().is_empty()
+    }
+
+    pub fn update_search(&mut self, query: String) {
+        self.search_query = query.clone();
+        // when the search change try to keep current selection selected
+        if let Some(menu) = self.current_menu_mut() {
+            let items = menu.items(&query);
+            if items.is_empty() {
+                menu.set_current_index(0);
+            } else {
+                // does the current item still in the new results?
+                if let Some(current_item) = menu.current_item() {
+                    if items.iter().any(|&item| {
+                        item.label() == current_item.label() && item.action == current_item.action
+                    }) {
+                        // it is, keep it selected
+                    } else {
+                        // the current item is not in the new resutls, select the first rresult
+                        if let Some(first_item) = items.first() {
+                            for (original_idx, original_item) in menu.items.iter().enumerate() {
+                                if first_item.label() == original_item.label()
+                                    && first_item.action == original_item.action
+                                {
+                                    menu.set_current_index(original_idx);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "options/symbols") {
-                item.is_active = Some(config.use_symbols);
-            }
-            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "options/numbers") {
-                item.is_active = Some(config.use_numbers);
-            }
-            if let Some(item) = menu._items.iter_mut().find(|i| i.id == "options/fps") {
-                item.is_active = Some(config.show_fps);
-            }
-            if let Some(item) = menu
-                ._items
-                .iter_mut()
-                .find(|i| i.id == "options/show_live_wpm")
-            {
-                item.is_active = Some(!config.hide_live_wpm);
-            }
-            if let Some(item) = menu
-                ._items
-                .iter_mut()
-                .find(|i| i.id == "options/show_cursorline")
-            {
-                item.is_active = Some(!config.hide_cursorline);
-            }
-            if let Some(item) = menu
-                ._items
-                .iter_mut()
-                .find(|i| i.id == "options/show_notifications")
-            {
-                item.is_active = Some(!config.hide_notifications);
-            }
-            if let Some(item) = menu
-                ._items
-                .iter_mut()
-                .find(|i| i.id == "options/monochromatic")
-            {
-                item.is_active = Some(config.monocrhomatic_results);
-            }
+            menu.scroll_offset = 0;
         }
     }
 
-    /// Used for auto selecting the currently selected item when opening a submenu
-    fn resolve_index(menu: &Menu, config: &Config) -> usize {
-        let target_id: Option<String> = match menu.ctx {
-            MenuContext::Theme => {
-                let theme_name = config
-                    .theme
-                    .as_deref()
-                    .unwrap_or(crate::constants::DEFAULT_THEME);
-                Some(format!("themes/{theme_name}"))
-            }
-            MenuContext::Language => {
-                let lang_name = config
-                    .language
-                    .as_deref()
-                    .unwrap_or(crate::constants::DEFAULT_LANGUAGE);
-                Some(format!("lang/{lang_name}"))
-            }
-            MenuContext::AsciiArt => {
-                let art_name = config.ascii.as_deref().unwrap_or(DEFAULT_ASCII_ART_NAME);
-                Some(format!("ascii/{art_name}"))
-            }
-            MenuContext::Cursor => {
-                let cursor_style = config
-                    .cursor_style
-                    .as_deref()
-                    .unwrap_or(crate::constants::DEFAULT_CURSOR_STYLE);
-                Some(format!("cursor/{cursor_style}"))
-            }
-            MenuContext::PickerStyle => {
-                let picker_style = config.resolve_picker_style();
-                let picker_style_str = picker_style.as_str();
-                Some(format!("picker/{picker_style_str}"))
-            }
-            MenuContext::Mode => Some(format!(
-                "mode/{}",
-                match config.current_mode_type() {
-                    crate::config::ModeType::Time => "time",
-                    crate::config::ModeType::Words => "words",
-                }
-            )),
-            MenuContext::Time => {
-                let presets = DEFAULT_TIME_DURATION_LIST;
-                let current_val = config.time.unwrap_or(DEFAULT_TIME_MODE_DURATION as u64);
-                if presets.contains(&(current_val as usize)) {
-                    Some(format!("time/{current_val}"))
-                } else {
-                    Some("time/custom".to_string())
-                }
-            }
-            MenuContext::Words => {
-                let presets: Vec<usize> = vec![10, 25, 50, 100];
-                let current_val = config
-                    .word_count
-                    .unwrap_or(crate::constants::DEFAULT_WORD_MODE_COUNT);
-                if presets.contains(&current_val) {
-                    Some(format!("words/{current_val}"))
-                } else {
-                    Some("words/custom".to_string())
-                }
-            }
-            MenuContext::LineCount => {
-                let visible_lines = config.visible_lines;
-                Some(format!("lines/{visible_lines}"))
-            }
-            MenuContext::Results => {
-                let results_style = config.resolve_results_style();
-                let results_style_str = results_style.as_str();
-                Some(format!("results/{results_style_str}"))
-            }
-            MenuContext::Root
-            | MenuContext::About
-            | MenuContext::Help
-            | MenuContext::Options
-            | MenuContext::Leaderboard => None,
+    pub fn backspace_search(&mut self) {
+        if !self.search_query.is_empty() {
+            self.search_query.pop();
+            self.update_search(self.search_query.clone());
+        }
+    }
+
+    pub fn navigate(&mut self, motion: MenuMotion) {
+        let viewport_height = self.ui_height;
+        let query = if self.has_search_query() {
+            Some(self.search_query.clone())
+        } else {
+            None
         };
 
-        if let Some(id) = target_id {
-            menu._items
-                .iter()
-                .position(|item| item.id == id)
-                .unwrap_or(0)
-        } else {
-            0
+        if let Some(menu) = self.current_menu_mut() {
+            menu.nav(motion, viewport_height, query.as_deref());
         }
+    }
+
+    pub fn select(&mut self, config: &Config) -> Result<Option<Action>, AppError> {
+        if let Some(item) = self.current_item().cloned() {
+            if self.is_searching() {
+                self.clear_search();
+            }
+            let action = item.action.clone();
+            match action {
+                MenuAction::Action(act) => {
+                    if item.close_on_select {
+                        self.close()?;
+                    }
+                    return Ok(Some(act));
+                }
+                MenuAction::SubMenu(ctx) => self.open(ctx, config)?,
+                MenuAction::Info(_, _) => {} // No action for info items
+            }
+        }
+        Ok(None)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
+    use crate::{
+        actions::Action,
+        app::App,
+        theme::{self},
+    };
 
-    fn create_test_menu() -> MenuState {
-        MenuState::new()
+    #[test]
+    fn test_open_menu() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(!menu.is_open());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.is_open());
     }
 
     #[test]
-    fn test_menu_navigation() {
-        let mut menu = create_test_menu();
+    fn test_close_menu() {
         let config = Config::default();
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
         assert!(menu.is_open());
-
-        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config);
-        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config);
-        assert_eq!(menu.current_menu().unwrap().current_selection_index(), 2);
-
-        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Up), &config);
-        assert_eq!(menu.current_menu().unwrap().current_selection_index(), 1);
-
-        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config); // idx 2
-        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config); // idx 3
-        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config); // idx 4
-        menu.handle_action(TermiAction::MenuNavigate(MenuNavAction::Down), &config); // idx 5
-        assert_eq!(menu.current_menu().unwrap().current_selection_index(), 5);
+        menu.close().unwrap();
+        assert!(!menu.is_open());
     }
 
     #[test]
-    fn test_theme_picker() {
-        // must set this manually as the theme sub-menu is disbabled if the
-        // current environment doesn't have proper color support and without it
-        // this test will fail in CI for example.
-        env::set_var("COLORTERM", "truecolor");
-        let mut menu = create_test_menu();
+    fn test_menu_action_is_submenu() {
+        let action = MenuAction::Action(actions::Action::Quit);
+        assert!(!action.is_submenu());
+
+        let submenu = MenuAction::SubMenu(MenuContext::Root);
+        assert!(submenu.is_submenu());
+    }
+
+    #[test]
+    fn test_menu_item_new() {
+        let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit));
+        assert_eq!(item.label, "Test");
+        assert!(!item.is_disabled);
+        assert_eq!(item.shortcut, None);
+        assert_eq!(item.description, None);
+    }
+
+    #[test]
+    fn test_menu_item_submenu() {
+        let item = MenuItem::submenu("Options", MenuContext::Options);
+        assert_eq!(item.label, "Options");
+        assert!(matches!(
+            item.action,
+            MenuAction::SubMenu(MenuContext::Options)
+        ));
+    }
+
+    #[test]
+    fn test_menu_item_description() {
+        let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit))
+            .description("A test item");
+        assert_eq!(item.description, Some("A test item".to_string()));
+    }
+
+    #[test]
+    fn test_menu_item_label() {
+        let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit));
+        assert_eq!(item.label(), "Test");
+
+        let item_with_shortcut = item.shortcut('T');
+        assert_eq!(item_with_shortcut.label(), "Test [T]");
+    }
+
+    #[test]
+    fn test_menu_content_new() {
+        let items = vec![MenuItem::new(
+            "Item1",
+            MenuAction::Action(actions::Action::Quit),
+        )];
+        let content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+        assert_eq!(content.title, "Title");
+        assert_eq!(content.ctx, MenuContext::Root);
+        assert_eq!(content.len(), 1);
+        assert_eq!(content.current_index, 0);
+        assert_eq!(content.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_menu_content_len_and_is_empty() {
+        let empty_content = MenuContent::new("Empty", MenuContext::Root, vec![], None, false);
+        assert_eq!(empty_content.len(), 0);
+        assert!(empty_content.is_empty());
+
+        let items = vec![MenuItem::new(
+            "Item1",
+            MenuAction::Action(actions::Action::Quit),
+        )];
+        let content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+        assert_eq!(content.len(), 1);
+        assert!(!content.is_empty());
+    }
+
+    #[test]
+    fn test_menu_content_current_item() {
+        let items = vec![
+            MenuItem::new("Item1", MenuAction::Action(actions::Action::Quit)),
+            MenuItem::new("Item2", MenuAction::Action(actions::Action::Quit)),
+        ];
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+        assert_eq!(content.current_item().unwrap().label, "Item1");
+
+        content.current_index = 1;
+        assert_eq!(content.current_item().unwrap().label, "Item2");
+
+        content.current_index = 2;
+        assert!(content.current_item().is_none());
+    }
+
+    #[test]
+    fn test_menu_content_nav() {
+        let items = vec![
+            MenuItem::new("1", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("2", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("3", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("4", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("5", MenuAction::Action(Action::NoOp)),
+        ];
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+
+        content.nav(MenuMotion::Down, 10, None);
+        assert_eq!(content.current_index, 1);
+
+        content.nav(MenuMotion::Up, 10, None);
+        assert_eq!(content.current_index, 0);
+
+        content.nav(MenuMotion::End, 10, None);
+        assert_eq!(content.current_index, 4);
+
+        content.nav(MenuMotion::Home, 10, None);
+        assert_eq!(content.current_index, 0);
+
+        content.nav(MenuMotion::PageDown, 3, None); // ui_height=3, scroll=1
+        assert_eq!(content.current_index, 1);
+
+        content.nav(MenuMotion::PageUp, 3, None);
+        assert_eq!(content.current_index, 0);
+
+        content.nav(MenuMotion::Up, 10, None);
+        assert_eq!(content.current_index, 0); // no wrapping
+    }
+
+    #[test]
+    fn test_menu_content_find_by_shortcut() {
+        let items = vec![
+            MenuItem::new("1", MenuAction::Action(actions::Action::Quit)).shortcut('A'),
+            MenuItem::new("2", MenuAction::Action(actions::Action::Quit))
+                .shortcut('B')
+                .disabled(true),
+            MenuItem::new("3", MenuAction::Action(actions::Action::Quit)).shortcut('C'),
+        ];
+        let content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+
+        let found = content.find_by_shortcut('A');
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().0, 0);
+
+        let not_found = content.find_by_shortcut('B'); // disabled
+        assert!(not_found.is_none());
+
+        let not_found2 = content.find_by_shortcut('D');
+        assert!(not_found2.is_none());
+    }
+
+    #[test]
+    fn test_menu_back() {
         let config = Config::default();
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
         assert!(menu.is_open());
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
+        menu.back().unwrap();
+        assert!(!menu.is_open());
+    }
+
+    #[test]
+    fn test_menu_current_menu() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(menu.current_menu().is_none());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.current_menu().is_some());
+    }
+
+    #[test]
+    fn test_menu_current_item() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(menu.current_item().is_none());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.current_item().is_some()); // root must always have items
+    }
+
+    #[test]
+    fn test_menu_current_items() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(menu.current_items().is_empty());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(!menu.current_items().is_empty());
+    }
+
+    #[test]
+    fn test_menu_search_query() {
+        let mut menu = Menu::new();
+        assert_eq!(menu.search_query(), "");
+        menu.search_query = "test".to_string();
+        assert_eq!(menu.search_query(), "test");
+    }
+
+    #[test]
+    fn test_menu_is_searching() {
+        let mut menu = Menu::new();
+        assert!(!menu.is_searching());
+        menu.init_search();
+        menu.update_search("test".to_string());
+        assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), "test".to_string());
+    }
+
+    #[test]
+    fn test_menu_search_confirm_should_clear_search_query() {
+        let mut menu = Menu::new();
+        let config = Config::default();
+        menu.open(MenuContext::Root, &config).unwrap();
+        menu.init_search();
+        menu.update_search("theme".to_string());
+        assert_eq!(menu.search_query(), "theme");
+
+        menu.select(&config).unwrap();
+        assert_eq!(menu.search_query(), "");
+    }
+
+    #[test]
+    fn test_menu_go_back() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        assert!(menu.stack.is_empty());
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(menu.stack.len() == 1);
+        menu.select(&config).unwrap();
         assert!(menu.stack.len() == 2);
-        assert!(menu.is_current_ctx(MenuContext::Theme));
-
-        let action_result = menu.handle_action(TermiAction::MenuSelect, &config);
-        assert!(matches!(action_result, Some(TermiAction::ChangeTheme(_))));
+        menu.back().unwrap();
+        assert!(menu.stack.len() == 1);
+        menu.back().unwrap();
+        assert!(menu.stack.is_empty());
     }
 
     #[test]
-    fn test_toggle_features() {
-        let mut menu = create_test_menu();
-        let mut config = Config::default();
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
+    fn test_menu_content_items_with_query() {
+        let items = vec![
+            MenuItem::new("termitype", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("test", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("hi", MenuAction::Action(Action::NoOp)).disabled(true),
+        ];
+        let content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+
+        let all_items = content.items("");
+        assert_eq!(all_items.len(), 3);
+
+        let filtered = content.items("t");
+        assert_eq!(filtered.len(), 2); // termitype and test
+        assert_eq!(filtered[0].label, "termitype");
+        assert_eq!(filtered[1].label, "test");
+
+        let no_match = content.items("xyz");
+        assert!(no_match.is_empty());
+    }
+
+    #[test]
+    fn test_menu_content_nav_with_query() {
+        let items = vec![
+            MenuItem::new("termitype", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("test", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("hi", MenuAction::Action(Action::NoOp)),
+        ];
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+
+        content.nav(MenuMotion::Down, 10, Some("t"));
+        // must only have `termitype` and `test` as items, in that order
+        assert_eq!(content.current_index, 1); // move to `test`
+
+        content.nav(MenuMotion::Down, 10, Some("r"));
+        assert_eq!(content.current_index, 0); // termitype
+    }
+
+    #[test]
+    fn test_menu_navigate() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+        menu.navigate(MenuMotion::Down);
+        if let Some(current_menu) = menu.current_menu() {
+            assert_eq!(current_menu.current_index(), 1);
+        }
+    }
+
+    #[test]
+    fn test_menu_item_preview() {
+        let item = MenuItem::new("Test", MenuAction::Action(Action::NoOp)).preivew();
+        assert!(item.has_preview);
+    }
+
+    #[test]
+    fn test_menu_item_action_with_search() {
+        let config = Config::default();
+        let mut app = App::new(&config);
+        let theme_name = "Termitype Dark";
+        theme::set_as_current_theme("Fallback").unwrap();
+        assert!(!theme::is_using_preview_theme());
+
+        assert_eq!(
+            theme::current_theme().id.to_string(),
+            "Fallback".to_string()
+        );
+
+        app.handle_menu_open(MenuContext::Themes).unwrap();
+        assert!(app.menu.is_open());
+        assert!(!app.menu.is_empty());
+        app.handle_menu_init_search().unwrap();
+        app.handle_menu_update_search(theme_name.to_string())
+            .unwrap();
+        assert!(!app.menu.is_empty());
+        assert!(theme::is_using_preview_theme());
+
+        let current_item = app.menu.current_item().unwrap();
+        assert!(current_item.label() == theme_name);
+
+        let select_action = app.menu.select(&config).unwrap();
+        assert_eq!(
+            select_action,
+            Some(Action::SetTheme(theme_name.to_string()))
+        );
+    }
+
+    #[test]
+    fn test_menu_search_no_matches_keeps_menu_open() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
         assert!(menu.is_open());
-        config.use_punctuation = true;
-        menu.sync_toggle_items(&config);
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Options), &config);
+        assert!(!menu.current_items().is_empty());
 
-        if let Some(menu_ref) = menu.current_menu() {
-            let current_items = menu_ref.items();
-            let item = current_items
-                .iter()
-                .find(|i| i.label == "Use Punctuation")
-                .unwrap();
-            assert_eq!(item.is_active, Some(true));
-        } else {
-            panic!("We should have a menu opened Options by this point")
-        }
-    }
-
-    #[test]
-    fn test_search() {
-        let mut menu = create_test_menu();
-        let config = Config::default();
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
-
-        assert!(!menu.is_searching());
-
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
-        assert!(menu.is_current_ctx(MenuContext::Theme));
-
-        assert!(!menu.is_searching());
-        assert_ne!(menu.current_menu().unwrap().items().len(), 2);
-
-        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
+        menu.init_search();
+        menu.update_search("nonexistent".to_string());
+        assert!(menu.is_open());
+        assert!(menu.current_items().is_empty());
         assert!(menu.is_searching());
-
-        for c in "termitype".chars() {
-            menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Input(c)), &config);
-        }
-
-        // NOTE: this could be a flaky test if we ever add more termitype themes.
-        assert_eq!(menu.current_menu().unwrap().items().len(), 2);
+        assert_eq!(menu.search_query(), "nonexistent");
     }
+
     #[test]
-    fn test_staring_search_should_not_change_start_index() {
-        let mut menu = create_test_menu();
+    fn test_menu_exit_search_clears_query_and_mode() {
         let config = Config::default();
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
-        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+
+        menu.init_search();
+        menu.update_search("test".to_string());
         assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), "test");
 
-        for c in "termitype".chars() {
-            menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Input(c)), &config);
-        }
-        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Confirm), &config);
-
+        menu.exit_search();
         assert!(!menu.is_searching());
-        // now if we start searching for a theem again, it should not jump to the first item
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Theme), &config);
-        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
-        assert_ne!(menu.current_menu().unwrap().current_selection_index(), 0);
+        assert_eq!(menu.search_query(), "");
     }
 
     #[test]
-    fn test_closing_search_should_clear_query() {
-        let mut menu = create_test_menu();
+    fn test_menu_backspace_while_searching() {
         let config = Config::default();
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
-        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
-        assert!(menu.search_query.is_empty());
-        let str: &str = "not_found";
-        for char in str.chars() {
-            menu.handle_action(
-                TermiAction::MenuSearch(MenuSearchAction::Input(char)),
-                &config,
-            );
-        }
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+        menu.init_search();
 
-        assert!(menu.is_searching);
-        assert!(!menu.search_query.is_empty());
-        assert_eq!(menu.search_query, str);
+        menu.update_search("t2".to_string());
+        assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), "t2");
 
-        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Close), &config);
+        menu.backspace_search();
+        assert_eq!(menu.search_query(), "t");
 
-        assert!(!menu.is_searching());
-        assert!(menu.search_query.is_empty());
-    }
-
-    #[test]
-    fn test_closing_search_should_clear_filtered_items() {
-        let mut menu = create_test_menu();
-        let config = Config::default();
-        menu.handle_action(TermiAction::MenuOpen(MenuContext::Root), &config);
-        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Start), &config);
-        assert!(menu.search_query.is_empty());
-        let str: &str = "not_found";
-        for char in str.chars() {
-            menu.handle_action(
-                TermiAction::MenuSearch(MenuSearchAction::Input(char)),
-                &config,
-            );
-        }
-
-        menu.handle_action(TermiAction::MenuSearch(MenuSearchAction::Close), &config);
-        assert!(!menu.current_menu().unwrap().items().is_empty());
+        menu.backspace_search();
+        menu.backspace_search();
+        assert!(menu.is_searching()); // backspace should *not* take us out of search mode
+        assert!(menu.search_query().is_empty());
+        // assert_eq!(app.menu.search_query(), "t");
     }
 }

@@ -1,416 +1,245 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
 use crate::{
-    actions::{LeaderboardAction, MenuContext, MenuNavAction, MenuSearchAction, TermiAction},
-    leaderboard::SortColumn,
+    actions::Action,
+    builders::keymap_builder::{
+        global_keymap, idle_keymap, leaderboard_keymap, menu_base_keymap, menu_search_keymap,
+        modal_keymap, results_keymap, typing_keymap,
+    },
     log_debug,
-    termi::Termi,
-    tracker::Status,
 };
+use crossterm::event::{KeyCode, KeyEvent};
+use std::time::{Duration, Instant};
 
-/// Current input context
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum InputMode {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputContext {
+    Idle,
     Typing,
-    Results,
+    Completed,
     Modal,
+    Menu { searching: bool },
     Leaderboard,
-    Menu { is_searching: bool },
 }
 
 #[derive(Default)]
-pub struct InputHandler {
+pub struct Input {
     last_keycode: Option<KeyCode>,
+    last_esc_time: Option<Instant>,
 }
 
-impl InputHandler {
+#[derive(Debug, PartialEq)]
+pub struct InputResult {
+    pub action: Action,
+    pub skip_debounce: bool,
+}
+
+impl Input {
     pub fn new() -> Self {
-        InputHandler { last_keycode: None }
+        Self::default()
     }
 
-    pub fn resolve_input_mode(&self, termi: &Termi) -> InputMode {
-        // TODO: think about improving this resolver
-        if termi.modal.is_some() {
-            InputMode::Modal
-        } else if termi.leaderboard.is_some() && termi.leaderboard.as_ref().unwrap().is_open() {
-            InputMode::Leaderboard
-        } else if termi.menu.is_open() {
-            InputMode::Menu {
-                is_searching: termi.menu.is_searching(),
+    pub fn handle(&mut self, event: KeyEvent, ctx: InputContext) -> InputResult {
+        // HOTFIX: we must debounce `Esc` because there is a bug of duplicated key events for me only on Linux. Resulting in the menu not opening and closing properly.
+        // I have setup `CapsLock` as dual-key (`Esc` when pressed alone and `Control` when pressed alongside another key).
+        // I do have that same setup in MacOS, but the bug only triggers on Linux. A quick solution for now, to make Linux build usable for testing, would be to debounce
+        // the esc events to a couple of ms to only register one of the duplicated back-to-back press events caused by my dual key setup.
+        // TODO: find a proper solution for this.
+        if event.code == KeyCode::Esc {
+            let now = Instant::now();
+            if let Some(last) = self.last_esc_time {
+                if now.duration_since(last) < Duration::from_millis(20) {
+                    return Self::wrap_input_result(Action::NoOp, false);
+                }
             }
-        } else if termi.tracker.status == Status::Completed {
-            InputMode::Results
-        } else {
-            InputMode::Typing
-        }
-    }
-
-    pub fn handle_input(
-        &mut self,
-        event: KeyEvent,
-        last_event: Option<KeyEvent>,
-        mode: InputMode,
-    ) -> TermiAction {
-        if self.is_quit_sequence(&event) {
-            return TermiAction::Quit;
+            self.last_esc_time = Some(now);
         }
 
-        if let Some(last_ev) = last_event {
-            self.last_keycode = Some(last_ev.code);
-            if self.is_restart_sequence(&event.code, &last_ev.code) {
-                return TermiAction::Start;
+        if let Some(action) = global_keymap().get_action_from(&event) {
+            self.last_keycode = Some(event.code);
+            log_debug!("The action from input.handle: {action:?}");
+            return Self::wrap_input_result(action, false);
+        }
+
+        if self.is_restart_sequence(&event.code) {
+            self.last_keycode = Some(event.code);
+            return Self::wrap_input_result(Action::Restart, true);
+        }
+
+        if self.is_typing_input(event, &ctx) {
+            self.last_keycode = Some(event.code);
+            if let Some(c) = event.code.as_char() {
+                log_debug!("The action from input.handle: {:?}", Action::Input(c));
+                return Self::wrap_input_result(Action::Input(c), false);
             }
         }
 
-        if let Some(global_action) = self.handle_global_input(event) {
-            log_debug!("The global action: {:?}", global_action);
-            return global_action;
+        let keymap = match ctx {
+            InputContext::Idle => idle_keymap(),
+            InputContext::Typing => typing_keymap(),
+            InputContext::Completed => results_keymap(),
+            InputContext::Modal => modal_keymap(),
+            InputContext::Menu { searching: false } => menu_base_keymap(),
+            InputContext::Menu { searching: true } => menu_search_keymap(),
+            InputContext::Leaderboard => leaderboard_keymap(),
+        };
+
+        self.last_keycode = Some(event.code);
+        if let Some(action) = keymap.get_action_from(&event) {
+            log_debug!("The action from input.handle: {action:?}");
+            return Self::wrap_input_result(action, false);
         }
 
-        #[cfg(debug_assertions)]
-        if let Some(debug_action) = self.handle_debug_input(event) {
-            return debug_action;
+        // try handling menu shortcuts key inputs
+        if self.is_menu_shortcut_input(event, &ctx) {
+            if let Some(c) = event.code.as_char() {
+                return Self::wrap_input_result(Action::MenuShortcut(c), false);
+            }
         }
 
-        match mode {
-            InputMode::Typing => self.handle_typing_input(event),
-            InputMode::Leaderboard => self.handle_leaderboard_input(event),
-            InputMode::Results => self.handle_results_input(event),
-            InputMode::Modal => self.handle_modal_input(event),
-            InputMode::Menu { is_searching } => self.handle_menu_input(event, is_searching),
+        // handle menu search query input
+        if self.is_menu_search_input(event, &ctx) {
+            if let Some(c) = event.code.as_char() {
+                let action = Action::MenuUpdateSearch(c.to_string());
+                return Self::wrap_input_result(action, false);
+            }
         }
+
+        // handle modal inputs
+        if self.is_modal_input(event, &ctx) {
+            if let Some(c) = event.code.as_char() {
+                return Self::wrap_input_result(Action::ModalInput(c), false);
+            }
+        }
+
+        Self::wrap_input_result(Action::NoOp, false)
     }
 
-    #[cfg(debug_assertions)]
-    fn handle_debug_input(&mut self, event: KeyEvent) -> Option<TermiAction> {
-        match (event.code, event.modifiers) {
-            (KeyCode::F(10), _) => Some(TermiAction::DebugToggleResults),
-            _ => None,
-        }
-    }
-    fn handle_global_input(&mut self, event: KeyEvent) -> Option<TermiAction> {
-        match (event.code, event.modifiers) {
-            (KeyCode::F(1), _) => Some(TermiAction::MenuOpen(MenuContext::Help)),
-            (KeyCode::F(2), _) => Some(TermiAction::MenuOpen(MenuContext::Theme)),
-            (KeyCode::F(3), _) => Some(TermiAction::LeaderboardToggle),
-            _ => None,
-        }
-    }
-
-    fn handle_typing_input(&mut self, event: KeyEvent) -> TermiAction {
-        match (event.code, event.modifiers) {
-            (KeyCode::Esc, KeyModifiers::NONE) => TermiAction::TogglePause,
-            (KeyCode::Backspace, KeyModifiers::NONE) => TermiAction::Backspace,
-            (KeyCode::Char(c), _) => TermiAction::Input(c),
-            _ => TermiAction::NoOp,
-        }
-    }
-
-    fn handle_results_input(&mut self, event: KeyEvent) -> TermiAction {
-        match (event.code, event.modifiers) {
-            (KeyCode::Char('r'), KeyModifiers::NONE) => TermiAction::Redo,
-            (KeyCode::Char('n'), KeyModifiers::NONE) => TermiAction::Start,
-            (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::Quit,
-            (KeyCode::Esc, KeyModifiers::NONE) => TermiAction::TogglePause,
-            _ => TermiAction::NoOp,
+    fn is_restart_sequence(&self, current_keycode: &KeyCode) -> bool {
+        match self.last_keycode {
+            Some(last_keycode) => {
+                matches!(last_keycode, KeyCode::Tab) && matches!(current_keycode, KeyCode::Enter)
+            }
+            _ => false,
         }
     }
 
-    fn handle_leaderboard_input(&self, event: KeyEvent) -> TermiAction {
-        match (event.code, event.modifiers) {
-            (KeyCode::Esc, _) => TermiAction::LeaderboardClose,
-            (KeyCode::Char('q'), KeyModifiers::NONE) => TermiAction::LeaderboardClose,
+    fn is_typing_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
+        matches!(event.code, KeyCode::Char(_))
+            && matches!(ctx, InputContext::Idle | InputContext::Typing)
+            && !matches!(ctx, InputContext::Menu { .. })
+    }
 
-            (KeyCode::Up | KeyCode::Char('k'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::NavigateUp)
-            }
-            (KeyCode::Down | KeyCode::Char('j'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::NavigateDown)
-            }
-            (KeyCode::Char('G'), KeyModifiers::SHIFT) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::NavigateEnd)
-            }
-            (KeyCode::Char('g'), KeyModifiers::NONE) => {
-                if !self.is_vim_gg() {
-                    return TermiAction::NoOp;
-                }
-                TermiAction::LeaderboardInput(LeaderboardAction::NavigateHome)
-            }
-            (KeyCode::Char('w') | KeyCode::Char('W'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Wpm))
-            }
-            (KeyCode::Char('r') | KeyCode::Char('R'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::RawWpm))
-            }
-            (KeyCode::Char('a') | KeyCode::Char('A'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Accuracy))
-            }
-            (KeyCode::Char('h') | KeyCode::Char('H'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Chars))
-            }
-            (KeyCode::Char('l') | KeyCode::Char('L'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Language))
-            }
-            (KeyCode::Char('m') | KeyCode::Char('M'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Mode))
-            }
-            (KeyCode::Char('d') | KeyCode::Char('D'), _) => {
-                TermiAction::LeaderboardInput(LeaderboardAction::SortBy(SortColumn::Date))
-            }
+    fn is_modal_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
+        matches!(event.code, KeyCode::Char(_)) && matches!(ctx, InputContext::Modal)
+    }
 
-            _ => TermiAction::NoOp,
+    fn is_menu_shortcut_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
+        matches!(event.code, KeyCode::Char(_))
+            && matches!(ctx, InputContext::Menu { searching: false })
+    }
+
+    fn is_menu_search_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
+        matches!(event.code, KeyCode::Char(_))
+            && matches!(ctx, InputContext::Menu { searching: true })
+    }
+
+    /// Creates an InputResult with the given action and debounce skip flag.
+    ///
+    /// # Args
+    /// * action - The action to return.
+    /// * skip_debounce - Whether to skip debouncing or not in the main loop.
+    fn wrap_input_result(action: Action, skip_debounce: bool) -> InputResult {
+        InputResult {
+            action,
+            skip_debounce,
         }
-    }
-
-    fn handle_menu_input(&self, event: KeyEvent, is_searching: bool) -> TermiAction {
-        if is_searching {
-            match (event.code, event.modifiers) {
-                (KeyCode::Esc, _) => TermiAction::MenuSearch(MenuSearchAction::Close),
-                (KeyCode::Enter, _) => TermiAction::MenuSearch(MenuSearchAction::Confirm),
-                (KeyCode::Backspace, _) => TermiAction::MenuSearch(MenuSearchAction::Backspace),
-                (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
-                    TermiAction::MenuSearch(MenuSearchAction::Input(c))
-                }
-                (KeyCode::Up, _) => TermiAction::MenuNavigate(MenuNavAction::Up),
-                (KeyCode::Down, _) => TermiAction::MenuNavigate(MenuNavAction::Down),
-                // TODO: eventually we want something like vi/emacs keymaps distintction.
-                // starting with hardcoded vi kyemaps for now
-                (KeyCode::Char('j' | 'n'), KeyModifiers::CONTROL) => {
-                    TermiAction::MenuNavigate(MenuNavAction::Down)
-                }
-                (KeyCode::Char('k' | 'p'), KeyModifiers::CONTROL) => {
-                    TermiAction::MenuNavigate(MenuNavAction::Up)
-                }
-                _ => TermiAction::NoOp,
-            }
-        } else {
-            match (event.code, event.modifiers) {
-                // actions
-                (KeyCode::Char('/'), _) => TermiAction::MenuSearch(MenuSearchAction::Start),
-                (KeyCode::Enter, _) => TermiAction::MenuSelect,
-                (KeyCode::Char(' '), KeyModifiers::NONE) => TermiAction::MenuSelect,
-                (KeyCode::Char('l') | KeyCode::Char(' '), _) => TermiAction::MenuSelect,
-                (KeyCode::Esc, _) => TermiAction::MenuNavigate(MenuNavAction::Back),
-                (KeyCode::Char('q'), _) => TermiAction::MenuClose,
-                (KeyCode::Char('h'), _) => TermiAction::MenuNavigate(MenuNavAction::Back),
-
-                // nav
-                (KeyCode::Up | KeyCode::Char('k'), _) => {
-                    TermiAction::MenuNavigate(MenuNavAction::Up)
-                }
-                (KeyCode::Down | KeyCode::Char('j'), _) => {
-                    TermiAction::MenuNavigate(MenuNavAction::Down)
-                }
-                // ctrl-n + ctrl+p movement
-                (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
-                    TermiAction::MenuNavigate(MenuNavAction::Up)
-                }
-                (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
-                    TermiAction::MenuNavigate(MenuNavAction::Down)
-                }
-                (KeyCode::Char('y'), KeyModifiers::CONTROL) => TermiAction::MenuSelect,
-                (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
-                    TermiAction::MenuNavigate(MenuNavAction::PageUp)
-                }
-                (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
-                    TermiAction::MenuNavigate(MenuNavAction::PageDown)
-                }
-                (KeyCode::Char('G'), KeyModifiers::SHIFT) => {
-                    TermiAction::MenuNavigate(MenuNavAction::End)
-                }
-                (KeyCode::Char('g'), KeyModifiers::NONE) => {
-                    if !self.is_vim_gg() {
-                        return TermiAction::NoOp;
-                    }
-                    TermiAction::MenuNavigate(MenuNavAction::Home)
-                }
-
-                _ => TermiAction::NoOp,
-            }
-        }
-    }
-
-    fn handle_modal_input(&self, event: KeyEvent) -> TermiAction {
-        match event.code {
-            KeyCode::Esc => TermiAction::ModalClose,
-            KeyCode::Enter => TermiAction::ModalConfirm,
-            KeyCode::Backspace => TermiAction::ModalBackspace,
-            KeyCode::Char(c) => TermiAction::ModalInput(c),
-            _ => TermiAction::NoOp,
-        }
-    }
-
-    fn is_quit_sequence(&self, event: &KeyEvent) -> bool {
-        matches!(event.code, KeyCode::Char('c' | 'z'))
-            && event.modifiers.contains(KeyModifiers::CONTROL)
-    }
-
-    fn is_restart_sequence(&self, current_key: &KeyCode, last_key: &KeyCode) -> bool {
-        matches!(last_key, KeyCode::Tab) && matches!(current_key, KeyCode::Enter)
-    }
-
-    /// Check for vim-style `gg` sequence. May be too hardcodey but I like the function name
-    fn is_vim_gg(&self) -> bool {
-        matches!(self.last_keycode, Some(KeyCode::Char('g')))
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+    use crate::menu::MenuContext;
+    use crossterm::event::KeyModifiers;
 
-    fn create_key_event(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
-        KeyEvent::new(code, modifiers)
-    }
-
-    #[test]
-    fn test_default_state() {
-        let handler = InputHandler::new();
-        assert!(handler.last_keycode.is_none());
+    fn create_event(mods: KeyModifiers, code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, mods)
     }
 
     #[test]
     fn test_quit_sequence() {
-        let handler = InputHandler::new();
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::CONTROL, KeyCode::Char('c'));
+        let result = input.handle(event, InputContext::Idle);
 
-        // <ctrl-c>
-        let event = create_key_event(KeyCode::Char('c'), KeyModifiers::CONTROL);
-        assert!(handler.is_quit_sequence(&event));
+        assert_eq!(result.action, Action::Quit);
+    }
 
-        // <ctrl+z>
-        let event = create_key_event(KeyCode::Char('z'), KeyModifiers::CONTROL);
-        assert!(handler.is_quit_sequence(&event));
+    #[test]
+    fn test_is_typing_input() {
+        let mut input = Input::new();
 
-        // non-quit seq
-        let event = create_key_event(KeyCode::Char('c'), KeyModifiers::NONE);
-        assert!(!handler.is_quit_sequence(&event));
+        let typing_event = create_event(KeyModifiers::NONE, KeyCode::Char('c'));
+        assert!(input.is_typing_input(typing_event, &InputContext::Idle));
+        assert!(input.is_typing_input(typing_event, &InputContext::Typing));
+
+        // should be a quit sequence
+        let non_typing_event = create_event(KeyModifiers::CONTROL, KeyCode::Char('c'));
+        assert_eq!(
+            input.handle(non_typing_event, InputContext::Typing).action,
+            Action::Quit
+        );
     }
 
     #[test]
     fn test_restart_sequence() {
-        let handler = InputHandler::new();
+        // Tab+Enter for redo redo
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Tab);
+        let result = input.handle(event, InputContext::Idle);
 
-        assert!(handler.is_restart_sequence(&KeyCode::Enter, &KeyCode::Tab));
-        assert!(!handler.is_restart_sequence(&KeyCode::Enter, &KeyCode::Enter));
-        assert!(!handler.is_restart_sequence(&KeyCode::Tab, &KeyCode::Tab));
+        assert_eq!(result.action, Action::NoOp);
+
+        let second_event = create_event(KeyModifiers::NONE, KeyCode::Enter);
+        let second_result = input.handle(second_event, InputContext::Idle);
+        assert_eq!(second_result.action, Action::Restart);
     }
 
     #[test]
-    fn test_typing_input() {
-        let mut handler = InputHandler::new();
-
-        let event = create_key_event(KeyCode::Char('a'), KeyModifiers::NONE);
-        assert_eq!(handler.handle_typing_input(event), TermiAction::Input('a'));
-
-        let event = create_key_event(KeyCode::Backspace, KeyModifiers::NONE);
-        assert_eq!(handler.handle_typing_input(event), TermiAction::Backspace);
-
-        let event = create_key_event(KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!(handler.handle_typing_input(event), TermiAction::TogglePause);
+    fn test_typing_input_action() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Char('a'));
+        let result = input.handle(event, InputContext::Typing);
+        assert_eq!(result.action, Action::Input('a'));
     }
 
     #[test]
-    fn test_results_input() {
-        let mut handler = InputHandler::new();
-
-        // <r>
-        let event = create_key_event(KeyCode::Char('r'), KeyModifiers::NONE);
-        assert_eq!(handler.handle_results_input(event), TermiAction::Redo);
-
-        // <n>
-        let event = create_key_event(KeyCode::Char('n'), KeyModifiers::NONE);
-        assert_eq!(handler.handle_results_input(event), TermiAction::Start);
-
-        // <q>
-        let event = create_key_event(KeyCode::Char('q'), KeyModifiers::NONE);
-        assert_eq!(handler.handle_results_input(event), TermiAction::Quit);
-
-        // <esc>
-        let event = create_key_event(KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_results_input(event),
-            TermiAction::TogglePause
-        );
+    fn test_menu_shortcut() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Char('s'));
+        let result = input.handle(event, InputContext::Menu { searching: false });
+        assert_eq!(result.action, Action::MenuShortcut('s'));
     }
 
     #[test]
-    fn test_menu_search_input() {
-        let handler = InputHandler::new();
-
-        let event = create_key_event(KeyCode::Char('a'), KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_menu_input(event, true),
-            TermiAction::MenuSearch(MenuSearchAction::Input('a'))
-        );
-
-        let event = create_key_event(KeyCode::Up, KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_menu_input(event, true),
-            TermiAction::MenuNavigate(MenuNavAction::Up)
-        );
-
-        // vim nav
-        let event = create_key_event(KeyCode::Char('j'), KeyModifiers::CONTROL);
-        assert_eq!(
-            handler.handle_menu_input(event, true),
-            TermiAction::MenuNavigate(MenuNavAction::Down)
-        );
+    fn test_menu_search_update() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Char('q'));
+        let result = input.handle(event, InputContext::Menu { searching: true });
+        assert_eq!(result.action, Action::MenuUpdateSearch("q".to_string()));
     }
 
     #[test]
-    fn test_menu_navigation() {
-        let handler = InputHandler::new();
-
-        let event = create_key_event(KeyCode::Up, KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_menu_input(event, false),
-            TermiAction::MenuNavigate(MenuNavAction::Up)
-        );
-
-        let event = create_key_event(KeyCode::Char('j'), KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_menu_input(event, false),
-            TermiAction::MenuNavigate(MenuNavAction::Down)
-        );
-
-        let event = create_key_event(KeyCode::Enter, KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_menu_input(event, false),
-            TermiAction::MenuSelect
-        );
-
-        let event = create_key_event(KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_menu_input(event, false),
-            TermiAction::MenuNavigate(MenuNavAction::Back)
-        );
+    fn test_idle_keymap_action() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::Esc);
+        let result = input.handle(event, InputContext::Idle);
+        assert_eq!(result.action, Action::MenuOpen(MenuContext::Root));
     }
 
     #[test]
-    fn test_modal_input() {
-        let handler = InputHandler::new();
-
-        // <a>
-        let event = create_key_event(KeyCode::Char('a'), KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_modal_input(event),
-            TermiAction::ModalInput('a')
-        );
-
-        // <esc>
-        let event = create_key_event(KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!(handler.handle_modal_input(event), TermiAction::ModalClose);
-
-        // <enter>
-        let event = create_key_event(KeyCode::Enter, KeyModifiers::NONE);
-        assert_eq!(handler.handle_modal_input(event), TermiAction::ModalConfirm);
-
-        // <backspace>
-        let event = create_key_event(KeyCode::Backspace, KeyModifiers::NONE);
-        assert_eq!(
-            handler.handle_modal_input(event),
-            TermiAction::ModalBackspace
-        );
+    fn test_noop_for_unhandled_key() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::NONE, KeyCode::F(12)); // Not bound
+        let result = input.handle(event, InputContext::Idle);
+        assert_eq!(result.action, Action::NoOp);
     }
 }

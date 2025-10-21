@@ -2,20 +2,35 @@
 name = "termitype"
 build = "build.rs"
 description = "Terminal-based typing test inspired by a certain typing test you might know."
-version = "0.0.6"
 license = "GPL-3.0"
+version = "0.0.6"
+edition = "2024"
+rust-version = "1.87"
 categories = ["command-line-utilities", "games"]
 keywords = ["tui", "cli", "typing", "game"]
 repository = "https://github.com/emanuel2718/termitype.git"
 homepage = "https://github.com/emanuel2718/termitype"
 authors = ["Emanuel Ramirez <eramirez2718@gmail.com>"]
-edition = "2021"
+default-run = "termitype"
+
 include = [
     "**/*.rs",
     "Cargo.toml",
     "assets/themes/**/*",
     "assets/languages/**/*",
 ]
+
+[[bin]]
+name = "termitype"
+path = "src/main.rs"
+
+[[bin]]
+name = "simulation"
+path = "bin/simulation.rs"
+
+[[bin]]
+name = "seed"
+path = "bin/seed.rs"
 
 [profile.release]
 codegen-units = 1
@@ -40,23 +55,23 @@ codegen-units = 16
 opt-level = 0
 
 [dependencies]
-anyhow = "1.0.97"
-clap = { version = "4.5.31", features = ["derive"] }
+anyhow = "1.0.99"
+clap = { version = "4.5.47", features = ["derive"] }
 crossterm = "0.29.0"
-rand = "0.9.0"
+rand = "0.9.2"
 ratatui = "0.29.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-once_cell = "1.20.3"
+once_cell = "1.21.3"
 include_dir = "0.7.4"
 chrono = { version = "0.4.41", features = ["serde"] }
 rusqlite = { version = "0.36.0", features = ["bundled", "chrono"] }
+unicode-width = "0.2"
 
 [dev-dependencies]
-tempfile = "3.18"
-
-[build-dependencies]
+tempfile = "3.21"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
-name = "theme_benchmarks"
+name = "lib"
 harness = false

@@ -1,68 +1,47 @@
-use std::io;
-
-use config::Config;
-use constants::get_log_file;
+use crate::config::Config;
 use crossterm::{
     cursor::SetCursorStyle,
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use helpers::get_config_dir;
-use ratatui::{prelude::CrosstermBackend, Terminal};
-
-use crate::helpers::should_print_to_console;
+use ratatui::{Terminal, prelude::CrosstermBackend};
+use std::io;
 
 pub mod actions;
+pub mod app;
 pub mod ascii;
 pub mod assets;
-pub mod builder;
+pub mod builders;
+pub mod cli;
+pub mod common;
 pub mod config;
 pub mod constants;
 pub mod db;
 pub mod error;
-pub mod helpers;
 pub mod input;
 pub mod leaderboard;
-pub mod log;
-pub mod macros;
+pub mod logger;
 pub mod menu;
-pub mod menu_builder;
 pub mod modal;
 pub mod notifications;
 pub mod persistence;
-pub mod styles;
-pub mod termi;
 pub mod theme;
 pub mod tracker;
-pub mod ui;
-pub mod version;
+pub mod tui;
+pub mod variants;
 
-pub fn run() -> anyhow::Result<()> {
-    let config = Config::try_parse()?;
+pub mod prelude {
+    #[cfg(debug_assertions)]
+    pub use crate::log_debug;
+    pub use crate::{log_error, log_info, log_warn};
+}
 
-    // init logger
-    if let Ok(log_dir) = get_config_dir() {
-        let log_file = log_dir.join(get_log_file());
-        #[cfg(debug_assertions)]
-        if let Err(e) = log::init(log_file, config.debug) {
-            eprintln!("Failed to init termitype logger: {e}");
-        }
-        #[cfg(not(debug_assertions))]
-        if let Err(e) = log::init(log_file, false) {
-            eprintln!("Failed to init termitype logger: {e}");
-        }
-    }
+pub fn start() -> anyhow::Result<()> {
+    let config = Config::new()?;
+    logger::init()?;
 
-    log_debug!("Debug logging enabled");
-    log_info!("Starting termitype...");
-
-    // NOTE: there should be a better way to do this
-    if should_print_to_console(&config) {
-        return Ok(());
-    }
-
-    let cursor_style = config.resolve_current_cursor_style();
+    let crossterm_cursor = config.current_cursor_variant().to_crossterm();
 
     terminal::enable_raw_mode()?;
 
@@ -71,21 +50,24 @@ pub fn run() -> anyhow::Result<()> {
         stdout,
         EnterAlternateScreen,
         EnableMouseCapture,
-        cursor_style
+        crossterm_cursor
     )?;
+
     let backend = CrosstermBackend::new(stdout);
 
     let mut terminal = Terminal::new(backend)?;
 
-    let result = termi::run(&mut terminal, &config);
+    let out = app::run(&mut terminal, &config);
 
     terminal::disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
         DisableMouseCapture,
-        SetCursorStyle::SteadyBar
+        SetCursorStyle::DefaultUserShape
     )?;
+
     terminal.show_cursor()?;
-    result
+
+    out
 }

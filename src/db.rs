@@ -1,33 +1,67 @@
-use anyhow::anyhow;
+use crate::{
+    common::filesystem::config_dir,
+    config::{Config, Setting},
+    error::{AppError, AppResult},
+    log_debug, log_info,
+    tracker::Tracker,
+};
 use chrono::{DateTime, Local};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    config::Config, constants::get_db_file, error::TResult, helpers::get_config_dir, log_debug,
-    log_info, tracker::Tracker,
-};
+const SCHEMA_VERSION: i32 = 3;
+const DEFAULT_LEADERBOARD_LIMIT: usize = 25;
 
-const SCHEMA_VERSION: i32 = 2;
-
-// TODO: add more stuff to store
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TypingTestResult {
+pub struct LeaderboardResult {
     pub id: Option<i64>,
-    pub mode_type: String,
+    pub mode_kind: String,
     pub mode_value: i32,
     pub language: String,
     pub wpm: u16,
     pub raw_wpm: u16,
-    pub accuracy: u8,
-    pub consistency: f64,
-    pub total_keystrokes: u32,
-    pub correct_keystrokes: u32,
-    pub backspace_count: u32,
+    pub accuracy: u16,
+    pub consistency: u16,
+    pub error_count: u32,
     pub numbers: bool,
-    pub punctuation: bool,
     pub symbols: bool,
+    pub punctuation: bool,
     pub created_at: DateTime<Local>,
+}
+
+#[derive(Debug, Clone)]
+pub enum LeaderboardColumn {
+    ModeKind,
+    ModeValue,
+    Language,
+    Wpm,
+    RawWpm,
+    Accuracy,
+    Consistency,
+    ErrorCount,
+    Numbers,
+    Symbols,
+    Punctuation,
+    CreatedAt,
+}
+
+impl LeaderboardColumn {
+    pub fn to_value(&self) -> &'static str {
+        match self {
+            LeaderboardColumn::ModeKind => "mode_kind",
+            LeaderboardColumn::ModeValue => "mode_value",
+            LeaderboardColumn::Language => "language",
+            LeaderboardColumn::Wpm => "wpm",
+            LeaderboardColumn::RawWpm => "raw_wpm",
+            LeaderboardColumn::Accuracy => "accuracy",
+            LeaderboardColumn::Consistency => "consistency",
+            LeaderboardColumn::ErrorCount => "error_count",
+            LeaderboardColumn::Numbers => "numbers",
+            LeaderboardColumn::Symbols => "symbols",
+            LeaderboardColumn::Punctuation => "punctuation",
+            LeaderboardColumn::CreatedAt => "created_at",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -36,70 +70,83 @@ pub enum SortOrder {
     Descending,
 }
 
-// === Leaderboards ===
+impl SortOrder {
+    pub fn to_value(&self) -> &'static str {
+        match self {
+            SortOrder::Ascending => "ASC",
+            SortOrder::Descending => "DESC",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LeaderboardState {
+    pub count: usize,
+    pub has_more: bool,
+    pub data: Vec<LeaderboardResult>,
+}
+
 #[derive(Debug, Clone)]
 pub struct LeaderboardQuery {
     pub limit: usize,
     pub offset: usize,
-    pub sort_col: String,
+    pub sort_by: LeaderboardColumn, //  TODO: was `sort_col` must be an enum
     pub sort_order: SortOrder,
 }
 
 impl Default for LeaderboardQuery {
-    // TODO: move this magic numbers and strings to constants
     fn default() -> Self {
         Self {
-            limit: 25,
+            limit: DEFAULT_LEADERBOARD_LIMIT,
             offset: 0,
-            sort_col: "created_at".to_string(),
+            sort_by: LeaderboardColumn::CreatedAt,
             sort_order: SortOrder::Descending,
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct LeaderboardResult {
-    pub has_more: bool,
-    pub total_count: usize,
-    pub results: Vec<TypingTestResult>,
-}
-
-pub struct TermiDB {
+pub struct Db {
     conn: Connection,
 }
 
-impl TermiDB {
-    pub fn new() -> TResult<Self> {
-        let config_dir = get_config_dir()?;
-        if !config_dir.exists() {
-            std::fs::create_dir_all(&config_dir)?;
+impl Db {
+    pub fn new(filename: &str) -> AppResult<Self> {
+        let dir = config_dir()?;
+        if !dir.exists() {
+            std::fs::create_dir_all(&dir)?;
         }
 
-        let path = config_dir.join(get_db_file());
-        let conn = Connection::open(&path)?;
+        let path = dir.join(filename);
+        let connection = Connection::open(&path)?;
+        let mut db = Self { conn: connection };
 
-        let mut db = Self { conn };
         db.init()?;
-
-        log_info!("DB: database initialized at: {}", path.display());
 
         Ok(db)
     }
 
-    fn init(&mut self) -> anyhow::Result<()> {
+    #[cfg(test)]
+    pub fn new_in_memory() -> AppResult<Self> {
+        let connection = Connection::open_in_memory()?;
+        let mut db = Self { conn: connection };
+
+        db.init()?;
+
+        Ok(db)
+    }
+
+    fn init(&mut self) -> AppResult<()> {
         self.conn.execute("PRAGMA foreign_keys = ON", [])?;
 
         self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS schema_version (
-                            version INTEGER PRIMARY KEY
-            )",
+            "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)",
             [],
         )?;
 
         let current_version: i32 = self
             .conn
             .query_row(
-                "SELECT version FROM schema_version ORDER_BY version DESC LIMIT 1",
+                "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1",
                 [],
                 |row| row.get(0),
             )
@@ -117,20 +164,18 @@ impl TermiDB {
         Ok(())
     }
 
-    fn create(&mut self) -> anyhow::Result<()> {
+    fn create(&mut self) -> AppResult<()> {
         self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS test_results (
+            "CREATE TABLE IF NOT EXISTS results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                mode_type TEXT NOT NULL,
+                mode_kind TEXT NOT NULL,
                 mode_value INTEGER NOT NULL,
                 language TEXT NOT NULL,
                 wpm REAL NOT NULL,
                 raw_wpm REAL DEFAULT 0,
                 accuracy INTEGER NOT NULL,
-                consistency REAL NOT NULL,
-                total_keystrokes INTEGER NOT NULL,
-                correct_keystrokes INTEGER NOT NULL,
-                backspace_count INTEGER NOT NULL,
+                consistency INTEGER NOT NULL,
+                error_count INTEGER NOT NULL,
                 numbers BOOLEAN NOT NULL,
                 punctuation BOOLEAN NOT NULL,
                 symbols BOOLEAN NOT NULL,
@@ -139,218 +184,237 @@ impl TermiDB {
             [],
         )?;
 
-        let _ = self.conn.execute(
-            "ALTER TABLE test_results ADD COLUMN raw_wpm REAL DEFAULT 0",
-            [],
-        );
-
-        // TODO: add more indexes
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_test_config ON test_results (
-                mode_type, mode_value, language, numbers, punctuation, symbols
-            )",
-            [],
-        )?;
-
-        log_debug!("DB: tables created successfully");
+        self.create_indexes()?;
+        log_debug!("DB: tables and indexes created successfully");
 
         Ok(())
     }
 
-    pub fn write(&mut self, config: &Config, tracker: &Tracker) -> TResult<i64> {
-        let result = TypingTestResult {
+    fn create_indexes(&mut self) -> AppResult<()> {
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_filters ON results (
+                mode_kind, mode_value, language, numbers, punctuation, symbols
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_wpm ON results (wpm DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_accuracy ON results (accuracy DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_consistency ON results (consistency DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_created_at ON results (created_at DESC)",
+            [],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn write(&mut self, config: &Config, tracker: &Tracker) -> AppResult<i64> {
+        let current_mode = config.current_mode();
+        let summary = tracker.summary();
+        let result = LeaderboardResult {
             id: None,
-            mode_type: config.resolve_mode_type_to_str(),
-            mode_value: config.current_mode().value() as i32,
-            language: config.resolve_language_to_str(),
-            wpm: tracker.wpm.round() as u16,
-            raw_wpm: tracker.raw_wpm.round() as u16,
-            accuracy: tracker.accuracy,
-            consistency: tracker.calculate_consistency(),
-            total_keystrokes: tracker.total_keystrokes as u32,
-            correct_keystrokes: tracker.correct_keystrokes as u32,
-            backspace_count: tracker.backspace_count as u32,
-            numbers: config.use_numbers,
-            punctuation: config.use_punctuation,
-            symbols: config.use_symbols,
+            mode_kind: current_mode.kind().to_display(),
+            mode_value: current_mode.value() as i32,
+            language: config.current_language(),
+            wpm: summary.wpm.round() as u16,
+            raw_wpm: summary.raw_wpm().round() as u16,
+            accuracy: (summary.accuracy * 100.0) as u16,
+            consistency: summary.consistency as u16,
+            error_count: summary.total_errors as u32,
+            numbers: config.is_enabled(Setting::Numbers),
+            symbols: config.is_enabled(Setting::Symbols),
+            punctuation: config.is_enabled(Setting::Punctuation),
             created_at: Local::now(),
         };
 
         self.conn.execute(
-            "INSERT INTO test_results (
-                mode_type, mode_value, language, wpm, raw_wpm, accuracy, consistency, total_keystrokes, correct_keystrokes, backspace_count, numbers, punctuation, symbols, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            "INSERT INTO results (
+                mode_kind,
+                mode_value,
+                language,
+                wpm,
+                raw_wpm,
+                accuracy,
+                consistency,
+                error_count,
+                numbers,
+                symbols,
+                punctuation,
+                created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
-                result.mode_type,
+                result.mode_kind,
                 result.mode_value,
                 result.language,
                 result.wpm,
                 result.raw_wpm,
                 result.accuracy,
                 result.consistency,
-                result.total_keystrokes,
-                result.correct_keystrokes,
-                result.backspace_count,
+                result.error_count,
                 result.numbers,
-                result.punctuation,
                 result.symbols,
+                result.punctuation,
                 result.created_at
             ],
         )?;
 
         let id = self.conn.last_insert_rowid();
-        log_debug!("DB: saved test result with ID: {id}");
+
+        log_debug!("DB: saved test result to database with ID: '{id}'");
+
         Ok(id)
     }
 
-    pub fn get(&self, id: i64) -> Option<TypingTestResult> {
-        let result = self.conn.query_row(
-            "SELECT id, mode_type, mode_value, language, wpm, raw_wpm, accuracy, consistency,
-                    total_keystrokes, correct_keystrokes, backspace_count,
-                    numbers, punctuation, symbols, created_at
-             FROM test_results WHERE id = ?1",
-            params![id],
-            |row| {
-                let created_at_str: String = row.get(14)?;
-                let created_at = created_at_str.parse::<DateTime<Local>>().map_err(|_| {
-                    rusqlite::Error::InvalidColumnType(
-                        14,
-                        "datetime".to_string(),
-                        rusqlite::types::Type::Text,
-                    )
-                })?;
-
-                Ok(TypingTestResult {
-                    id: Some(row.get(0)?),
-                    mode_type: row.get(1)?,
-                    mode_value: row.get(2)?,
-                    language: row.get(3)?,
-                    wpm: row.get::<_, f64>(4)?.round() as u16,
-                    raw_wpm: row.get::<_, f64>(5).unwrap_or(0.0).round() as u16,
-                    accuracy: row.get(6)?,
-                    consistency: row.get(7)?,
-                    total_keystrokes: row.get(8)?,
-                    correct_keystrokes: row.get(9)?,
-                    backspace_count: row.get(10)?,
-                    numbers: row.get(11)?,
-                    punctuation: row.get(12)?,
-                    symbols: row.get(13)?,
-                    created_at,
-                })
-            },
-        );
-
-        result.ok()
-    }
-
-    pub fn reset(&self) -> TResult<usize> {
-        let affected_rows = self.conn.execute("DELETE FROM test_results", [])?;
-        log_info!("DB: reset database, deleted {} test results", affected_rows);
+    pub fn reset(&self) -> AppResult<usize> {
+        let affected_rows = self.conn.execute("DELETE FROM results", [])?;
+        log_info!("DB: reset database, deleted {affected_rows} results");
         Ok(affected_rows)
     }
 
-    pub fn is_high_score(&self, config: &Config, wpm: f64) -> bool {
-        let highest_wpm = self.conn.query_row("SELECT wpm FROM test_results WHERE mode_type = ?1 AND mode_value = ?2 AND language = ?3 AND numbers = ?4 AND punctuation = ?5 AND symbols = ?6 ORDER BY wpm DESC LIMIT 1",
+    pub fn insert_dummy_result(&mut self, result: LeaderboardResult) -> AppResult<i64> {
+        self.conn.execute(
+            "INSERT INTO results (
+                mode_kind,
+                mode_value,
+                language,
+                wpm,
+                raw_wpm,
+                accuracy,
+                consistency,
+                error_count,
+                numbers,
+                symbols,
+                punctuation,
+                created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
-                config.resolve_mode_type_to_str(),
-                config.current_mode().value() as i32,
-                config.resolve_language_to_str(),
-                config.use_numbers,
-                config.use_punctuation,
-                config.use_symbols,
+                result.mode_kind,
+                result.mode_value,
+                result.language,
+                result.wpm,
+                result.raw_wpm,
+                result.accuracy,
+                result.consistency,
+                result.error_count,
+                result.numbers,
+                result.symbols,
+                result.punctuation,
+                result.created_at
             ],
-            |row| row.get::<_, f64>(0),
-        );
+        )?;
 
-        match highest_wpm {
-            Ok(highest) => wpm > highest,
-            Err(_) => true,
-        }
+        Ok(self.conn.last_insert_rowid())
     }
 
-    pub fn query_leaderboard(&self, query: &LeaderboardQuery) -> TResult<LeaderboardResult> {
-        let total_count: usize =
-            self.conn
-                .query_row("SELECT COUNT(*) FROM test_results", [], |row| row.get(0))?;
+    #[cfg(test)]
+    pub fn insert_test_result(
+        &mut self,
+        mode_kind: &str,
+        mode_value: i32,
+        language: &str,
+        wpm: u16,
+        accuracy: u16,
+    ) {
+        let created_at_str = "2023-10-18T12:00:00+00:00";
+        self.conn.execute(
+            "INSERT INTO results (mode_kind, mode_value, language, wpm, raw_wpm, accuracy, consistency, error_count, numbers, symbols, punctuation, created_at)
+             VALUES (?, ?, ?, ?, 0, ?, 100, 0, 0, 0, 0, ?)",
+            params![mode_kind, mode_value, language, wpm, accuracy, created_at_str],
+        ).unwrap();
+    }
 
-        if !self.is_valid_column(&query.sort_col) {
-            return Err(anyhow!("Invalid sort column: {}", query.sort_col).into());
+    pub fn query_data(&self, query: &LeaderboardQuery) -> AppResult<LeaderboardState> {
+        if !self.is_valid_column(&query.sort_by) {
+            return Err(AppError::TermiDB(format!(
+                "Invalid sort column: {}",
+                query.sort_by.to_value()
+            )));
         }
+        let sort_direction = query.sort_order.to_value();
+        let sort_col = query.sort_by.to_value();
+        let count: usize = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM results", [], |row| row.get(0))?;
 
-        let sort_direction = self.resolve_sort_direction(&query.sort_order);
-
-        let sql = format!(
-            "SELECT id, mode_type, mode_value, language, wpm, raw_wpm, accuracy, consistency,
-                total_keystrokes, correct_keystrokes, backspace_count,
-                numbers, punctuation, symbols, created_at
-             FROM test_results
+        let sql_payload = format!(
+            "SELECT
+                id,
+                mode_kind,
+                mode_value,
+                language,
+                wpm,
+                raw_wpm,
+                accuracy,
+                consistency,
+                error_count,
+                numbers,
+                symbols,
+                punctuation,
+                created_at
+              FROM results
              ORDER BY {} {}
              LIMIT {} OFFSET {}",
-            query.sort_col, sort_direction, query.limit, query.offset
+            sort_col, sort_direction, query.limit, query.offset
         );
 
-        let mut stmt = self.conn.prepare(&sql)?;
-        let results: Result<Vec<TypingTestResult>, rusqlite::Error> = stmt
-            .query_map([], |row| {
-                let created_at_str: String = row.get(14)?;
-                let created_at = created_at_str.parse::<DateTime<Local>>().map_err(|_| {
-                    rusqlite::Error::InvalidColumnType(
-                        14,
-                        "datetime".to_string(),
-                        rusqlite::types::Type::Text,
-                    )
-                })?;
+        let mut statement = self.conn.prepare(&sql_payload)?;
 
-                Ok(TypingTestResult {
+        let results: Result<Vec<LeaderboardResult>, rusqlite::Error> = statement
+            .query_map([], |row| {
+                let created_at: DateTime<Local> = row.get(12)?;
+
+                Ok(LeaderboardResult {
                     id: Some(row.get(0)?),
-                    mode_type: row.get(1)?,
+                    mode_kind: row.get(1)?,
                     mode_value: row.get(2)?,
                     language: row.get(3)?,
                     wpm: row.get::<_, f64>(4)?.round() as u16,
                     raw_wpm: row.get::<_, f64>(5).unwrap_or(0.0).round() as u16,
                     accuracy: row.get(6)?,
-                    consistency: row.get(7)?,
-                    total_keystrokes: row.get(8)?,
-                    correct_keystrokes: row.get(9)?,
-                    backspace_count: row.get(10)?,
-                    numbers: row.get(11)?,
-                    punctuation: row.get(12)?,
-                    symbols: row.get(13)?,
+                    consistency: row.get::<_, f64>(7)?.round() as u16,
+                    error_count: row.get(8)?,
+                    numbers: row.get(9)?,
+                    symbols: row.get(10)?,
+                    punctuation: row.get(11)?,
                     created_at,
                 })
             })?
             .collect();
-
         let results = results?;
+        let has_more = query.offset + results.len() < count;
 
-        let has_more = query.offset + results.len() < total_count;
-
-        Ok(LeaderboardResult {
+        Ok(LeaderboardState {
+            count,
             has_more,
-            total_count,
-            results,
+            data: results,
         })
     }
 
-    fn resolve_sort_direction(&self, order: &SortOrder) -> &'static str {
-        match order {
-            SortOrder::Ascending => "ASC",
-            SortOrder::Descending => "DESC",
-        }
-    }
-
-    fn is_valid_column(&self, col: &str) -> bool {
+    fn is_valid_column(&self, column: &LeaderboardColumn) -> bool {
+        let col = column.to_value();
         let valid_cols = [
+            "mode_kind",
+            "mode_value",
+            "language",
             "wpm",
             "raw_wpm",
             "accuracy",
             "consistency",
-            "mode_type",
-            "language",
+            "error_count",
+            "numbers",
+            "punctuation",
+            "symbols",
             "created_at",
-            "total_keystrokes",
-            "correct_keystrokes",
-            "backspace_count",
         ];
 
         valid_cols.contains(&col)
@@ -359,118 +423,107 @@ impl TermiDB {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
-
-    use crate::config::ModeType;
-
     use super::*;
 
-    use tempfile::TempDir;
+    use crate::config::Mode;
 
-    static ENV_MUTEX: Mutex<()> = Mutex::new(());
-
-    fn setup_db() -> (TermiDB, TempDir) {
-        let _guard = ENV_MUTEX.lock().unwrap();
-
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.path().to_path_buf();
-
-        if cfg!(target_os = "macos") {
-            std::env::set_var("HOME", &temp_path);
-        } else if cfg!(target_os = "windows") {
-            std::env::set_var("APPDATA", &temp_path);
-        } else {
-            std::env::set_var("XDG_CONFIG_HOME", &temp_path);
-        }
-        let db = TermiDB::new().expect("Failed to create test database");
-        (db, temp_dir)
+    fn create_test_db() -> Db {
+        Db::new_in_memory().expect("Failed to create test database")
     }
 
-    #[test]
-    fn test_database_creation() {
-        let (_db, _temp) = setup_db();
+    fn insert_test_result(
+        db: &mut Db,
+        mode_kind: &str,
+        mode_value: i32,
+        language: &str,
+        wpm: u16,
+        accuracy: u16,
+    ) {
+        let created_at_str = "2023-10-18T12:00:00+00:00";
+        db.conn.execute(
+            "INSERT INTO results (mode_kind, mode_value, language, wpm, raw_wpm, accuracy, consistency, error_count, numbers, symbols, punctuation, created_at)
+             VALUES (?, ?, ?, ?, 0, ?, 100, 0, 0, 0, 0, ?)",
+            params![mode_kind, mode_value, language, wpm, accuracy, created_at_str],
+        ).unwrap();
     }
 
     #[test]
     fn test_save_results() {
-        let (mut db, _tmp) = setup_db();
+        let mut db = create_test_db();
         let config = Config::default();
-        let mut tracker = Tracker::new(&config, "test".to_string());
+        let mut tracker = Tracker::new("test".to_string(), Mode::with_words(1));
+        tracker.start_typing();
+        for c in "test".chars() {
+            tracker.type_char(c).unwrap()
+        }
 
-        tracker.wpm = 50.0;
-        tracker.completion_time = Some(30.0);
-
-        let id = db.write(&config, &tracker).unwrap();
-        assert!(id > 0);
-    }
-
-    #[test]
-    fn test_get_saved_result_with_id() {
-        let (mut db, _tmp) = setup_db();
-        let config = Config::default();
-        let mut tracker = Tracker::new(&config, "test".to_string());
-
-        tracker.wpm = 10.0;
-        tracker.accuracy = 10;
-        tracker.total_keystrokes = 10;
-        tracker.correct_keystrokes = 10;
-        tracker.backspace_count = 10;
-        tracker.completion_time = Some(30.0);
+        tracker.complete();
 
         let id = db.write(&config, &tracker).unwrap();
 
-        let result = db.get(id);
-        assert!(result.is_some());
-        assert_eq!(result.as_ref().unwrap().id, Some(id));
-        assert_eq!(result.as_ref().unwrap().wpm, 10);
-        assert_eq!(result.as_ref().unwrap().total_keystrokes, 10);
-        assert_eq!(result.as_ref().unwrap().correct_keystrokes, 10);
-        assert_eq!(result.as_ref().unwrap().backspace_count, 10);
+        assert!(id > 0)
     }
 
     #[test]
-    fn test_is_high_score() {
-        let (mut db, _tmp) = setup_db();
-        let mut config = Config::default();
-        let mut tracker = Tracker::new(&config, "test".to_string());
+    fn test_query_data() {
+        let mut db = create_test_db();
+        db.reset().unwrap();
+        insert_test_result(&mut db, "time", 60, "english", 80, 95);
+        insert_test_result(&mut db, "words", 25, "english", 70, 90);
 
-        config.language = Some("spanish".to_string());
+        let query = LeaderboardQuery::default();
+        let state = db.query_data(&query).unwrap();
 
-        // first run (should be high score)
-        tracker.wpm = 90.0;
-        tracker.completion_time = Some(30.0);
-        assert!(db.is_high_score(&config, tracker.wpm));
+        assert_eq!(state.count, 2);
+        assert_eq!(state.data.len(), 2);
+        assert!(!state.has_more);
+    }
 
-        db.write(&config, &tracker).unwrap();
+    #[test]
+    fn test_query_data_sorting() {
+        let mut db = create_test_db();
+        db.reset().unwrap();
+        insert_test_result(&mut db, "words", 25, "english", 70, 90);
+        insert_test_result(&mut db, "time", 60, "english", 80, 95);
 
-        // second run (should NOT be high score)
-        tracker.start_typing();
-        tracker.wpm = 80.0;
-        tracker.completion_time = Some(30.0);
-        assert!(!db.is_high_score(&config, tracker.wpm));
+        let query = LeaderboardQuery {
+            sort_by: LeaderboardColumn::Wpm,
+            sort_order: SortOrder::Descending,
+            ..Default::default()
+        };
+        let state = db.query_data(&query).unwrap();
 
-        db.write(&config, &tracker).unwrap();
+        assert_eq!(state.data[0].wpm, 80);
+        assert_eq!(state.data[1].wpm, 70);
+    }
 
-        // third run (should be high score)
-        tracker.start_typing();
-        tracker.wpm = 300.0;
-        tracker.completion_time = Some(30.0);
-        assert!(db.is_high_score(&config, tracker.wpm));
+    #[test]
+    fn test_query_data_limit_offset() {
+        let mut db = create_test_db();
+        // db.conn.execute("DELETE FROM results", []).unwrap();
+        db.reset().unwrap();
+        for i in 0..5 {
+            insert_test_result(&mut db, "time", 60, "english", (50 + i) as u16, 90);
+        }
 
-        db.write(&config, &tracker).unwrap();
+        let query = LeaderboardQuery {
+            limit: 2,
+            offset: 0,
+            ..Default::default()
+        };
+        let state = db.query_data(&query).unwrap();
 
-        // changing language without a score so we expect a new high score regardgless of the score
-        config.language = Some("english".to_string());
-        tracker.start_typing();
-        tracker.wpm = 15.0;
-        tracker.completion_time = Some(30.0);
-        assert!(db.is_high_score(&config, tracker.wpm));
+        assert_eq!(state.count, 5);
+        assert_eq!(state.data.len(), 2);
+        assert!(state.has_more);
 
-        // change to spanish and change mode to Words as the default is Time (should be a new high score)
-        config.language = Some("spanish".to_string());
-        config.change_mode(ModeType::Words, Some(10));
-        tracker.wpm = 10.0;
-        tracker.completion_time = Some(30.0);
-        assert!(db.is_high_score(&config, tracker.wpm));
+        let query2 = LeaderboardQuery {
+            limit: 2,
+            offset: 2,
+            ..Default::default()
+        };
+        let state2 = db.query_data(&query2).unwrap();
+        assert_eq!(state2.data.len(), 2);
+        assert!(state2.has_more);
     }
 }
