@@ -8,11 +8,11 @@ use crate::{
     },
 };
 use ratatui::{
+    Frame,
     layout::Alignment,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
-    Frame,
 };
 
 pub fn render_typing_area(frame: &mut Frame, app: &mut App, theme: &Theme, layout: &AppLayout) {

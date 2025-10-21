@@ -14,7 +14,7 @@ const STATS_MIN_WIDTH: usize = 40; // min width needed for stats
 const SPACING: usize = 4; // space between art and stats
 const MIN_PADDING: usize = 4; // min horizontal_padding
 
-use ratatui::{layout::Rect, Frame};
+use ratatui::{Frame, layout::Rect};
 
 pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     let height = area.height;
@@ -69,11 +69,7 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     } else {
         summary.snapshots.max().max(summary.wpm)
     };
-    let wpm_range_str = format!(
-        "{:.0}–{:.0}",
-        min_wpm,
-        max_wpm,
-    );
+    let wpm_range_str = format!("{:.0}–{:.0}", min_wpm, max_wpm,);
 
     let stats = vec![
         (

@@ -2,11 +2,11 @@ use crate::{
     app::App, ascii, menu::MenuVisualizer, theme::Theme, tui::helpers::horizontally_center,
 };
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
-    Frame,
 };
 
 pub fn render_menu_visualizer(

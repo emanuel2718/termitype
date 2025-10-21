@@ -1,5 +1,5 @@
 use crate::{app::App, theme::Theme, variants::PickerVariant};
-use ratatui::{layout::Rect, Frame};
+use ratatui::{Frame, layout::Rect};
 
 pub mod search_bar;
 pub mod telescope;

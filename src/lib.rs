@@ -5,7 +5,7 @@ use crossterm::{
     execute,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{prelude::CrosstermBackend, Terminal};
+use ratatui::{Terminal, prelude::CrosstermBackend};
 use std::io;
 
 pub mod actions;

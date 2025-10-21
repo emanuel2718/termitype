@@ -18,7 +18,7 @@ use crate::{
 };
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
-use ratatui::{prelude::Backend, Terminal};
+use ratatui::{Terminal, prelude::Backend};
 use std::time::Duration;
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {

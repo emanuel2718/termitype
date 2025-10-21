@@ -1,9 +1,9 @@
 use crate::{app::App, tui::layout::AppLayout};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Position, Rect},
     text::Line,
     widgets::Padding,
-    Frame,
 };
 
 pub fn calculate_visible_lines(

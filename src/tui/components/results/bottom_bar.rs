@@ -1,10 +1,10 @@
 use crate::{theme::Theme, variants::ResultsVariant};
 use ratatui::{
+    Frame,
     layout::{Alignment, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
-    Frame,
 };
 use unicode_width::UnicodeWidthStr;
 

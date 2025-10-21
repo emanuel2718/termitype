@@ -158,9 +158,7 @@ pub fn notify(severity: NotificationSeverity, msg: impl Into<String>) {
 /// ```
 #[macro_export]
 macro_rules! notify_info {
-    ($message:expr) => {{
-        $crate::notifications::notify($crate::notifications::NotificationSeverity::Info, $message)
-    }};
+    ($message:expr) => {{ $crate::notifications::notify($crate::notifications::NotificationSeverity::Info, $message) }};
 }
 
 /// Sends an Warning notification
@@ -193,9 +191,7 @@ macro_rules! notify_warning {
 /// ```
 #[macro_export]
 macro_rules! notify_error {
-    ($message:expr) => {{
-        $crate::notifications::notify($crate::notifications::NotificationSeverity::Error, $message)
-    }};
+    ($message:expr) => {{ $crate::notifications::notify($crate::notifications::NotificationSeverity::Error, $message) }};
 }
 
 // NOTE: we need this to avoid to have to run the test with `--test-threads=1`

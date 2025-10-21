@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph},
 };
 
-use ratatui::{layout::Rect, Frame};
+use ratatui::{Frame, layout::Rect};
 
 /// ResultsVariant::Minimal
 pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {

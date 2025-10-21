@@ -1,6 +1,6 @@
 use crate::{config::Config, constants::DEFAULT_THEME, error::AppError};
 use anyhow::Result;
-use rand::{rng, Rng};
+use rand::{Rng, rng};
 use ratatui::style::Color;
 use std::{
     collections::HashMap,

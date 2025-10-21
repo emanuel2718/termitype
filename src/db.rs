@@ -6,7 +6,7 @@ use crate::{
     tracker::Tracker,
 };
 use chrono::{DateTime, Local};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 const SCHEMA_VERSION: i32 = 3;

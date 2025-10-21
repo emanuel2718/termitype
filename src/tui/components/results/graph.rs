@@ -1,11 +1,11 @@
 use crate::{app::App, theme::Theme, tracker::Summary};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     symbols,
     text::{Line, Span},
     widgets::{Axis, Block, Chart, Dataset, GraphType, Paragraph},
-    Frame,
 };
 
 /// ResultsVariant::graph

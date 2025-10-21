@@ -1,13 +1,13 @@
 use crate::{
-    notifications::{get_active_notifications, Notification, NotificationPosition},
+    notifications::{Notification, NotificationPosition, get_active_notifications},
     theme::Theme,
 };
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Wrap},
-    Frame,
 };
 
 const MIN_TERMINAL_HEIGHT: u16 = 15;

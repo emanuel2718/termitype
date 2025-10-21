@@ -8,12 +8,12 @@ use crate::{
             size_warning, title, typing_area,
         },
         layout::{
-            create_main_layout, create_results_layout, AppLayout, LayoutBuilder, ResultsLayout,
+            AppLayout, LayoutBuilder, ResultsLayout, create_main_layout, create_results_layout,
         },
     },
 };
 use anyhow::Result;
-use ratatui::{layout::Rect, style::Style, widgets::Block, Frame};
+use ratatui::{Frame, layout::Rect, style::Style, widgets::Block};
 
 pub fn draw_ui(frame: &mut Frame, app: &mut App) -> Result<()> {
     let area = frame.area();

@@ -10,11 +10,11 @@ use crate::{
     },
 };
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
-    Frame,
 };
 
 fn calculate_total_menu_area(overlay_area: Rect, screen_area: Rect, has_visualizer: bool) -> Rect {
@@ -259,11 +259,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 let indicator = if is_toggle {
                     if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
                         let enabled = app.config.is_enabled(setting.clone());
-                        if enabled {
-                            "[x]"
-                        } else {
-                            "[ ]"
-                        }
+                        if enabled { "[x]" } else { "[ ]" }
                     } else {
                         unreachable!()
                     }

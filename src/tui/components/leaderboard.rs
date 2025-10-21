@@ -5,11 +5,11 @@ use crate::{
     theme::Theme,
 };
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Row, Table},
-    Frame,
 };
 
 #[derive(Debug, Clone)]
