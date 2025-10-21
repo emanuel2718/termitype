@@ -59,11 +59,20 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     let keystrokes_str = format!("{} ({})", summary.correct_chars, total_keystrokes);
     let correct_str = format!("{}", summary.correct_chars);
     let errors_str = format!("{}", summary.total_errors);
-    let backspaces_str = format!("{}", summary.total_errors);
+    let min_wpm = if summary.snapshots.is_empty() {
+        summary.wpm
+    } else {
+        summary.snapshots.min().min(summary.wpm)
+    };
+    let max_wpm = if summary.snapshots.is_empty() {
+        summary.wpm
+    } else {
+        summary.snapshots.max().max(summary.wpm)
+    };
     let wpm_range_str = format!(
         "{:.0}–{:.0}",
-        summary.snapshots.min(),
-        summary.snapshots.max(),
+        min_wpm,
+        max_wpm,
     );
 
     let stats = vec![
@@ -85,7 +94,6 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
         ("Keystrokes".to_string(), label_style, value_style),
         ("Correct".to_string(), label_style, value_style),
         ("Errors".to_string(), label_style, value_style),
-        ("Backspaces".to_string(), label_style, value_style),
         ("WPM Range".to_string(), label_style, value_style),
     ];
 
@@ -104,7 +112,6 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
         &keystrokes_str,
         &correct_str,
         &errors_str,
-        &backspaces_str,
         &wpm_range_str,
     ];
 

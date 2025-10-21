@@ -187,14 +187,18 @@ fn render_details_section(
     let elapsed_secs = summary.elapsed_time.as_secs_f64();
     let total_keystrokes = summary.correct_chars + summary.total_errors;
 
-    let wpm_range = if !summary.snapshots.is_empty() {
-        format!(
-            "{:.0}-{:.0}",
-            summary.snapshots.min(),
-            summary.snapshots.max()
-        )
-    } else {
-        format!("{:.0}", summary.wpm)
+    let wpm_range = {
+        let min_wpm = if summary.snapshots.is_empty() {
+            summary.wpm
+        } else {
+            summary.snapshots.min().min(summary.wpm)
+        };
+        let max_wpm = if summary.snapshots.is_empty() {
+            summary.wpm
+        } else {
+            summary.snapshots.max().max(summary.wpm)
+        };
+        format!("{:.0}-{:.0}", min_wpm, max_wpm)
     };
 
     let lines = vec![
