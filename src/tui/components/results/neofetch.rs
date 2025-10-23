@@ -7,6 +7,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Padding, Paragraph},
 };
+use std::process::Command;
 use unicode_width::UnicodeWidthStr;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -35,6 +36,24 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     let username = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "user".to_string());
+
+    // TODO: give the option to `--hide-hostname` and replace it with `APPNAME` stub
+    let hostname = if cfg!(target_os = "windows") {
+        Command::new("hostname")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| "localhost".to_string())
+    } else {
+        Command::new("hostname")
+            .arg("-s")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| "localhost".to_string())
+    };
 
     let ascii_style = Style::default().fg(theme.warning());
     let header_style = Style::default().fg(theme.success());
@@ -73,7 +92,7 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
 
     let stats = vec![
         (
-            format!("{}@{}", username, APP_NAME),
+            format!("{}@{}", username, hostname),
             header_style,
             value_style,
         ),
@@ -121,7 +140,7 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
                 UnicodeWidthStr::width(label.as_str())
             } else if i == 1 {
                 // separator
-                username.len() + 1 + "termitype".len()
+                username.len() + 1 + hostname.len()
             } else if i < values.len() {
                 // stats
                 let label_width = UnicodeWidthStr::width(label.as_str());
@@ -206,10 +225,10 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
                 // header
                 spans.push(Span::styled(username.clone(), header_style));
                 spans.push(Span::styled("@", value_style));
-                spans.push(Span::styled("termitype", header_style));
+                spans.push(Span::styled(hostname.clone(), header_style));
             } else if stat_idx == 1 {
                 // separator
-                let sep = "─".repeat(username.len() + 1 + "termitype".len());
+                let sep = "─".repeat(username.len() + 1 + hostname.len());
                 spans.push(Span::styled(sep, dim_style));
             } else if stat_idx < values.len() {
                 // stats
