@@ -251,8 +251,10 @@ impl App {
     }
 
     pub fn handle_toggle_setting(&mut self, setting: Setting) -> Result<(), AppError> {
-        self.config.toggle(setting)?;
-        self.restart()?;
+        self.config.toggle(&setting)?;
+        if setting.should_trigger_restart() {
+            self.restart()?;
+        }
         Ok(())
     }
 
