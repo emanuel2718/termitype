@@ -88,6 +88,10 @@ pub struct Cli {
     #[arg(long = "hide-notifications")]
     pub hide_notifications: bool,
 
+    /// Hide hostname on Neofetch results variant
+    #[arg(long = "hide-hostname")]
+    pub hide_hostname: bool,
+
     /// Do not locally track tests results
     #[arg(long = "no-track")]
     pub no_track: bool,

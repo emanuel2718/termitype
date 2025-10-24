@@ -23,6 +23,7 @@ pub enum Setting {
     Punctuation,
     LiveWPM,
     ShowNotifications,
+    ShowHostname,
     TrackResults,
 }
 
@@ -211,6 +212,8 @@ pub struct ConfigState {
     #[serde(default)]
     pub hide_notifications: bool,
     #[serde(default)]
+    pub hide_hostname: bool,
+    #[serde(default)]
     pub no_track: bool,
 }
 
@@ -231,6 +234,7 @@ impl Default for ConfigState {
             results_variant: ResultsVariant::default(),
             hide_live_wpm: false,
             hide_notifications: false,
+            hide_hostname: false,
             no_track: false,
         }
     }
@@ -346,6 +350,10 @@ impl Config {
             self.state.hide_notifications = true;
         }
 
+        if cli.hide_hostname {
+            self.state.hide_hostname = true;
+        }
+
         if cli.no_track {
             self.state.no_track = true;
         }
@@ -447,6 +455,10 @@ impl Config {
         self.state.hide_notifications
     }
 
+    pub fn should_hide_hostname(&self) -> bool {
+        self.state.hide_hostname
+    }
+
     pub fn can_track_results(&self) -> bool {
         !self.state.no_track
     }
@@ -458,6 +470,7 @@ impl Config {
             Setting::Punctuation => self.state.punctuation,
             Setting::LiveWPM => !self.state.hide_live_wpm,
             Setting::ShowNotifications => !self.state.hide_notifications,
+            Setting::ShowHostname => !self.state.hide_hostname,
             Setting::TrackResults => !self.state.no_track,
         }
     }
@@ -470,6 +483,7 @@ impl Config {
             Setting::Punctuation => self.state.punctuation = !self.state.punctuation,
             Setting::LiveWPM => self.state.hide_live_wpm = !self.state.hide_live_wpm,
             Setting::ShowNotifications => self.state.hide_notifications = !self.state.hide_notifications,
+            Setting::ShowHostname => self.state.hide_hostname = !self.state.hide_hostname,
             Setting::TrackResults => self.state.no_track = !self.state.no_track,
         };
         Ok(())

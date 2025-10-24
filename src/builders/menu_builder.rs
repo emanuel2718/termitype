@@ -150,6 +150,7 @@ fn build_options_menu() -> MenuContent {
         .action("Use punctuation", Action::Toggle(Setting::Punctuation)) .shortcut('p') .description("Include punctuation in the generated test (!, ?, etc)")
         .action("Show live WPM", Action::Toggle(Setting::LiveWPM)) .shortcut('w') .description("Show the live word per minutes during the test")
         .action("Show notifications", Action::Toggle(Setting::ShowNotifications)) .shortcut('N') .description("Show notifications")
+        .action("Show hostname", Action::Toggle(Setting::ShowHostname)) .shortcut('h') .description("Show hostname")
         .action("Track results", Action::Toggle(Setting::TrackResults)) .shortcut('t') .description("Locally track test results")
         .build()
 }

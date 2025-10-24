@@ -37,24 +37,24 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "user".to_string());
 
-    // TODO: give the option to `--hide-hostname` and replace it with `APPNAME` stub
-    let hostname = if cfg!(target_os = "windows") {
-        Command::new("hostname")
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|| "localhost".to_string())
-    } else {
-        Command::new("hostname")
-            .arg("-s")
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|| "localhost".to_string())
+    let hostname = match app.config.should_hide_hostname() {
+        true => APP_NAME.to_string(),
+        false => match cfg!(target_os = "windows") {
+            true => Command::new("hostname")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| "localhost".to_string()),
+            false => Command::new("hostname")
+                .arg("-s")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| "localhost".to_string()),
+        },
     };
-
     let ascii_style = Style::default().fg(theme.warning());
     let header_style = Style::default().fg(theme.success());
     let label_style = Style::default().fg(theme.warning());
