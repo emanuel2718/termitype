@@ -136,7 +136,7 @@ fn build_root_menu() -> MenuContent {
         .submenu("Ascii Art", MenuContext::Ascii) .shortcut('a').description("View ASCII Arts")
         .submenu("Lines", MenuContext::VisibleLines) .shortcut('n').description("Visible Lines")
         .submenu("Cursor", MenuContext::Cursor) .shortcut('c').description("Available Cursors")
-        .action("Leaderboard", Action::LeaderboardOpen) .shortcut('l').description("Show Local Leaderboard").close_on_select()
+        .action("Leaderboard", Action::LeaderboardOpen) .shortcut('l').description("Show Local Leaderboard")
         .submenu("About", MenuContext::About) .shortcut('A').description("About termitype")
         .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)).shortcut('Q')
         .build()

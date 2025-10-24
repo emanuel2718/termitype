@@ -135,6 +135,7 @@ fn render_results_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout
 
 /// Tries to render any of the apps overlays
 fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
+    let leaderboard_is_open = app.leaderboard.is_some();
     // modal overlay
     if let Some(ref modal) = app.modal {
         ModalDialog::render(frame, modal, theme, area);
@@ -142,13 +143,13 @@ fn try_render_overlays(frame: &mut Frame, app: &mut App, theme: &Theme, area: Re
     }
 
     // leaderboard overlay
-    if app.leaderboard.is_some() {
+    if leaderboard_is_open {
         LeaderboardOverlay::render(frame, app, theme, area);
         return;
     }
 
     // menu overlay
-    if app.menu.is_open() {
+    if !leaderboard_is_open && app.menu.is_open() {
         Picker::render(frame, app, theme, area);
     }
 
