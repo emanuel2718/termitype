@@ -38,8 +38,8 @@ pub mod prelude {
 }
 
 pub fn start() -> anyhow::Result<()> {
-    let config = Config::new()?;
     logger::init()?;
+    let config = Config::new()?;
 
     let crossterm_cursor = config.current_cursor_variant().to_crossterm();
 
