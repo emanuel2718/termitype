@@ -19,9 +19,9 @@ use std::fmt::Error;
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CursorVariant {
     /// A solid block cursor (default).
-    #[default]
     Block,
     /// A vertical beam cursor.
+    #[default]
     Beam,
     /// An underline cursor.
     Underline,
@@ -205,9 +205,9 @@ pub enum ResultsVariant {
     /// Minimal text display.
     Minimal,
     /// Graphical display style (default).
-    #[default]
     Graph,
     /// Neofetch-style display.
+    #[default]
     Neofetch,
 }
 
@@ -263,7 +263,7 @@ mod tests {
         assert_eq!(variant.value(), "beam");
         assert_eq!(variant.label(), "Beam");
         assert_eq!(CursorVariant::name(), "cursor");
-        assert_eq!(CursorVariant::default(), CursorVariant::Block);
+        assert_eq!(CursorVariant::default(), CursorVariant::Beam);
     }
 
     #[test]
@@ -281,7 +281,7 @@ mod tests {
         assert_eq!(variant.value(), "graph");
         assert_eq!(variant.label(), "Graph");
         assert_eq!(ResultsVariant::name(), "results");
-        assert_eq!(ResultsVariant::default(), ResultsVariant::Graph);
+        assert_eq!(ResultsVariant::default(), ResultsVariant::Neofetch);
     }
 
     #[test]

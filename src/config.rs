@@ -23,7 +23,18 @@ pub enum Setting {
     Punctuation,
     LiveWPM,
     ShowNotifications,
+    ShowHostname,
     TrackResults,
+}
+
+impl Setting {
+    /// Returns true if toggling this setting should trigger a test restart
+    pub fn should_trigger_restart(&self) -> bool {
+        matches!(
+            self,
+            Setting::Symbols | Setting::Numbers | Setting::Punctuation
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -211,6 +222,8 @@ pub struct ConfigState {
     #[serde(default)]
     pub hide_notifications: bool,
     #[serde(default)]
+    pub hide_hostname: bool,
+    #[serde(default)]
     pub no_track: bool,
 }
 
@@ -231,6 +244,7 @@ impl Default for ConfigState {
             results_variant: ResultsVariant::default(),
             hide_live_wpm: false,
             hide_notifications: false,
+            hide_hostname: false,
             no_track: false,
         }
     }
@@ -346,6 +360,10 @@ impl Config {
             self.state.hide_notifications = true;
         }
 
+        if cli.hide_hostname {
+            self.state.hide_hostname = true;
+        }
+
         if cli.no_track {
             self.state.no_track = true;
         }
@@ -447,6 +465,10 @@ impl Config {
         self.state.hide_notifications
     }
 
+    pub fn should_hide_hostname(&self) -> bool {
+        self.state.hide_hostname
+    }
+
     pub fn can_track_results(&self) -> bool {
         !self.state.no_track
     }
@@ -458,18 +480,20 @@ impl Config {
             Setting::Punctuation => self.state.punctuation,
             Setting::LiveWPM => !self.state.hide_live_wpm,
             Setting::ShowNotifications => !self.state.hide_notifications,
+            Setting::ShowHostname => !self.state.hide_hostname,
             Setting::TrackResults => !self.state.no_track,
         }
     }
 
     #[rustfmt::skip]
-    pub fn toggle(&mut self, setting: Setting) -> Result<(), AppError> {
+    pub fn toggle(&mut self, setting: &Setting) -> Result<(), AppError> {
         match setting {
             Setting::Symbols => self.state.symbols = !self.state.symbols,
             Setting::Numbers => self.state.numbers = !self.state.numbers,
             Setting::Punctuation => self.state.punctuation = !self.state.punctuation,
             Setting::LiveWPM => self.state.hide_live_wpm = !self.state.hide_live_wpm,
             Setting::ShowNotifications => self.state.hide_notifications = !self.state.hide_notifications,
+            Setting::ShowHostname => self.state.hide_hostname = !self.state.hide_hostname,
             Setting::TrackResults => self.state.no_track = !self.state.no_track,
         };
         Ok(())
@@ -525,26 +549,26 @@ mod tests {
         let mut config = Config::default();
 
         assert!(!config.is_enabled(Setting::Symbols));
-        config.toggle(Setting::Symbols).unwrap();
+        config.toggle(&Setting::Symbols).unwrap();
         assert!(config.is_enabled(Setting::Symbols));
 
         assert!(!config.is_enabled(Setting::Punctuation));
-        config.toggle(Setting::Punctuation).unwrap();
+        config.toggle(&Setting::Punctuation).unwrap();
         assert!(config.is_enabled(Setting::Punctuation));
 
         assert!(!config.state.no_track);
         assert!(config.can_track_results());
-        config.toggle(Setting::TrackResults).unwrap();
+        config.toggle(&Setting::TrackResults).unwrap();
         assert!(!config.can_track_results());
 
         assert!(!config.state.hide_live_wpm);
         assert!(!config.should_hide_live_wpm());
-        config.toggle(Setting::LiveWPM).unwrap();
+        config.toggle(&Setting::LiveWPM).unwrap();
         assert!(config.should_hide_live_wpm());
 
         assert!(!config.state.hide_notifications);
         assert!(!config.should_hide_notifications());
-        config.toggle(Setting::ShowNotifications).unwrap();
+        config.toggle(&Setting::ShowNotifications).unwrap();
         assert!(config.should_hide_notifications())
     }
 
@@ -640,5 +664,16 @@ mod tests {
         config.change_mode(Mode::with_default_time()).unwrap();
 
         assert_eq!(config.cli.words, None);
+    }
+
+    #[test]
+    fn test_setting_should_trigger_restart() {
+        assert!(Setting::Symbols.should_trigger_restart());
+        assert!(Setting::Numbers.should_trigger_restart());
+        assert!(Setting::Punctuation.should_trigger_restart());
+        assert!(!Setting::LiveWPM.should_trigger_restart());
+        assert!(!Setting::ShowNotifications.should_trigger_restart());
+        assert!(!Setting::ShowHostname.should_trigger_restart());
+        assert!(!Setting::TrackResults.should_trigger_restart());
     }
 }

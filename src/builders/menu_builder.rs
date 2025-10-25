@@ -128,29 +128,30 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
 #[rustfmt::skip]
 fn build_root_menu() -> MenuContent {
     MenuBuilder::new("Main Menu", MenuContext::Root)
-        .submenu("Time", MenuContext::Time) .shortcut('t') .description("Set test duration")
-        .submenu("Words", MenuContext::Words) .shortcut('w') .description("Set word count")
-        .submenu("Language", MenuContext::Language) .shortcut('L') .description("Select language")
-        .submenu("Options", MenuContext::Options) .shortcut('o') .description("Configure typing preferences")
-        .submenu("Theme", MenuContext::Themes) .shortcut('T') .description("Available Themes")
-        .submenu("Ascii Art", MenuContext::Ascii) .shortcut('a') .description("View ASCII Arts")
-        .submenu("Lines", MenuContext::VisibleLines) .shortcut('n') .description("Visible Lines")
-        .submenu("Cursor", MenuContext::Cursor) .shortcut('c') .description("Available Cursors")
-        .action("Leaderboard", Action::LeaderboardOpen) .shortcut('l') .description("Show Local Leaderboard") .close_on_select()
-        .submenu("About", MenuContext::About) .shortcut('A') .description("About termitype")
-        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)) .shortcut('Q')
+        .submenu("Time", MenuContext::Time).shortcut('t').description("Set test duration")
+        .submenu("Words", MenuContext::Words).shortcut('w').description("Set word count")
+        .submenu("Language", MenuContext::Language).shortcut('L').description("Select language")
+        .submenu("Options", MenuContext::Options).shortcut('o').description("Configure typing preferences")
+        .submenu("Theme", MenuContext::Themes).shortcut('T').description("Available Themes")
+        .submenu("Ascii Art", MenuContext::Ascii).shortcut('a').description("View ASCII Arts")
+        .submenu("Lines", MenuContext::VisibleLines).shortcut('n').description("Visible Lines")
+        .submenu("Cursor", MenuContext::Cursor).shortcut('c').description("Available Cursors")
+        .action("Leaderboard", Action::LeaderboardOpen).shortcut('l').description("Show Local Leaderboard")
+        .submenu("About", MenuContext::About).shortcut('A').description("About termitype")
+        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)).shortcut('Q')
         .build()
 }
 
 #[rustfmt::skip]
 fn build_options_menu() -> MenuContent {
     MenuBuilder::new("Options", MenuContext::Options)
-        .action("Use symbols", Action::Toggle(Setting::Symbols)) .shortcut('s') .description("Include symbols in the generated test (@, #, etc)")
-        .action("Use numbers", Action::Toggle(Setting::Numbers)) .shortcut('n') .description("Include numbers in the generated test")
-        .action("Use punctuation", Action::Toggle(Setting::Punctuation)) .shortcut('p') .description("Include punctuation in the generated test (!, ?, etc)")
-        .action("Show live WPM", Action::Toggle(Setting::LiveWPM)) .shortcut('w') .description("Show the live word per minutes during the test")
-        .action("Show notifications", Action::Toggle(Setting::ShowNotifications)) .shortcut('N') .description("Show notifications")
-        .action("Track results", Action::Toggle(Setting::TrackResults)) .shortcut('t') .description("Locally track test results")
+        .action("Use symbols", Action::Toggle(Setting::Symbols)).shortcut('s').description("Include symbols in the generated test (@, #, etc)")
+        .action("Use numbers", Action::Toggle(Setting::Numbers)).shortcut('n').description("Include numbers in the generated test")
+        .action("Use punctuation", Action::Toggle(Setting::Punctuation)).shortcut('p').description("Include punctuation in the generated test (!, ?, etc)")
+        .action("Show live WPM", Action::Toggle(Setting::LiveWPM)).shortcut('w').description("Show the live word per minutes during the test")
+        .action("Show notifications", Action::Toggle(Setting::ShowNotifications)).shortcut('N').description("Show notifications")
+        .action("Show hostname (Neofetch results)", Action::Toggle(Setting::ShowHostname)).shortcut('h').description("Show hostname (Neofetch results)")
+        .action("Track results", Action::Toggle(Setting::TrackResults)).shortcut('t').description("Locally track test results")
         .build()
 }
 
@@ -194,11 +195,11 @@ fn build_time_menu() -> MenuContent {
 #[rustfmt::skip]
 fn build_words_menu() -> MenuContent {
     MenuBuilder::new("Select Words", MenuContext::Words)
-        .action("10", Action::SetWords(10)) .close_on_select()
-        .action("25", Action::SetWords(25)) .close_on_select()
-        .action("50", Action::SetWords(50)) .close_on_select()
-        .action("100", Action::SetWords(100)) .close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount)) .shortcut('c')
+        .action("10", Action::SetWords(10)).close_on_select()
+        .action("25", Action::SetWords(25)).close_on_select()
+        .action("50", Action::SetWords(50)).close_on_select()
+        .action("100", Action::SetWords(100)).close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount)).shortcut('c')
         .build()
 }
 
@@ -249,12 +250,12 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
 #[rustfmt::skip]
 fn build_visible_lines_menu(config: &Config) -> MenuContent {
     let builder = MenuBuilder::new("Select Line Count", MenuContext::VisibleLines)
-        .action("1", Action::SetLineCount(1)) .shortcut('1') .close_on_select()
-        .action("2", Action::SetLineCount(2)) .shortcut('2') .close_on_select()
-        .action("3", Action::SetLineCount(3)) .shortcut('3') .close_on_select()
-        .action("4", Action::SetLineCount(4)) .shortcut('4') .close_on_select()
-        .action("5", Action::SetLineCount(5)) .shortcut('5') .close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)) .shortcut('c');
+        .action("1", Action::SetLineCount(1)).shortcut('1').close_on_select()
+        .action("2", Action::SetLineCount(2)).shortcut('2').close_on_select()
+        .action("3", Action::SetLineCount(3)).shortcut('3').close_on_select()
+        .action("4", Action::SetLineCount(4)).shortcut('4').close_on_select()
+        .action("5", Action::SetLineCount(5)).shortcut('5').close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)).shortcut('c');
 
     let mut menu = builder.build();
     let current_line_count = config.current_line_count();

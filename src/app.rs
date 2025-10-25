@@ -251,8 +251,10 @@ impl App {
     }
 
     pub fn handle_toggle_setting(&mut self, setting: Setting) -> Result<(), AppError> {
-        self.config.toggle(setting)?;
-        self.restart()?;
+        self.config.toggle(&setting)?;
+        if setting.should_trigger_restart() {
+            self.restart()?;
+        }
         Ok(())
     }
 
@@ -464,7 +466,13 @@ impl App {
     }
 
     pub fn handle_set_ascii_art(&mut self, art: String) -> Result<(), AppError> {
-        self.config.change_ascii_art(art);
+        // NOTE(ema): this feels a little bit to "side-effecty", but selecting an ascii art without
+        // having the `ResultsVariant::Neofetch` as the current variant feels pointless, so yeah.
+        if self.config.current_results_variant() != ResultsVariant::Neofetch {
+            self.config.change_results_variant(ResultsVariant::Neofetch);
+        }
+        self.config.change_ascii_art(art.clone());
+        notify_info!(format!("Art change: {art}"));
         Ok(())
     }
 
