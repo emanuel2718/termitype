@@ -19,6 +19,9 @@ esac
 
 platform="${arch}-${os}"
 
+temp=$(mktemp -d)
+trap "rm -rf $temp" EXIT
+
 if [[ "$os" == "pc-windows-msvc" ]]; then
     url="https://github.com/emanuel2718/termitype/releases/download/${VERSION}/termitype-${VERSION}-${platform}.zip"
     binary="termitype.exe"
@@ -30,9 +33,6 @@ else
     extract_cmd="tar -xzf"
     archive_file="$temp/termitype.tar.gz"
 fi
-
-temp=$(mktemp -d)
-trap "rm -rf $temp" EXIT
 
 echo "Downloading Termitype ${VERSION}..."
 curl -L "$url" -o "$archive_file"
