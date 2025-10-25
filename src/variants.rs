@@ -19,9 +19,9 @@ use std::fmt::Error;
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CursorVariant {
     /// A solid block cursor (default).
-    #[default]
     Block,
     /// A vertical beam cursor.
+    #[default]
     Beam,
     /// An underline cursor.
     Underline,
@@ -263,7 +263,7 @@ mod tests {
         assert_eq!(variant.value(), "beam");
         assert_eq!(variant.label(), "Beam");
         assert_eq!(CursorVariant::name(), "cursor");
-        assert_eq!(CursorVariant::default(), CursorVariant::Block);
+        assert_eq!(CursorVariant::default(), CursorVariant::Beam);
     }
 
     #[test]
