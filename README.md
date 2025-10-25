@@ -35,6 +35,16 @@
 
 ## Installation
 
+### Quick Install
+
+Install the latest pre-built binary for your platform (recommended):
+
+```sh
+curl -sSL https://raw.githubusercontent.com/emanuel2718/termitype/main/scripts/install.sh | bash
+```
+
+Binaries are available on the [GitHub releases page](https://github.com/emanuel2718/termitype/releases).
+
 ### From Crates.io
 
 ```sh
@@ -46,6 +56,7 @@ cargo install termitype
 ```sh
 cargo install --git https://github.com/emanuel2718/termitype.git termitype
 ```
+
 
 ## Usage
 
@@ -64,7 +75,7 @@ termitype --help
 | Option                          | Description                                                                                     |
 | :------------------------------ | :---------------------------------------------------------------------------------------------- |
 | `-t`, `--time <SECONDS>`        | Test duration in seconds. Enforces Time mode                                                    |
-| `-w`, `--words <"WORD1 WORD2">` | Custom words for the test. Enforces Word mode                                                   |
+| `-w`, `--words <"WORD1 ..">`    | Custom words for the test. Enforces Word mode                                                   |
 | `-c`, `--count <COUNT>`         | Number (count) of words to type                                                                 |
 | `-n`, `--use-numbers`           | Include numbers in the test word pool                                                           |
 | `-s`, `--use-symbols`           | Include symbols in the test word pool                                                           |
