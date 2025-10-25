@@ -1,5 +1,5 @@
 use crate::constants::DEFAULT_THEME;
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 
 pub static ASSETS: Dir = include_dir!("assets");
 
@@ -39,11 +39,7 @@ pub fn list_themes() -> Vec<String> {
             .filter(|f| f.path().file_name().is_some())
             .filter_map(|f| {
                 let name = f.path().file_name()?.to_str()?.to_string();
-                if name != ".gitkeep" {
-                    Some(name)
-                } else {
-                    None
-                }
+                if name != ".gitkeep" { Some(name) } else { None }
             })
             .collect();
 
