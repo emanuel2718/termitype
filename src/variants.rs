@@ -205,9 +205,9 @@ pub enum ResultsVariant {
     /// Minimal text display.
     Minimal,
     /// Graphical display style (default).
-    #[default]
     Graph,
     /// Neofetch-style display.
+    #[default]
     Neofetch,
 }
 
@@ -281,7 +281,7 @@ mod tests {
         assert_eq!(variant.value(), "graph");
         assert_eq!(variant.label(), "Graph");
         assert_eq!(ResultsVariant::name(), "results");
-        assert_eq!(ResultsVariant::default(), ResultsVariant::Graph);
+        assert_eq!(ResultsVariant::default(), ResultsVariant::Neofetch);
     }
 
     #[test]
