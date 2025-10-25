@@ -45,7 +45,7 @@ fn get_art_by_linux_distro() -> &'static str {
                 "kali" => "Kali Linux",
                 "linuxmint" => "Linux Mint",
                 "omarchy" => "Omarchy",
-                _ => DEFAULT_ASCII_ART,
+                _ => "GNU",
             };
         }
     }
