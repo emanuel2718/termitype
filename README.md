@@ -52,6 +52,12 @@ brew tap emanuel2718/termitype
 brew install termitype
 ```
 
+### Arch Linux (AUR)
+
+```sh
+yay -S termitype
+```
+
 ### From Crates.io
 
 ```sh
