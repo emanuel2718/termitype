@@ -45,6 +45,13 @@ curl -sSL https://raw.githubusercontent.com/emanuel2718/termitype/main/scripts/i
 
 Binaries are available on the [GitHub releases page](https://github.com/emanuel2718/termitype/releases).
 
+### Homebrew
+
+```sh
+brew tap emanuel2718/termitype
+brew install termitype
+```
+
 ### From Crates.io
 
 ```sh
@@ -56,7 +63,6 @@ cargo install termitype
 ```sh
 cargo install --git https://github.com/emanuel2718/termitype.git termitype
 ```
-
 
 ## Usage
 
@@ -72,23 +78,23 @@ termitype --help
 
 ## Options
 
-| Option                          | Description                                                                                     |
-| :------------------------------ | :---------------------------------------------------------------------------------------------- |
-| `-t`, `--time <SECONDS>`        | Test duration in seconds. Enforces Time mode                                                    |
-| `-w`, `--words <"WORD1 ..">`    | Custom words for the test. Enforces Word mode                                                   |
-| `-c`, `--count <COUNT>`         | Number (count) of words to type                                                                 |
-| `-n`, `--use-numbers`           | Include numbers in the test word pool                                                           |
-| `-s`, `--use-symbols`           | Include symbols in the test word pool                                                           |
-| `-p`, `--use-punctuation`       | Include punctuation in the test word pool                                                       |
-| `-l`, `--language <LANG>`       | Language dictionary the test will use                                                           |
-| `--theme <THEME>`               | The theme of the application                                                                    |
-| `--ascii <ASCII>`               | The ASCII art used in the `Neofetch` results                                                    |
-| `--cursor <STYLE>`              | Cursor style variant: beam, block, underline, blinking-beam, blinking-block, blinking-underline |
-| `--results <STYLE>`             | Results style variant: minimal, neofetch, graph                                                 |
-| `--lines <COUNT>`               | Number of visible text lines [default: 3]                                                       |
-| `--hide-live-wpm`               | Hide live WPM counter                                                                           |
-| `--hide-notifications`          | Hide notifications                                                                              |
-| `--no-track`                    | Do not locally track test results                                                               |
+| Option                       | Description                                                                                     |
+| :--------------------------- | :---------------------------------------------------------------------------------------------- |
+| `-t`, `--time <SECONDS>`     | Test duration in seconds. Enforces Time mode                                                    |
+| `-w`, `--words <"WORD1 ..">` | Custom words for the test. Enforces Word mode                                                   |
+| `-c`, `--count <COUNT>`      | Number (count) of words to type                                                                 |
+| `-n`, `--use-numbers`        | Include numbers in the test word pool                                                           |
+| `-s`, `--use-symbols`        | Include symbols in the test word pool                                                           |
+| `-p`, `--use-punctuation`    | Include punctuation in the test word pool                                                       |
+| `-l`, `--language <LANG>`    | Language dictionary the test will use                                                           |
+| `--theme <THEME>`            | The theme of the application                                                                    |
+| `--ascii <ASCII>`            | The ASCII art used in the `Neofetch` results                                                    |
+| `--cursor <STYLE>`           | Cursor style variant: beam, block, underline, blinking-beam, blinking-block, blinking-underline |
+| `--results <STYLE>`          | Results style variant: minimal, neofetch, graph                                                 |
+| `--lines <COUNT>`            | Number of visible text lines [default: 3]                                                       |
+| `--hide-live-wpm`            | Hide live WPM counter                                                                           |
+| `--hide-notifications`       | Hide notifications                                                                              |
+| `--no-track`                 | Do not locally track test results                                                               |
 
 ### Examples
 
