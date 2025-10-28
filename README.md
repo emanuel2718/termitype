@@ -30,7 +30,7 @@
 
 <br />
 <p align="center">
-  <img src="https://raw.githubusercontent.com/emanuel2718/termitype/chore/update-demo-gif/assets/demo.gif" alt="Termitype demo" width="600">
+  <img src="https://raw.githubusercontent.com/emanuel2718/termitype/main/assets/demo.gif" alt="Termitype demo" width="600">
 </p>
 
 ## Installation
