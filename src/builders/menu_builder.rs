@@ -113,7 +113,7 @@ pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent
     match ctx {
         MenuContext::Root => build_root_menu(),
         MenuContext::Options => build_options_menu(),
-        MenuContext::Themes => build_themes_menu(config),
+        MenuContext::Themes => build_themes_menu(),
         MenuContext::Time => build_time_menu(),
         MenuContext::Words => build_words_menu(),
         MenuContext::Language => build_language_menu(config),
@@ -155,7 +155,7 @@ fn build_options_menu() -> MenuContent {
         .build()
 }
 
-fn build_themes_menu(config: &Config) -> MenuContent {
+fn build_themes_menu() -> MenuContent {
     let themes = theme::available_themes();
     let mut builder = MenuBuilder::new("Select Theme", MenuContext::Themes);
     for name in &themes {
@@ -167,10 +167,9 @@ fn build_themes_menu(config: &Config) -> MenuContent {
     }
 
     let mut menu = builder.build();
-    if let Some(current_theme_name) = config.current_theme() {
-        if let Some(idx) = themes.iter().position(|name| name == &current_theme_name) {
-            menu.set_current_index(idx);
-        }
+    let curr = theme::current_theme();
+    if let Some(idx) = themes.iter().position(|name| *name == curr.id.to_string()) {
+        menu.set_current_index(idx);
     }
     menu
 }
