@@ -244,7 +244,7 @@ impl Default for ConfigState {
             results_variant: ResultsVariant::default(),
             hide_live_wpm: false,
             hide_notifications: false,
-            hide_hostname: false,
+            hide_hostname: true,
             no_track: false,
         }
     }
