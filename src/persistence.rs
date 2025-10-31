@@ -55,12 +55,8 @@ impl Persistence {
             dirty: false,
         };
 
-        if path.exists() {
-            if let Err(e) = persistence.load() {
-                eprintln!("Failed to load state file: {e}");
-            } else {
-                eprintln!("Successfully loaded state file");
-            }
+        if path.exists() && persistence.load().is_err() {
+            eprintln!("Failed to load state file");
         }
 
         Ok(persistence)
@@ -163,7 +159,6 @@ impl Persistence {
         let file = File::open(&self.path)?;
         let reader = io::BufReader::new(file);
         let mut values = HashMap::with_capacity(DEFAULT_CAPACITY);
-        let mut loaded_count = 0;
 
         for (idx, line) in reader.lines().enumerate() {
             let line = line?;
@@ -178,14 +173,12 @@ impl Persistence {
                 let key = k.trim();
                 let value = v.trim();
                 values.insert(key.to_string(), value.to_string());
-                loaded_count += 1;
             } else {
                 let err = format!("Invalid format at line {}: {line}", idx + 1);
                 eprintln!("{err}");
                 return Err(AppError::InvalidConfigData(err));
             }
         }
-        eprintln!("Successfully loaded {loaded_count} settings");
         self.values = values;
         self.dirty = false;
 
@@ -231,6 +224,13 @@ impl Persistence {
         }
         Ok(())
     }
+}
+
+pub fn reset_persistence() -> anyhow::Result<()> {
+    let mut persistence = Persistence::new()?;
+    persistence.clear();
+    persistence.flush()?;
+    Ok(())
 }
 
 #[cfg(test)]
