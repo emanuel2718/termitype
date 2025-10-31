@@ -101,6 +101,7 @@ termitype --help
 | `--hide-live-wpm`            | Hide live WPM counter                                                                           |
 | `--hide-notifications`       | Hide notifications                                                                              |
 | `--no-track`                 | Do not locally track test results                                                               |
+| `--reset`                    | Resets everything back to default state                                                         |
 
 ### Examples
 

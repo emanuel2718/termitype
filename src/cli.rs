@@ -95,6 +95,10 @@ pub struct Cli {
     /// Do not locally track tests results
     #[arg(long = "no-track")]
     pub no_track: bool,
+
+    /// Resets everything back to default state
+    #[arg(long = "reset")]
+    pub reset: bool,
 }
 
 impl Cli {
@@ -125,6 +129,10 @@ impl Cli {
             }
         }
         Ok(())
+    }
+
+    pub fn clear_reset_flag(&mut self) {
+        self.reset = false;
     }
 
     pub fn clear_custom_words_flag(&mut self) {
@@ -243,5 +251,14 @@ mod tests {
             cli.validate().unwrap_err(),
             "Word count must be between 1 and 5000"
         );
+    }
+
+    #[test]
+    fn test_reset_flag() {
+        let cli = Cli {
+            reset: true,
+            ..Default::default()
+        };
+        assert!(cli.reset);
     }
 }

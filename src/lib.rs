@@ -1,4 +1,5 @@
-use crate::config::Config;
+use crate::{config::Config, db::reset_database, persistence::reset_persistence};
+use clap::Parser;
 use crossterm::{
     cursor::SetCursorStyle,
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -39,7 +40,17 @@ pub mod prelude {
 
 pub fn start() -> anyhow::Result<()> {
     logger::init()?;
-    let config = Config::new()?;
+    let args = cli::Cli::parse();
+    args.validate().map_err(|e| anyhow::anyhow!(e))?;
+
+    if args.reset {
+        reset_persistence()?;
+        reset_database()?;
+        println!("[ OK ] Successfully reset termitype back to default state.");
+        return Ok(());
+    }
+
+    let config = Config::new(args)?;
 
     let crossterm_cursor = config.current_cursor_variant().to_crossterm();
 

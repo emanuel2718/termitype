@@ -1,6 +1,7 @@
 use crate::{
     common::filesystem::config_dir,
     config::{Config, Setting},
+    constants::db_file,
     error::{AppError, AppResult},
     log_debug, log_info,
     tracker::Tracker,
@@ -418,6 +419,16 @@ impl Db {
         ];
 
         valid_cols.contains(&col)
+    }
+}
+
+pub fn reset_database() -> anyhow::Result<()> {
+    match Db::new(db_file()) {
+        Ok(db) => {
+            db.reset()?;
+            Ok(())
+        }
+        _ => Ok(()),
     }
 }
 

@@ -11,7 +11,6 @@ use crate::{
     variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
-use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::{fmt, time::Duration};
 
@@ -244,7 +243,7 @@ impl Default for ConfigState {
             results_variant: ResultsVariant::default(),
             hide_live_wpm: false,
             hide_notifications: false,
-            hide_hostname: false,
+            hide_hostname: true,
             no_track: false,
         }
     }
@@ -258,19 +257,17 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new() -> Result<Self> {
-        let args = Cli::parse();
-        args.validate().map_err(|e| anyhow::anyhow!(e))?;
+    pub fn new(cli: Cli) -> Result<Self> {
         let persistence = Persistence::new()?;
         let mut config = Self {
-            cli: args.clone(),
+            cli: cli.clone(),
             state: Self::load_state(&persistence)?,
             persistence,
         };
         if config.state.theme.is_none() {
             config.state.theme = Some(DEFAULT_THEME.to_string());
         }
-        config.apply_cli_args(args);
+        config.apply_cli_args(cli);
         config.persist()?;
         Ok(config)
     }
