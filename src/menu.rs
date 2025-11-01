@@ -4,6 +4,7 @@ use crate::{
     common::strings::fuzzy_match,
     config::Config,
     error::AppError,
+    theme,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -307,6 +308,12 @@ impl MenuContent {
             menu.scroll_offset = current_filtered_index - viewport_height + 1;
         }
     }
+
+    pub fn reset_selection(&mut self, ui_height: usize) {
+        self.current_index = 0;
+        self.scroll_offset = 0;
+        Self::update_scroll_offset(self, self.current_index, ui_height);
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -355,6 +362,7 @@ impl Menu {
     }
 
     pub fn close(&mut self) -> Result<(), AppError> {
+        theme::cancel_theme_preview();
         self.stack.clear();
         Ok(())
     }
@@ -402,9 +410,7 @@ impl Menu {
         // in the command palette we want to reset to index 0, is cleaner that way
         if let Some(menu) = self.current_menu_mut() {
             if menu.is_cmd_palette {
-                menu.set_current_index(0);
-                menu.scroll_offset = 0;
-                MenuContent::update_scroll_offset(menu, menu.current_index, ui_height);
+                menu.reset_selection(ui_height);
             }
         }
     }
@@ -435,36 +441,42 @@ impl Menu {
         !self.search_query().is_empty()
     }
 
+    // NOTE: this is getting kinda hary just saying
     pub fn update_search(&mut self, query: String) {
         self.search_query = query.clone();
-        // when the search change try to keep current selection selected
+        let ui_height = self.ui_height;
+        // when the search change try to keep current selection
         if let Some(menu) = self.current_menu_mut() {
-            let items = menu.items(&query);
-            if items.is_empty() {
-                menu.set_current_index(0);
+            if menu.is_cmd_palette && query.is_empty() {
+                menu.reset_selection(ui_height);
             } else {
-                // does the current item still in the new results?
-                if let Some(current_item) = menu.current_item() {
-                    if items.iter().any(|&item| {
-                        item.label == current_item.label && item.action == current_item.action
-                    }) {
-                        // it is, keep it selected
-                    } else {
-                        // the current item is not in the new resutls, select the first rresult
-                        if let Some(first_item) = items.first() {
-                            for (original_idx, original_item) in menu.items.iter().enumerate() {
-                                if first_item.label == original_item.label
-                                    && first_item.action == original_item.action
-                                {
-                                    menu.set_current_index(original_idx);
-                                    break;
+                let items = menu.items(&query);
+                if items.is_empty() {
+                    menu.set_current_index(0);
+                } else {
+                    // does the current item still in the new results?
+                    if let Some(current_item) = menu.current_item() {
+                        if items.iter().any(|&item| {
+                            item.label == current_item.label && item.action == current_item.action
+                        }) {
+                            // it is, keep it selected
+                        } else {
+                            // the current item is not in the new resutls, select the first rresult
+                            if let Some(first_item) = items.first() {
+                                for (original_idx, original_item) in menu.items.iter().enumerate() {
+                                    if first_item.label == original_item.label
+                                        && first_item.action == original_item.action
+                                    {
+                                        menu.set_current_index(original_idx);
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                menu.scroll_offset = 0;
             }
-            menu.scroll_offset = 0;
         }
     }
 
@@ -568,10 +580,10 @@ mod tests {
     #[test]
     fn test_menu_item_label() {
         let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit));
-        assert_eq!(item.label, "Test");
+        assert_eq!(item.get_label(), "Test");
 
         let item_with_shortcut = item.shortcut('T');
-        assert_eq!(item_with_shortcut.label, "Test [T]");
+        assert_eq!(item_with_shortcut.get_label(), "Test [T]");
     }
 
     #[test]

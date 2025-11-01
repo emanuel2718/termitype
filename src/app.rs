@@ -1,3 +1,5 @@
+use crate::actions::Action;
+use crate::menu::MenuAction;
 use crate::{
     actions::{self},
     ascii,
@@ -18,7 +20,9 @@ use crate::{
 };
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
+use crossterm::execute;
 use ratatui::{Terminal, prelude::Backend};
+use std::io::stdout;
 use std::time::Duration;
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
@@ -302,7 +306,6 @@ impl App {
 
     pub fn handle_menu_close(&mut self) -> Result<(), AppError> {
         // TODO: this clearing of preview should be done cleanly
-        theme::cancel_theme_preview();
         self.restore_cursor_style();
         self.menu.close()?;
         self.tracker.toggle_pause();
@@ -611,31 +614,18 @@ impl App {
 
     // TODO: do this cleanly
     fn try_preview(&mut self) -> Result<(), AppError> {
-        if let Some(menu) = self.menu.current_menu() {
-            if let Some(item) = self.menu.current_item() {
-                if item.has_preview {
-                    match menu.ctx {
-                        MenuContext::Themes => {
-                            theme::set_as_preview_theme(item.get_label().as_str())
-                        }
-                        MenuContext::Cursor => {
-                            use crate::actions::Action;
-                            use crate::menu::MenuAction;
-                            use crossterm::execute;
-                            use std::io::stdout;
-
-                            if let MenuAction::Action(Action::SetCursorVariant(variant)) =
-                                &item.action
-                            {
-                                let _ = execute!(stdout(), variant.to_crossterm());
-                            }
-                            Ok(())
-                        }
-                        _ => Ok(()),
-                    }?;
-                }
+        if let Some(item) = self.menu.current_item() {
+            if item.has_preview {
+                match &item.action {
+                    MenuAction::Action(Action::SetTheme(name)) => theme::set_as_preview_theme(name),
+                    MenuAction::Action(Action::SetCursorVariant(variant)) => {
+                        let _ = execute!(stdout(), variant.to_crossterm());
+                        Ok(())
+                    }
+                    _ => Ok(()),
+                }?;
             }
-        };
+        }
         Ok(())
     }
 

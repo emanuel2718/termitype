@@ -314,14 +314,11 @@ fn build_ascii_menu(config: &Config) -> MenuContent {
 }
 
 fn build_leaderboard_menu(_config: &Config) -> MenuContent {
-    // TODO: find a better way to handle this. In theory, this builder is never reached because
-    // the `Leaderboards` open directly through the overlay system based on the presence of
-    // `app::leaderboard` instance.
-
-    // unreachable!("we should not get here, since the leaderboard opens directly");
     MenuBuilder::new("Leaderboard", MenuContext::Leaderboard)
-        .informational()
-        .info("Status", "Opening leaderboard...")
+        .action("Leaderboard", Action::LeaderboardOpen)
+        .shortcut('l')
+        .tag("leaderboard")
+        .description("Open leaderboard")
         .build()
 }
 
