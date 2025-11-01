@@ -201,7 +201,12 @@ impl MenuContent {
                     if item.is_disabled {
                         return false;
                     }
-                    let label_matches = fuzzy_match(&item.label.to_lowercase(), &query);
+                    let label_target = if self.is_cmd_palette {
+                        item.get_description()
+                    } else {
+                        item.get_label()
+                    };
+                    let label_matches = fuzzy_match(&label_target.to_lowercase(), &query);
                     let tag_matches = fuzzy_match(&item.get_tag().to_lowercase(), &query);
                     label_matches || tag_matches
                 })
