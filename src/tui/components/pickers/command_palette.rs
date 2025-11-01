@@ -164,16 +164,18 @@ fn render_search_bar(frame: &mut Frame, area: Rect, theme: &Theme, menu: &Menu) 
     let dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
 
     let highlight_style = Style::default().fg(theme.fg());
-    let placeholder = if menu.has_search_query() {
-        ">"
-    } else {
-        "> Search..."
-    };
+    let mut spans = vec![Span::styled(">", highlight_style)];
+    if !menu.has_search_query() {
+        spans.push(Span::styled(" Search...", dim_style));
+    }
+    if !menu.search_query().is_empty() {
+        spans.push(Span::styled(
+            format!(" {}", menu.search_query()),
+            highlight_style,
+        ));
+    }
 
-    let left = Paragraph::new(vec![Line::from(vec![
-        Span::styled(placeholder, highlight_style),
-        Span::styled(format!(" {}", menu.search_query()), highlight_style),
-    ])]);
+    let left = Paragraph::new(vec![Line::from(spans)]);
     frame.render_widget(left, left_area);
 
     let base_offset: u16 = 2; // "> "
