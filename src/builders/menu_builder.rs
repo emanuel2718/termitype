@@ -346,7 +346,6 @@ fn build_cmd_palette(config: &Config) -> MenuContent {
         build_visible_lines_menu,
         build_ascii_menu,
         build_leaderboard_menu,
-        build_about_menu,
     ];
 
     let mut builder = MenuBuilder::new("Command Palette", MenuContext::CommandPalette);
