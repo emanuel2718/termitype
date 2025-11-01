@@ -19,6 +19,7 @@ pub enum MenuContext {
     VisibleLines,
     Leaderboard,
     About,
+    CommandPalette,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -51,10 +52,11 @@ pub struct MenuItem {
     label: String,
     pub is_disabled: bool,
     pub has_preview: bool,
+    pub close_on_select: bool,
     pub action: MenuAction,
+    pub tag: Option<String>,
     pub shortcut: Option<char>,
     pub description: Option<String>,
-    pub close_on_select: bool,
 }
 
 impl MenuItem {
@@ -63,10 +65,11 @@ impl MenuItem {
             label: label.into(),
             is_disabled: false,
             has_preview: false,
+            close_on_select: false,
             action,
+            tag: None,
             shortcut: None,
             description: None,
-            close_on_select: false,
         }
     }
     // TODO: when doing the builder for this, ensure you only allow either action() or submenu()
@@ -90,6 +93,14 @@ impl MenuItem {
         self
     }
 
+    pub fn get_tag(&self) -> String {
+        self.tag.clone().unwrap_or("".to_string())
+    }
+
+    pub fn get_shortcut(&self) -> char {
+        self.shortcut.clone().unwrap_or_default()
+    }
+
     pub fn shortcut(mut self, shortcut: char) -> Self {
         self.shortcut = Some(shortcut);
         self
@@ -100,12 +111,11 @@ impl MenuItem {
         self
     }
 
-    pub fn description<S: Into<String>>(mut self, description: S) -> Self {
-        self.description = Some(description.into());
-        self
+    pub fn get_description(&self) -> String {
+        self.description.as_ref().unwrap_or(&self.label).to_string()
     }
 
-    pub fn label(&self) -> String {
+    pub fn get_label(&self) -> String {
         if let Some(shortcut) = self.shortcut {
             format!("{} [{}]", self.label, shortcut)
         } else {
@@ -130,6 +140,7 @@ pub struct MenuContent {
     pub scroll_offset: usize,
     pub visualizer: Option<MenuVisualizer>,
     pub is_informational: bool,
+    pub is_cmd_palette: bool,
 }
 
 impl Default for MenuContent {
@@ -148,12 +159,13 @@ impl MenuContent {
     ) -> Self {
         Self {
             title: title.into(),
-            ctx,
+            ctx: ctx.clone(),
             items,
             current_index: 0,
             scroll_offset: 0,
             visualizer,
             is_informational,
+            is_cmd_palette: matches!(ctx, MenuContext::CommandPalette),
         }
     }
 
@@ -184,7 +196,14 @@ impl MenuContent {
             let query = query.to_lowercase();
             self.items
                 .iter()
-                .filter(|item| !item.is_disabled && fuzzy_match(&item.label.to_lowercase(), &query))
+                .filter(|item| {
+                    if item.is_disabled {
+                        return false;
+                    }
+                    let label_matches = fuzzy_match(&item.label.to_lowercase(), &query);
+                    let tag_matches = fuzzy_match(&item.get_tag().to_lowercase(), &query);
+                    label_matches || tag_matches
+                })
                 .collect()
         }
     }
@@ -319,11 +338,18 @@ impl Menu {
     }
 
     pub fn open(&mut self, ctx: MenuContext, config: &Config) -> Result<(), AppError> {
+        let is_cmd_palette = ctx == MenuContext::CommandPalette;
         let menu = menu_builder::build_menu_from_context(ctx, config);
         self.stack.push(menu);
         let ui_height = self.ui_height;
         if let Some(current_menu) = self.current_menu_mut() {
+            if is_cmd_palette {
+                current_menu.set_current_index(0);
+            }
             MenuContent::update_scroll_offset(current_menu, current_menu.current_index, ui_height);
+        }
+        if is_cmd_palette {
+            self.init_search();
         }
         Ok(())
     }
@@ -372,6 +398,15 @@ impl Menu {
     pub fn clear_search(&mut self) {
         self.search_query.clear();
         self.search_mode = false;
+        let ui_height = self.ui_height;
+        // in the command palette we want to reset to index 0, is cleaner that way
+        if let Some(menu) = self.current_menu_mut() {
+            if menu.is_cmd_palette {
+                menu.set_current_index(0);
+                menu.scroll_offset = 0;
+                MenuContent::update_scroll_offset(menu, menu.current_index, ui_height);
+            }
+        }
     }
 
     pub fn init_search(&mut self) {
@@ -382,6 +417,14 @@ impl Menu {
     pub fn exit_search(&mut self) {
         self.search_mode = false;
         self.search_query.clear();
+        // in the command palette we want to reset to index 0, is cleaner that way
+        if let Some(menu) = self.current_menu_mut() {
+            if menu.is_cmd_palette {
+                let _ = self.close();
+                // menu.set_current_index(0);
+                // menu.scroll_offset = 0;
+            }
+        }
     }
 
     pub fn is_searching(&self) -> bool {
@@ -403,14 +446,14 @@ impl Menu {
                 // does the current item still in the new results?
                 if let Some(current_item) = menu.current_item() {
                     if items.iter().any(|&item| {
-                        item.label() == current_item.label() && item.action == current_item.action
+                        item.label == current_item.label && item.action == current_item.action
                     }) {
                         // it is, keep it selected
                     } else {
                         // the current item is not in the new resutls, select the first rresult
                         if let Some(first_item) = items.first() {
                             for (original_idx, original_item) in menu.items.iter().enumerate() {
-                                if first_item.label() == original_item.label()
+                                if first_item.label == original_item.label
                                     && first_item.action == original_item.action
                                 {
                                     menu.set_current_index(original_idx);
@@ -523,19 +566,12 @@ mod tests {
     }
 
     #[test]
-    fn test_menu_item_description() {
-        let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit))
-            .description("A test item");
-        assert_eq!(item.description, Some("A test item".to_string()));
-    }
-
-    #[test]
     fn test_menu_item_label() {
         let item = MenuItem::new("Test", MenuAction::Action(actions::Action::Quit));
-        assert_eq!(item.label(), "Test");
+        assert_eq!(item.label, "Test");
 
         let item_with_shortcut = item.shortcut('T');
-        assert_eq!(item_with_shortcut.label(), "Test [T]");
+        assert_eq!(item_with_shortcut.label, "Test [T]");
     }
 
     #[test]
@@ -799,7 +835,7 @@ mod tests {
         assert!(theme::is_using_preview_theme());
 
         let current_item = app.menu.current_item().unwrap();
-        assert!(current_item.label() == theme_name);
+        assert!(current_item.label == theme_name);
 
         let select_action = app.menu.select(&config).unwrap();
         assert_eq!(

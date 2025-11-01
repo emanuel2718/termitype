@@ -118,22 +118,23 @@ impl MenuBuilder {
 
 pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent {
     match ctx {
-        MenuContext::Root => build_root_menu(),
-        MenuContext::Options => build_options_menu(),
-        MenuContext::Themes => build_themes_menu(),
-        MenuContext::Time => build_time_menu(),
-        MenuContext::Words => build_words_menu(),
+        MenuContext::Root => build_root_menu(config),
+        MenuContext::Options => build_options_menu(config),
+        MenuContext::Themes => build_themes_menu(config),
+        MenuContext::Time => build_time_menu(config),
+        MenuContext::Words => build_words_menu(config),
         MenuContext::Language => build_language_menu(config),
         MenuContext::Cursor => build_cursor_menu(config),
         MenuContext::VisibleLines => build_visible_lines_menu(config),
         MenuContext::Ascii => build_ascii_menu(config),
-        MenuContext::Leaderboard => build_leaderboard_menu(),
-        MenuContext::About => build_about_menu(),
+        MenuContext::Leaderboard => build_leaderboard_menu(config),
+        MenuContext::About => build_about_menu(config),
+        MenuContext::CommandPalette => build_cmd_palette(config),
     }
 }
 
 #[rustfmt::skip]
-fn build_root_menu() -> MenuContent {
+fn build_root_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("Main Menu", MenuContext::Root)
         .submenu("Time", MenuContext::Time).shortcut('t').description("Set test duration")
         .submenu("Words", MenuContext::Words).shortcut('w').description("Set word count")
@@ -150,7 +151,7 @@ fn build_root_menu() -> MenuContent {
 }
 
 #[rustfmt::skip]
-fn build_options_menu() -> MenuContent {
+fn build_options_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("Options", MenuContext::Options)
         .action("Use symbols", Action::Toggle(Setting::Symbols)).shortcut('s').description("Symbols").tag("option")
         .action("Use numbers", Action::Toggle(Setting::Numbers)).shortcut('n').description("Numbers").tag("option")
@@ -162,7 +163,27 @@ fn build_options_menu() -> MenuContent {
         .build()
 }
 
-fn build_themes_menu() -> MenuContent {
+#[rustfmt::skip]
+fn build_cmd_palette_options_menu(_config: &Config) -> MenuContent {
+    MenuBuilder::new("Options", MenuContext::Options)
+        .action("Enable Symbols", Action::Enable(Setting::Symbols)).description("Enable Symbols").tag("option")
+        .action("Disable Symbols", Action::Disable(Setting::Symbols)).description("Disable Symbols").tag("option")
+        .action("Enable Numbers", Action::Enable(Setting::Numbers)).description("Enable Numbers").tag("option")
+        .action("Disable Numbers", Action::Disable(Setting::Numbers)).description("Disable Numbers").tag("option")
+        .action("Enable Punctuation", Action::Enable(Setting::Punctuation)).description("Enable Punctuation").tag("option")
+        .action("Disable Punctuation", Action::Disable(Setting::Punctuation)).description("Disable Punctuation").tag("option")
+        .action("Enable Live WPM", Action::Enable(Setting::LiveWPM)).description("Enable Live WPM").tag("option")
+        .action("Disable Live WPM", Action::Disable(Setting::LiveWPM)).description("Disable Live WPM").tag("option")
+        .action("Enable Notifications", Action::Enable(Setting::ShowNotifications)).description("Enable Notifications").tag("option")
+        .action("Disable Notifications", Action::Disable(Setting::ShowNotifications)).description("Disable Notifications").tag("option")
+        .action("Show Hostname", Action::Enable(Setting::ShowHostname)).description("Show Hostname").tag("option")
+        .action("Hide Hostname", Action::Disable(Setting::ShowHostname)).description("Hide Hostname").tag("option")
+        .action("Enable Result Tracking", Action::Enable(Setting::TrackResults)).description("Enable Result Tracking").tag("option")
+        .action("Disable Result Tracking", Action::Disable(Setting::TrackResults)).description("Disable Result Tracking").tag("option")
+        .build()
+}
+
+fn build_themes_menu(_config: &Config) -> MenuContent {
     let themes = theme::available_themes();
     let mut builder = MenuBuilder::new("Select Theme", MenuContext::Themes);
     for name in &themes {
@@ -184,7 +205,7 @@ fn build_themes_menu() -> MenuContent {
 }
 
 #[rustfmt::skip]
-fn build_time_menu() -> MenuContent {
+fn build_time_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("Select Time", MenuContext::Time)
         .action("15", Action::SetTime(15)).description("15 seconds").tag("time").close_on_select()
         .action("30", Action::SetTime(30)).description("30 seconds").tag("time").close_on_select()
@@ -195,7 +216,7 @@ fn build_time_menu() -> MenuContent {
 }
 
 #[rustfmt::skip]
-fn build_words_menu() -> MenuContent {
+fn build_words_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("Select Words", MenuContext::Words)
         .action("10", Action::SetWords(10)).description("10 words").tag("words").close_on_select()
         .action("25", Action::SetWords(25)).description("25 words").tag("words").close_on_select()
@@ -292,7 +313,7 @@ fn build_ascii_menu(config: &Config) -> MenuContent {
     menu
 }
 
-fn build_leaderboard_menu() -> MenuContent {
+fn build_leaderboard_menu(_config: &Config) -> MenuContent {
     // TODO: find a better way to handle this. In theory, this builder is never reached because
     // the `Leaderboards` open directly through the overlay system based on the presence of
     // `app::leaderboard` instance.
@@ -304,7 +325,7 @@ fn build_leaderboard_menu() -> MenuContent {
         .build()
 }
 
-fn build_about_menu() -> MenuContent {
+fn build_about_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("About", MenuContext::About)
         .informational()
         .info("Name", "termitype")
@@ -317,7 +338,29 @@ fn build_about_menu() -> MenuContent {
         .build()
 }
 
-fn build_cmd_palette(config: &Config) -> MenuContent {}
+fn build_cmd_palette(config: &Config) -> MenuContent {
+    let menu_builders_fns = [
+        build_cmd_palette_options_menu,
+        build_themes_menu,
+        build_time_menu,
+        build_words_menu,
+        build_language_menu,
+        build_cursor_menu,
+        build_visible_lines_menu,
+        build_ascii_menu,
+        build_leaderboard_menu,
+        build_about_menu,
+    ];
+
+    let mut builder = MenuBuilder::new("Command Palette", MenuContext::CommandPalette);
+
+    for builder_fn in menu_builders_fns {
+        let menu = builder_fn(config);
+        builder = builder.items(menu.items("").into_iter().cloned());
+    }
+
+    builder.build()
+}
 
 #[cfg(test)]
 mod tests {
@@ -329,7 +372,7 @@ mod tests {
         let ctx = MenuContext::Root;
         let config = Config::default();
         let content_from_ctx = build_menu_from_context(ctx, &config);
-        let root_content = build_root_menu();
+        let root_content = build_root_menu(&config);
         assert_eq!(content_from_ctx.title, root_content.title);
         assert_eq!(content_from_ctx.ctx, root_content.ctx);
         assert_eq!(
@@ -359,7 +402,7 @@ mod tests {
     fn test_builder_item_action() {
         let builder = MenuBuilder::default().action("Quit", Action::Quit);
         let item = &builder.items[0];
-        assert_eq!(item.label(), "Quit");
+        assert_eq!(item.get_label(), "Quit");
         assert_eq!(item.action, MenuAction::Action(Action::Quit));
     }
 

@@ -258,6 +258,41 @@ impl App {
         Ok(())
     }
 
+    pub fn handle_enable_setting(&mut self, setting: Setting) -> Result<(), AppError> {
+        if !self.config.is_enabled(setting.clone()) {
+            self.config.toggle(&setting)?;
+            if setting.should_trigger_restart() {
+                self.restart()?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn handle_disable_setting(&mut self, setting: Setting) -> Result<(), AppError> {
+        if self.config.is_enabled(setting.clone()) {
+            self.config.toggle(&setting)?;
+            if setting.should_trigger_restart() {
+                self.restart()?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn handle_command_palette_toggle(&mut self) -> Result<(), AppError> {
+        if self.menu.is_open() {
+            // if the cmd palette is currently open, then close it
+            if let Some(current_menu) = self.menu.current_menu() {
+                if current_menu.is_cmd_palette {
+                    return self.handle_menu_close();
+                }
+            }
+            // we don't want cmd palette and the actual menu to be open at the same time,
+            // thus if the menu is currently opened, then close it
+            self.handle_menu_close()?;
+        }
+        self.handle_menu_open(MenuContext::CommandPalette)
+    }
+
     pub fn handle_menu_open(&mut self, ctx: MenuContext) -> Result<(), AppError> {
         self.menu.open(ctx, &self.config)?;
         self.try_preview()?;
@@ -338,11 +373,12 @@ impl App {
     }
 
     pub fn handle_menu_update_search(&mut self, query: String) -> Result<(), AppError> {
-        if query.is_empty() {
-            return Ok(()); // TODO: this is dumb
-        }
         let current_query = self.menu.search_query().to_string();
-        let new_query = format!("{}{}", current_query, query);
+        let new_query = if query.is_empty() {
+            String::new()
+        } else {
+            format!("{}{}", current_query, query)
+        };
         self.menu.update_search(new_query);
         self.try_preview()?;
 
@@ -579,7 +615,9 @@ impl App {
             if let Some(item) = self.menu.current_item() {
                 if item.has_preview {
                     match menu.ctx {
-                        MenuContext::Themes => theme::set_as_preview_theme(item.label().as_str()),
+                        MenuContext::Themes => {
+                            theme::set_as_preview_theme(item.get_label().as_str())
+                        }
                         MenuContext::Cursor => {
                             use crate::actions::Action;
                             use crate::menu::MenuAction;

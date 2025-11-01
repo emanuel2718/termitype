@@ -271,7 +271,7 @@ fn render_ascii_visualizer(frame: &mut Frame, theme: &Theme, area: Rect, app: &A
     let ascii_name = app
         .menu
         .current_item()
-        .map(|item| item.label().to_string())
+        .map(|item| item.get_label().to_string())
         .unwrap_or_default();
 
     let ascii_art = ascii::get_ascii(&ascii_name).unwrap_or_default();

@@ -283,7 +283,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                         unreachable!()
                     }
                 } else {
-                    let label = format!("{} {}", indicator, item.label());
+                    let label = format!("{} {}", indicator, item.get_label());
                     vec![Span::styled(label, style)]
                 };
 
