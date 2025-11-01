@@ -117,15 +117,8 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
                         base_style
                     };
 
-                    let space_style = if is_selected {
-                        Style::default().fg(theme.bg()).bg(theme.fg())
-                    } else {
-                        Style::default()
-                    };
-
                     vec![
-                        Span::styled(tag, tag_style),
-                        Span::styled(" ", space_style),
+                        Span::styled(format!("{tag}: "), tag_style),
                         Span::styled(label, label_style),
                     ]
                 } else {
@@ -170,29 +163,27 @@ fn render_search_bar(frame: &mut Frame, area: Rect, theme: &Theme, menu: &Menu) 
 
     let dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
 
-    if menu.is_searching() {
-        let highlight_style = Style::default().fg(theme.fg());
-        let left = Paragraph::new(vec![Line::from(vec![
-            Span::styled(">", highlight_style),
-            Span::styled(format!(" {}", menu.search_query()), dim_style),
-        ])]);
-        frame.render_widget(left, left_area);
-
-        let base_offset: u16 = 2; // "> "
-        let qlen = menu.search_query().chars().count() as u16;
-        let mut x = left_area.x + base_offset + qlen;
-        if x >= left_area.x + left_area.width.saturating_sub(1) {
-            x = left_area.x + left_area.width.saturating_sub(2);
-        }
-        let y = left_area.y;
-        frame.set_cursor_position(Position { x, y });
+    let highlight_style = Style::default().fg(theme.fg());
+    let placeholder = if menu.has_search_query() {
+        ">"
     } else {
-        let left = Paragraph::new("> ")
-            .style(dim_style)
-            .alignment(Alignment::Left);
-        frame.render_widget(left, left_area);
-    }
+        "> Search..."
+    };
 
+    let left = Paragraph::new(vec![Line::from(vec![
+        Span::styled(placeholder, highlight_style),
+        Span::styled(format!(" {}", menu.search_query()), highlight_style),
+    ])]);
+    frame.render_widget(left, left_area);
+
+    let base_offset: u16 = 2; // "> "
+    let qlen = menu.search_query().chars().count() as u16;
+    let mut x = left_area.x + base_offset + qlen;
+    if x >= left_area.x + left_area.width.saturating_sub(1) {
+        x = left_area.x + left_area.width.saturating_sub(2);
+    }
+    let y = left_area.y;
+    frame.set_cursor_position(Position { x, y });
     let (m, n) = if let Some(current_menu) = menu.current_menu() {
         let filtered_count = menu.current_items().len();
         let total_count = current_menu.len();
