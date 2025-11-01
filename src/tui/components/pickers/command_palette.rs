@@ -1,5 +1,6 @@
 use crate::{
     app::App,
+    menu::Menu,
     theme::Theme,
     tui::{helpers::menu_items_padding, layout::picker_overlay_area},
 };
@@ -21,18 +22,7 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
 
         let overlay_area = picker_overlay_area(area);
 
-        let bar_height = 3u16;
-        let rows = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(bar_height), Constraint::Min(0)])
-            .split(overlay_area);
-
-        let search_bar_area = rows[0];
-        let menu_area = rows[1];
-
         frame.render_widget(Clear, overlay_area);
-
-        render_search_bar(frame, search_bar_area, area, theme, menu);
 
         let menu_block = Block::default()
             .borders(Borders::ALL)
@@ -41,9 +31,31 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
             .title(format!(" {} ", title))
             .title_alignment(Alignment::Center)
             .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-            .style(Style::default().bg(theme.bg()));
-        let items_area = menu_block.inner(menu_area);
-        frame.render_widget(menu_block, menu_area);
+            .style(Style::default().bg(theme.bg()))
+            .padding(Padding {
+                left: 1,
+                right: 1,
+                top: 1,
+                bottom: 0,
+            });
+        let inner_area = menu_block.inner(overlay_area);
+        frame.render_widget(menu_block, overlay_area);
+
+        let search_bar_height = 1u16;
+        let spacer_height = 1u16;
+        let rows = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(search_bar_height),
+                Constraint::Length(spacer_height),
+                Constraint::Min(0),
+            ])
+            .split(inner_area);
+
+        let search_bar_area = rows[0];
+        let items_area = rows[2];
+
+        render_search_bar(frame, search_bar_area, theme, menu);
 
         let items_area_height = items_area.height as usize;
         let mut scroll_offset = current_menu.scroll_offset;
@@ -77,28 +89,61 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
                 .take(items_area_height)
             {
                 let is_selected = idx == current_index;
-                let mut style = Style::default().fg(theme.fg());
-
-                if is_selected {
-                    style = style.add_modifier(Modifier::REVERSED);
-                }
-
-                if item.is_disabled {
-                    style = style.add_modifier(Modifier::DIM);
-                }
+                let base_style = Style::default().fg(theme.fg());
 
                 let label = item.get_description();
                 let spans = if let Some(tag) = &item.tag {
+                    let tag_style = if is_selected {
+                        Style::default()
+                            .fg(theme.bg())
+                            .bg(theme.fg())
+                            .add_modifier(Modifier::DIM)
+                    } else {
+                        Style::default().fg(theme.fg()).add_modifier(Modifier::DIM)
+                    };
+
+                    let label_style = if is_selected {
+                        if item.is_disabled {
+                            base_style
+                                .fg(theme.bg())
+                                .bg(theme.fg())
+                                .add_modifier(Modifier::DIM)
+                        } else {
+                            base_style.fg(theme.bg()).bg(theme.fg())
+                        }
+                    } else if item.is_disabled {
+                        base_style.add_modifier(Modifier::DIM)
+                    } else {
+                        base_style
+                    };
+
+                    let space_style = if is_selected {
+                        Style::default().fg(theme.bg()).bg(theme.fg())
+                    } else {
+                        Style::default()
+                    };
+
                     vec![
-                        Span::styled(
-                            tag,
-                            Style::default().fg(theme.fg()).add_modifier(Modifier::DIM),
-                        ),
-                        Span::styled(" ", Style::default()),
-                        Span::styled(label, style),
+                        Span::styled(tag, tag_style),
+                        Span::styled(" ", space_style),
+                        Span::styled(label, label_style),
                     ]
                 } else {
-                    vec![Span::styled(label, style)]
+                    let label_style = if is_selected {
+                        if item.is_disabled {
+                            base_style
+                                .fg(theme.bg())
+                                .bg(theme.fg())
+                                .add_modifier(Modifier::DIM)
+                        } else {
+                            base_style.fg(theme.bg()).bg(theme.fg())
+                        }
+                    } else if item.is_disabled {
+                        base_style.add_modifier(Modifier::DIM)
+                    } else {
+                        base_style
+                    };
+                    vec![Span::styled(label, label_style)]
                 };
 
                 lines.push(Line::from(spans));
@@ -114,80 +159,49 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
     }
 }
 
-fn render_search_bar(
-    frame: &mut Frame,
-    search_bar_area: Rect,
-    area: Rect,
-    theme: &Theme,
-    menu: &crate::menu::Menu,
-) {
-    let bar_height = 3u16;
-    let bar_area = Rect {
-        x: search_bar_area.x,
-        y: search_bar_area.y,
-        width: search_bar_area.width,
-        height: bar_height,
-    };
+fn render_search_bar(frame: &mut Frame, area: Rect, theme: &Theme, menu: &Menu) {
+    let sections = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(75), Constraint::Percentage(25)])
+        .split(area);
 
-    if bar_area.y + bar_area.height <= area.y + area.height {
-        frame.render_widget(Clear, bar_area);
-        let border_block = Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-            .style(Style::default().bg(theme.bg()))
-            .padding(Padding {
-                left: 1,
-                right: 1,
-                top: 0,
-                bottom: 0,
-            });
-        let inner = border_block.inner(bar_area);
-        frame.render_widget(border_block, bar_area);
+    let left_area = sections[0];
+    let right_area = sections[1];
 
-        let sections = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(75), Constraint::Percentage(25)])
-            .split(inner);
+    let dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
 
-        let left_area = sections[0];
-        let right_area = sections[1];
+    if menu.is_searching() {
+        let highlight_style = Style::default().fg(theme.fg());
+        let left = Paragraph::new(vec![Line::from(vec![
+            Span::styled(">", highlight_style),
+            Span::styled(format!(" {}", menu.search_query()), dim_style),
+        ])]);
+        frame.render_widget(left, left_area);
 
-        let dim_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
-
-        if menu.is_searching() {
-            let highlight_style = Style::default().fg(theme.fg());
-            let left = Paragraph::new(vec![Line::from(vec![
-                Span::styled(">", highlight_style),
-                Span::styled(format!(" {}", menu.search_query()), dim_style),
-            ])]);
-            frame.render_widget(left, left_area);
-
-            let base_offset: u16 = 2; // "> "
-            let qlen = menu.search_query().chars().count() as u16;
-            let mut x = left_area.x + base_offset + qlen;
-            if x >= left_area.x + left_area.width.saturating_sub(1) {
-                x = left_area.x + left_area.width.saturating_sub(2);
-            }
-            let y = left_area.y;
-            frame.set_cursor_position(Position { x, y });
-        } else {
-            let left = Paragraph::new("> ")
-                .style(dim_style)
-                .alignment(Alignment::Left);
-            frame.render_widget(left, left_area);
+        let base_offset: u16 = 2; // "> "
+        let qlen = menu.search_query().chars().count() as u16;
+        let mut x = left_area.x + base_offset + qlen;
+        if x >= left_area.x + left_area.width.saturating_sub(1) {
+            x = left_area.x + left_area.width.saturating_sub(2);
         }
-
-        let (m, n) = if let Some(current_menu) = menu.current_menu() {
-            let filtered_count = menu.current_items().len();
-            let total_count = current_menu.len();
-            (filtered_count, total_count)
-        } else {
-            (0, 0)
-        };
-        let right = Paragraph::new(format!("{}/{}", m, n))
+        let y = left_area.y;
+        frame.set_cursor_position(Position { x, y });
+    } else {
+        let left = Paragraph::new("> ")
             .style(dim_style)
-            .alignment(Alignment::Right);
-        frame.render_widget(right, right_area);
+            .alignment(Alignment::Left);
+        frame.render_widget(left, left_area);
     }
+
+    let (m, n) = if let Some(current_menu) = menu.current_menu() {
+        let filtered_count = menu.current_items().len();
+        let total_count = current_menu.len();
+        (filtered_count, total_count)
+    } else {
+        (0, 0)
+    };
+    let right = Paragraph::new(format!("{}/{}", m, n))
+        .style(dim_style)
+        .alignment(Alignment::Right);
+    frame.render_widget(right, right_area);
 }
