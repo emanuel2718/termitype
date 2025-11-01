@@ -88,6 +88,7 @@ fn build_global_keymap() -> KeyMap {
     log_debug!("building the global keymap");
     KeyMap::new()
         .bind_with_mod(CTRL, KeyCode::Char(' '), Action::MenuToggle)
+        .bind_with_mod(CTRL, KeyCode::Char('o'), Action::CommandPaletteToggle)
         .bind_with_mod(CTRL, KeyCode::Char('l'), Action::LeaderboardToggle)
         .bind_with_mod(CTRL, KeyCode::Char('t'), Action::RandomizeTheme)
         .bind_with_mod(CTRL, KeyCode::Char('c'), Action::Quit)

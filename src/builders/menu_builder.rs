@@ -86,6 +86,13 @@ impl MenuBuilder {
         self
     }
 
+    pub fn tag<S: Into<String>>(mut self, tag: S) -> Self {
+        if let Some(item) = self.items.last_mut() {
+            item.tag = Some(tag.into())
+        }
+        self
+    }
+
     pub fn disabled(mut self, disabled: bool) -> Self {
         if let Some(item) = self.items.last_mut() {
             item.is_disabled = disabled
@@ -136,22 +143,22 @@ fn build_root_menu() -> MenuContent {
         .submenu("Ascii Art", MenuContext::Ascii).shortcut('a').description("View ASCII Arts")
         .submenu("Lines", MenuContext::VisibleLines).shortcut('n').description("Visible Lines")
         .submenu("Cursor", MenuContext::Cursor).shortcut('c').description("Available Cursors")
-        .action("Leaderboard", Action::LeaderboardOpen).shortcut('l').description("Show Local Leaderboard")
+        .action("Leaderboard", Action::LeaderboardOpen).shortcut('l').description("Open Leaderboard").tag("leaderboard")
         .submenu("About", MenuContext::About).shortcut('A').description("About termitype")
-        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)).shortcut('Q')
+        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)).description("Exit termitype").tag("exit").shortcut('Q')
         .build()
 }
 
 #[rustfmt::skip]
 fn build_options_menu() -> MenuContent {
     MenuBuilder::new("Options", MenuContext::Options)
-        .action("Use symbols", Action::Toggle(Setting::Symbols)).shortcut('s').description("Include symbols in the generated test (@, #, etc)")
-        .action("Use numbers", Action::Toggle(Setting::Numbers)).shortcut('n').description("Include numbers in the generated test")
-        .action("Use punctuation", Action::Toggle(Setting::Punctuation)).shortcut('p').description("Include punctuation in the generated test (!, ?, etc)")
-        .action("Show live WPM", Action::Toggle(Setting::LiveWPM)).shortcut('w').description("Show the live word per minutes during the test")
-        .action("Show notifications", Action::Toggle(Setting::ShowNotifications)).shortcut('N').description("Show notifications")
-        .action("Show hostname (Neofetch results)", Action::Toggle(Setting::ShowHostname)).shortcut('h').description("Show hostname (Neofetch results)")
-        .action("Track results", Action::Toggle(Setting::TrackResults)).shortcut('t').description("Locally track test results")
+        .action("Use symbols", Action::Toggle(Setting::Symbols)).shortcut('s').description("Symbols").tag("option")
+        .action("Use numbers", Action::Toggle(Setting::Numbers)).shortcut('n').description("Numbers").tag("option")
+        .action("Use punctuation", Action::Toggle(Setting::Punctuation)).shortcut('p').description("Punctuation").tag("option")
+        .action("Show live WPM", Action::Toggle(Setting::LiveWPM)).shortcut('w').description("Live WPM").tag("option")
+        .action("Show notifications", Action::Toggle(Setting::ShowNotifications)).shortcut('N').description("Notifications").tag("option")
+        .action("Show hostname (Neofetch results)", Action::Toggle(Setting::ShowHostname)).shortcut('h').description("Hostname (neofetch)").tag("option")
+        .action("Track results", Action::Toggle(Setting::TrackResults)).shortcut('t').description("Track results").tag("option")
         .build()
 }
 
@@ -162,6 +169,8 @@ fn build_themes_menu() -> MenuContent {
         builder = builder
             .action(name, Action::SetTheme(name.clone()))
             .preivew()
+            .description(name)
+            .tag("theme")
             .add_visualizer(MenuVisualizer::ThemeVisualizer)
             .close_on_select();
     }
@@ -174,31 +183,25 @@ fn build_themes_menu() -> MenuContent {
     menu
 }
 
+#[rustfmt::skip]
 fn build_time_menu() -> MenuContent {
-    // NOTE(ema):  for some reason I prefer the manual version of this (i.e `build_words_menu`)
-    const DEFAULT_TIME_DURATION_LIST: [u16; 4] = [15, 30, 60, 120];
-    let mut builder = MenuBuilder::new("Select Time", MenuContext::Time);
-    for &duration in &DEFAULT_TIME_DURATION_LIST {
-        builder = builder
-            .action(duration.to_string(), Action::SetTime(duration))
-            .close_on_select();
-    }
-
-    builder = builder
-        .action("Custom", Action::ModalOpen(ModalContext::CustomTime))
-        .shortcut('c');
-
-    builder.build()
+    MenuBuilder::new("Select Time", MenuContext::Time)
+        .action("15", Action::SetTime(15)).description("15 seconds").tag("time").close_on_select()
+        .action("30", Action::SetTime(30)).description("30 seconds").tag("time").close_on_select()
+        .action("60", Action::SetTime(60)).description("60 seconds").tag("time").close_on_select()
+        .action("120", Action::SetTime(120)).description("120 seconds").tag("time").close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomTime)).shortcut('c').description("Custom time").tag("time")
+        .build()
 }
 
 #[rustfmt::skip]
 fn build_words_menu() -> MenuContent {
     MenuBuilder::new("Select Words", MenuContext::Words)
-        .action("10", Action::SetWords(10)).close_on_select()
-        .action("25", Action::SetWords(25)).close_on_select()
-        .action("50", Action::SetWords(50)).close_on_select()
-        .action("100", Action::SetWords(100)).close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount)).shortcut('c')
+        .action("10", Action::SetWords(10)).description("10 words").tag("words").close_on_select()
+        .action("25", Action::SetWords(25)).description("25 words").tag("words").close_on_select()
+        .action("50", Action::SetWords(50)).description("50 words").tag("words").close_on_select()
+        .action("100", Action::SetWords(100)).description("100 words").tag("words").close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount)).shortcut('c').description("Custom word count").tag("words")
         .build()
 }
 
@@ -209,6 +212,8 @@ fn build_language_menu(config: &Config) -> MenuContent {
     for lang in languages {
         builder = builder
             .action(lang.clone(), Action::SetLanguage(lang.clone()))
+            .description(lang)
+            .tag("language")
             .close_on_select();
     }
     let mut menu = builder.build();
@@ -233,6 +238,8 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
         builder = builder
             .action(variant.label(), Action::SetCursorVariant(variant))
             .preivew()
+            .description(variant.label())
+            .tag("cursor")
             .close_on_select();
     }
 
@@ -249,12 +256,12 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
 #[rustfmt::skip]
 fn build_visible_lines_menu(config: &Config) -> MenuContent {
     let builder = MenuBuilder::new("Select Line Count", MenuContext::VisibleLines)
-        .action("1", Action::SetLineCount(1)).shortcut('1').close_on_select()
-        .action("2", Action::SetLineCount(2)).shortcut('2').close_on_select()
-        .action("3", Action::SetLineCount(3)).shortcut('3').close_on_select()
-        .action("4", Action::SetLineCount(4)).shortcut('4').close_on_select()
-        .action("5", Action::SetLineCount(5)).shortcut('5').close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)).shortcut('c');
+        .action("1", Action::SetLineCount(1)).shortcut('1').description("1 visible lines").tag("line count").close_on_select()
+        .action("2", Action::SetLineCount(2)).shortcut('2').description("2 visible lines").tag("line count").close_on_select()
+        .action("3", Action::SetLineCount(3)).shortcut('3').description("3 visible lines").tag("line count").close_on_select()
+        .action("4", Action::SetLineCount(4)).shortcut('4').description("4 visible lines").tag("line count").close_on_select()
+        .action("5", Action::SetLineCount(5)).shortcut('5').description("5 visible lines").tag("line count").close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)).shortcut('c').description("Custom line count").tag("line count");
 
     let mut menu = builder.build();
     let current_line_count = config.current_line_count();
@@ -272,6 +279,8 @@ fn build_ascii_menu(config: &Config) -> MenuContent {
     for name in &arts {
         builder = builder
             .action(name.clone(), Action::SetAsciiArt(name.to_string()))
+            .description(name)
+            .tag("ascii")
             .preivew()
             .close_on_select();
     }
@@ -303,8 +312,12 @@ fn build_about_menu() -> MenuContent {
         .info("License", env!("CARGO_PKG_LICENSE"))
         .info("Description", "TUI typing game")
         .info("Source", "https://github.com/emanuel2718/termitype")
+        .description("Show about")
+        .tag("about")
         .build()
 }
+
+fn build_cmd_palette(config: &Config) -> MenuContent {}
 
 #[cfg(test)]
 mod tests {
