@@ -336,15 +336,16 @@ fn build_about_menu(_config: &Config) -> MenuContent {
 }
 
 fn build_cmd_palette(config: &Config) -> MenuContent {
+    // NOTE: order matters here, we want the same order as `build_root_menu`
     let menu_builders_fns = [
-        build_cmd_palette_options_menu,
-        build_themes_menu,
         build_time_menu,
         build_words_menu,
         build_language_menu,
-        build_cursor_menu,
-        build_visible_lines_menu,
+        build_cmd_palette_options_menu,
+        build_themes_menu,
         build_ascii_menu,
+        build_visible_lines_menu,
+        build_cursor_menu,
         build_leaderboard_menu,
     ];
 
