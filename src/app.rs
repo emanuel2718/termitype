@@ -360,6 +360,13 @@ impl App {
     }
 
     pub fn handle_menu_exit_search(&mut self) -> Result<(), AppError> {
+        // if we are in command palette we should close the whole menu
+        if let Some(menu) = self.menu.current_menu() {
+            if menu.is_cmd_palette {
+                return self.handle_menu_close();
+            }
+        }
+        // we are in the normal menu, just exit search and enter normal mode
         self.menu.exit_search();
         Ok(())
     }
@@ -686,5 +693,39 @@ impl App {
             let _ = tracker.type_char(c);
         }
         tracker.complete();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    #[test]
+    fn test_command_palette_pause_resume() {
+        let config = Config::default();
+        let mut app = App::new(&config);
+        app.config
+            .change_mode(crate::config::Mode::with_words(2))
+            .unwrap();
+
+        app.handle_input('a').unwrap();
+        app.handle_input('n').unwrap();
+        app.handle_input('o').unwrap();
+        app.handle_input('t').unwrap();
+        app.handle_input('h').unwrap();
+        app.handle_input('e').unwrap();
+        app.handle_input('r').unwrap();
+
+        app.handle_command_palette_toggle().unwrap();
+        app.handle_menu_update_search("s".to_string()).unwrap();
+        assert!(app.tracker.is_paused());
+
+        // if we are in the command palette we can close by hitting `Esc`,
+        // and hitting `Esc` while searching a menu will trigger `Action::MenuExitSearch`
+        app.handle_menu_exit_search().unwrap();
+        assert!(app.tracker.is_resuming());
+
+        app.handle_input(' ').unwrap();
     }
 }
