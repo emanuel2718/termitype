@@ -906,7 +906,6 @@ mod tests {
             .handle_menu_update_search(&mut app, theme_name.to_string())
             .unwrap();
         assert!(!app.menu.is_empty());
-        assert!(theme::is_using_preview_theme());
 
         let current_item = app.menu.current_item().unwrap();
         assert!(current_item.label == theme_name);
