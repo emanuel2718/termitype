@@ -524,7 +524,8 @@ impl Menu {
             let action = item.action.clone();
             match action {
                 MenuAction::Action(act) => {
-                    if item.close_on_select {
+                    let is_cmd_palette = self.stack.last().is_some_and(|m| m.is_cmd_palette);
+                    if item.close_on_select || is_cmd_palette {
                         self.close()?;
                     }
                     return Ok(Some(act));
@@ -543,6 +544,7 @@ mod tests {
     use crate::{
         actions::Action,
         app::App,
+        config::Setting,
         theme::{self},
     };
 
@@ -952,6 +954,57 @@ mod tests {
         menu.backspace_search();
         assert!(menu.is_searching()); // backspace should *not* take us out of search mode
         assert!(menu.search_query().is_empty());
-        // assert_eq!(app.menu.search_query(), "t");
+    }
+
+    #[test]
+    fn test_keep_menu_open_when_selecting_item_without_close_on_select() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Options, &config).unwrap();
+        assert!(menu.is_open());
+        assert!(!menu.current_items().is_empty());
+        let current_item = menu.current_item().unwrap();
+
+        assert!(!current_item.close_on_select);
+
+        menu.select(&config).unwrap();
+
+        assert!(menu.is_open());
+    }
+
+    #[test]
+    fn test_close_after_selection_with_close_on_select() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Themes, &config).unwrap();
+        assert!(menu.is_open());
+        assert!(!menu.current_items().is_empty());
+        let current_item = menu.current_item().unwrap();
+
+        assert!(current_item.close_on_select);
+
+        menu.select(&config).unwrap();
+
+        assert!(!menu.is_open());
+    }
+
+    #[test]
+    fn test_close_after_cmd_selection_in_command_palette() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::CommandPalette, &config).unwrap();
+        menu.update_search("Enable symbols".to_string());
+        assert!(menu.is_open());
+        assert_eq!(menu.current_items().len(), 1);
+        let current_item = menu.current_item().unwrap();
+        let target_action = MenuAction::Action(Action::Enable(Setting::Symbols));
+
+        assert_eq!(current_item.action, target_action);
+        assert!(!current_item.close_on_select);
+
+        // on command palette we ALWAYS want to close the palette after selection no matter what
+        menu.select(&config).unwrap();
+
+        assert!(!menu.is_open());
     }
 }
