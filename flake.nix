@@ -26,9 +26,9 @@
 
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "termitype";
-          version = "0.0.8";
+          version = "0.0.9";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
         };
       });
-} 
+}
