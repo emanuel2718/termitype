@@ -88,18 +88,10 @@ pub fn render_menu_bottom_bar(
         }
 
         // right <m>/<N>
-        let (m, n) = if let Some(current_menu) = menu.current_menu() {
+        let (m, n) = if menu.current_menu().is_some() {
             let items = menu.current_items();
             let n = items.len();
-            let current_index = if menu.has_search_query() {
-                if let Some(curr) = current_menu.current_item() {
-                    items.iter().position(|&item| item == curr).unwrap_or(0)
-                } else {
-                    0
-                }
-            } else {
-                current_menu.current_index()
-            };
+            let current_index = menu.current_index().unwrap_or(0);
             (current_index.saturating_add(1), n)
         } else {
             (0, 0)

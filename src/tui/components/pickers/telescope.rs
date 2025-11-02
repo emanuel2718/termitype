@@ -192,15 +192,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
             let no_items_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
             lines.push(Line::from(Span::styled("No items found", no_items_style)));
         } else {
-            let current_index = if menu.has_search_query() {
-                if let Some(curr) = current_menu.current_item() {
-                    items.iter().position(|&item| item == curr).unwrap_or(0)
-                } else {
-                    0
-                }
-            } else {
-                current_menu.current_index()
-            };
+            let current_index = menu.current_index().unwrap_or(0);
 
             // ensure the current index is visible
             if current_index < scroll_offset {

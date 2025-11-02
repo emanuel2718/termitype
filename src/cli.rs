@@ -92,9 +92,9 @@ pub struct Cli {
     #[arg(long = "hide-hostname")]
     pub hide_hostname: bool,
 
-    /// Do not locally track tests results
-    #[arg(long = "no-track")]
-    pub no_track: bool,
+    /// Do not save tests results
+    #[arg(long = "no-save")]
+    pub no_save: bool,
 
     /// Resets everything back to default state
     #[arg(long = "reset")]

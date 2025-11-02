@@ -23,7 +23,7 @@ pub enum Setting {
     LiveWPM,
     ShowNotifications,
     ShowHostname,
-    TrackResults,
+    SaveResults,
 }
 
 impl Setting {
@@ -223,7 +223,7 @@ pub struct ConfigState {
     #[serde(default)]
     pub hide_hostname: bool,
     #[serde(default)]
-    pub no_track: bool,
+    pub no_save: bool,
 }
 
 impl Default for ConfigState {
@@ -244,7 +244,7 @@ impl Default for ConfigState {
             hide_live_wpm: false,
             hide_notifications: false,
             hide_hostname: true,
-            no_track: false,
+            no_save: false,
         }
     }
 }
@@ -361,8 +361,8 @@ impl Config {
             self.state.hide_hostname = true;
         }
 
-        if cli.no_track {
-            self.state.no_track = true;
+        if cli.no_save {
+            self.state.no_save = true;
         }
 
         self.state.lines = cli.visible_lines;
@@ -466,8 +466,8 @@ impl Config {
         self.state.hide_hostname
     }
 
-    pub fn can_track_results(&self) -> bool {
-        !self.state.no_track
+    pub fn can_save_results(&self) -> bool {
+        !self.state.no_save
     }
 
     pub fn is_enabled(&self, setting: Setting) -> bool {
@@ -478,7 +478,7 @@ impl Config {
             Setting::LiveWPM => !self.state.hide_live_wpm,
             Setting::ShowNotifications => !self.state.hide_notifications,
             Setting::ShowHostname => !self.state.hide_hostname,
-            Setting::TrackResults => !self.state.no_track,
+            Setting::SaveResults => !self.state.no_save,
         }
     }
 
@@ -491,7 +491,7 @@ impl Config {
             Setting::LiveWPM => self.state.hide_live_wpm = !self.state.hide_live_wpm,
             Setting::ShowNotifications => self.state.hide_notifications = !self.state.hide_notifications,
             Setting::ShowHostname => self.state.hide_hostname = !self.state.hide_hostname,
-            Setting::TrackResults => self.state.no_track = !self.state.no_track,
+            Setting::SaveResults => self.state.no_save = !self.state.no_save,
         };
         Ok(())
     }
@@ -553,10 +553,10 @@ mod tests {
         config.toggle(&Setting::Punctuation).unwrap();
         assert!(config.is_enabled(Setting::Punctuation));
 
-        assert!(!config.state.no_track);
-        assert!(config.can_track_results());
-        config.toggle(&Setting::TrackResults).unwrap();
-        assert!(!config.can_track_results());
+        assert!(!config.state.no_save);
+        assert!(config.can_save_results());
+        config.toggle(&Setting::SaveResults).unwrap();
+        assert!(!config.can_save_results());
 
         assert!(!config.state.hide_live_wpm);
         assert!(!config.should_hide_live_wpm());
@@ -671,6 +671,6 @@ mod tests {
         assert!(!Setting::LiveWPM.should_trigger_restart());
         assert!(!Setting::ShowNotifications.should_trigger_restart());
         assert!(!Setting::ShowHostname.should_trigger_restart());
-        assert!(!Setting::TrackResults.should_trigger_restart());
+        assert!(!Setting::SaveResults.should_trigger_restart());
     }
 }

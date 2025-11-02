@@ -121,7 +121,6 @@ impl App {
             Self::force_show_results_screen(&mut tracker);
         }
 
-        // TODO: add support for `--no-track`
         let db = match Db::new(db_file()) {
             Ok(db) => Some(db),
             Err(err) => {
@@ -197,9 +196,9 @@ impl App {
     }
 
     pub fn try_save_results(&mut self) {
-        if !self.config.can_track_results() {
-            // QUESTION: should we notify here that we are not storing the results due to the option of `no_track`?
-            log_info!("DB: not saving test result to database due to `--no-track` flag");
+        if !self.config.can_save_results() {
+            // QUESTION: should we notify here that we are not storing the results due to the option of `no_save`?
+            log_info!("DB: Not saving test result to local database due to `--no-save` flag");
             return;
         }
 

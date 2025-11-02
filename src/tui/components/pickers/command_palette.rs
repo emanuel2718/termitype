@@ -66,15 +66,7 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
             let no_items_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
             lines.push(Line::from(Span::styled("No items found", no_items_style)));
         } else {
-            let current_index = if menu.has_search_query() {
-                if let Some(curr) = current_menu.current_item() {
-                    items.iter().position(|&item| item == curr).unwrap_or(0)
-                } else {
-                    0
-                }
-            } else {
-                current_menu.current_index()
-            };
+            let current_index = menu.current_index().unwrap_or(0);
 
             if current_index < scroll_offset {
                 scroll_offset = current_index;
@@ -186,14 +178,15 @@ fn render_search_bar(frame: &mut Frame, area: Rect, theme: &Theme, menu: &Menu) 
     }
     let y = left_area.y;
     frame.set_cursor_position(Position { x, y });
-    let (m, n) = if let Some(current_menu) = menu.current_menu() {
-        let filtered_count = menu.current_items().len();
-        let total_count = current_menu.len();
-        (filtered_count, total_count)
+    let (m, n) = if menu.current_menu().is_some() {
+        let items = menu.current_items();
+        let n = items.len();
+        let current_index = menu.current_index().unwrap_or(0);
+        (current_index.saturating_add(1), n)
     } else {
         (0, 0)
     };
-    let right = Paragraph::new(format!("{}/{}", m, n))
+    let right = Paragraph::new(format!("{}/{}", if n == 0 { 0 } else { m }, n))
         .style(dim_style)
         .alignment(Alignment::Right);
     frame.render_widget(right, right_area);

@@ -159,7 +159,7 @@ fn build_options_menu(_config: &Config) -> MenuContent {
         .action("Show live WPM", Action::Toggle(Setting::LiveWPM)).shortcut('w').description("Live WPM").tag("option")
         .action("Show notifications", Action::Toggle(Setting::ShowNotifications)).shortcut('N').description("Notifications").tag("option")
         .action("Show hostname (Neofetch results)", Action::Toggle(Setting::ShowHostname)).shortcut('h').description("Hostname (neofetch)").tag("option")
-        .action("Track results", Action::Toggle(Setting::TrackResults)).shortcut('t').description("Track results").tag("option")
+        .action("Save results", Action::Toggle(Setting::SaveResults)).shortcut('r').description("Save Results").tag("option")
         .build()
 }
 
@@ -178,8 +178,8 @@ fn build_cmd_palette_options_menu(_config: &Config) -> MenuContent {
         .action("Disable Notifications", Action::Disable(Setting::ShowNotifications)).description("Disable Notifications").tag("option")
         .action("Show Hostname", Action::Enable(Setting::ShowHostname)).description("Show Hostname").tag("option")
         .action("Hide Hostname", Action::Disable(Setting::ShowHostname)).description("Hide Hostname").tag("option")
-        .action("Enable Result Tracking", Action::Enable(Setting::TrackResults)).description("Enable Result Tracking").tag("option")
-        .action("Disable Result Tracking", Action::Disable(Setting::TrackResults)).description("Disable Result Tracking").tag("option")
+        .action("Enable Result Saving", Action::Enable(Setting::SaveResults)).description("Enable Result Saving").tag("option")
+        .action("Disable Result Saving", Action::Disable(Setting::SaveResults)).description("Disable Result Saving").tag("option")
         .build()
 }
 
