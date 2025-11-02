@@ -18,7 +18,7 @@ use crate::{
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
 use crossterm::execute;
-use ratatui::{prelude::Backend, Terminal};
+use ratatui::{Terminal, prelude::Backend};
 use std::io::stdout;
 use std::time::Duration;
 
