@@ -131,6 +131,7 @@ fn build_menu_base_keymap() -> KeyMap {
         // .bind(KeyCode::Char('l'), Action::MenuSelect)
         // .bind(KeyCode::Char('h'), Action::MenuGoBack)
         .bind(KeyCode::Char('/'), Action::MenuInitSearch)
+        .bind_with_mod(CTRL, KeyCode::Char('y'), Action::MenuSelect)
         .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
         .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
 }
@@ -142,6 +143,7 @@ fn build_menu_search_keymap() -> KeyMap {
         .bind(KeyCode::Backspace, Action::MenuBackspaceSearch)
         .bind(KeyCode::Up, Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Down, Action::MenuNav(MenuMotion::Down))
+        .bind_with_mod(CTRL, KeyCode::Char('y'), Action::MenuSelect)
         .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
         .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
 }
