@@ -842,11 +842,11 @@ mod tests {
             "Fallback".to_string()
         );
 
-        app.handle_menu_open(MenuContext::Themes).unwrap();
+        app.handler.handle_menu_open(&mut app, MenuContext::Themes).unwrap();
         assert!(app.menu.is_open());
         assert!(!app.menu.is_empty());
-        app.handle_menu_init_search().unwrap();
-        app.handle_menu_update_search(theme_name.to_string())
+        app.handler.handle_menu_init_search(&mut app).unwrap();
+        app.handler.handle_menu_update_search(&mut app, theme_name.to_string())
             .unwrap();
         assert!(!app.menu.is_empty());
         assert!(theme::is_using_preview_theme());
