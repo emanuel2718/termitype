@@ -208,7 +208,18 @@ impl MenuContent {
                     };
                     let label_matches = fuzzy_match(&label_target.to_lowercase(), &query);
                     let tag_matches = fuzzy_match(&item.get_tag().to_lowercase(), &query);
-                    label_matches || tag_matches
+                    // in the cmd palette, mathc the full display text (`tag: description`)
+                    let full_display_matches = if self.is_cmd_palette {
+                        let full_display = if let Some(tag) = &item.tag {
+                            format!("{}: {}", tag, label_target)
+                        } else {
+                            label_target.clone()
+                        };
+                        fuzzy_match(&full_display.to_lowercase(), &query)
+                    } else {
+                        false
+                    };
+                    label_matches || tag_matches || full_display_matches
                 })
                 .collect()
         }
@@ -796,6 +807,33 @@ mod tests {
     }
 
     #[test]
+    fn test_menu_content_cmd_palette_full_display_matching() {
+        let mut theme_item = MenuItem::new("Monkeytype", MenuAction::Action(Action::NoOp));
+        theme_item.tag = Some("theme".to_string());
+        theme_item.description = Some("Monkeytype".to_string());
+
+        let mut option_item = MenuItem::new("Symbols", MenuAction::Action(Action::NoOp));
+        option_item.tag = Some("option".to_string());
+        option_item.description = Some("Enable Symbols".to_string());
+        option_item.description = Some("Disable Symbols".to_string());
+
+        let items = vec![theme_item, option_item];
+        let content = MenuContent::new("CP", MenuContext::CommandPalette, items, None, true);
+
+        // match tag
+        let filtered_theme = content.items("th");
+        assert_eq!(filtered_theme.len(), 1);
+
+        // match description
+        let filtered_monkey = content.items("Mnk");
+        assert_eq!(filtered_monkey.len(), 1);
+
+        // match full display `theme: Monkeytype`
+        let filtered_combo = content.items("thMonk");
+        assert_eq!(filtered_combo.len(), 1);
+    }
+
+    #[test]
     fn test_menu_content_nav_with_query() {
         let items = vec![
             MenuItem::new("termitype", MenuAction::Action(Action::NoOp)),
@@ -842,11 +880,14 @@ mod tests {
             "Fallback".to_string()
         );
 
-        app.handler.handle_menu_open(&mut app, MenuContext::Themes).unwrap();
+        app.handler
+            .handle_menu_open(&mut app, MenuContext::Themes)
+            .unwrap();
         assert!(app.menu.is_open());
         assert!(!app.menu.is_empty());
         app.handler.handle_menu_init_search(&mut app).unwrap();
-        app.handler.handle_menu_update_search(&mut app, theme_name.to_string())
+        app.handler
+            .handle_menu_update_search(&mut app, theme_name.to_string())
             .unwrap();
         assert!(!app.menu.is_empty());
         assert!(theme::is_using_preview_theme());
