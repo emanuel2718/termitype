@@ -99,7 +99,7 @@ impl MenuItem {
     }
 
     pub fn get_shortcut(&self) -> char {
-        self.shortcut.clone().unwrap_or_default()
+        self.shortcut.unwrap_or_default()
     }
 
     pub fn shortcut(mut self, shortcut: char) -> Self {
