@@ -409,6 +409,20 @@ impl Menu {
         self.current_menu()?.current_item()
     }
 
+    pub fn current_index(&self) -> Option<usize> {
+        let current_menu = self.current_menu()?;
+        if self.has_search_query() {
+            let items = self.current_items();
+            if let Some(curr) = current_menu.current_item() {
+                items.iter().position(|&item| item == curr).or(Some(0))
+            } else {
+                Some(0)
+            }
+        } else {
+            Some(current_menu.current_index())
+        }
+    }
+
     pub fn current_items(&self) -> Vec<&MenuItem> {
         self.current_menu()
             .map(|menu| menu.items(&self.search_query))
