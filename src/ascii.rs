@@ -36,7 +36,7 @@ fn get_art_by_linux_distro() -> &'static str {
                 "arch" if is_potentially_omarchy() => "Omarchy",
                 "arch" => "Arch Linux",
                 "manjaro" => "Manjaro Linux",
-                "ubuntu" => "Ubuntu",
+                "ubuntu" => "Ubuntu Linux",
                 "debian" => "Debian Linux",
                 "fedora" => "Fedora Linux",
                 "gentoo" => "Gentoo Linux",

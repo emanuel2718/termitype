@@ -1,6 +1,7 @@
 use crate::{app::App, theme::Theme, variants::PickerVariant};
 use ratatui::{Frame, layout::Rect};
 
+pub mod command_palette;
 pub mod search_bar;
 pub mod telescope;
 pub mod visualizer;
@@ -14,6 +15,16 @@ impl Picker {
         let max_height = MAX_MENU_HEIGHT.min(area.height.saturating_sub(6));
         let menu_height = max_height.saturating_sub(2); // borders
         app.menu.ui_height = menu_height as usize;
+
+        let is_cmd_palette = app
+            .menu
+            .current_menu()
+            .map(|m| m.is_cmd_palette)
+            .unwrap_or(false);
+
+        if is_cmd_palette {
+            return command_palette::render_command_palette(frame, app, theme, area);
+        }
 
         match variant {
             PickerVariant::Telescope => telescope::render_telescope_picker(frame, app, theme, area),

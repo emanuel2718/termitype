@@ -86,6 +86,13 @@ impl MenuBuilder {
         self
     }
 
+    pub fn tag<S: Into<String>>(mut self, tag: S) -> Self {
+        if let Some(item) = self.items.last_mut() {
+            item.tag = Some(tag.into())
+        }
+        self
+    }
+
     pub fn disabled(mut self, disabled: bool) -> Self {
         if let Some(item) = self.items.last_mut() {
             item.is_disabled = disabled
@@ -111,22 +118,23 @@ impl MenuBuilder {
 
 pub fn build_menu_from_context(ctx: MenuContext, config: &Config) -> MenuContent {
     match ctx {
-        MenuContext::Root => build_root_menu(),
-        MenuContext::Options => build_options_menu(),
-        MenuContext::Themes => build_themes_menu(),
-        MenuContext::Time => build_time_menu(),
-        MenuContext::Words => build_words_menu(),
+        MenuContext::Root => build_root_menu(config),
+        MenuContext::Options => build_options_menu(config),
+        MenuContext::Themes => build_themes_menu(config),
+        MenuContext::Time => build_time_menu(config),
+        MenuContext::Words => build_words_menu(config),
         MenuContext::Language => build_language_menu(config),
         MenuContext::Cursor => build_cursor_menu(config),
         MenuContext::VisibleLines => build_visible_lines_menu(config),
         MenuContext::Ascii => build_ascii_menu(config),
-        MenuContext::Leaderboard => build_leaderboard_menu(),
-        MenuContext::About => build_about_menu(),
+        MenuContext::Leaderboard => build_leaderboard_menu(config),
+        MenuContext::About => build_about_menu(config),
+        MenuContext::CommandPalette => build_cmd_palette(config),
     }
 }
 
 #[rustfmt::skip]
-fn build_root_menu() -> MenuContent {
+fn build_root_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("Main Menu", MenuContext::Root)
         .submenu("Time", MenuContext::Time).shortcut('t').description("Set test duration")
         .submenu("Words", MenuContext::Words).shortcut('w').description("Set word count")
@@ -136,32 +144,54 @@ fn build_root_menu() -> MenuContent {
         .submenu("Ascii Art", MenuContext::Ascii).shortcut('a').description("View ASCII Arts")
         .submenu("Lines", MenuContext::VisibleLines).shortcut('n').description("Visible Lines")
         .submenu("Cursor", MenuContext::Cursor).shortcut('c').description("Available Cursors")
-        .action("Leaderboard", Action::LeaderboardOpen).shortcut('l').description("Show Local Leaderboard")
+        .action("Leaderboard", Action::LeaderboardOpen).shortcut('l').description("Open Leaderboard").tag("leaderboard")
         .submenu("About", MenuContext::About).shortcut('A').description("About termitype")
-        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)).shortcut('Q')
+        .action("Exit", Action::ModalOpen(ModalContext::ExitConfirmation)).description("Exit termitype").tag("exit").shortcut('Q')
         .build()
 }
 
 #[rustfmt::skip]
-fn build_options_menu() -> MenuContent {
+fn build_options_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("Options", MenuContext::Options)
-        .action("Use symbols", Action::Toggle(Setting::Symbols)).shortcut('s').description("Include symbols in the generated test (@, #, etc)")
-        .action("Use numbers", Action::Toggle(Setting::Numbers)).shortcut('n').description("Include numbers in the generated test")
-        .action("Use punctuation", Action::Toggle(Setting::Punctuation)).shortcut('p').description("Include punctuation in the generated test (!, ?, etc)")
-        .action("Show live WPM", Action::Toggle(Setting::LiveWPM)).shortcut('w').description("Show the live word per minutes during the test")
-        .action("Show notifications", Action::Toggle(Setting::ShowNotifications)).shortcut('N').description("Show notifications")
-        .action("Show hostname (Neofetch results)", Action::Toggle(Setting::ShowHostname)).shortcut('h').description("Show hostname (Neofetch results)")
-        .action("Track results", Action::Toggle(Setting::TrackResults)).shortcut('t').description("Locally track test results")
+        .action("Use symbols", Action::Toggle(Setting::Symbols)).shortcut('s').description("Symbols").tag("option")
+        .action("Use numbers", Action::Toggle(Setting::Numbers)).shortcut('n').description("Numbers").tag("option")
+        .action("Use punctuation", Action::Toggle(Setting::Punctuation)).shortcut('p').description("Punctuation").tag("option")
+        .action("Show live WPM", Action::Toggle(Setting::LiveWPM)).shortcut('w').description("Live WPM").tag("option")
+        .action("Show notifications", Action::Toggle(Setting::ShowNotifications)).shortcut('N').description("Notifications").tag("option")
+        .action("Show hostname (Neofetch results)", Action::Toggle(Setting::ShowHostname)).shortcut('h').description("Hostname (neofetch)").tag("option")
+        .action("Track results", Action::Toggle(Setting::TrackResults)).shortcut('t').description("Track results").tag("option")
         .build()
 }
 
-fn build_themes_menu() -> MenuContent {
+#[rustfmt::skip]
+fn build_cmd_palette_options_menu(_config: &Config) -> MenuContent {
+    MenuBuilder::new("Options", MenuContext::Options)
+        .action("Enable Symbols", Action::Enable(Setting::Symbols)).description("Enable Symbols").tag("option")
+        .action("Disable Symbols", Action::Disable(Setting::Symbols)).description("Disable Symbols").tag("option")
+        .action("Enable Numbers", Action::Enable(Setting::Numbers)).description("Enable Numbers").tag("option")
+        .action("Disable Numbers", Action::Disable(Setting::Numbers)).description("Disable Numbers").tag("option")
+        .action("Enable Punctuation", Action::Enable(Setting::Punctuation)).description("Enable Punctuation").tag("option")
+        .action("Disable Punctuation", Action::Disable(Setting::Punctuation)).description("Disable Punctuation").tag("option")
+        .action("Enable Live WPM", Action::Enable(Setting::LiveWPM)).description("Enable Live WPM").tag("option")
+        .action("Disable Live WPM", Action::Disable(Setting::LiveWPM)).description("Disable Live WPM").tag("option")
+        .action("Enable Notifications", Action::Enable(Setting::ShowNotifications)).description("Enable Notifications").tag("option")
+        .action("Disable Notifications", Action::Disable(Setting::ShowNotifications)).description("Disable Notifications").tag("option")
+        .action("Show Hostname", Action::Enable(Setting::ShowHostname)).description("Show Hostname").tag("option")
+        .action("Hide Hostname", Action::Disable(Setting::ShowHostname)).description("Hide Hostname").tag("option")
+        .action("Enable Result Tracking", Action::Enable(Setting::TrackResults)).description("Enable Result Tracking").tag("option")
+        .action("Disable Result Tracking", Action::Disable(Setting::TrackResults)).description("Disable Result Tracking").tag("option")
+        .build()
+}
+
+fn build_themes_menu(_config: &Config) -> MenuContent {
     let themes = theme::available_themes();
     let mut builder = MenuBuilder::new("Select Theme", MenuContext::Themes);
     for name in &themes {
         builder = builder
             .action(name, Action::SetTheme(name.clone()))
             .preivew()
+            .description(name)
+            .tag("theme")
             .add_visualizer(MenuVisualizer::ThemeVisualizer)
             .close_on_select();
     }
@@ -174,31 +204,25 @@ fn build_themes_menu() -> MenuContent {
     menu
 }
 
-fn build_time_menu() -> MenuContent {
-    // NOTE(ema):  for some reason I prefer the manual version of this (i.e `build_words_menu`)
-    const DEFAULT_TIME_DURATION_LIST: [u16; 4] = [15, 30, 60, 120];
-    let mut builder = MenuBuilder::new("Select Time", MenuContext::Time);
-    for &duration in &DEFAULT_TIME_DURATION_LIST {
-        builder = builder
-            .action(duration.to_string(), Action::SetTime(duration))
-            .close_on_select();
-    }
-
-    builder = builder
-        .action("Custom", Action::ModalOpen(ModalContext::CustomTime))
-        .shortcut('c');
-
-    builder.build()
+#[rustfmt::skip]
+fn build_time_menu(_config: &Config) -> MenuContent {
+    MenuBuilder::new("Select Time", MenuContext::Time)
+        .action("15", Action::SetTime(15)).description("15 seconds").tag("time").close_on_select()
+        .action("30", Action::SetTime(30)).description("30 seconds").tag("time").close_on_select()
+        .action("60", Action::SetTime(60)).description("60 seconds").tag("time").close_on_select()
+        .action("120", Action::SetTime(120)).description("120 seconds").tag("time").close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomTime)).shortcut('c').description("Custom time").tag("time")
+        .build()
 }
 
 #[rustfmt::skip]
-fn build_words_menu() -> MenuContent {
+fn build_words_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("Select Words", MenuContext::Words)
-        .action("10", Action::SetWords(10)).close_on_select()
-        .action("25", Action::SetWords(25)).close_on_select()
-        .action("50", Action::SetWords(50)).close_on_select()
-        .action("100", Action::SetWords(100)).close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount)).shortcut('c')
+        .action("10", Action::SetWords(10)).description("10 words").tag("words").close_on_select()
+        .action("25", Action::SetWords(25)).description("25 words").tag("words").close_on_select()
+        .action("50", Action::SetWords(50)).description("50 words").tag("words").close_on_select()
+        .action("100", Action::SetWords(100)).description("100 words").tag("words").close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomWordCount)).shortcut('c').description("Custom word count").tag("words")
         .build()
 }
 
@@ -209,6 +233,8 @@ fn build_language_menu(config: &Config) -> MenuContent {
     for lang in languages {
         builder = builder
             .action(lang.clone(), Action::SetLanguage(lang.clone()))
+            .description(lang)
+            .tag("language")
             .close_on_select();
     }
     let mut menu = builder.build();
@@ -233,6 +259,8 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
         builder = builder
             .action(variant.label(), Action::SetCursorVariant(variant))
             .preivew()
+            .description(variant.label())
+            .tag("cursor")
             .close_on_select();
     }
 
@@ -249,12 +277,12 @@ fn build_cursor_menu(config: &Config) -> MenuContent {
 #[rustfmt::skip]
 fn build_visible_lines_menu(config: &Config) -> MenuContent {
     let builder = MenuBuilder::new("Select Line Count", MenuContext::VisibleLines)
-        .action("1", Action::SetLineCount(1)).shortcut('1').close_on_select()
-        .action("2", Action::SetLineCount(2)).shortcut('2').close_on_select()
-        .action("3", Action::SetLineCount(3)).shortcut('3').close_on_select()
-        .action("4", Action::SetLineCount(4)).shortcut('4').close_on_select()
-        .action("5", Action::SetLineCount(5)).shortcut('5').close_on_select()
-        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)).shortcut('c');
+        .action("1", Action::SetLineCount(1)).shortcut('1').description("1 visible lines").tag("line count").close_on_select()
+        .action("2", Action::SetLineCount(2)).shortcut('2').description("2 visible lines").tag("line count").close_on_select()
+        .action("3", Action::SetLineCount(3)).shortcut('3').description("3 visible lines").tag("line count").close_on_select()
+        .action("4", Action::SetLineCount(4)).shortcut('4').description("4 visible lines").tag("line count").close_on_select()
+        .action("5", Action::SetLineCount(5)).shortcut('5').description("5 visible lines").tag("line count").close_on_select()
+        .action("Custom", Action::ModalOpen(ModalContext::CustomLineCount)).shortcut('c').description("Custom line count").tag("line count");
 
     let mut menu = builder.build();
     let current_line_count = config.current_line_count();
@@ -272,6 +300,8 @@ fn build_ascii_menu(config: &Config) -> MenuContent {
     for name in &arts {
         builder = builder
             .action(name.clone(), Action::SetAsciiArt(name.to_string()))
+            .description(name)
+            .tag("ascii")
             .preivew()
             .close_on_select();
     }
@@ -283,19 +313,16 @@ fn build_ascii_menu(config: &Config) -> MenuContent {
     menu
 }
 
-fn build_leaderboard_menu() -> MenuContent {
-    // TODO: find a better way to handle this. In theory, this builder is never reached because
-    // the `Leaderboards` open directly through the overlay system based on the presence of
-    // `app::leaderboard` instance.
-
-    // unreachable!("we should not get here, since the leaderboard opens directly");
+fn build_leaderboard_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("Leaderboard", MenuContext::Leaderboard)
-        .informational()
-        .info("Status", "Opening leaderboard...")
+        .action("Leaderboard", Action::LeaderboardOpen)
+        .shortcut('l')
+        .tag("leaderboard")
+        .description("Open leaderboard")
         .build()
 }
 
-fn build_about_menu() -> MenuContent {
+fn build_about_menu(_config: &Config) -> MenuContent {
     MenuBuilder::new("About", MenuContext::About)
         .informational()
         .info("Name", "termitype")
@@ -303,7 +330,33 @@ fn build_about_menu() -> MenuContent {
         .info("License", env!("CARGO_PKG_LICENSE"))
         .info("Description", "TUI typing game")
         .info("Source", "https://github.com/emanuel2718/termitype")
+        .description("Show about")
+        .tag("about")
         .build()
+}
+
+fn build_cmd_palette(config: &Config) -> MenuContent {
+    // NOTE: order matters here, we want the same order as `build_root_menu`
+    let menu_builders_fns = [
+        build_time_menu,
+        build_words_menu,
+        build_language_menu,
+        build_cmd_palette_options_menu,
+        build_themes_menu,
+        build_ascii_menu,
+        build_visible_lines_menu,
+        build_cursor_menu,
+        build_leaderboard_menu,
+    ];
+
+    let mut builder = MenuBuilder::new("Command Palette", MenuContext::CommandPalette);
+
+    for builder_fn in menu_builders_fns {
+        let menu = builder_fn(config);
+        builder = builder.items(menu.items("").into_iter().cloned());
+    }
+
+    builder.build()
 }
 
 #[cfg(test)]
@@ -316,7 +369,7 @@ mod tests {
         let ctx = MenuContext::Root;
         let config = Config::default();
         let content_from_ctx = build_menu_from_context(ctx, &config);
-        let root_content = build_root_menu();
+        let root_content = build_root_menu(&config);
         assert_eq!(content_from_ctx.title, root_content.title);
         assert_eq!(content_from_ctx.ctx, root_content.ctx);
         assert_eq!(
@@ -346,7 +399,7 @@ mod tests {
     fn test_builder_item_action() {
         let builder = MenuBuilder::default().action("Quit", Action::Quit);
         let item = &builder.items[0];
-        assert_eq!(item.label(), "Quit");
+        assert_eq!(item.get_label(), "Quit");
         assert_eq!(item.action, MenuAction::Action(Action::Quit));
     }
 

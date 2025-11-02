@@ -1,24 +1,25 @@
 use crate::{
-    actions::{self},
-    ascii,
+    actions::{self, Action},
     builders::lexicon_builder::Lexicon,
-    config::{self, Config, Mode, Setting},
+    config::{Config, Mode},
     constants::db_file,
     db::Db,
     error::AppError,
+    handler::AppHandler,
     input::{Input, InputContext},
-    leaderboard::{Leaderboard, LeaderboardMotion, SortColumn},
-    log_debug, log_error, log_info, log_warn,
-    menu::{Menu, MenuContext, MenuMotion},
-    modal::{Modal, ModalContext},
+    leaderboard::Leaderboard,
+    log_debug, log_error, log_info,
+    menu::{Menu, MenuAction},
+    modal::Modal,
     notify_error, notify_info, theme,
     tracker::Tracker,
     tui,
-    variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
+use crossterm::execute;
 use ratatui::{Terminal, prelude::Backend};
+use std::io::stdout;
 use std::time::Duration;
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
@@ -101,6 +102,7 @@ pub struct App {
     pub menu: Menu,
     pub modal: Option<Modal>,
     pub leaderboard: Option<Leaderboard>,
+    pub handler: AppHandler,
     pub lexicon: Lexicon,
     pub tracker: Tracker,
     should_quit: bool,
@@ -135,6 +137,7 @@ impl App {
             menu: Menu::new(),
             modal: None,
             leaderboard: None,
+            handler: AppHandler,
             tracker,
             lexicon,
             should_quit: false,
@@ -227,381 +230,36 @@ impl App {
         }
     }
 
-    pub fn handle_input(&mut self, chr: char) -> Result<(), AppError> {
-        if self.tracker.is_complete() {
-            return Ok(());
-        }
-        match self.tracker.type_char(chr) {
-            Ok(()) => Ok(()),
-            Err(AppError::IllegalSpaceCharacter) => Ok(()),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn handle_change_theme(&mut self, theme_name: String) -> Result<(), AppError> {
-        theme::set_as_current_theme(&theme_name)?;
-        notify_info!(format!("Theme change: {theme_name}"));
-        Ok(())
-    }
-
-    pub fn handle_randomize_theme(&mut self) -> Result<(), AppError> {
-        theme::use_random_theme()?;
-        notify_info!(format!("Theme change: {}", theme::current_theme().id));
-        Ok(())
-    }
-
-    pub fn handle_toggle_setting(&mut self, setting: Setting) -> Result<(), AppError> {
-        self.config.toggle(&setting)?;
-        if setting.should_trigger_restart() {
-            self.restart()?;
-        }
-        Ok(())
-    }
-
-    pub fn handle_menu_open(&mut self, ctx: MenuContext) -> Result<(), AppError> {
-        self.menu.open(ctx, &self.config)?;
-        self.try_preview()?;
-        self.tracker.toggle_pause();
-        Ok(())
-    }
-
-    pub fn handle_menu_close(&mut self) -> Result<(), AppError> {
-        // TODO: this clearing of preview should be done cleanly
-        theme::cancel_theme_preview();
-        self.restore_cursor_style();
-        self.menu.close()?;
-        self.tracker.toggle_pause();
-        Ok(())
-    }
-
-    pub fn handle_menu_toggle(&mut self) -> Result<(), AppError> {
-        if self.menu.is_open() {
-            return self.handle_menu_close();
-        }
-        self.handle_menu_open(MenuContext::Root)
-    }
-
-    pub fn handle_menu_backtrack(&mut self) -> Result<(), AppError> {
-        // TODO: this clearing of preview should be done cleanly
-        theme::cancel_theme_preview();
-        self.menu.back()?;
-        if !self.menu.is_open() {
-            self.restore_cursor_style();
-            self.tracker.toggle_pause();
-        }
-        Ok(())
-    }
-
-    pub fn handle_menu_navigate(&mut self, motion: MenuMotion) -> Result<(), AppError> {
-        self.menu.navigate(motion);
-        self.try_preview()?;
-        Ok(())
-    }
-
-    pub fn handle_menu_shortcut(&mut self, shortcut: char) -> Result<(), AppError> {
-        if let Some(menu) = self.menu.current_menu_mut() {
-            if let Some((idx, _)) = menu.find_by_shortcut(shortcut) {
-                menu.set_current_index(idx);
-                return self.handle_menu_select();
-            }
-        }
-        Ok(())
-    }
-
-    pub fn handle_menu_select(&mut self) -> Result<(), AppError> {
-        if let Ok(Some(action)) = self.menu.select(&self.config) {
-            actions::handle_action(self, action)?;
-            // note: the action above could've been a menu closing action.
-            if !self.menu.is_open() {
-                theme::cancel_theme_preview();
-                self.restore_cursor_style();
-                self.tracker.toggle_pause();
-            }
-        }
-        Ok(())
-    }
-
-    pub fn handle_menu_exit_search(&mut self) -> Result<(), AppError> {
-        self.menu.exit_search();
-        Ok(())
-    }
-
-    pub fn handle_menu_backspace_search(&mut self) -> Result<(), AppError> {
-        self.menu.backspace_search();
-        // self.try_preview()?;
-        Ok(())
-    }
-
-    pub fn handle_menu_init_search(&mut self) -> Result<(), AppError> {
-        self.menu.init_search();
-        Ok(())
-    }
-
-    pub fn handle_menu_update_search(&mut self, query: String) -> Result<(), AppError> {
-        if query.is_empty() {
-            return Ok(()); // TODO: this is dumb
-        }
-        let current_query = self.menu.search_query().to_string();
-        let new_query = format!("{}{}", current_query, query);
-        self.menu.update_search(new_query);
-        self.try_preview()?;
-
-        Ok(())
-    }
-
-    pub fn handle_modal_open(&mut self, ctx: ModalContext) -> Result<(), AppError> {
-        self.modal = Some(Modal::new(ctx));
-        Ok(())
-    }
-
-    pub fn handle_modal_close(&mut self) -> Result<(), AppError> {
-        self.modal = None;
-        Ok(())
-    }
-
-    pub fn handle_modal_backspace(&mut self) -> Result<(), AppError> {
-        if let Some(modal) = self.modal.as_mut() {
-            modal.handle_backspace();
-        }
-        Ok(())
-    }
-
-    pub fn handle_modal_input(&mut self, chr: char) -> Result<(), AppError> {
-        if let Some(modal) = self.modal.as_mut() {
-            modal.handle_input(chr);
-        }
-        Ok(())
-    }
-
-    pub fn handle_modal_confirm(&mut self) -> Result<(), AppError> {
-        if let Some(modal) = self.modal.as_mut() {
-            // NOTE(ema): this would've been so clean, but unfortunately we don't know wich context
-            // we currently at in `keymap_builder`. To what we would need to map `Action::ModalConfirm` to?
-            // Maybe in the future i've grinded enough intellect xp to be able to tackle this
-            // actions::handle_action(self, action);
-
-            match modal.ctx {
-                ModalContext::CustomTime => {
-                    // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
-                    if let Ok(val) = modal.get_value() {
-                        if let Ok(secs) = val.parse::<usize>() {
-                            self.config.change_mode(Mode::with_time(secs))?;
-                            self.restart()?
-                        }
-                    }
-                }
-                ModalContext::CustomWordCount => {
-                    // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
-                    if let Ok(val) = modal.get_value() {
-                        if let Ok(count) = val.parse::<usize>() {
-                            self.config.change_mode(Mode::with_words(count))?;
-                            self.restart()?
-                        }
-                    }
-                }
-                ModalContext::CustomLineCount => {
-                    // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
-                    if let Ok(val) = modal.get_value() {
-                        if let Ok(count) = val.parse::<u8>() {
-                            self.config.change_visible_lines_count(count);
-                            self.restart()?
-                        }
-                    }
-                }
-                ModalContext::ExitConfirmation => self.quit()?,
-            }
-        }
-        self.handle_modal_close()?;
-        self.handle_menu_close()?;
-        Ok(())
-    }
-
-    pub fn handle_backspace(&mut self) -> Result<(), AppError> {
-        match self.tracker.backspace() {
-            Ok(()) => Ok(()),
-            Err(AppError::TypingTestNotInProgress) => Ok(()),
-            Err(AppError::IllegalBackspace) => Ok(()),
-            Err(AppError::IllegalSpaceCharacter) => Ok(()),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn handle_set_line_count(&mut self, line_count: u8) -> Result<(), AppError> {
-        self.config.change_visible_lines_count(line_count);
-        Ok(())
-    }
-
-    pub fn handle_set_cursor(&mut self, variant: CursorVariant) -> Result<(), AppError> {
-        self.config.change_cursor_variant(variant);
-        // self.restart()?;
-        Ok(())
-    }
-
-    pub fn handle_set_picker(&mut self, variant: PickerVariant) -> Result<(), AppError> {
-        self.config.change_picker_variant(variant);
-        Ok(())
-    }
-
-    pub fn handle_set_result(&mut self, variant: ResultsVariant) -> Result<(), AppError> {
-        self.config.change_results_variant(variant);
-        Ok(())
-    }
-
-    pub fn handle_set_time(&mut self, secs: usize) -> Result<(), AppError> {
-        self.config.change_mode(config::Mode::with_time(secs))?;
-        self.restart()?;
-        Ok(())
-    }
-
-    pub fn handle_set_words(&mut self, count: usize) -> Result<(), AppError> {
-        self.config.change_mode(config::Mode::with_words(count))?;
-        self.restart()?;
-        Ok(())
-    }
-
-    pub fn handle_set_language(&mut self, lang: String) -> Result<(), AppError> {
-        self.config.change_language(lang);
-        self.restart()?;
-        Ok(())
-    }
-
-    pub fn handle_set_ascii_art(&mut self, art: String) -> Result<(), AppError> {
-        // NOTE(ema): this feels a little bit to "side-effecty", but selecting an ascii art without
-        // having the `ResultsVariant::Neofetch` as the current variant feels pointless, so yeah.
-        if self.config.current_results_variant() != ResultsVariant::Neofetch {
-            self.config.change_results_variant(ResultsVariant::Neofetch);
-        }
-        self.config.change_ascii_art(art.clone());
-        notify_info!(format!("Art change: {art}"));
-        Ok(())
-    }
-
-    // TODO: refactor this two `handle_cycle` functions into a single one that receives
-    // either `Direction::Next` or `Direction::Prev`
-    pub fn handle_cycle_next_art(&mut self) -> Result<(), AppError> {
-        let current = self.config.current_ascii_art();
-        let list = ascii::list_ascii();
-        if let Some(idx) = list.iter().position(|a| a == &current) {
-            let next_idx = (idx + 1) % list.len();
-            let next_art = list[next_idx].clone();
-            self.config.change_ascii_art(next_art);
-        }
-        Ok(())
-    }
-
-    pub fn handle_cycle_prev_art(&mut self) -> Result<(), AppError> {
-        let current = self.config.current_ascii_art();
-        let list = ascii::list_ascii();
-        if let Some(idx) = list.iter().position(|a| a == &current) {
-            let prev_idx = if idx == 0 { list.len() - 1 } else { idx - 1 };
-            let prev_art = list[prev_idx].clone();
-            self.config.change_ascii_art(prev_art);
-        }
-        Ok(())
-    }
-
-    pub fn handle_leaderboard_open(&mut self) -> Result<(), AppError> {
-        let Some(ref db) = self.db else {
-            log_warn!("Tried opening the leaderboard without a db instance");
-            return Ok(());
-        };
-
-        if self.leaderboard.is_none() {
-            self.leaderboard = Some(Leaderboard::new());
-        }
-
-        if let Some(ref mut leaderboard) = self.leaderboard {
-            leaderboard.open(db);
-        }
-
-        Ok(())
-    }
-
-    pub fn handle_leaderboard_close(&mut self) -> Result<(), AppError> {
-        if let Some(ref mut leaderboard) = self.leaderboard {
-            leaderboard.close();
-            self.leaderboard = None;
-        }
-        Ok(())
-    }
-
-    pub fn handle_leaderboard_toggle(&mut self) -> Result<(), AppError> {
-        let Some(ref db) = self.db else {
-            log_warn!("Tried toggling the leaderboard without a db instance");
-            return Ok(());
-        };
-
-        // don't be opening wild leaderboard overlays if we have other overlays alreay opened.
-        if self.modal.is_some() || self.menu.is_open() {
-            return Ok(());
-        }
-
-        if self.leaderboard.is_some() {
-            self.leaderboard = None;
-        } else if self.leaderboard.is_none() {
-            self.leaderboard = Some(Leaderboard::new());
-        }
-
-        if let Some(ref mut leaderboard) = self.leaderboard {
-            leaderboard.toggle(db);
-        }
-
-        Ok(())
-    }
-
-    pub fn handle_leaderboard_sort(&mut self, col: SortColumn) -> Result<(), AppError> {
-        let Some(ref db) = self.db else {
-            return Ok(());
-        };
-
-        if let Some(ref mut leaderboard) = self.leaderboard {
-            leaderboard.sort(col, db);
-        }
-
-        Ok(())
-    }
-
-    pub fn handle_leaderboard_nav(&mut self, motion: LeaderboardMotion) -> Result<(), AppError> {
-        let Some(ref db) = self.db else {
-            return Ok(());
-        };
-
-        if let Some(ref mut leaderboard) = self.leaderboard {
-            leaderboard.navigate(db, motion);
-        }
-
-        Ok(())
-    }
-
     // TODO: do this cleanly
-    fn try_preview(&mut self) -> Result<(), AppError> {
-        if let Some(menu) = self.menu.current_menu() {
-            if let Some(item) = self.menu.current_item() {
-                if item.has_preview {
-                    match menu.ctx {
-                        MenuContext::Themes => theme::set_as_preview_theme(item.label().as_str()),
-                        MenuContext::Cursor => {
-                            use crate::actions::Action;
-                            use crate::menu::MenuAction;
-                            use crossterm::execute;
-                            use std::io::stdout;
+    pub(crate) fn try_preview(&mut self) -> Result<(), AppError> {
+        let is_theme_preview = self
+            .menu
+            .current_item()
+            .map(|item| {
+                item.has_preview && matches!(item.action, MenuAction::Action(Action::SetTheme(_)))
+            })
+            .unwrap_or(false);
 
-                            if let MenuAction::Action(Action::SetCursorVariant(variant)) =
-                                &item.action
-                            {
-                                let _ = execute!(stdout(), variant.to_crossterm());
-                            }
-                            Ok(())
-                        }
-                        _ => Ok(()),
-                    }?;
-                }
+        if !is_theme_preview {
+            theme::cancel_theme_preview();
+        }
+
+        if let Some(item) = self.menu.current_item() {
+            if item.has_preview {
+                match &item.action {
+                    MenuAction::Action(Action::SetTheme(name)) => theme::set_as_preview_theme(name),
+                    MenuAction::Action(Action::SetCursorVariant(variant)) => {
+                        let _ = execute!(stdout(), variant.to_crossterm());
+                        Ok(())
+                    }
+                    _ => Ok(()),
+                }?;
             }
-        };
+        }
         Ok(())
     }
 
-    fn restore_cursor_style(&self) {
+    pub(crate) fn restore_cursor_style(&self) {
         use crossterm::execute;
         use std::io::stdout;
 
@@ -658,5 +316,41 @@ impl App {
             let _ = tracker.type_char(c);
         }
         tracker.complete();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    #[test]
+    fn test_command_palette_pause_resume() {
+        let config = Config::default();
+        let mut app = App::new(&config);
+        app.config
+            .change_mode(crate::config::Mode::with_words(2))
+            .unwrap();
+
+        app.handler.handle_input(&mut app, 'a').unwrap();
+        app.handler.handle_input(&mut app, 'n').unwrap();
+        app.handler.handle_input(&mut app, 'o').unwrap();
+        app.handler.handle_input(&mut app, 't').unwrap();
+        app.handler.handle_input(&mut app, 'h').unwrap();
+        app.handler.handle_input(&mut app, 'e').unwrap();
+        app.handler.handle_input(&mut app, 'r').unwrap();
+
+        app.handler.handle_command_palette_toggle(&mut app).unwrap();
+        app.handler
+            .handle_menu_update_search(&mut app, "s".to_string())
+            .unwrap();
+        assert!(app.tracker.is_paused());
+
+        // if we are in the command palette we can close by hitting `Esc`,
+        // and hitting `Esc` while searching a menu will trigger `Action::MenuExitSearch`
+        app.handler.handle_menu_exit_search(&mut app).unwrap();
+        assert!(app.tracker.is_resuming());
+
+        app.handler.handle_input(&mut app, ' ').unwrap();
     }
 }

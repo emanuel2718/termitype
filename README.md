@@ -15,6 +15,8 @@
     ·
     <a href="#usage">Usage</a>
     ·
+    <a href="#mappings">Mappings</a>
+    ·
     <a href="#options">Options</a>
     ·
     <a href="#development">Development</a>
@@ -25,7 +27,7 @@
     ·
     <a href="#acknowledgments">Acknowledgments</a>
   </p>
-</p>
+
 </div>
 
 <br />
@@ -82,6 +84,33 @@ termitype
 termitype --help
 ```
 
+## Mappings
+
+| Mapping        | Mode      | Action                              |
+| -------------- | --------- | ----------------------------------- |
+| `<C-Space>`    | `Global`  | Toggle Menu                         |
+| `<C-c>`        | `Global`  | Quit Application                    |
+| `<C-z>`        | `Global`  | Quit Application                    |
+| `<C-o>`        | `Global`  | Toggle Command Palette              |
+| `<C-l>`        | `Global`  | Toggle Leaderboard Screen           |
+| `<C-t>`        | `Global`  | Randomize Theme                     |
+| `<Esc>`        | `Global`  | Toggle Menu                         |
+| `<S-N>`        | `Results` | Restart                             |
+| `<S-R>`        | `Results` | Redo last test                      |
+| `q`            | `Results` | Quit Application                    |
+| `m`            | `Results` | Switch to `Minimal` Variant         |
+| `n`            | `Results` | Switch to `Neofetch` Variant        |
+| `g`            | `Results` | Switch to `Graph` Variant           |
+| `<Up>`         | `Results` | Cycle to next ASCII Art             |
+| `<Down>`       | `Results` | Cycle to previous ASCII Art         |
+| `<Esc>`        | `Menu`    | Go back                             |
+| `/`            | `Menu`    | Start Search                        |
+| `<C-y>/<CR>`   | `Menu`    | Confirm selection                   |
+| `<Space>`      | `Menu`    | Toggle selection (if toggable item) |
+| `<C-n>/<Down>` | `Menu`    | Next item                           |
+| `<C-p>/<Up>`   | `Menu`    | Previous item                       |
+| `j/k`          | `Menu`    | Next/previous (in normal mode)      |
+
 ## Options
 
 | Option                       | Description                                                                                     |
@@ -109,10 +138,10 @@ termitype --help
 # All of the options below can also be changed at runtime via the menu.
 termitype -t 60                        # Run a 60-second typing test
 termitype -c 100                       # Test will contain exactly 100 random words
-termitype -T "catppuccin-mocha"        # Use catppuccin-mocha theme
+termitype --theme "catppuccin-mocha"   # Use catppuccin-mocha theme
 termitype -l spanish                   # Use Spanish test words
 termitype -spn                         # Enable symbols, punctuation, and numbers
-termitype --results-style neofetch     # Use neofetch inspired results
+termitype --results neofetch           # Use neofetch inspired results
 termitype --no-track                   # Do not locally track test results nor stats
 termitype --hide-notifications         # Do not show notifications
 ```
@@ -158,7 +187,8 @@ Termitype includes a curated collection of themes sourced from the [iTerm2 Ghost
 
 - [ ] **Package Distribution**: Release on Homebrew, AUR, nixpkgs, etc.
 - [ ] **User config file**: Have a user editable config file in `$XDG_CONFIG_HOME/termitype/config.toml`
-- [ ] **Custom ascii arts**: Allow usage of custom ascii arts
+- [ ] **Configurable Mappings**: Custom mappings
+- [ ] **Custom ASCII arts**: Allow usage of custom ASCII arts
 - [ ] **Custom theme**: Allow setting custom themes with names
 - [ ] **Wordlist Improvements**: Improve the quality and distribution of words
 - [ ] **Multiplayer**: Race other people in realtime with private rooms of sort (will use websockets for this)
@@ -170,6 +200,6 @@ This project is licensed under the GPL-3.0 license - see [LICENSE](LICENSE) for 
 
 ## Acknowledgments
 
+- [Monkeytype](https://github.com/monkeytypegame/monkeytype) for the inspiration.
 - [Ratatui](https://github.com/ratatui-org/ratatui) for the amazing TUI framework.
-- [Monketype](https://github.com/monkeytypegame/monkeytype) for the inspiration.
 - [iTerm2 Ghostty Color Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/ghostty) for the themes.
