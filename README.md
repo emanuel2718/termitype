@@ -129,7 +129,7 @@ termitype --help
 | `--lines <COUNT>`            | Number of visible text lines [default: 3]                                                       |
 | `--hide-live-wpm`            | Hide live WPM counter                                                                           |
 | `--hide-notifications`       | Hide notifications                                                                              |
-| `--no-track`                 | Do not locally track test results                                                               |
+| `--no-save`                  | Do not save tests results                                                                       |
 | `--reset`                    | Resets everything back to default state                                                         |
 
 ### Examples
@@ -142,7 +142,7 @@ termitype --theme "catppuccin-mocha"   # Use catppuccin-mocha theme
 termitype -l spanish                   # Use Spanish test words
 termitype -spn                         # Enable symbols, punctuation, and numbers
 termitype --results neofetch           # Use neofetch inspired results
-termitype --no-track                   # Do not locally track test results nor stats
+termitype --no-save                    # Do not save tests results
 termitype --hide-notifications         # Do not show notifications
 ```
 
