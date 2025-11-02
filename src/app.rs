@@ -18,7 +18,7 @@ use crate::{
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
 use crossterm::execute;
-use ratatui::{Terminal, prelude::Backend};
+use ratatui::{prelude::Backend, Terminal};
 use std::io::stdout;
 use std::time::Duration;
 
@@ -232,6 +232,18 @@ impl App {
 
     // TODO: do this cleanly
     pub(crate) fn try_preview(&mut self) -> Result<(), AppError> {
+        let is_theme_preview = self
+            .menu
+            .current_item()
+            .map(|item| {
+                item.has_preview && matches!(item.action, MenuAction::Action(Action::SetTheme(_)))
+            })
+            .unwrap_or(false);
+
+        if !is_theme_preview {
+            theme::cancel_theme_preview();
+        }
+
         if let Some(item) = self.menu.current_item() {
             if item.has_preview {
                 match &item.action {
