@@ -380,6 +380,9 @@ impl Menu {
     pub fn close(&mut self) -> Result<(), AppError> {
         theme::cancel_theme_preview();
         self.stack.clear();
+        if self.is_searching() {
+            self.exit_search();
+        }
         Ok(())
     }
 
@@ -1019,5 +1022,22 @@ mod tests {
         menu.select(&config).unwrap();
 
         assert!(!menu.is_open());
+    }
+
+    #[test]
+    fn test_close_menu_while_searching_should_clear_search() {
+        let config = Config::default();
+        let mut menu = Menu::new();
+        menu.open(MenuContext::Root, &config).unwrap();
+        let text = "test string".to_string();
+        assert!(!menu.is_searching());
+        menu.init_search(); // NOTE(ema) is annoying having to init search rather than automatically starting on search
+        menu.update_search(text.clone());
+        assert!(menu.is_searching());
+        assert_eq!(menu.search_query(), text);
+
+        menu.close().unwrap();
+        menu.open(MenuContext::Root, &config).unwrap();
+        assert!(!menu.is_searching());
     }
 }
