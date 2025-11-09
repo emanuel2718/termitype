@@ -18,7 +18,7 @@ use crate::{
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEventKind};
 use crossterm::execute;
-use ratatui::{Terminal, prelude::Backend};
+use ratatui::{prelude::Backend, Terminal};
 use std::io::stdout;
 use std::time::Duration;
 
@@ -289,7 +289,7 @@ impl App {
             }
         } else if self.tracker.is_complete() {
             InputContext::Completed
-        } else if self.tracker.is_typing() {
+        } else if self.tracker.in_progress() {
             InputContext::Typing
         } else {
             InputContext::Idle

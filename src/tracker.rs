@@ -271,9 +271,8 @@ impl Tracker {
             return Err(AppError::IllegalSpaceCharacter);
         }
 
-        // this the refractory state after unpausing the typing test, typing a char should continue
-        // the test as per usual
-        if self.is_resuming() {
+        // resume the test if paused or in refractory state after unpausing
+        if self.is_resuming() || self.is_paused() {
             self.resume();
         }
 
@@ -356,6 +355,11 @@ impl Tracker {
     }
 
     pub fn backspace(&mut self) -> Result<(), AppError> {
+        // resume the test if paused or in refractory state after unpausing
+        if self.is_resuming() || self.is_paused() {
+            self.resume();
+        }
+
         if !self.is_typing() {
             log_debug!("Tracker::backspace: TypingTestNotInProgress");
             return Err(AppError::TypingTestNotInProgress);
@@ -440,6 +444,12 @@ impl Tracker {
 
     pub fn is_paused(&self) -> bool {
         matches!(self.status, TypingStatus::Paused)
+    }
+
+    pub fn in_progress(&self) -> bool {
+        matches!(self.status, TypingStatus::InProgress)
+            || matches!(self.status, TypingStatus::Paused)
+            || matches!(self.status, TypingStatus::Resuming)
     }
 
     pub fn is_typing(&self) -> bool {
@@ -1082,7 +1092,9 @@ mod tests {
         tracker.toggle_pause();
         assert_eq!(tracker.status, TypingStatus::Resuming);
         tracker.toggle_pause();
-        assert!(tracker.type_char('c').is_err());
+        tracker.type_char('c').unwrap();
+        assert_eq!(tracker.status, TypingStatus::InProgress);
+        tracker.toggle_pause();
         assert_eq!(tracker.status, TypingStatus::Paused);
         tracker.toggle_pause();
         assert_eq!(tracker.status, TypingStatus::Resuming);
@@ -1888,5 +1900,25 @@ mod tests {
         tracker.type_char(' ').unwrap();
 
         assert!(tracker.is_word_wrong(0));
+    }
+
+    #[test]
+    fn test_should_be_able_to_backspace_after_a_pause() {
+        let text = "correct word".to_string();
+        let mut tracker = Tracker::new(text, Mode::with_words(2));
+        tracker.start_typing();
+
+        tracker.type_char('t').unwrap();
+        tracker.type_char('e').unwrap();
+        tracker.type_char('s').unwrap();
+        tracker.type_char('t').unwrap();
+        assert_eq!(tracker.current_pos, 4);
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.current_pos, 3);
+
+        tracker.toggle_pause();
+        tracker.toggle_pause();
+        tracker.backspace().unwrap();
+        assert_eq!(tracker.current_pos, 2);
     }
 }
