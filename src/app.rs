@@ -321,15 +321,13 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
+    use crate::{config::Config, tracker::TypingStatus};
 
     #[test]
     fn test_command_palette_pause_resume() {
         let config = Config::default();
         let mut app = App::new(&config);
-        app.config
-            .change_mode(crate::config::Mode::with_words(2))
-            .unwrap();
+        app.config.change_mode(Mode::with_words(2)).unwrap();
 
         app.handler.handle_input(&mut app, 'a').unwrap();
         app.handler.handle_input(&mut app, 'n').unwrap();
@@ -351,5 +349,22 @@ mod tests {
         assert!(app.tracker.is_resuming());
 
         app.handler.handle_input(&mut app, ' ').unwrap();
+    }
+
+    #[test]
+    fn test_toggling_leaderboard_should_pause_game() {
+        let config = Config::default();
+        let mut app = App::new(&config);
+        app.tracker.start_typing();
+        app.tracker.type_char('h').unwrap();
+
+        assert_eq!(app.tracker.status, TypingStatus::InProgress);
+        app.handler.handle_leaderboard_toggle(&mut app).unwrap();
+
+        assert_eq!(app.tracker.status, TypingStatus::Paused);
+        app.handler.handle_leaderboard_toggle(&mut app).unwrap();
+        assert_eq!(app.tracker.status, TypingStatus::Resuming);
+        app.tracker.type_char('i').unwrap();
+        assert_eq!(app.tracker.status, TypingStatus::InProgress);
     }
 }

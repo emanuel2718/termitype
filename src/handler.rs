@@ -4,9 +4,10 @@ use crate::{
     ascii,
     config::{self, Mode, Setting},
     error::AppError,
-    leaderboard::{LeaderboardMotion, SortColumn},
+    leaderboard::{Leaderboard, LeaderboardMotion, SortColumn},
+    log_warn,
     menu::{MenuContext, MenuMotion},
-    modal::ModalContext,
+    modal::{Modal, ModalContext},
     notify_info, theme,
     variants::{CursorVariant, PickerVariant, ResultsVariant},
 };
@@ -180,7 +181,7 @@ impl AppHandler {
     }
 
     pub fn handle_modal_open(self, app: &mut App, ctx: ModalContext) -> Result<(), AppError> {
-        app.modal = Some(crate::modal::Modal::new(ctx));
+        app.modal = Some(Modal::new(ctx));
         Ok(())
     }
 
@@ -332,12 +333,12 @@ impl AppHandler {
 
     pub fn handle_leaderboard_open(self, app: &mut App) -> Result<(), AppError> {
         let Some(ref db) = app.db else {
-            crate::log_warn!("Tried opening the leaderboard without a db instance");
+            log_warn!("Tried opening the leaderboard without a db instance");
             return Ok(());
         };
 
         if app.leaderboard.is_none() {
-            app.leaderboard = Some(crate::leaderboard::Leaderboard::new());
+            app.leaderboard = Some(Leaderboard::new());
         }
 
         if let Some(ref mut leaderboard) = app.leaderboard {
@@ -357,7 +358,7 @@ impl AppHandler {
 
     pub fn handle_leaderboard_toggle(self, app: &mut App) -> Result<(), AppError> {
         let Some(ref db) = app.db else {
-            crate::log_warn!("Tried toggling the leaderboard without a db instance");
+            log_warn!("Tried toggling the leaderboard without a db instance");
             return Ok(());
         };
 
@@ -366,10 +367,13 @@ impl AppHandler {
             return Ok(());
         }
 
+        // TODO: i don't like this pattern, feels wrong but works for now. Refactor me later.
         if app.leaderboard.is_some() {
             app.leaderboard = None;
+            app.tracker.unpause();
         } else if app.leaderboard.is_none() {
-            app.leaderboard = Some(crate::leaderboard::Leaderboard::new());
+            app.leaderboard = Some(Leaderboard::new());
+            app.tracker.pause();
         }
 
         if let Some(ref mut leaderboard) = app.leaderboard {

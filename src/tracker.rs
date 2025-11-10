@@ -235,7 +235,10 @@ impl Tracker {
         self.status = TypingStatus::InProgress;
     }
 
-    fn pause(&mut self) {
+    pub fn pause(&mut self) {
+        if !self.is_typing() {
+            return;
+        }
         // If already paused (e.g., from Resuming state), accumulate the previous pause time
         if let Some(paused_at) = self.paused_at {
             self.total_paused_time += Instant::now().duration_since(paused_at);
@@ -244,7 +247,10 @@ impl Tracker {
         self.paused_at = Some(Instant::now())
     }
 
-    fn unpause(&mut self) {
+    pub fn unpause(&mut self) {
+        if !self.is_paused() {
+            return;
+        }
         if self.start_time.is_some() {
             self.status = TypingStatus::Resuming;
         }
