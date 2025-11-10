@@ -122,14 +122,13 @@ fn build_results_keymap() -> KeyMap {
 fn build_menu_base_keymap() -> KeyMap {
     KeyMap::new()
         .bind(KeyCode::Esc, Action::MenuGoBack)
+        .bind(KeyCode::Char('q'), Action::MenuClose)
         .bind(KeyCode::Enter, Action::MenuSelect)
         .bind(KeyCode::Char(' '), Action::MenuSelect)
         .bind(KeyCode::Up, Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Down, Action::MenuNav(MenuMotion::Down))
         .bind(KeyCode::Char('k'), Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Char('j'), Action::MenuNav(MenuMotion::Down))
-        // .bind(KeyCode::Char('l'), Action::MenuSelect)
-        // .bind(KeyCode::Char('h'), Action::MenuGoBack)
         .bind(KeyCode::Char('/'), Action::MenuInitSearch)
         .bind_with_mod(CTRL, KeyCode::Char('y'), Action::MenuSelect)
         .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))
@@ -159,6 +158,7 @@ fn build_modal_keymap() -> KeyMap {
 fn build_leaderboard_keymap() -> KeyMap {
     KeyMap::new()
         .bind(KeyCode::Esc, Action::LeaderboardClose)
+        .bind(KeyCode::Char('q'), Action::LeaderboardClose)
         .bind(KeyCode::Char('j'), Action::LeaderboardNav(LeaderboardMotion::Down))
         .bind(KeyCode::Char('k'), Action::LeaderboardNav(LeaderboardMotion::Up))
         .bind(KeyCode::Down, Action::LeaderboardNav(LeaderboardMotion::Down))
