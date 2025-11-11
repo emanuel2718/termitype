@@ -155,7 +155,7 @@ pub fn footer_padding() -> Padding {
 pub fn menu_items_padding() -> Padding {
     Padding {
         left: 0,
-        right: 1,
+        right: 0,
         top: 0,
         bottom: 0,
     }
