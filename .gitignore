@@ -5,6 +5,8 @@
 flamegraph.svg
 .DS_Store
 
+
+docs/research/*
 **.tmp.*
 
 .idea/*

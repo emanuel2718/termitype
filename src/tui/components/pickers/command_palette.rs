@@ -1,6 +1,7 @@
 use crate::{
+    actions::Action,
     app::App,
-    menu::Menu,
+    menu::{Menu, MenuAction},
     theme::Theme,
     tui::{helpers::menu_items_padding, layout::picker_overlay_area},
 };
@@ -177,7 +178,9 @@ fn render_search_bar(frame: &mut Frame, area: Rect, theme: &Theme, menu: &Menu) 
         x = left_area.x + left_area.width.saturating_sub(2);
     }
     let y = left_area.y;
-    frame.set_cursor_position(Position { x, y });
+    if should_show_search_cursor(menu) {
+        frame.set_cursor_position(Position { x, y });
+    }
     let (m, n) = if menu.current_menu().is_some() {
         let items = menu.current_items();
         let n = items.len();
@@ -190,4 +193,15 @@ fn render_search_bar(frame: &mut Frame, area: Rect, theme: &Theme, menu: &Menu) 
         .style(dim_style)
         .alignment(Alignment::Right);
     frame.render_widget(right, right_area);
+}
+
+fn should_show_search_cursor(menu: &Menu) -> bool {
+    let selected_theme_preview = menu
+        .current_item()
+        .map(|item| {
+            item.has_preview && matches!(item.action, MenuAction::Action(Action::SetTheme(_)))
+        })
+        .unwrap_or(false);
+
+    !selected_theme_preview
 }

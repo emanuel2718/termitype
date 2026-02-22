@@ -6,57 +6,42 @@ use ratatui::{
     widgets::Padding,
 };
 
-pub fn calculate_visible_lines(
-    target_lines: &[Line<'static>],
-    app: &crate::app::App,
-) -> Vec<Line<'static>> {
-    let cursor_line = {
-        let mut cumulative = 0;
-        let mut line = 0;
-        for (i, l) in target_lines.iter().enumerate() {
-            let line_len = l.spans.iter().map(|s| s.content.len()).sum::<usize>();
-            if app.tracker.current_pos < cumulative + line_len {
-                line = i;
-                break;
-            }
-            cumulative += line_len;
-        }
-        line
-    };
-    let line_count = app.config.current_line_count() as usize;
-    let scroll_offset = (line_count - 1).saturating_sub(1);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ViewportWindow {
+    pub start: usize,
+    pub end: usize,
+    pub visible_cursor_y: usize,
+}
+
+pub fn resolve_visible_window(
+    cursor_line: usize,
+    total_lines: usize,
+    line_count: usize,
+) -> ViewportWindow {
+    let scroll_offset = (line_count.saturating_sub(1)).saturating_sub(1);
     let visible_start = cursor_line.saturating_sub(scroll_offset);
-    let visible_end = (visible_start + line_count).min(target_lines.len());
-    target_lines[visible_start..visible_end].to_vec()
+    let visible_end = (visible_start + line_count).min(total_lines);
+    let visible_cursor_y = cursor_line.saturating_sub(visible_start);
+
+    ViewportWindow {
+        start: visible_start,
+        end: visible_end,
+        visible_cursor_y,
+    }
 }
 
 pub fn set_cursor_position(
     frame: &mut Frame,
-    app: &mut App,
-    lines: &Vec<Line>,
+    app: &App,
     layout: &AppLayout,
     pad_size: usize,
+    cursor_x: u16,
+    visible_cursor_y: usize,
 ) {
     if !should_show_cursor(app) {
         // don't even bother calculating stuff if we should not set the cursor position
         return;
     }
-    let mut cumulative = 0;
-    let mut cursor_x = 0;
-    let mut cursor_y = 0;
-    for (i, line) in lines.iter().enumerate() {
-        let line_len = line.spans.iter().map(|s| s.content.len()).sum::<usize>();
-        if app.tracker.current_pos < cumulative + line_len {
-            cursor_y = i;
-            cursor_x = (app.tracker.current_pos - cumulative) as u16;
-            break;
-        }
-        cumulative += line_len;
-    }
-    let line_count = app.config.current_line_count() as usize;
-    let scroll_offset = (line_count - 1).saturating_sub(1);
-    let visible_start = cursor_y.saturating_sub(scroll_offset);
-    let visible_cursor_y = cursor_y - visible_start;
     let header_offset = 2;
 
     frame.set_cursor_position(Position {

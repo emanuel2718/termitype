@@ -21,7 +21,10 @@ impl AppHandler {
             return Ok(());
         }
         match app.tracker.type_char(chr) {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                app.bump_typing_revision();
+                Ok(())
+            }
             Err(AppError::IllegalSpaceCharacter) => Ok(()),
             Err(e) => Err(e),
         }
@@ -249,7 +252,10 @@ impl AppHandler {
 
     pub fn handle_backspace(self, app: &mut App) -> Result<(), AppError> {
         match app.tracker.backspace() {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                app.bump_typing_revision();
+                Ok(())
+            }
             Err(AppError::TypingTestNotInProgress) => Ok(()),
             Err(AppError::IllegalBackspace) => Ok(()),
             Err(AppError::IllegalSpaceCharacter) => Ok(()),

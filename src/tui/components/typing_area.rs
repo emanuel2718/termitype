@@ -1,9 +1,8 @@
 use crate::{
     app::App,
     theme::Theme,
-    tracker::Tracker,
     tui::{
-        helpers::{calculate_padding, calculate_visible_lines, set_cursor_position},
+        helpers::{calculate_padding, resolve_visible_window, set_cursor_position},
         layout::AppLayout,
     },
 };
@@ -23,9 +22,21 @@ pub fn render_typing_area(frame: &mut Frame, app: &mut App, theme: &Theme, layou
     } else {
         create_language_line(app, theme)
     };
-    let target_text_lines = create_target_text_line(&app.tracker, theme, layout.center_area.width);
+    let line_count = app.config.current_line_count();
+    app.typing_cache.ensure(
+        &app.tracker,
+        theme,
+        layout.center_area.width,
+        line_count,
+        app.typing_revision,
+    );
+    let viewport = resolve_visible_window(
+        app.typing_cache.cursor_line(),
+        app.typing_cache.lines().len(),
+        line_count as usize,
+    );
 
-    let visible_lines = calculate_visible_lines(&target_text_lines, app);
+    let visible_lines = app.typing_cache.lines()[viewport.start..viewport.end].to_vec();
     lines.push(top_line);
     lines.push(Line::from(""));
     lines.extend(visible_lines);
@@ -38,7 +49,14 @@ pub fn render_typing_area(frame: &mut Frame, app: &mut App, theme: &Theme, layou
 
     frame.render_widget(paragraph, layout.center_area);
 
-    set_cursor_position(frame, app, &target_text_lines, layout, padding);
+    set_cursor_position(
+        frame,
+        app,
+        layout,
+        padding,
+        app.typing_cache.cursor_x(),
+        viewport.visible_cursor_y,
+    );
 }
 
 fn create_language_line(app: &mut App, theme: &Theme) -> Line<'static> {
@@ -75,86 +93,4 @@ fn create_tracker_line(app: &mut App, theme: &Theme) -> Line<'static> {
         spans.push(wpm);
     }
     Line::from(spans)
-}
-
-fn create_target_text_line(state: &Tracker, theme: &Theme, max_width: u16) -> Vec<Line<'static>> {
-    let mut spans = Vec::new();
-    let mut word_idx = 0;
-
-    for (i, token) in state.tokens.iter().enumerate() {
-        if token.target == ' ' {
-            word_idx += 1;
-        }
-
-        let is_past_wrong_word = word_idx < state.current_word_idx && state.is_word_wrong(word_idx);
-
-        let fg_color = if token.is_skipped {
-            theme.fg()
-        } else if i < state.current_pos {
-            // typed
-            if token.is_wrong {
-                theme.error()
-            } else {
-                theme.success()
-            }
-        } else {
-            // upcoming
-            theme.fg()
-        };
-
-        let mut style = Style::default().fg(fg_color);
-        if token.is_skipped || i >= state.current_pos {
-            style = style.add_modifier(Modifier::DIM);
-        }
-
-        // dim dem extra tokens
-        if token.is_extra_token() {
-            style = style.add_modifier(Modifier::DIM);
-        }
-
-        // don't underline space cahr
-        if is_past_wrong_word && token.target != ' ' {
-            style = style
-                .add_modifier(Modifier::UNDERLINED)
-                .underline_color(theme.error())
-        }
-
-        spans.push(Span::styled(token.target.to_string(), style));
-    }
-
-    let mut lines = Vec::new();
-    let mut current_line: Vec<Span<'static>> = Vec::new();
-    let mut current_width = 0;
-    for span in spans {
-        let span_width = span.content.len() as u16;
-        if current_width + span_width > max_width {
-            // breakpoints
-            let mut break_index = current_line.len();
-            for (i, s) in current_line.iter().enumerate().rev() {
-                if s.content == " " {
-                    break_index = i + 1;
-                    break;
-                }
-            }
-            if break_index < current_line.len() {
-                let next_line = current_line.split_off(break_index);
-                lines.push(Line::from(current_line));
-                current_line = next_line;
-                current_width = current_line.iter().map(|s| s.content.len() as u16).sum();
-            } else {
-                lines.push(Line::from(current_line));
-                current_line = Vec::new();
-                current_width = 0;
-            }
-            current_line.push(span);
-            current_width += span_width;
-        } else {
-            current_line.push(span);
-            current_width += span_width;
-        }
-    }
-    if !current_line.is_empty() {
-        lines.push(Line::from(current_line));
-    }
-    lines
 }

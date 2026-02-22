@@ -219,10 +219,10 @@ impl Db {
         Ok(())
     }
 
-    pub fn write(&mut self, config: &Config, tracker: &Tracker) -> AppResult<i64> {
+    pub fn build_result(config: &Config, tracker: &Tracker) -> LeaderboardResult {
         let current_mode = config.current_mode();
         let summary = tracker.summary();
-        let result = LeaderboardResult {
+        LeaderboardResult {
             id: None,
             mode_kind: current_mode.kind().to_display(),
             mode_value: current_mode.value() as i32,
@@ -236,8 +236,15 @@ impl Db {
             symbols: config.is_enabled(Setting::Symbols),
             punctuation: config.is_enabled(Setting::Punctuation),
             created_at: Local::now(),
-        };
+        }
+    }
 
+    pub fn write(&mut self, config: &Config, tracker: &Tracker) -> AppResult<i64> {
+        let result = Self::build_result(config, tracker);
+        self.write_result(result)
+    }
+
+    pub fn write_result(&mut self, result: LeaderboardResult) -> AppResult<i64> {
         self.conn.execute(
             "INSERT INTO results (
                 mode_kind,
@@ -283,38 +290,7 @@ impl Db {
     }
 
     pub fn insert_dummy_result(&mut self, result: LeaderboardResult) -> AppResult<i64> {
-        self.conn.execute(
-            "INSERT INTO results (
-                mode_kind,
-                mode_value,
-                language,
-                wpm,
-                raw_wpm,
-                accuracy,
-                consistency,
-                error_count,
-                numbers,
-                symbols,
-                punctuation,
-                created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-            params![
-                result.mode_kind,
-                result.mode_value,
-                result.language,
-                result.wpm,
-                result.raw_wpm,
-                result.accuracy,
-                result.consistency,
-                result.error_count,
-                result.numbers,
-                result.symbols,
-                result.punctuation,
-                result.created_at
-            ],
-        )?;
-
-        Ok(self.conn.last_insert_rowid())
+        self.write_result(result)
     }
 
     #[cfg(test)]

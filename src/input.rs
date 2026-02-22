@@ -4,7 +4,6 @@ use crate::{
         global_keymap, idle_keymap, leaderboard_keymap, menu_base_keymap, menu_search_keymap,
         modal_keymap, results_keymap, typing_keymap,
     },
-    log_debug,
 };
 use crossterm::event::{KeyCode, KeyEvent};
 use std::time::{Duration, Instant};
@@ -54,7 +53,6 @@ impl Input {
 
         if let Some(action) = global_keymap().get_action_from(&event) {
             self.last_keycode = Some(event.code);
-            log_debug!("The action from input.handle: {action:?}");
             return Self::wrap_input_result(action, false);
         }
 
@@ -66,7 +64,6 @@ impl Input {
         if self.is_typing_input(event, &ctx) {
             self.last_keycode = Some(event.code);
             if let Some(c) = event.code.as_char() {
-                log_debug!("The action from input.handle: {:?}", Action::Input(c));
                 return Self::wrap_input_result(Action::Input(c), false);
             }
         }
@@ -83,7 +80,6 @@ impl Input {
 
         self.last_keycode = Some(event.code);
         if let Some(action) = keymap.get_action_from(&event) {
-            log_debug!("The action from input.handle: {action:?}");
             return Self::wrap_input_result(action, false);
         }
 

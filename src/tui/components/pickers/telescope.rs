@@ -293,15 +293,16 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
 
         // render visualization
         if let Some(menu) = menu.current_menu() {
-            if menu.has_visualizer() && menu.visualizer.is_some() {
-                let visualizer = menu.visualizer.as_ref().unwrap();
-                super::visualizer::render_menu_visualizer(
-                    frame,
-                    theme,
-                    visualizer,
-                    visualizer_area,
-                    app,
-                );
+            if menu.has_visualizer() {
+                if let Some(visualizer) = menu.visualizer.as_ref() {
+                    super::visualizer::render_menu_visualizer(
+                        frame,
+                        theme,
+                        visualizer,
+                        visualizer_area,
+                        app,
+                    );
+                }
             }
         }
 

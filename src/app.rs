@@ -4,6 +4,7 @@ use crate::{
     config::{Config, Mode},
     constants::db_file,
     db::Db,
+    db_writer::{DbWriter, EnqueueError},
     error::AppError,
     handler::AppHandler,
     input::{Input, InputContext},
@@ -11,93 +12,148 @@ use crate::{
     log_debug, log_error, log_info,
     menu::{Menu, MenuAction},
     modal::Modal,
-    notify_error, notify_info, theme,
+    notify_error, notify_info,
+    perf::PerfMetrics,
+    theme,
     tracker::Tracker,
-    tui,
+    tui::{self, components::typing_cache::TypingRenderCache},
 };
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyEventKind};
+use crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use crossterm::execute;
 use ratatui::{Terminal, prelude::Backend};
 use std::io::stdout;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+const MAX_EVENT_BATCH: usize = 256;
+const NOTIFICATION_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 pub fn run<B: Backend>(terminal: &mut Terminal<B>, config: &Config) -> anyhow::Result<()> {
     let mut input = Input::new();
     let mut app = App::new(config);
 
     theme::init_from_config(config)?;
-
-    // NOTE(ema): this initial draw is needed do to the optimizations around reducing cpu usage on IDLE.
-    // These optmizations caused the first draw to happen after `250ms` which felt incredibly sluggish.
-    // To work around this, a good quick and easy solution is to do an immediate draw before
-    // entering the loop. Probably there's a better way to do this. If future me see this comment...
-    // you are probably thinking: "Who the f*k did this? What a sub-optimal way to handle this".
-    // ...It was you, always has been
-    terminal.draw(|frame| {
-        let _ = tui::renderer::draw_ui(frame, &mut app);
-    })?;
-    app.needs_redraw = false;
+    draw_frame(terminal, &mut app)?;
 
     log_info!("The config: {config:?}");
-    loop {
-        if app.should_quit {
-            break;
-        }
 
-        let poll_duration = app.get_poll_duration();
-
-        if event::poll(poll_duration)? {
-            match event::read()? {
-                Event::Key(event) if event.kind == KeyEventKind::Press => {
-                    let input_ctx = app.resolve_input_context();
-                    let input_result = input.handle(event, input_ctx);
-                    if !input_result.skip_debounce && app.handle_debounce() {
-                        continue;
-                    }
-                    actions::handle_action(&mut app, input_result.action)?;
-                    app.mark_needs_redraw();
-                }
-                Event::Resize(_, _) => {
-                    app.mark_needs_redraw();
-                }
-                _ => {}
+    let run_result: anyhow::Result<()> = (|| {
+        loop {
+            if app.should_quit {
+                break;
             }
-        }
 
-        app.tracker.try_metrics_update();
-        if app.tracker.check_completion() {
-            app.try_save_results();
-            app.mark_needs_redraw();
-        }
+            let wait_duration = app.next_wait_duration(Instant::now());
+            let mut batch_size = 0usize;
 
-        if app.tracker.is_typing() {
-            app.mark_needs_redraw();
-        }
+            if event::poll(wait_duration)? {
+                if let Some(started_at) = process_event_read(&mut input, &mut app, event::read()?)?
+                {
+                    app.last_event_started_at = Some(started_at);
+                    batch_size += 1;
+                }
 
-        // if the # of active notification changes we must trigger a redraw, otherwise we end up
-        // we infinite duration notification in results  (we don't trigger redraws in `Results`
-        // until a `KeyEvent` or `Action`). This is easiest solution to that problem.
-        let current_count = crate::notifications::count();
-        if current_count != app.last_notification_count {
-            log_debug!("Notification count changed, trigger redraw!");
-            app.mark_needs_redraw();
-            app.last_notification_count = current_count;
-        }
+                while batch_size < MAX_EVENT_BATCH && event::poll(Duration::ZERO)? {
+                    if let Some(started_at) =
+                        process_event_read(&mut input, &mut app, event::read()?)?
+                    {
+                        app.last_event_started_at = Some(started_at);
+                        batch_size += 1;
+                    }
+                }
+                app.perf.on_queue_depth(batch_size.saturating_sub(1));
+            }
 
-        if app.take_needs_redraw() {
-            terminal.draw(|frame| {
-                // TODO: return the click actions
-                let _ = tui::renderer::draw_ui(frame, &mut app);
-            })?;
+            post_iteration_updates(&mut app);
+            maybe_draw_frame(terminal, &mut app)?;
         }
+        Ok(())
+    })();
+
+    app.shutdown_workers();
+    run_result
+}
+
+fn process_event_read(
+    input: &mut Input,
+    app: &mut App,
+    event: Event,
+) -> Result<Option<Instant>, AppError> {
+    match event {
+        // https://ratatui.rs/faq/#why-am-i-getting-duplicate-key-events-on-windows
+        Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+            let event_started_at = Instant::now();
+            app.perf.on_input_event();
+            handle_key_event(input, app, key_event, event_started_at)?;
+            Ok(Some(event_started_at))
+        }
+        Event::Resize(_, _) => {
+            app.perf.on_input_event();
+            app.mark_high_priority_redraw();
+            Ok(Some(Instant::now()))
+        }
+        _ => Ok(None),
+    }
+}
+
+fn handle_key_event(
+    input: &mut Input,
+    app: &mut App,
+    key_event: KeyEvent,
+    event_started_at: Instant,
+) -> Result<(), AppError> {
+    app.note_key_input();
+    let input_ctx = app.resolve_input_context();
+    let input_result = input.handle(key_event, input_ctx);
+    if !input_result.skip_debounce && app.handle_debounce() {
+        return Ok(());
     }
 
+    if matches!(input_result.action, Action::NoOp) {
+        return Ok(());
+    }
+
+    actions::handle_action(app, input_result.action)?;
+    app.perf.on_action_from_event(event_started_at);
+    app.mark_needs_redraw();
+    Ok(())
+}
+
+fn post_iteration_updates(app: &mut App) {
+    app.tracker.try_metrics_update();
+    if app.tracker.check_completion() {
+        app.try_save_results();
+        app.mark_high_priority_redraw();
+    }
+
+    app.maybe_mark_live_tick_redraw();
+    app.maybe_mark_notification_redraw();
+    app.perf.maybe_log();
+}
+
+fn maybe_draw_frame<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> anyhow::Result<()> {
+    let now = Instant::now();
+    if !app.should_draw(now) {
+        return Ok(());
+    }
+    draw_frame(terminal, app)
+}
+
+fn draw_frame<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> anyhow::Result<()> {
+    let draw_started_at = app.perf.on_draw_started();
+    terminal.draw(|frame| {
+        let _ = tui::renderer::draw_ui(frame, app);
+    })?;
+    app.on_did_draw();
+    app.perf
+        .on_draw_completed(draw_started_at, app.last_event_started_at);
+    app.last_event_started_at = None;
     Ok(())
 }
 
 pub struct App {
     pub db: Option<Db>,
+    db_writer: Option<DbWriter>,
     pub config: Config,
     pub menu: Menu,
     pub modal: Option<Modal>,
@@ -105,8 +161,17 @@ pub struct App {
     pub handler: AppHandler,
     pub lexicon: Lexicon,
     pub tracker: Tracker,
+    pub typing_cache: TypingRenderCache,
+    pub typing_revision: u64,
+    pub perf: PerfMetrics,
     should_quit: bool,
     needs_redraw: bool,
+    force_redraw: bool,
+    last_draw_at: Instant,
+    last_key_input_at: Option<Instant>,
+    last_live_ui_tick: Option<u64>,
+    last_notification_check_at: Instant,
+    last_event_started_at: Option<Instant>,
     last_notification_count: usize,
 }
 
@@ -129,9 +194,15 @@ impl App {
                 None
             }
         };
+        let db_writer = if db.is_some() {
+            Some(DbWriter::new())
+        } else {
+            None
+        };
 
         Self {
             db,
+            db_writer,
             config: config.clone(),
             menu: Menu::new(),
             modal: None,
@@ -139,8 +210,17 @@ impl App {
             handler: AppHandler,
             tracker,
             lexicon,
+            typing_cache: TypingRenderCache::default(),
+            typing_revision: 0,
+            perf: PerfMetrics::default(),
             should_quit: false,
             needs_redraw: true,
+            force_redraw: true,
+            last_draw_at: Instant::now(),
+            last_key_input_at: None,
+            last_live_ui_tick: None,
+            last_notification_check_at: Instant::now(),
+            last_event_started_at: None,
             last_notification_count: 0,
         }
     }
@@ -156,29 +236,137 @@ impl App {
         self.needs_redraw = true;
     }
 
-    /// Check if redraw is needed and consume it
-    fn take_needs_redraw(&mut self) -> bool {
-        let needs = self.needs_redraw;
+    fn mark_high_priority_redraw(&mut self) {
+        self.force_redraw = true;
+        self.mark_needs_redraw();
+    }
+
+    fn note_key_input(&mut self) {
+        self.last_key_input_at = Some(Instant::now());
+    }
+
+    /// Tracks token-state changes so typing-area cache can invalidate cheaply.
+    pub fn bump_typing_revision(&mut self) {
+        self.typing_revision = self.typing_revision.wrapping_add(1);
+        self.typing_cache.invalidate();
+        self.mark_needs_redraw();
+    }
+
+    fn target_frame_duration(&self) -> Duration {
+        match self.resolve_input_context() {
+            InputContext::Typing => Duration::from_millis(16), // ~60fps
+            InputContext::Menu { .. } | InputContext::Modal | InputContext::Leaderboard => {
+                Duration::from_millis(16)
+            }
+            InputContext::Idle => Duration::from_millis(66), // ~15fps
+            InputContext::Completed => Duration::from_millis(100), // ~10fps
+        }
+    }
+
+    fn should_draw(&self, now: Instant) -> bool {
+        if !self.needs_redraw {
+            return false;
+        }
+
+        if self.force_redraw {
+            return true;
+        }
+
+        now.saturating_duration_since(self.last_draw_at) >= self.target_frame_duration()
+    }
+
+    fn on_did_draw(&mut self) {
         self.needs_redraw = false;
-        needs
+        self.force_redraw = false;
+        self.last_draw_at = Instant::now();
+    }
+
+    fn next_wait_duration(&self, now: Instant) -> Duration {
+        let poll = self.get_poll_duration();
+        if !self.needs_redraw || self.force_redraw {
+            return if self.force_redraw {
+                Duration::ZERO
+            } else {
+                poll
+            };
+        }
+
+        let frame_wait = self
+            .target_frame_duration()
+            .saturating_sub(now.saturating_duration_since(self.last_draw_at));
+        frame_wait.min(poll)
+    }
+
+    fn maybe_mark_live_tick_redraw(&mut self) {
+        if !self.tracker.is_typing() || self.tracker.is_complete() {
+            self.last_live_ui_tick = None;
+            return;
+        }
+
+        let input_idle_for = self
+            .last_key_input_at
+            .map(|last| last.elapsed())
+            .unwrap_or(Duration::MAX);
+
+        // If keys are arriving rapidly, key-driven redraws are already frequent enough.
+        if input_idle_for < Duration::from_millis(150) {
+            return;
+        }
+
+        // 4Hz shortly after typing slows down, 2Hz when idle longer.
+        let tick_ms = if input_idle_for >= Duration::from_millis(800) {
+            500
+        } else {
+            250
+        };
+        let current_tick = (self.tracker.elapsed_time().as_millis() / tick_ms) as u64;
+        if self.last_live_ui_tick != Some(current_tick) {
+            self.last_live_ui_tick = Some(current_tick);
+            self.mark_needs_redraw();
+        }
+    }
+
+    fn shutdown_workers(&mut self) {
+        if let Some(writer) = self.db_writer.as_mut() {
+            writer.shutdown();
+        }
+        self.db_writer = None;
+    }
+
+    fn maybe_mark_notification_redraw(&mut self) {
+        if self.config.should_hide_notifications() {
+            return;
+        }
+
+        if self.last_notification_check_at.elapsed() < NOTIFICATION_POLL_INTERVAL {
+            return;
+        }
+        self.last_notification_check_at = Instant::now();
+
+        let current_count = crate::notifications::count();
+        if current_count != self.last_notification_count {
+            self.mark_needs_redraw();
+            self.last_notification_count = current_count;
+        }
     }
 
     /// Get the appropriate poll duration based on current state
     fn get_poll_duration(&self) -> Duration {
         let ctx = self.resolve_input_context();
         match ctx {
-            InputContext::Typing => Duration::from_millis(75),
+            InputContext::Typing => Duration::from_millis(8),
             InputContext::Menu { .. } | InputContext::Modal | InputContext::Leaderboard => {
-                Duration::from_millis(100)
+                Duration::from_millis(16)
             }
-            InputContext::Idle => Duration::from_millis(250),
-            InputContext::Completed => Duration::from_millis(1000),
+            InputContext::Idle => Duration::from_millis(50),
+            InputContext::Completed => Duration::from_millis(100),
         }
     }
 
     pub fn redo(&mut self) -> Result<(), AppError> {
         self.tracker
             .reset(self.lexicon.words.clone(), self.config.current_mode());
+        self.bump_typing_revision();
         Ok(())
     }
 
@@ -192,6 +380,7 @@ impl App {
         self.lexicon.regenerate(&self.config)?;
         self.tracker
             .reset(self.lexicon.words.clone(), self.config.current_mode());
+        self.bump_typing_revision();
         Ok(())
     }
 
@@ -206,15 +395,30 @@ impl App {
             notify_info!("Test invalid - too short")
         }
 
+        let mut result = Db::build_result(&self.config, &self.tracker);
+
+        if let Some(writer) = self.db_writer.as_ref() {
+            match writer.enqueue(result) {
+                Ok(()) => return,
+                Err(EnqueueError::Full(r)) => {
+                    log_debug!("DB writer queue is full, falling back to sync write");
+                    result = r;
+                }
+                Err(EnqueueError::Disconnected(r)) => {
+                    log_error!("DB writer disconnected, falling back to sync write");
+                    self.db_writer = None;
+                    result = r;
+                }
+            }
+        }
+
         let Some(db) = &mut self.db else {
             log_debug!("DB: No database availabe, skipping saving results");
             notify_error!("Could not save results");
             return;
         };
 
-        // TODO: check for high scores
-
-        if let Err(err) = db.write(&self.config, &self.tracker) {
+        if let Err(err) = db.write_result(result) {
             log_error!("DB: Failed trying to save results with error: {err}");
             notify_error!("Could not save results")
         };

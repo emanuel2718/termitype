@@ -356,7 +356,6 @@ impl Tracker {
         //     self.complete();
         // }
 
-        log_debug!("Tracker::type_char: {c}");
         Ok(())
     }
 
@@ -367,12 +366,10 @@ impl Tracker {
         }
 
         if !self.is_typing() {
-            log_debug!("Tracker::backspace: TypingTestNotInProgress");
             return Err(AppError::TypingTestNotInProgress);
         }
 
         if self.current_pos == 0 {
-            log_debug!("Tracker::backspace: IllegalBackspace");
             return Err(AppError::IllegalBackspace);
         }
 
@@ -436,7 +433,6 @@ impl Tracker {
                 }
             }
         }
-        log_debug!("Tracker::backspace: success");
         Ok(())
     }
 

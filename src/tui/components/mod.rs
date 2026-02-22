@@ -9,3 +9,4 @@ pub mod results;
 pub mod size_warning;
 pub mod title;
 pub mod typing_area;
+pub mod typing_cache;

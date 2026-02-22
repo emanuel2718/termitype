@@ -20,6 +20,10 @@ include = [
     "assets/languages/**/*",
 ]
 
+[features]
+default = []
+perf-metrics = []
+
 [[bin]]
 name = "termitype"
 path = "src/main.rs"
@@ -31,6 +35,10 @@ path = "bin/simulation.rs"
 [[bin]]
 name = "seed"
 path = "bin/seed.rs"
+
+[[bin]]
+name = "perf"
+path = "bin/perf.rs"
 
 [profile.release]
 codegen-units = 1
