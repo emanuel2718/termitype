@@ -53,6 +53,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.88.0
           targets: ${{ matrix.target }}
 
       - name: Cache Rust dependencies
@@ -146,6 +147,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
