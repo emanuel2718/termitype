@@ -55,11 +55,10 @@ fn get_art_by_linux_distro() -> &'static str {
 
 fn is_potentially_omarchy() -> bool {
     // check if the env var is set
-    if let Ok(path) = std::env::var("OMARCHY_PATH") {
-        if std::path::Path::new(&path).exists() {
+    if let Ok(path) = std::env::var("OMARCHY_PATH")
+        && std::path::Path::new(&path).exists() {
             return true;
         }
-    }
     // manual check for the manual path
     // ref: https://github.com/basecamp/omarchy/blob/master/install.sh
     if std::path::Path::new(&format!(

@@ -72,13 +72,11 @@ impl Logger {
     }
 
     fn write(&self, level: Level, file: Option<&str>, line: Option<u32>, msg: &str) {
-        if let Some(level_lock) = LOG_LEVEL.get() {
-            if let Ok(min_level) = level_lock.lock() {
-                if level < *min_level {
+        if let Some(level_lock) = LOG_LEVEL.get()
+            && let Ok(min_level) = level_lock.lock()
+                && level < *min_level {
                     return;
                 }
-            }
-        }
 
         let now = SystemTime::now();
 
@@ -155,20 +153,18 @@ pub fn init() -> io::Result<()> {
 
 /// Set the minimum log level. Messages below this level will be ignored.
 pub fn set_level(level: Level) {
-    if let Some(level_lock) = LOG_LEVEL.get() {
-        if let Ok(mut current_level) = level_lock.lock() {
+    if let Some(level_lock) = LOG_LEVEL.get()
+        && let Ok(mut current_level) = level_lock.lock() {
             *current_level = level;
         }
-    }
 }
 
 /// Internal `write` call
 pub fn write(level: Level, file: Option<&str>, line: Option<u32>, msg: &str) {
-    if let Some(logger) = LOGGER.get() {
-        if let Ok(logger) = logger.lock() {
+    if let Some(logger) = LOGGER.get()
+        && let Ok(logger) = logger.lock() {
             logger.write(level, file, line, msg);
         }
-    }
 }
 
 /// Logs a debug message. Only enabled in debug builds.

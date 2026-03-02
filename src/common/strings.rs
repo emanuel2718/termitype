@@ -56,14 +56,13 @@ pub fn fuzzy_match(text: &str, pattern: &str) -> bool {
     let mut current = pattern_chars.next();
 
     for ch in text.chars().flat_map(char::to_lowercase) {
-        if let Some(c) = current {
-            if ch == c {
+        if let Some(c) = current
+            && ch == c {
                 current = pattern_chars.next();
                 if current.is_none() {
                     return true;
                 }
             }
-        }
     }
     false
 }

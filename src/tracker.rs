@@ -323,11 +323,10 @@ impl Tracker {
         }
 
         // space jumping shenanigans
-        if is_space && expected_char != ' ' {
-            if let Some(target_pos) = self.calculate_space_jump_target() {
+        if is_space && expected_char != ' '
+            && let Some(target_pos) = self.calculate_space_jump_target() {
                 return self.perform_space_jump(target_pos);
             }
-        }
 
         // upate current token information
         if let Some(token) = self.current_token_mut() {
@@ -375,49 +374,44 @@ impl Tracker {
 
         // disallow backspace at word boundary after a correctly typed word,
         // but allow backspacing over space-jumped words or words with extra tokens
-        if self.is_previous_token_a_space() {
-            if let Some(prev_word) = self.prev_word() {
-                if prev_word.completed
+        if self.is_previous_token_a_space()
+            && let Some(prev_word) = self.prev_word()
+                && prev_word.completed
                     && prev_word.error_count == 0
                     && !self.prev_word_has_skipped_tokens()
                     && !self.prev_word_has_extra_tokens()
                 {
                     return Ok(());
                 }
-            }
-        }
 
         // undo space jump action
-        if let Some(&jump) = self.space_jump_stack.last() {
-            if self.current_pos == jump.target_pos {
+        if let Some(&jump) = self.space_jump_stack.last()
+            && self.current_pos == jump.target_pos {
                 return self.undo_space_jump(jump);
             }
-        }
 
         self.typed_text.pop();
 
         self.current_pos -= 1;
 
         // are we currently backspacing over an *extra* wrong token question mark
-        if let Some(token) = self.tokens.get(self.current_pos) {
-            if token.is_extra_token() {
+        if let Some(token) = self.tokens.get(self.current_pos)
+            && token.is_extra_token() {
                 self.tokens.remove(self.current_pos);
                 self.total_errors = self.total_errors.saturating_sub(1);
                 self.extra_errors_count = self.extra_errors_count.saturating_sub(1);
                 return Ok(()); // do not process the extra token
             }
-        }
 
         // if we are backspacing over a space that completed a word, unmark the word as completed
-        if let Some(token) = self.current_token() {
-            if token.target == ' ' && token.typed.is_some() && self.current_word_idx > 0 {
+        if let Some(token) = self.current_token()
+            && token.target == ' ' && token.typed.is_some() && self.current_word_idx > 0 {
                 self.current_word_idx -= 1;
                 if let Some(word) = self.current_word_mut() {
                     word.completed = false;
                     word.end_time = None;
                 }
             }
-        }
 
         if let Some(token) = self.current_token_mut() {
             let was_wrong = token.target != token.typed.unwrap_or('\0');
@@ -636,12 +630,11 @@ impl Tracker {
         let completion_time = Instant::now();
         self.end_time = Some(completion_time);
 
-        if let Some(word) = self.current_word_mut() {
-            if !word.completed {
+        if let Some(word) = self.current_word_mut()
+            && !word.completed {
                 word.completed = true;
                 word.end_time = Some(completion_time);
             }
-        }
 
         self.update_metrics();
         log_debug!("Wpm samples: {:?}", self.wpm_snapshots);
@@ -732,11 +725,10 @@ impl Tracker {
         }
 
         // decrese the error count of the space jumped word equivalent to the undid positions
-        if word_was_completed {
-            if let Some(word) = self.current_word_mut() {
+        if word_was_completed
+            && let Some(word) = self.current_word_mut() {
                 word.error_count = word.error_count.saturating_sub(positions_to_undo);
             }
-        }
 
         // restore the space jumped token state
         for pos in (jump.source_pos..jump.target_pos).rev() {

@@ -103,31 +103,28 @@ pub struct Cli {
 
 impl Cli {
     pub fn validate(&self) -> Result<(), String> {
-        if let Some(t) = self.time {
-            if t < MIN_CUSTOM_TIME as u64 || t > MAX_CUSTOM_TIME as u64 {
+        if let Some(t) = self.time
+            && (t < MIN_CUSTOM_TIME as u64 || t > MAX_CUSTOM_TIME as u64) {
                 return Err(format!(
                     "Time must be between {} and {} seconds",
                     MIN_CUSTOM_TIME, MAX_CUSTOM_TIME
                 ));
             }
-        }
-        if let Some(c) = self.words_count {
-            if !(MIN_CUSTOM_WORD_COUNT..=MAX_CUSTOM_WORD_COUNT).contains(&c) {
+        if let Some(c) = self.words_count
+            && !(MIN_CUSTOM_WORD_COUNT..=MAX_CUSTOM_WORD_COUNT).contains(&c) {
                 return Err(format!(
                     "Word count must be between {} and {}",
                     MIN_CUSTOM_WORD_COUNT, MAX_CUSTOM_WORD_COUNT
                 ));
             }
-        }
 
-        if let Some(c) = &self.words {
-            if !(MIN_CUSTOM_WORD_COUNT..=MAX_CUSTOM_WORD_COUNT).contains(&c.len()) {
+        if let Some(c) = &self.words
+            && !(MIN_CUSTOM_WORD_COUNT..=MAX_CUSTOM_WORD_COUNT).contains(&c.len()) {
                 return Err(format!(
                     "Word count must be between {} and {}",
                     MIN_CUSTOM_WORD_COUNT, MAX_CUSTOM_WORD_COUNT
                 ));
             }
-        }
         Ok(())
     }
 

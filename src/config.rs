@@ -320,29 +320,25 @@ impl Config {
             }
         }
 
-        if let Some(ascii_str) = &cli.ascii {
-            if ascii_str.parse::<ascii::Ascii>().is_ok() {
+        if let Some(ascii_str) = &cli.ascii
+            && ascii_str.parse::<ascii::Ascii>().is_ok() {
                 self.state.ascii = Some(ascii_str.clone())
             }
-        }
 
-        if let Some(cursor_str) = &cli.cursor {
-            if let Ok(variant) = cursor_str.parse::<CursorVariant>() {
+        if let Some(cursor_str) = &cli.cursor
+            && let Ok(variant) = cursor_str.parse::<CursorVariant>() {
                 self.state.cursor_variant = variant;
             }
-        }
 
-        if let Some(picker_str) = &cli.picker {
-            if let Ok(variant) = picker_str.parse::<PickerVariant>() {
+        if let Some(picker_str) = &cli.picker
+            && let Ok(variant) = picker_str.parse::<PickerVariant>() {
                 self.state.picker_variant = variant;
             }
-        }
 
-        if let Some(results_str) = &cli.results {
-            if let Ok(variant) = results_str.parse::<ResultsVariant>() {
+        if let Some(results_str) = &cli.results
+            && let Ok(variant) = results_str.parse::<ResultsVariant>() {
                 self.state.results_variant = variant;
             }
-        }
 
         if cli.use_symbols {
             self.state.symbols = true;
