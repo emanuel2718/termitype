@@ -91,11 +91,7 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     let wpm_range_str = format!("{min_wpm:.0}–{max_wpm:.0}",);
 
     let stats = vec![
-        (
-            format!("{username}@{hostname}"),
-            header_style,
-            value_style,
-        ),
+        (format!("{username}@{hostname}"), header_style, value_style),
         ("".to_string(), dim_style, value_style), // separator line
         ("OS".to_string(), label_style, value_style),
         ("Version".to_string(), label_style, value_style),

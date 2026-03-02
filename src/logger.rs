@@ -121,12 +121,7 @@ impl Logger {
         self.write(Level::Info, None, None, &format!("Version: {version}"));
         self.write(Level::Info, None, None, &format!("OS: {os} ({arch})"));
         self.write(Level::Info, None, None, &format!("PID: {pid}"));
-        self.write(
-            Level::Info,
-            None,
-            None,
-            &format!("Started at: {timestamp}"),
-        );
+        self.write(Level::Info, None, None, &format!("Started at: {timestamp}"));
         self.write(Level::Info, None, None, "==========================");
     }
 }
