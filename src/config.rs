@@ -178,8 +178,8 @@ impl Mode {
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Mode::Time(t) => write!(f, "Time: {} seconds", t),
-            Mode::Words(w) => write!(f, "Words: {}", w),
+            Mode::Time(t) => write!(f, "Time: {t} seconds"),
+            Mode::Words(w) => write!(f, "Words: {w}"),
         }
     }
 }

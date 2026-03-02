@@ -86,7 +86,7 @@ impl FromStr for Ascii {
                 name: s.to_string(),
             })
         } else {
-            Err(format!("Ascii art '{}' not found", s))
+            Err(format!("Ascii art '{s}' not found"))
         }
     }
 }

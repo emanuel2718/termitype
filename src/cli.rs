@@ -107,16 +107,14 @@ impl Cli {
             && (t < MIN_CUSTOM_TIME as u64 || t > MAX_CUSTOM_TIME as u64)
         {
             return Err(format!(
-                "Time must be between {} and {} seconds",
-                MIN_CUSTOM_TIME, MAX_CUSTOM_TIME
+                "Time must be between {MIN_CUSTOM_TIME} and {MAX_CUSTOM_TIME} seconds"
             ));
         }
         if let Some(c) = self.words_count
             && !(MIN_CUSTOM_WORD_COUNT..=MAX_CUSTOM_WORD_COUNT).contains(&c)
         {
             return Err(format!(
-                "Word count must be between {} and {}",
-                MIN_CUSTOM_WORD_COUNT, MAX_CUSTOM_WORD_COUNT
+                "Word count must be between {MIN_CUSTOM_WORD_COUNT} and {MAX_CUSTOM_WORD_COUNT}"
             ));
         }
 
@@ -124,8 +122,7 @@ impl Cli {
             && !(MIN_CUSTOM_WORD_COUNT..=MAX_CUSTOM_WORD_COUNT).contains(&c.len())
         {
             return Err(format!(
-                "Word count must be between {} and {}",
-                MIN_CUSTOM_WORD_COUNT, MAX_CUSTOM_WORD_COUNT
+                "Word count must be between {MIN_CUSTOM_WORD_COUNT} and {MAX_CUSTOM_WORD_COUNT}"
             ));
         }
         Ok(())

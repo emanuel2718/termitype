@@ -95,7 +95,7 @@ pub fn create_mode_line<'a>(
         } else {
             fg_style
         };
-        spans.push(Span::styled(format!("{} ", val), val_style));
+        spans.push(Span::styled(format!("{val} "), val_style));
     }
 
     let mode_line = Line::from(spans);

@@ -29,7 +29,7 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-            .title(format!(" {} ", title))
+            .title(format!(" {title} "))
             .title_alignment(Alignment::Center)
             .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
             .style(Style::default().bg(theme.bg()))

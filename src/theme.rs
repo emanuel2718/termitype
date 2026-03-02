@@ -191,10 +191,10 @@ impl Theme {
                     let color_value = if color.starts_with('#') {
                         color.to_string()
                     } else {
-                        format!("#{}", color) // TODO: further validate is a valid hex
+                        format!("#{color}") // TODO: further validate is a valid hex
                     };
 
-                    color_map.insert(format!("palette{}", idx), color_value);
+                    color_map.insert(format!("palette{idx}"), color_value);
                 }
             } else if let Some((key, val)) = line.split_once('=') {
                 // case: background = #000000
@@ -203,7 +203,7 @@ impl Theme {
                 let color_value = if value.starts_with('#') {
                     value.to_string()
                 } else {
-                    format!("#{}", value) // TODO: further validate is a valid hex
+                    format!("#{value}") // TODO: further validate is a valid hex
                 };
                 color_map.insert(key.to_string(), color_value);
             }

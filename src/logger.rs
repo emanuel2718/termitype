@@ -84,7 +84,7 @@ impl Logger {
         let timestamp = format_timestamp(now);
 
         let file_info = if let (Some(file), Some(line)) = (file, line) {
-            format!("[{}:{}] ", file, line)
+            format!("[{file}:{line}] ")
         } else {
             "".to_string()
         };
@@ -118,14 +118,14 @@ impl Logger {
         let timestamp = format_timestamp(now);
 
         self.write(Level::Info, None, None, "=== TermiType Startup ===");
-        self.write(Level::Info, None, None, &format!("Version: {}", version));
-        self.write(Level::Info, None, None, &format!("OS: {} ({})", os, arch));
-        self.write(Level::Info, None, None, &format!("PID: {}", pid));
+        self.write(Level::Info, None, None, &format!("Version: {version}"));
+        self.write(Level::Info, None, None, &format!("OS: {os} ({arch})"));
+        self.write(Level::Info, None, None, &format!("PID: {pid}"));
         self.write(
             Level::Info,
             None,
             None,
-            &format!("Started at: {}", timestamp),
+            &format!("Started at: {timestamp}"),
         );
         self.write(Level::Info, None, None, "==========================");
     }

@@ -73,7 +73,7 @@ fn create_tracker_line(app: &mut App, theme: &Theme) -> Line<'static> {
             let total_secs = app.tracker.mode.value();
             let elapsed_secs = app.tracker.elapsed_time().as_secs();
             let secs_left = (total_secs as i64 - elapsed_secs as i64).max(0);
-            format!("{}", secs_left)
+            format!("{secs_left}")
         }
         crate::config::Mode::Words(_) => {
             let summary = app.tracker.summary();

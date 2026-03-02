@@ -29,7 +29,7 @@ pub fn get_ascii(name: &str) -> Option<String> {
 
 #[cfg(debug_assertions)]
 fn load_ascii_from_disk(name: &str) -> Option<String> {
-    std::fs::read_to_string(format!("assets/ascii/{}.txt", name)).ok()
+    std::fs::read_to_string(format!("assets/ascii/{name}.txt")).ok()
 }
 
 pub fn list_themes() -> Vec<String> {

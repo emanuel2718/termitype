@@ -57,8 +57,8 @@ fn benchmark_tracker(text: &str, iterations: usize) {
     let elapsed = started_at.elapsed();
     let total_chars = chars.len() * iterations;
     println!("tracker:");
-    println!("  iterations: {}", iterations);
-    println!("  total chars: {}", total_chars);
+    println!("  iterations: {iterations}");
+    println!("  total chars: {total_chars}");
     println!("  elapsed: {:.3}s", elapsed.as_secs_f64());
     println!(
         "  chars/sec: {:.0}",
@@ -85,7 +85,7 @@ fn benchmark_render(text: &str, iterations: usize, width: u16) {
 
     let elapsed = started_at.elapsed();
     println!("render:");
-    println!("  iterations: {}", iterations);
+    println!("  iterations: {iterations}");
     println!("  elapsed: {:.3}s", elapsed.as_secs_f64());
     println!(
         "  rebuilds/sec: {:.0}",

@@ -303,7 +303,7 @@ impl LeaderboardOverlay {
                 };
 
                 let text = if is_active {
-                    format!("{} {}", label, sort_indicator)
+                    format!("{label} {sort_indicator}")
                 } else {
                     label.to_string()
                 };
@@ -352,8 +352,7 @@ impl LeaderboardOverlay {
             "No results".to_string()
         } else {
             format!(
-                "{}/{} results  |  Sort: {} {}  ",
-                current_selection, total_count, sort_name, sort_indicator
+                "{current_selection}/{total_count} results  |  Sort: {sort_name} {sort_indicator}  "
             )
         };
 

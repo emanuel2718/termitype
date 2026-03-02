@@ -64,7 +64,7 @@ pub fn wrap_text(text: &str, max_width: u16) -> Vec<Line<'static>> {
         let potential = if current_line.is_empty() {
             word.to_string()
         } else {
-            format!("{} {}", current_line, word)
+            format!("{current_line} {word}")
         };
         if potential.len() as u16 > max_width {
             if !current_line.is_empty() {

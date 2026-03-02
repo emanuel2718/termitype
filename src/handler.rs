@@ -175,7 +175,7 @@ impl AppHandler {
         let new_query = if query.is_empty() {
             String::new()
         } else {
-            format!("{}{}", current_query, query)
+            format!("{current_query}{query}")
         };
         app.menu.update_search(new_query);
         app.try_preview()?;

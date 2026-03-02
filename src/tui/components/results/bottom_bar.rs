@@ -141,7 +141,7 @@ fn create_footer_item<'a>(
     }
 
     // Format: " Label [k] "
-    let content = format!(" {} [{}] ", label, key);
+    let content = format!(" {label} [{key}] ");
 
     vec![Span::styled(content, style)]
 }

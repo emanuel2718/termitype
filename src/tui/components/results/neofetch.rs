@@ -88,11 +88,11 @@ pub fn render(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     } else {
         summary.snapshots.max().max(summary.wpm)
     };
-    let wpm_range_str = format!("{:.0}–{:.0}", min_wpm, max_wpm,);
+    let wpm_range_str = format!("{min_wpm:.0}–{max_wpm:.0}",);
 
     let stats = vec![
         (
-            format!("{}@{}", username, hostname),
+            format!("{username}@{hostname}"),
             header_style,
             value_style,
         ),

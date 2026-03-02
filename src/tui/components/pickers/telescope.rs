@@ -92,7 +92,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
                     .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-                    .title(format!(" {} ", title))
+                    .title(format!(" {title} "))
                     .title_alignment(Alignment::Center)
                     .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .bg(theme.bg());
@@ -127,7 +127,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
                     .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-                    .title(format!(" {} ", title))
+                    .title(format!(" {title} "))
                     .title_alignment(Alignment::Center)
                     .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .style(Style::default().bg(theme.bg()));
@@ -160,7 +160,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-                .title(format!(" {} ", title))
+                .title(format!(" {title} "))
                 .title_alignment(Alignment::Center)
                 .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                 .style(Style::default().bg(theme.bg()));

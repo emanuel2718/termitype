@@ -86,7 +86,7 @@ impl MenuItem {
     pub fn info<S: Into<String>>(key: S, value: S) -> Self {
         let key = key.into();
         let value = value.into();
-        Self::new(format!("{} {}", key, value), MenuAction::Info(key, value))
+        Self::new(format!("{key} {value}"), MenuAction::Info(key, value))
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -210,7 +210,7 @@ impl MenuContent {
                     let tag_matches = fuzzy_match(&item.get_tag(), &query);
                     let full_display_matches = if self.is_cmd_palette {
                         let full_display = if let Some(tag) = &item.tag {
-                            format!("{}: {}", tag, label_target)
+                            format!("{tag}: {label_target}")
                         } else {
                             label_target.clone()
                         };

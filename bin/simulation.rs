@@ -300,15 +300,15 @@ fn display_live_progress(state: &mut Tracker, text: &str, target_wps: f64, itera
         if i < state.current_pos {
             if let Some(token) = state.tokens.get(i) {
                 if token.is_wrong {
-                    print!("\x1b[31m{}\x1b[0m", c); // red
+                    print!("\x1b[31m{c}\x1b[0m"); // red
                 } else {
-                    print!("\x1b[32m{}\x1b[0m", c); // green
+                    print!("\x1b[32m{c}\x1b[0m"); // green
                 }
             }
         } else if i == state.current_pos && state.current_pos < chars.len() {
-            print!("\x1b[33m{}\x1b[0m\x1b[33m▊\x1b[0m", c); // yellow cursor
+            print!("\x1b[33m{c}\x1b[0m\x1b[33m▊\x1b[0m"); // yellow cursor
         } else {
-            print!("{}", c); // default color
+            print!("{c}"); // default color
         }
     }
     println!();
