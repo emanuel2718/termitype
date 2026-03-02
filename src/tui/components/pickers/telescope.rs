@@ -10,11 +10,11 @@ use crate::{
     },
 };
 use ratatui::{
-    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
+    Frame,
 };
 
 fn calculate_total_menu_area(overlay_area: Rect, screen_area: Rect, has_visualizer: bool) -> Rect {
@@ -42,6 +42,8 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
     if let Some(current_menu) = menu.current_menu() {
         let items = menu.current_items();
         let has_no_items = items.is_empty();
+        let current_index = menu.current_index().unwrap_or(0);
+        let total_items = items.len();
 
         let title = current_menu.title.clone();
         let overlay_area = picker_overlay_area(area);
@@ -192,8 +194,6 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
             let no_items_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
             lines.push(Line::from(Span::styled("No items found", no_items_style)));
         } else {
-            let current_index = menu.current_index().unwrap_or(0);
-
             // ensure the current index is visible
             if current_index < scroll_offset {
                 scroll_offset = current_index;
@@ -251,7 +251,11 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 let indicator = if is_toggle {
                     if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
                         let enabled = app.config.is_enabled(setting.clone());
-                        if enabled { "[x]" } else { "[ ]" }
+                        if enabled {
+                            "[x]"
+                        } else {
+                            "[ ]"
+                        }
                     } else {
                         unreachable!()
                     }
@@ -322,6 +326,8 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 theme,
                 menu,
                 has_visualizer,
+                current_index,
+                total_items,
             );
         }
     }

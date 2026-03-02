@@ -308,8 +308,15 @@ impl Config {
         }
 
         if let Some(theme_str) = &cli.theme {
-            if theme_str.parse::<Theme>().is_ok() {
+            if crate::assets::get_theme(theme_str).is_some() {
                 self.state.theme = Some(theme_str.clone())
+            } else if !self.state.hide_notifications && !cli.hide_notifications {
+                crate::notify_warning!(format!(
+                    "Theme '{}' not found. Keeping current theme '{}'",
+                    theme_str,
+                    self.current_theme()
+                        .unwrap_or_else(|| DEFAULT_THEME.to_string())
+                ));
             }
         }
 
@@ -420,8 +427,8 @@ impl Config {
             .unwrap_or_else(|| DEFAULT_ASCII_ART.to_string())
     }
 
-    pub fn change_theme(&mut self, theme: Theme) {
-        self.state.theme = Some(theme.id.to_string())
+    pub fn change_theme(&mut self, theme: &Theme) {
+        self.state.theme = Some(theme.id().to_string())
     }
 
     pub fn change_language(&mut self, lang: String) {

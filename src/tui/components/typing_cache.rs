@@ -9,7 +9,7 @@ pub struct TypingRenderCache {
     revision: u64,
     width: u16,
     line_count: u8,
-    theme_id: String,
+    theme_revision: u64,
     lines: Vec<Line<'static>>,
     cursor_line: usize,
     cursor_x: u16,
@@ -28,11 +28,10 @@ impl TypingRenderCache {
         line_count: u8,
         revision: u64,
     ) {
-        let theme_id = theme.id.as_ref();
         let unchanged = self.revision == revision
             && self.width == width
             && self.line_count == line_count
-            && self.theme_id == theme_id;
+            && self.theme_revision == theme.revision();
         if unchanged {
             return;
         }
@@ -45,7 +44,7 @@ impl TypingRenderCache {
         self.revision = revision;
         self.width = width;
         self.line_count = line_count;
-        self.theme_id = theme_id.to_string();
+        self.theme_revision = theme.revision();
     }
 
     pub fn lines(&self) -> &[Line<'static>] {

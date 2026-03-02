@@ -1,16 +1,15 @@
 use crate::{
-    actions::Action,
     app::App,
-    menu::{Menu, MenuAction},
+    menu::Menu,
     theme::Theme,
     tui::{helpers::menu_items_padding, layout::picker_overlay_area},
 };
 use ratatui::{
-    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Wrap},
+    Frame,
 };
 
 pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
@@ -19,6 +18,7 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
     if let Some(current_menu) = menu.current_menu() {
         let items = menu.current_items();
         let has_no_items = items.is_empty();
+        let current_index = menu.current_index().unwrap_or(0);
         let title = current_menu.title.clone();
 
         let overlay_area = picker_overlay_area(area);
@@ -56,7 +56,14 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
         let search_bar_area = rows[0];
         let items_area = rows[2];
 
-        render_search_bar(frame, search_bar_area, theme, menu);
+        render_search_bar(
+            frame,
+            search_bar_area,
+            theme,
+            menu,
+            current_index,
+            items.len(),
+        );
 
         let items_area_height = items_area.height as usize;
         let mut scroll_offset = current_menu.scroll_offset;
@@ -67,8 +74,6 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
             let no_items_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
             lines.push(Line::from(Span::styled("No items found", no_items_style)));
         } else {
-            let current_index = menu.current_index().unwrap_or(0);
-
             if current_index < scroll_offset {
                 scroll_offset = current_index;
             } else if current_index >= scroll_offset + items_area_height {
@@ -145,7 +150,14 @@ pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, a
     }
 }
 
-fn render_search_bar(frame: &mut Frame, area: Rect, theme: &Theme, menu: &Menu) {
+fn render_search_bar(
+    frame: &mut Frame,
+    area: Rect,
+    theme: &Theme,
+    menu: &Menu,
+    current_index: usize,
+    total_items: usize,
+) {
     let sections = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(75), Constraint::Percentage(25)])
@@ -178,30 +190,17 @@ fn render_search_bar(frame: &mut Frame, area: Rect, theme: &Theme, menu: &Menu) 
         x = left_area.x + left_area.width.saturating_sub(2);
     }
     let y = left_area.y;
-    if should_show_search_cursor(menu) {
-        frame.set_cursor_position(Position { x, y });
-    }
-    let (m, n) = if menu.current_menu().is_some() {
-        let items = menu.current_items();
-        let n = items.len();
-        let current_index = menu.current_index().unwrap_or(0);
-        (current_index.saturating_add(1), n)
+
+    frame.set_cursor_position(Position { x, y });
+
+    let m = if total_items == 0 {
+        0
     } else {
-        (0, 0)
+        current_index.saturating_add(1)
     };
+    let n = total_items;
     let right = Paragraph::new(format!("{}/{}", if n == 0 { 0 } else { m }, n))
         .style(dim_style)
         .alignment(Alignment::Right);
     frame.render_widget(right, right_area);
-}
-
-fn should_show_search_cursor(menu: &Menu) -> bool {
-    let selected_theme_preview = menu
-        .current_item()
-        .map(|item| {
-            item.has_preview && matches!(item.action, MenuAction::Action(Action::SetTheme(_)))
-        })
-        .unwrap_or(false);
-
-    !selected_theme_preview
 }

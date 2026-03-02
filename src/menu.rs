@@ -206,16 +206,15 @@ impl MenuContent {
                     } else {
                         item.get_label()
                     };
-                    let label_matches = fuzzy_match(&label_target.to_lowercase(), &query);
-                    let tag_matches = fuzzy_match(&item.get_tag().to_lowercase(), &query);
-                    // in the cmd palette, mathc the full display text (`tag: description`)
+                    let label_matches = fuzzy_match(&label_target, &query);
+                    let tag_matches = fuzzy_match(&item.get_tag(), &query);
                     let full_display_matches = if self.is_cmd_palette {
                         let full_display = if let Some(tag) = &item.tag {
                             format!("{}: {}", tag, label_target)
                         } else {
                             label_target.clone()
                         };
-                        fuzzy_match(&full_display.to_lowercase(), &query)
+                        fuzzy_match(&full_display, &query)
                     } else {
                         false
                     };
@@ -895,7 +894,7 @@ mod tests {
         assert!(!theme::is_using_preview_theme());
 
         assert_eq!(
-            theme::current_theme().id.to_string(),
+            theme::current_theme().id().to_string(),
             "Fallback".to_string()
         );
 

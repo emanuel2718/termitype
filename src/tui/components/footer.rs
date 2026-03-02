@@ -9,7 +9,7 @@ use ratatui::{
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn create_footer_element<'a>(theme: &Theme) -> Paragraph<'a> {
-    let footer_text = format!("{} v{}", theme.id, APP_VERSION);
+    let footer_text = format!("{} v{}", theme.id(), APP_VERSION);
     Paragraph::new(footer_text)
         .style(Style::default().fg(theme.fg()))
         .add_modifier(Modifier::DIM)

@@ -115,7 +115,7 @@ fn handle_key_event(
 
     actions::handle_action(app, input_result.action)?;
     app.perf.on_action_from_event(event_started_at);
-    app.mark_needs_redraw();
+    app.mark_high_priority_redraw();
     Ok(())
 }
 
@@ -474,7 +474,7 @@ impl App {
         // NOTE: sync the theme changes before quitting.
         let theme = theme::current_theme();
         log_debug!("The current theme: {theme:?}");
-        self.config.change_theme(theme);
+        self.config.change_theme(theme.as_ref());
         self.config.persist()?;
         Ok(())
     }

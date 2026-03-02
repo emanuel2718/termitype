@@ -38,7 +38,7 @@ impl AppHandler {
 
     pub fn handle_randomize_theme(self, _app: &mut App) -> Result<(), AppError> {
         theme::use_random_theme()?;
-        notify_info!(format!("Theme change: {}", theme::current_theme().id));
+        notify_info!(format!("Theme change: {}", theme::current_theme().id()));
         Ok(())
     }
 
