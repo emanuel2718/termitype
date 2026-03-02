@@ -70,12 +70,12 @@ impl AppHandler {
         Ok(())
     }
 
-    pub fn handle_command_palette_toggle(self, app: &mut App) -> Result<(), AppError> {
+    pub fn handle_command_palette_open(self, app: &mut App) -> Result<(), AppError> {
         if app.menu.is_open() {
-            // if the cmd palette is currently open, then close it
+            // if the cmd palette is currently open, do nothing
             if let Some(current_menu) = app.menu.current_menu() {
                 if current_menu.is_cmd_palette {
-                    return AppHandler.handle_menu_close(app);
+                    return Ok(());
                 }
             }
             // we don't want cmd palette and the actual menu to be open at the same time,

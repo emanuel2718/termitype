@@ -91,7 +91,7 @@ termitype --help
 | `<C-Space>`    | `Global`  | Toggle Menu                         |
 | `<C-c>`        | `Global`  | Quit Application                    |
 | `<C-z>`        | `Global`  | Quit Application                    |
-| `<C-o>`        | `Global`  | Toggle Command Palette              |
+| `<C-p>`        | `Global`  | Toggle Command Palette              |
 | `<C-l>`        | `Global`  | Toggle Leaderboard Screen           |
 | `<C-t>`        | `Global`  | Randomize Theme                     |
 | `<Esc>`        | `Global`  | Toggle Menu                         |

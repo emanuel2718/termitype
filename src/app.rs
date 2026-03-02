@@ -530,7 +530,7 @@ mod tests {
     use crate::{config::Config, tracker::TypingStatus};
 
     #[test]
-    fn test_command_palette_pause_resume() {
+    fn test_command_palette_open_pause_resume() {
         let config = Config::default();
         let mut app = App::new(&config);
         app.config.change_mode(Mode::with_words(2)).unwrap();
@@ -543,7 +543,8 @@ mod tests {
         app.handler.handle_input(&mut app, 'e').unwrap();
         app.handler.handle_input(&mut app, 'r').unwrap();
 
-        app.handler.handle_command_palette_toggle(&mut app).unwrap();
+        app.handler.handle_command_palette_open(&mut app).unwrap();
+        app.handler.handle_command_palette_open(&mut app).unwrap();
         app.handler
             .handle_menu_update_search(&mut app, "s".to_string())
             .unwrap();

@@ -32,7 +32,7 @@ pub enum Action {
     MenuBackspaceSearch,
     MenuUpdateSearch(String),
 
-    CommandPaletteToggle,
+    CommandPaletteOpen,
 
     ModalOpen(ModalContext),
     ModalInput(char),
@@ -85,7 +85,7 @@ pub fn handle_action(app: &mut App, action: Action) -> Result<(), AppError> {
         Action::MenuExitSearch => app.handler.handle_menu_exit_search(&mut *app),
         Action::MenuBackspaceSearch => app.handler.handle_menu_backspace_search(&mut *app),
         Action::MenuUpdateSearch(query) => app.handler.handle_menu_update_search(&mut *app, query),
-        Action::CommandPaletteToggle => app.handler.handle_command_palette_toggle(&mut *app),
+        Action::CommandPaletteOpen => app.handler.handle_command_palette_open(&mut *app),
         Action::ModalOpen(ctx) => app.handler.handle_modal_open(&mut *app, ctx),
         Action::ModalInput(c) => app.handler.handle_modal_input(&mut *app, c),
         Action::ModalBackspace => app.handler.handle_modal_backspace(&mut *app),
