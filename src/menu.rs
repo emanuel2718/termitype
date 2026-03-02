@@ -280,9 +280,25 @@ impl MenuContent {
         len: usize,
         viewport_height: usize,
     ) -> usize {
+        if len == 0 {
+            return 0;
+        }
+
         match motion {
-            MenuMotion::Up => current_index.saturating_sub(1),
-            MenuMotion::Down => (current_index + 1).min(len.saturating_sub(1)),
+            MenuMotion::Up => {
+                if current_index == 0 {
+                    len.saturating_sub(1)
+                } else {
+                    current_index.saturating_sub(1)
+                }
+            }
+            MenuMotion::Down => {
+                if current_index + 1 >= len {
+                    0
+                } else {
+                    current_index + 1
+                }
+            }
             MenuMotion::PageUp => {
                 let scroll = viewport_height.saturating_sub(1) / 2;
                 current_index.saturating_sub(scroll)
@@ -695,7 +711,26 @@ mod tests {
         assert_eq!(content.current_index, 0);
 
         content.nav(MenuMotion::Up, 10, None);
-        assert_eq!(content.current_index, 0); // no wrapping
+        assert_eq!(content.current_index, 4); // wraps
+
+        content.nav(MenuMotion::Down, 10, None);
+        assert_eq!(content.current_index, 0); // wraps
+    }
+
+    #[test]
+    fn test_menu_content_nav_wrap_with_query() {
+        let items = vec![
+            MenuItem::new("termitype", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("test", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("hello", MenuAction::Action(Action::NoOp)),
+        ];
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+
+        content.nav(MenuMotion::Up, 10, Some("t"));
+        assert_eq!(content.current_index, 1); // wraps to last filtered item (`test`)
+
+        content.nav(MenuMotion::Down, 10, Some("t"));
+        assert_eq!(content.current_index, 0); // wraps back to first filtered item (`termitype`)
     }
 
     #[test]
