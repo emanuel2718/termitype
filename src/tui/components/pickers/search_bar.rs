@@ -14,9 +14,9 @@ pub fn render_menu_bottom_bar(
     theme: &Theme,
     menu: &Menu,
     has_visualizer: bool,
-    current_index: usize,
-    total_items: usize,
+    list_position: (usize, usize),
 ) {
+    let (current_index, total_items) = list_position;
     let bar_height = 3u16;
     let bar_area = Rect {
         x: overlay_area.x,

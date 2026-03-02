@@ -1,6 +1,5 @@
 use crate::{
     app::App,
-    log_info,
     theme::{self, Theme},
     tui::{
         components::{

@@ -326,8 +326,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 theme,
                 menu,
                 has_visualizer,
-                current_index,
-                total_items,
+                (current_index, total_items),
             );
         }
     }
