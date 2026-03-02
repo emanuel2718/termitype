@@ -24,9 +24,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.87.0
-          components: rustfmt, clippy
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
@@ -59,8 +56,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.87.0
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -82,8 +77,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.87.0
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
