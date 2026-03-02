@@ -1,10 +1,10 @@
 use crate::{menu::Menu, theme::Theme};
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph},
-    Frame,
 };
 
 pub fn render_menu_bottom_bar(

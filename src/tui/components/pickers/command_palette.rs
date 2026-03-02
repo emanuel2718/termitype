@@ -5,11 +5,11 @@ use crate::{
     tui::{helpers::menu_items_padding, layout::picker_overlay_area},
 };
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Wrap},
-    Frame,
 };
 
 pub fn render_command_palette(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
