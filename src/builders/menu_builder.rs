@@ -198,7 +198,7 @@ fn build_themes_menu(_config: &Config) -> MenuContent {
 
     let mut menu = builder.build();
     let curr = theme::current_theme();
-    if let Some(idx) = themes.iter().position(|name| *name == curr.id.to_string()) {
+    if let Some(idx) = themes.iter().position(|name| name.as_str() == curr.id()) {
         menu.set_current_index(idx);
     }
     menu

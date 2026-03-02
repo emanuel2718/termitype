@@ -60,9 +60,9 @@ fn render_wpm_chart(frame: &mut Frame, summary: &Summary, theme: &Theme, area: R
 
     // Y-axis labels
     let y_labels = vec![
-        Span::styled(format!("{:.0}", min_wpm), axis_value_style),
+        Span::styled(format!("{min_wpm:.0}"), axis_value_style),
         Span::styled(format!("{:.0}", y_upper_bound / 2.0), axis_value_style),
-        Span::styled(format!("{:.0}", y_upper_bound), axis_value_style),
+        Span::styled(format!("{y_upper_bound:.0}"), axis_value_style),
     ];
 
     let dataset = Dataset::default()
@@ -198,7 +198,7 @@ fn render_details_section(
         } else {
             summary.snapshots.max().max(summary.wpm)
         };
-        format!("{:.0}-{:.0}", min_wpm, max_wpm)
+        format!("{min_wpm:.0}-{max_wpm:.0}")
     };
 
     let lines = vec![
@@ -212,11 +212,11 @@ fn render_details_section(
         ]),
         Line::from(vec![
             Span::styled("Duration: ", label_style),
-            Span::styled(format!("{:.0}s", elapsed_secs), value_style),
+            Span::styled(format!("{elapsed_secs:.0}s"), value_style),
         ]),
         Line::from(vec![
             Span::styled("Keystrokes: ", label_style),
-            Span::styled(format!("{}", total_keystrokes), value_style),
+            Span::styled(format!("{total_keystrokes}"), value_style),
         ]),
         Line::from(vec![
             Span::styled("Correct: ", label_style),

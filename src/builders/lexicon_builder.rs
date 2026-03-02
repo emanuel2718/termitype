@@ -176,7 +176,7 @@ impl LexiconBuilder {
         }
 
         let content = assets::get_language(lang)
-            .ok_or_else(|| AppError::Other(format!("Language not found: {}", lang)))?;
+            .ok_or_else(|| AppError::Other(format!("Language not found: {lang}")))?;
 
         let language: Language = serde_json::from_str(&content)?;
         let mut idxs: Vec<usize> = (0..language.words.len()).collect();

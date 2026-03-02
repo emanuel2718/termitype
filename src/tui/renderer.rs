@@ -87,7 +87,9 @@ fn render_idle_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout: A
     }
 
     // typing area
-    typing_area::render_typing_area(frame, app, theme, &layout);
+    if !app.menu.is_open() {
+        typing_area::render_typing_area(frame, app, theme, &layout);
+    }
 
     // commands
     if layout.show_command_bar {
@@ -124,7 +126,9 @@ fn render_typing_screen(frame: &mut Frame, app: &mut App, theme: &Theme, layout:
     }
 
     // typing area
-    typing_area::render_typing_area(frame, app, theme, &layout);
+    if !app.menu.is_open() {
+        typing_area::render_typing_area(frame, app, theme, &layout);
+    }
 }
 
 /// Render the results screen. This render when the typing test is completed (`TypingStatus::Completed`)

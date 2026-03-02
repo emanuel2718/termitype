@@ -26,18 +26,13 @@ pub enum NotificationSeverity {
     Error,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum NotificationPosition {
     TopLeft,
+    #[default]
     TopRight,
     BottomLeft,
     BottomRight,
-}
-
-impl Default for NotificationPosition {
-    fn default() -> Self {
-        Self::TopRight
-    }
 }
 
 impl NotificationPosition {

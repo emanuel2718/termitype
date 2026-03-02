@@ -4,12 +4,28 @@ use rand::{Rng, rng};
 use ratatui::style::Color;
 use std::{
     collections::HashMap,
-    convert::Infallible,
     str::FromStr,
-    sync::{Arc, RwLock},
+    sync::{
+        Arc, RwLock,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 const NUM_COLORS: usize = 14;
+
+pub type ThemeHandle = Arc<Theme>;
+
+static THEME_REVISION: AtomicU64 = AtomicU64::new(1);
+static FALLBACK_THEME: once_cell::sync::Lazy<ThemeHandle> =
+    once_cell::sync::Lazy::new(|| Arc::new(Theme::fallback()));
+
+fn next_theme_revision() -> u64 {
+    THEME_REVISION.fetch_add(1, Ordering::Relaxed)
+}
+
+fn fallback_theme_handle() -> ThemeHandle {
+    FALLBACK_THEME.clone()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ThemeColor {
@@ -62,7 +78,7 @@ impl ThemeColor {
             ThemeColor::Error => "palette1",
             ThemeColor::Warning => "palette3",
             ThemeColor::Cursor => "cursor-color",
-            ThemeColor::CursorText => "palette0",
+            ThemeColor::CursorText => "cursor-text",
             ThemeColor::SelectionBg => "selection-background",
             ThemeColor::SelectionFg => "selection-foreground",
         }
@@ -91,16 +107,16 @@ impl ColorSupport {
 
     pub fn detect_color_support() -> Self {
         // TODO: improve this
-        if let Ok(ct) = std::env::var("COLORTERM") {
-            if Self::is_truecolor_term(&ct) {
-                return ColorSupport::TrueColor;
-            }
+        if let Ok(ct) = std::env::var("COLORTERM")
+            && Self::is_truecolor_term(&ct)
+        {
+            return ColorSupport::TrueColor;
         }
         ColorSupport::Basic
     }
 
     fn is_truecolor_term(colorterm: &str) -> bool {
-        matches!(colorterm.to_lowercase().as_str(), "truecolor | 24bit")
+        matches!(colorterm.to_lowercase().as_str(), "truecolor" | "24bit")
     }
 }
 
@@ -121,6 +137,7 @@ impl std::str::FromStr for ColorSupport {
 pub struct Theme {
     pub id: Arc<str>,
     colors: [Color; NUM_COLORS],
+    revision: u64,
 }
 
 impl Default for Theme {
@@ -129,17 +146,15 @@ impl Default for Theme {
     }
 }
 
-impl FromStr for Theme {
-    type Err = Infallible;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(theme_manager()
-            .get_theme(s)
-            .unwrap_or_else(|_| Theme::fallback()))
-    }
-}
-
 impl Theme {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
     pub fn get(&self, color: ThemeColor) -> Color {
         self.colors[color as usize]
     }
@@ -150,8 +165,8 @@ impl Theme {
         Ok(Theme {
             id: name.into(),
             colors,
+            revision: next_theme_revision(),
         })
-        // TODO: implement this
     }
 
     fn parse_colors(scheme: &str) -> Result<HashMap<String, String>> {
@@ -176,10 +191,10 @@ impl Theme {
                     let color_value = if color.starts_with('#') {
                         color.to_string()
                     } else {
-                        format!("#{}", color) // TODO: further validate is a valid hex
+                        format!("#{color}") // TODO: further validate is a valid hex
                     };
 
-                    color_map.insert(format!("palette{}", idx), color_value);
+                    color_map.insert(format!("palette{idx}"), color_value);
                 }
             } else if let Some((key, val)) = line.split_once('=') {
                 // case: background = #000000
@@ -188,7 +203,7 @@ impl Theme {
                 let color_value = if value.starts_with('#') {
                     value.to_string()
                 } else {
-                    format!("#{}", value) // TODO: further validate is a valid hex
+                    format!("#{value}") // TODO: further validate is a valid hex
                 };
                 color_map.insert(key.to_string(), color_value);
             }
@@ -229,6 +244,7 @@ impl Theme {
                 Color::DarkGray,     // SelectionBg
                 Color::White,        // SelectionFg
             ],
+            revision: 0,
         }
     }
 
@@ -282,9 +298,9 @@ impl Theme {
 
 #[derive(Default)]
 pub struct ThemeManager {
-    themes: Arc<RwLock<HashMap<String, Theme>>>,
-    current_theme: Arc<RwLock<Option<Theme>>>,
-    preview_theme: Arc<RwLock<Option<Theme>>>,
+    themes: Arc<RwLock<HashMap<String, ThemeHandle>>>,
+    current_theme: Arc<RwLock<Option<ThemeHandle>>>,
+    preview_theme: Arc<RwLock<Option<ThemeHandle>>>,
     color_support: ColorSupport,
 }
 
@@ -302,14 +318,15 @@ impl ThemeManager {
     pub fn init_from_config(&self, config: &Config) -> Result<()> {
         let theme = config.current_theme();
         let theme_name = theme.as_deref().unwrap_or(DEFAULT_THEME);
-        self.set_as_current_theme(theme_name)?;
+        let resolved = self.get_theme_or_fallback(theme_name);
+        *self.current_theme.write().unwrap() = Some(resolved);
         Ok(())
     }
 
     pub fn load_theme(&self, name: &str) -> Result<()> {
         if !self.themes.read().unwrap().contains_key(name) {
             if let Some(scheme) = crate::assets::get_theme(name) {
-                let theme = Theme::from_colorscheme(name, &scheme)?;
+                let theme = Arc::new(Theme::from_colorscheme(name, &scheme)?);
                 self.themes.write().unwrap().insert(name.to_string(), theme);
             } else {
                 return Err(anyhow::anyhow!("Theme '{name}' not found"));
@@ -318,7 +335,11 @@ impl ThemeManager {
         Ok(())
     }
 
-    pub fn get_theme(&self, name: &str) -> Result<Theme> {
+    pub fn get_theme(&self, name: &str) -> Result<ThemeHandle> {
+        if name == "Fallback" {
+            return Ok(fallback_theme_handle());
+        }
+
         // get with read lock first
         {
             let themes = self.themes.read().unwrap();
@@ -329,7 +350,7 @@ impl ThemeManager {
 
         // try to load then
         if let Some(scheme) = crate::assets::get_theme(name) {
-            let theme = Theme::from_colorscheme(name, &scheme)?;
+            let theme = Arc::new(Theme::from_colorscheme(name, &scheme)?);
             let mut themes = self.themes.write().unwrap();
             if let Some(existing) = themes.get(name) {
                 return Ok(existing.clone());
@@ -337,13 +358,18 @@ impl ThemeManager {
             themes.insert(name.to_string(), theme.clone());
             Ok(theme)
         } else {
-            Ok(Theme::fallback())
+            Err(anyhow::anyhow!("Theme '{name}' not found"))
         }
+    }
+
+    pub fn get_theme_or_fallback(&self, name: &str) -> ThemeHandle {
+        self.get_theme(name)
+            .unwrap_or_else(|_| fallback_theme_handle())
     }
 
     /// Gets the currently active theme. If there's a an active `preview_theme` it takes
     /// precedence over the `current_theme`.
-    pub fn get_active_theme(&self) -> Option<Theme> {
+    pub fn get_active_theme(&self) -> Option<ThemeHandle> {
         if let Some(preview) = self.preview_theme.read().unwrap().as_ref() {
             Some(preview.clone())
         } else {
@@ -412,21 +438,18 @@ impl ThemeManager {
 
     pub fn randomize_theme(&self) -> Result<()> {
         let mut rng = rng();
-        let colors: [Color; NUM_COLORS] = ThemeColor::all()
-            .iter()
-            .map(|_| {
-                let r = rng.random::<u8>();
-                let g = rng.random::<u8>();
-                let b = rng.random::<u8>();
-                Color::Rgb(r, g, b)
-            })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        let theme = Theme {
+        let mut colors = [Color::Black; NUM_COLORS];
+        for color in &mut colors {
+            let r = rng.random::<u8>();
+            let g = rng.random::<u8>();
+            let b = rng.random::<u8>();
+            *color = Color::Rgb(r, g, b);
+        }
+        let theme = Arc::new(Theme {
             id: Arc::from("Random"),
             colors,
-        };
+            revision: next_theme_revision(),
+        });
         *self.current_theme.write().unwrap() = Some(theme);
         Ok(())
     }
@@ -443,10 +466,10 @@ pub fn init_from_config(config: &Config) -> Result<()> {
     theme_manager().init_from_config(config)
 }
 
-pub fn current_theme() -> Theme {
+pub fn current_theme() -> ThemeHandle {
     theme_manager()
         .get_active_theme()
-        .unwrap_or_else(Theme::fallback)
+        .unwrap_or_else(fallback_theme_handle)
 }
 
 pub fn is_using_preview_theme() -> bool {
@@ -503,6 +526,7 @@ palette11 = #ffff80
 palette12 = #8080ff
 palette13 = #ff80ff
 cursor-color = #ffffff
+cursor-text = #000000
 selection-background = #808080
 selection-foreground = #ffffff
 "#;
@@ -532,11 +556,15 @@ selection-foreground = #ffffff
             theme.get(ThemeColor::SelectionBg),
             Color::from_str("#808080").unwrap()
         );
+        assert_eq!(
+            theme.get(ThemeColor::CursorText),
+            Color::from_str("#000000").unwrap()
+        );
     }
 
     #[test]
     fn test_parse_incomplete_colorscheme() {
         let content = "background = #000000\nforeground = #ffffff";
-        assert!(Theme::from_colorscheme(content, "test").is_err());
+        assert!(Theme::from_colorscheme("test", content).is_err());
     }
 }

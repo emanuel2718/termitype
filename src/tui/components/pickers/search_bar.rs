@@ -14,7 +14,9 @@ pub fn render_menu_bottom_bar(
     theme: &Theme,
     menu: &Menu,
     has_visualizer: bool,
+    list_position: (usize, usize),
 ) {
+    let (current_index, total_items) = list_position;
     let bar_height = 3u16;
     let bar_area = Rect {
         x: overlay_area.x,
@@ -88,14 +90,12 @@ pub fn render_menu_bottom_bar(
         }
 
         // right <m>/<N>
-        let (m, n) = if menu.current_menu().is_some() {
-            let items = menu.current_items();
-            let n = items.len();
-            let current_index = menu.current_index().unwrap_or(0);
-            (current_index.saturating_add(1), n)
+        let m = if total_items == 0 {
+            0
         } else {
-            (0, 0)
+            current_index.saturating_add(1)
         };
+        let n = total_items;
 
         let right_text = Paragraph::new(format!("{}/{}", if n == 0 { 0 } else { m }, n))
             .style(dim_style)

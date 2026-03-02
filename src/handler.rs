@@ -21,7 +21,10 @@ impl AppHandler {
             return Ok(());
         }
         match app.tracker.type_char(chr) {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                app.bump_typing_revision();
+                Ok(())
+            }
             Err(AppError::IllegalSpaceCharacter) => Ok(()),
             Err(e) => Err(e),
         }
@@ -35,7 +38,7 @@ impl AppHandler {
 
     pub fn handle_randomize_theme(self, _app: &mut App) -> Result<(), AppError> {
         theme::use_random_theme()?;
-        notify_info!(format!("Theme change: {}", theme::current_theme().id));
+        notify_info!(format!("Theme change: {}", theme::current_theme().id()));
         Ok(())
     }
 
@@ -67,13 +70,13 @@ impl AppHandler {
         Ok(())
     }
 
-    pub fn handle_command_palette_toggle(self, app: &mut App) -> Result<(), AppError> {
+    pub fn handle_command_palette_open(self, app: &mut App) -> Result<(), AppError> {
         if app.menu.is_open() {
-            // if the cmd palette is currently open, then close it
-            if let Some(current_menu) = app.menu.current_menu() {
-                if current_menu.is_cmd_palette {
-                    return AppHandler.handle_menu_close(app);
-                }
+            // if the cmd palette is currently open, do nothing
+            if let Some(current_menu) = app.menu.current_menu()
+                && current_menu.is_cmd_palette
+            {
+                return Ok(());
             }
             // we don't want cmd palette and the actual menu to be open at the same time,
             // thus if the menu is currently opened, then close it
@@ -122,11 +125,11 @@ impl AppHandler {
     }
 
     pub fn handle_menu_shortcut(self, app: &mut App, shortcut: char) -> Result<(), AppError> {
-        if let Some(menu) = app.menu.current_menu_mut() {
-            if let Some((idx, _)) = menu.find_by_shortcut(shortcut) {
-                menu.set_current_index(idx);
-                return AppHandler.handle_menu_select(app);
-            }
+        if let Some(menu) = app.menu.current_menu_mut()
+            && let Some((idx, _)) = menu.find_by_shortcut(shortcut)
+        {
+            menu.set_current_index(idx);
+            return AppHandler.handle_menu_select(app);
         }
         Ok(())
     }
@@ -146,10 +149,10 @@ impl AppHandler {
 
     pub fn handle_menu_exit_search(self, app: &mut App) -> Result<(), AppError> {
         // if we are in command palette we should close the whole menu
-        if let Some(menu) = app.menu.current_menu() {
-            if menu.is_cmd_palette {
-                return AppHandler.handle_menu_close(app);
-            }
+        if let Some(menu) = app.menu.current_menu()
+            && menu.is_cmd_palette
+        {
+            return AppHandler.handle_menu_close(app);
         }
         // we are in the normal menu, just exit search and enter normal mode
         app.menu.exit_search();
@@ -172,7 +175,7 @@ impl AppHandler {
         let new_query = if query.is_empty() {
             String::new()
         } else {
-            format!("{}{}", current_query, query)
+            format!("{current_query}{query}")
         };
         app.menu.update_search(new_query);
         app.try_preview()?;
@@ -214,29 +217,29 @@ impl AppHandler {
             match modal.ctx {
                 ModalContext::CustomTime => {
                     // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
-                    if let Ok(val) = modal.get_value() {
-                        if let Ok(secs) = val.parse::<usize>() {
-                            app.config.change_mode(Mode::with_time(secs))?;
-                            app.restart()?
-                        }
+                    if let Ok(val) = modal.get_value()
+                        && let Ok(secs) = val.parse::<usize>()
+                    {
+                        app.config.change_mode(Mode::with_time(secs))?;
+                        app.restart()?
                     }
                 }
                 ModalContext::CustomWordCount => {
                     // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
-                    if let Ok(val) = modal.get_value() {
-                        if let Ok(count) = val.parse::<usize>() {
-                            app.config.change_mode(Mode::with_words(count))?;
-                            app.restart()?
-                        }
+                    if let Ok(val) = modal.get_value()
+                        && let Ok(count) = val.parse::<usize>()
+                    {
+                        app.config.change_mode(Mode::with_words(count))?;
+                        app.restart()?
                     }
                 }
                 ModalContext::CustomLineCount => {
                     // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
-                    if let Ok(val) = modal.get_value() {
-                        if let Ok(count) = val.parse::<u8>() {
-                            app.config.change_visible_lines_count(count);
-                            app.restart()?
-                        }
+                    if let Ok(val) = modal.get_value()
+                        && let Ok(count) = val.parse::<u8>()
+                    {
+                        app.config.change_visible_lines_count(count);
+                        app.restart()?
                     }
                 }
                 ModalContext::ExitConfirmation => app.quit()?,
@@ -249,7 +252,10 @@ impl AppHandler {
 
     pub fn handle_backspace(self, app: &mut App) -> Result<(), AppError> {
         match app.tracker.backspace() {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                app.bump_typing_revision();
+                Ok(())
+            }
             Err(AppError::TypingTestNotInProgress) => Ok(()),
             Err(AppError::IllegalBackspace) => Ok(()),
             Err(AppError::IllegalSpaceCharacter) => Ok(()),

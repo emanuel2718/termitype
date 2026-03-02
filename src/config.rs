@@ -178,8 +178,8 @@ impl Mode {
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Mode::Time(t) => write!(f, "Time: {} seconds", t),
-            Mode::Words(w) => write!(f, "Words: {}", w),
+            Mode::Time(t) => write!(f, "Time: {t} seconds"),
+            Mode::Words(w) => write!(f, "Words: {w}"),
         }
     }
 }
@@ -308,33 +308,40 @@ impl Config {
         }
 
         if let Some(theme_str) = &cli.theme {
-            if theme_str.parse::<Theme>().is_ok() {
+            if crate::assets::get_theme(theme_str).is_some() {
                 self.state.theme = Some(theme_str.clone())
+            } else if !self.state.hide_notifications && !cli.hide_notifications {
+                crate::notify_warning!(format!(
+                    "Theme '{}' not found. Keeping current theme '{}'",
+                    theme_str,
+                    self.current_theme()
+                        .unwrap_or_else(|| DEFAULT_THEME.to_string())
+                ));
             }
         }
 
-        if let Some(ascii_str) = &cli.ascii {
-            if ascii_str.parse::<ascii::Ascii>().is_ok() {
-                self.state.ascii = Some(ascii_str.clone())
-            }
+        if let Some(ascii_str) = &cli.ascii
+            && ascii_str.parse::<ascii::Ascii>().is_ok()
+        {
+            self.state.ascii = Some(ascii_str.clone())
         }
 
-        if let Some(cursor_str) = &cli.cursor {
-            if let Ok(variant) = cursor_str.parse::<CursorVariant>() {
-                self.state.cursor_variant = variant;
-            }
+        if let Some(cursor_str) = &cli.cursor
+            && let Ok(variant) = cursor_str.parse::<CursorVariant>()
+        {
+            self.state.cursor_variant = variant;
         }
 
-        if let Some(picker_str) = &cli.picker {
-            if let Ok(variant) = picker_str.parse::<PickerVariant>() {
-                self.state.picker_variant = variant;
-            }
+        if let Some(picker_str) = &cli.picker
+            && let Ok(variant) = picker_str.parse::<PickerVariant>()
+        {
+            self.state.picker_variant = variant;
         }
 
-        if let Some(results_str) = &cli.results {
-            if let Ok(variant) = results_str.parse::<ResultsVariant>() {
-                self.state.results_variant = variant;
-            }
+        if let Some(results_str) = &cli.results
+            && let Ok(variant) = results_str.parse::<ResultsVariant>()
+        {
+            self.state.results_variant = variant;
         }
 
         if cli.use_symbols {
@@ -420,8 +427,8 @@ impl Config {
             .unwrap_or_else(|| DEFAULT_ASCII_ART.to_string())
     }
 
-    pub fn change_theme(&mut self, theme: Theme) {
-        self.state.theme = Some(theme.id.to_string())
+    pub fn change_theme(&mut self, theme: &Theme) {
+        self.state.theme = Some(theme.id().to_string())
     }
 
     pub fn change_language(&mut self, lang: String) {

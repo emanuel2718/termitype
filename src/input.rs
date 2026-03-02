@@ -4,9 +4,8 @@ use crate::{
         global_keymap, idle_keymap, leaderboard_keymap, menu_base_keymap, menu_search_keymap,
         modal_keymap, results_keymap, typing_keymap,
     },
-    log_debug,
 };
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,17 +43,16 @@ impl Input {
         // TODO: find a proper solution for this.
         if event.code == KeyCode::Esc {
             let now = Instant::now();
-            if let Some(last) = self.last_esc_time {
-                if now.duration_since(last) < Duration::from_millis(20) {
-                    return Self::wrap_input_result(Action::NoOp, false);
-                }
+            if let Some(last) = self.last_esc_time
+                && now.duration_since(last) < Duration::from_millis(20)
+            {
+                return Self::wrap_input_result(Action::NoOp, false);
             }
             self.last_esc_time = Some(now);
         }
 
         if let Some(action) = global_keymap().get_action_from(&event) {
             self.last_keycode = Some(event.code);
-            log_debug!("The action from input.handle: {action:?}");
             return Self::wrap_input_result(action, false);
         }
 
@@ -66,7 +64,6 @@ impl Input {
         if self.is_typing_input(event, &ctx) {
             self.last_keycode = Some(event.code);
             if let Some(c) = event.code.as_char() {
-                log_debug!("The action from input.handle: {:?}", Action::Input(c));
                 return Self::wrap_input_result(Action::Input(c), false);
             }
         }
@@ -83,30 +80,29 @@ impl Input {
 
         self.last_keycode = Some(event.code);
         if let Some(action) = keymap.get_action_from(&event) {
-            log_debug!("The action from input.handle: {action:?}");
             return Self::wrap_input_result(action, false);
         }
 
         // try handling menu shortcuts key inputs
-        if self.is_menu_shortcut_input(event, &ctx) {
-            if let Some(c) = event.code.as_char() {
-                return Self::wrap_input_result(Action::MenuShortcut(c), false);
-            }
+        if self.is_menu_shortcut_input(event, &ctx)
+            && let Some(c) = event.code.as_char()
+        {
+            return Self::wrap_input_result(Action::MenuShortcut(c), false);
         }
 
         // handle menu search query input
-        if self.is_menu_search_input(event, &ctx) {
-            if let Some(c) = event.code.as_char() {
-                let action = Action::MenuUpdateSearch(c.to_string());
-                return Self::wrap_input_result(action, false);
-            }
+        if self.is_menu_search_input(event, &ctx)
+            && let Some(c) = event.code.as_char()
+        {
+            let action = Action::MenuUpdateSearch(c.to_string());
+            return Self::wrap_input_result(action, false);
         }
 
         // handle modal inputs
-        if self.is_modal_input(event, &ctx) {
-            if let Some(c) = event.code.as_char() {
-                return Self::wrap_input_result(Action::ModalInput(c), false);
-            }
+        if self.is_modal_input(event, &ctx)
+            && let Some(c) = event.code.as_char()
+        {
+            return Self::wrap_input_result(Action::ModalInput(c), false);
         }
 
         Self::wrap_input_result(Action::NoOp, false)
@@ -123,6 +119,9 @@ impl Input {
 
     fn is_typing_input(&self, event: KeyEvent, ctx: &InputContext) -> bool {
         matches!(event.code, KeyCode::Char(_))
+            && !event
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
             && matches!(ctx, InputContext::Idle | InputContext::Typing)
             && !matches!(ctx, InputContext::Menu { .. })
     }
@@ -157,7 +156,7 @@ impl Input {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::menu::MenuContext;
+    use crate::menu::{MenuContext, MenuMotion};
     use crossterm::event::KeyModifiers;
 
     fn create_event(mods: KeyModifiers, code: KeyCode) -> KeyEvent {
@@ -241,5 +240,36 @@ mod tests {
         let event = create_event(KeyModifiers::NONE, KeyCode::F(12)); // Not bound
         let result = input.handle(event, InputContext::Idle);
         assert_eq!(result.action, Action::NoOp);
+    }
+
+    #[test]
+    fn test_ctrl_p_behavior_by_context() {
+        let mut input = Input::new();
+        let event = create_event(KeyModifiers::CONTROL, KeyCode::Char('p'));
+
+        assert_eq!(
+            input.handle(event, InputContext::Idle).action,
+            Action::CommandPaletteOpen
+        );
+        assert_eq!(
+            input
+                .handle(event, InputContext::Menu { searching: false })
+                .action,
+            Action::MenuNav(MenuMotion::Up)
+        );
+        assert_eq!(
+            input
+                .handle(event, InputContext::Menu { searching: true })
+                .action,
+            Action::MenuNav(MenuMotion::Up)
+        );
+        assert_ne!(
+            input.handle(event, InputContext::Modal).action,
+            Action::CommandPaletteOpen
+        );
+        assert_eq!(
+            input.handle(event, InputContext::Leaderboard).action,
+            Action::NoOp
+        );
     }
 }

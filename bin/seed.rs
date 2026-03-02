@@ -26,7 +26,7 @@ fn main() -> AppResult<()> {
 
     if cli.clear {
         let deleted = db.reset()?;
-        println!("Cleared database: deleted {} entries", deleted);
+        println!("Cleared database: deleted {deleted} entries");
     }
 
     if let Some(n) = cli.seed {
@@ -34,7 +34,7 @@ fn main() -> AppResult<()> {
             let result = generate_dummy_result();
             db.insert_dummy_result(result)?;
         }
-        println!("Seeded {} dummy entries into the database", n);
+        println!("Seeded {n} dummy entries into the database");
     }
 
     Ok(())

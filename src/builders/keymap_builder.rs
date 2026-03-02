@@ -88,7 +88,6 @@ fn build_global_keymap() -> KeyMap {
     log_debug!("building the global keymap");
     KeyMap::new()
         .bind_with_mod(CTRL, KeyCode::Char(' '), Action::MenuToggle)
-        .bind_with_mod(CTRL, KeyCode::Char('o'), Action::CommandPaletteToggle)
         .bind_with_mod(CTRL, KeyCode::Char('l'), Action::LeaderboardToggle)
         .bind_with_mod(CTRL, KeyCode::Char('t'), Action::RandomizeTheme)
         .bind_with_mod(CTRL, KeyCode::Char('c'), Action::Quit)
@@ -96,13 +95,16 @@ fn build_global_keymap() -> KeyMap {
 }
 
 fn build_idle_keymap() -> KeyMap {
-    KeyMap::new().bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
+    KeyMap::new()
+        .bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
+        .bind_with_mod(CTRL, KeyCode::Char('p'), Action::CommandPaletteOpen)
 }
 
 fn build_typing_keymap() -> KeyMap {
     KeyMap::new()
         .bind(KeyCode::Esc, Action::MenuOpen(MenuContext::Root))
         .bind(KeyCode::Backspace, Action::Backspace)
+        .bind_with_mod(CTRL, KeyCode::Char('p'), Action::CommandPaletteOpen)
 }
 
 #[rustfmt::skip]
@@ -115,6 +117,7 @@ fn build_results_keymap() -> KeyMap {
         .bind( KeyCode::Char('n'), Action::SetResultVariant(ResultsVariant::Neofetch))
         .bind( KeyCode::Up, Action::CycleNextArt)
         .bind( KeyCode::Down, Action::CyclePreviousArt)
+        .bind_with_mod(CTRL, KeyCode::Char('p'), Action::CommandPaletteOpen)
         .bind_with_mod(SHIFT, KeyCode::Char('N'), Action::Restart)
         .bind_with_mod(SHIFT, KeyCode::Char('R'), Action::Redo)
 }
@@ -127,6 +130,10 @@ fn build_menu_base_keymap() -> KeyMap {
         .bind(KeyCode::Char(' '), Action::MenuSelect)
         .bind(KeyCode::Up, Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Down, Action::MenuNav(MenuMotion::Down))
+        .bind(KeyCode::Home, Action::MenuNav(MenuMotion::Home))
+        .bind(KeyCode::End, Action::MenuNav(MenuMotion::End))
+        .bind(KeyCode::PageUp, Action::MenuNav(MenuMotion::PageUp))
+        .bind(KeyCode::PageDown, Action::MenuNav(MenuMotion::PageDown))
         .bind(KeyCode::Char('k'), Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Char('j'), Action::MenuNav(MenuMotion::Down))
         .bind(KeyCode::Char('/'), Action::MenuInitSearch)
@@ -142,6 +149,10 @@ fn build_menu_search_keymap() -> KeyMap {
         .bind(KeyCode::Backspace, Action::MenuBackspaceSearch)
         .bind(KeyCode::Up, Action::MenuNav(MenuMotion::Up))
         .bind(KeyCode::Down, Action::MenuNav(MenuMotion::Down))
+        .bind(KeyCode::Home, Action::MenuNav(MenuMotion::Home))
+        .bind(KeyCode::End, Action::MenuNav(MenuMotion::End))
+        .bind(KeyCode::PageUp, Action::MenuNav(MenuMotion::PageUp))
+        .bind(KeyCode::PageDown, Action::MenuNav(MenuMotion::PageDown))
         .bind_with_mod(CTRL, KeyCode::Char('y'), Action::MenuSelect)
         .bind_with_mod(CTRL, KeyCode::Char('n'), Action::MenuNav(MenuMotion::Down))
         .bind_with_mod(CTRL, KeyCode::Char('p'), Action::MenuNav(MenuMotion::Up))

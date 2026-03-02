@@ -86,7 +86,7 @@ impl MenuItem {
     pub fn info<S: Into<String>>(key: S, value: S) -> Self {
         let key = key.into();
         let value = value.into();
-        Self::new(format!("{} {}", key, value), MenuAction::Info(key, value))
+        Self::new(format!("{key} {value}"), MenuAction::Info(key, value))
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -206,16 +206,15 @@ impl MenuContent {
                     } else {
                         item.get_label()
                     };
-                    let label_matches = fuzzy_match(&label_target.to_lowercase(), &query);
-                    let tag_matches = fuzzy_match(&item.get_tag().to_lowercase(), &query);
-                    // in the cmd palette, mathc the full display text (`tag: description`)
+                    let label_matches = fuzzy_match(&label_target, &query);
+                    let tag_matches = fuzzy_match(&item.get_tag(), &query);
                     let full_display_matches = if self.is_cmd_palette {
                         let full_display = if let Some(tag) = &item.tag {
-                            format!("{}: {}", tag, label_target)
+                            format!("{tag}: {label_target}")
                         } else {
                             label_target.clone()
                         };
-                        fuzzy_match(&full_display.to_lowercase(), &query)
+                        fuzzy_match(&full_display, &query)
                     } else {
                         false
                     };
@@ -281,9 +280,25 @@ impl MenuContent {
         len: usize,
         viewport_height: usize,
     ) -> usize {
+        if len == 0 {
+            return 0;
+        }
+
         match motion {
-            MenuMotion::Up => current_index.saturating_sub(1),
-            MenuMotion::Down => (current_index + 1).min(len.saturating_sub(1)),
+            MenuMotion::Up => {
+                if current_index == 0 {
+                    len.saturating_sub(1)
+                } else {
+                    current_index.saturating_sub(1)
+                }
+            }
+            MenuMotion::Down => {
+                if current_index + 1 >= len {
+                    0
+                } else {
+                    current_index + 1
+                }
+            }
             MenuMotion::PageUp => {
                 let scroll = viewport_height.saturating_sub(1) / 2;
                 current_index.saturating_sub(scroll)
@@ -441,10 +456,10 @@ impl Menu {
         self.search_mode = false;
         let ui_height = self.ui_height;
         // in the command palette we want to reset to index 0, is cleaner that way
-        if let Some(menu) = self.current_menu_mut() {
-            if menu.is_cmd_palette {
-                menu.reset_selection(ui_height);
-            }
+        if let Some(menu) = self.current_menu_mut()
+            && menu.is_cmd_palette
+        {
+            menu.reset_selection(ui_height);
         }
     }
 
@@ -457,12 +472,12 @@ impl Menu {
         self.search_mode = false;
         self.search_query.clear();
         // in the command palette we want to reset to index 0, is cleaner that way
-        if let Some(menu) = self.current_menu_mut() {
-            if menu.is_cmd_palette {
-                let _ = self.close();
-                // menu.set_current_index(0);
-                // menu.scroll_offset = 0;
-            }
+        if let Some(menu) = self.current_menu_mut()
+            && menu.is_cmd_palette
+        {
+            let _ = self.close();
+            // menu.set_current_index(0);
+            // menu.scroll_offset = 0;
         }
     }
 
@@ -696,7 +711,26 @@ mod tests {
         assert_eq!(content.current_index, 0);
 
         content.nav(MenuMotion::Up, 10, None);
-        assert_eq!(content.current_index, 0); // no wrapping
+        assert_eq!(content.current_index, 4); // wraps
+
+        content.nav(MenuMotion::Down, 10, None);
+        assert_eq!(content.current_index, 0); // wraps
+    }
+
+    #[test]
+    fn test_menu_content_nav_wrap_with_query() {
+        let items = vec![
+            MenuItem::new("termitype", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("test", MenuAction::Action(Action::NoOp)),
+            MenuItem::new("hello", MenuAction::Action(Action::NoOp)),
+        ];
+        let mut content = MenuContent::new("Title", MenuContext::Root, items, None, false);
+
+        content.nav(MenuMotion::Up, 10, Some("t"));
+        assert_eq!(content.current_index, 1); // wraps to last filtered item (`test`)
+
+        content.nav(MenuMotion::Down, 10, Some("t"));
+        assert_eq!(content.current_index, 0); // wraps back to first filtered item (`termitype`)
     }
 
     #[test]
@@ -895,7 +929,7 @@ mod tests {
         assert!(!theme::is_using_preview_theme());
 
         assert_eq!(
-            theme::current_theme().id.to_string(),
+            theme::current_theme().id().to_string(),
             "Fallback".to_string()
         );
 

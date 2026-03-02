@@ -63,7 +63,7 @@ fn render_theme_header_visualizer(frame: &mut Frame, theme: &Theme, area: Rect) 
         ])
         .split(header_layout[1]);
 
-    let header = Paragraph::new(theme.id.as_ref())
+    let header = Paragraph::new(theme.id())
         .style(Style::default().fg(theme.highlight()))
         .alignment(Alignment::Left);
     frame.render_widget(header, title_layout[1]);

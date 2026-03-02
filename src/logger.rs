@@ -72,12 +72,11 @@ impl Logger {
     }
 
     fn write(&self, level: Level, file: Option<&str>, line: Option<u32>, msg: &str) {
-        if let Some(level_lock) = LOG_LEVEL.get() {
-            if let Ok(min_level) = level_lock.lock() {
-                if level < *min_level {
-                    return;
-                }
-            }
+        if let Some(level_lock) = LOG_LEVEL.get()
+            && let Ok(min_level) = level_lock.lock()
+            && level < *min_level
+        {
+            return;
         }
 
         let now = SystemTime::now();
@@ -85,7 +84,7 @@ impl Logger {
         let timestamp = format_timestamp(now);
 
         let file_info = if let (Some(file), Some(line)) = (file, line) {
-            format!("[{}:{}] ", file, line)
+            format!("[{file}:{line}] ")
         } else {
             "".to_string()
         };
@@ -119,15 +118,10 @@ impl Logger {
         let timestamp = format_timestamp(now);
 
         self.write(Level::Info, None, None, "=== TermiType Startup ===");
-        self.write(Level::Info, None, None, &format!("Version: {}", version));
-        self.write(Level::Info, None, None, &format!("OS: {} ({})", os, arch));
-        self.write(Level::Info, None, None, &format!("PID: {}", pid));
-        self.write(
-            Level::Info,
-            None,
-            None,
-            &format!("Started at: {}", timestamp),
-        );
+        self.write(Level::Info, None, None, &format!("Version: {version}"));
+        self.write(Level::Info, None, None, &format!("OS: {os} ({arch})"));
+        self.write(Level::Info, None, None, &format!("PID: {pid}"));
+        self.write(Level::Info, None, None, &format!("Started at: {timestamp}"));
         self.write(Level::Info, None, None, "==========================");
     }
 }
@@ -155,19 +149,19 @@ pub fn init() -> io::Result<()> {
 
 /// Set the minimum log level. Messages below this level will be ignored.
 pub fn set_level(level: Level) {
-    if let Some(level_lock) = LOG_LEVEL.get() {
-        if let Ok(mut current_level) = level_lock.lock() {
-            *current_level = level;
-        }
+    if let Some(level_lock) = LOG_LEVEL.get()
+        && let Ok(mut current_level) = level_lock.lock()
+    {
+        *current_level = level;
     }
 }
 
 /// Internal `write` call
 pub fn write(level: Level, file: Option<&str>, line: Option<u32>, msg: &str) {
-    if let Some(logger) = LOGGER.get() {
-        if let Ok(logger) = logger.lock() {
-            logger.write(level, file, line, msg);
-        }
+    if let Some(logger) = LOGGER.get()
+        && let Ok(logger) = logger.lock()
+    {
+        logger.write(level, file, line, msg);
     }
 }
 

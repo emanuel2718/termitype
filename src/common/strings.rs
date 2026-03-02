@@ -45,20 +45,78 @@ pub fn truncate_to_width(s: &str, max_width: usize) -> String {
     result
 }
 
-// TODO: maybe we can improve this to be more performant. Using the most basic fuzzy search possible for now
+/// Case-insensitive subsequence fuzzy match.
+/// Returns true if every character in `pattern` appears in `text` in order.
 pub fn fuzzy_match(text: &str, pattern: &str) -> bool {
-    let text = text.chars().collect::<Vec<_>>();
-    let pattern = pattern.chars().collect::<Vec<_>>();
-
-    let mut text_idx = 0;
-    let mut pattern_idx = 0;
-
-    while text_idx < text.len() && pattern_idx < pattern.len() {
-        if text[text_idx] == pattern[pattern_idx] {
-            pattern_idx += 1;
-        }
-        text_idx += 1;
+    if pattern.is_empty() {
+        return true;
     }
 
-    pattern_idx == pattern.len()
+    let mut pattern_chars = pattern.chars().flat_map(char::to_lowercase);
+    let mut current = pattern_chars.next();
+
+    for ch in text.chars().flat_map(char::to_lowercase) {
+        if let Some(c) = current
+            && ch == c
+        {
+            current = pattern_chars.next();
+            if current.is_none() {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fuzzy_match;
+
+    #[test]
+    fn empty_pattern_always_matches() {
+        assert!(fuzzy_match("anything", ""));
+        assert!(fuzzy_match("", ""));
+    }
+
+    #[test]
+    fn empty_text_no_match() {
+        assert!(!fuzzy_match("", "a"));
+    }
+
+    #[test]
+    fn exact_match() {
+        assert!(fuzzy_match("termitype dark", "termitype dark"));
+        assert!(fuzzy_match("termitype light", "termitype light"));
+    }
+
+    #[test]
+    fn subsequence_match() {
+        assert!(fuzzy_match("termitype dark", "ttd"));
+        assert!(fuzzy_match("termitype dark", "tdk"));
+        assert!(fuzzy_match("termitype light", "ttl"));
+        assert!(fuzzy_match("one-dark-pro", "odp"));
+    }
+
+    #[test]
+    fn case_insensitive() {
+        assert!(fuzzy_match("Termitype Dark", "ttd"));
+        assert!(fuzzy_match("termitype dark", "TTD"));
+        assert!(fuzzy_match("TERMITYPE LIGHT", "ttl"));
+        assert!(fuzzy_match("Termitype Light", "TTL"));
+    }
+
+    #[test]
+    fn no_match() {
+        assert!(!fuzzy_match("termitype dark", "xyz"));
+        assert!(!fuzzy_match("abc", "abcd"));
+        assert!(!fuzzy_match("ab", "ba"));
+    }
+
+    #[test]
+    fn theme_name_examples() {
+        assert!(fuzzy_match("nord", "no"));
+        assert!(fuzzy_match("gruvbox-dark", "gbd"));
+        assert!(fuzzy_match("Solarized Light", "sl"));
+        assert!(!fuzzy_match("nord", "nz"));
+    }
 }

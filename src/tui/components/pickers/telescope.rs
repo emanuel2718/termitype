@@ -42,6 +42,8 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
     if let Some(current_menu) = menu.current_menu() {
         let items = menu.current_items();
         let has_no_items = items.is_empty();
+        let current_index = menu.current_index().unwrap_or(0);
+        let total_items = items.len();
 
         let title = current_menu.title.clone();
         let overlay_area = picker_overlay_area(area);
@@ -90,7 +92,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
                     .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-                    .title(format!(" {} ", title))
+                    .title(format!(" {title} "))
                     .title_alignment(Alignment::Center)
                     .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .bg(theme.bg());
@@ -125,7 +127,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
                     .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-                    .title(format!(" {} ", title))
+                    .title(format!(" {title} "))
                     .title_alignment(Alignment::Center)
                     .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                     .style(Style::default().bg(theme.bg()));
@@ -158,7 +160,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
-                .title(format!(" {} ", title))
+                .title(format!(" {title} "))
                 .title_alignment(Alignment::Center)
                 .title_style(Style::default().fg(theme.fg()).add_modifier(Modifier::DIM))
                 .style(Style::default().bg(theme.bg()));
@@ -192,8 +194,6 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
             let no_items_style = Style::default().fg(theme.fg()).add_modifier(Modifier::DIM);
             lines.push(Line::from(Span::styled("No items found", no_items_style)));
         } else {
-            let current_index = menu.current_index().unwrap_or(0);
-
             // ensure the current index is visible
             if current_index < scroll_offset {
                 scroll_offset = current_index;
@@ -222,14 +222,12 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     style = style.add_modifier(Modifier::DIM);
                 }
 
-                if is_toggle {
-                    if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
-                        let enabled = app.config.is_enabled(setting.clone());
-                        if !enabled {
-                            style = style.add_modifier(Modifier::DIM);
-                        } else {
-                            style = style.fg(theme.success())
-                        }
+                if is_toggle && let MenuAction::Action(Action::Toggle(setting)) = &item.action {
+                    let enabled = app.config.is_enabled(setting.clone());
+                    if !enabled {
+                        style = style.add_modifier(Modifier::DIM);
+                    } else {
+                        style = style.fg(theme.success())
                     }
                 }
 
@@ -237,14 +235,12 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     style = style.add_modifier(Modifier::DIM);
                 }
 
-                if is_toggle {
-                    if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
-                        let enabled = app.config.is_enabled(setting.clone());
-                        if !enabled {
-                            style = style.add_modifier(Modifier::DIM);
-                        } else {
-                            style = style.fg(theme.success())
-                        }
+                if is_toggle && let MenuAction::Action(Action::Toggle(setting)) = &item.action {
+                    let enabled = app.config.is_enabled(setting.clone());
+                    if !enabled {
+                        style = style.add_modifier(Modifier::DIM);
+                    } else {
+                        style = style.fg(theme.success())
                     }
                 }
 
@@ -292,17 +288,17 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
         frame.render_widget(items_paragraph, items_area);
 
         // render visualization
-        if let Some(menu) = menu.current_menu() {
-            if menu.has_visualizer() && menu.visualizer.is_some() {
-                let visualizer = menu.visualizer.as_ref().unwrap();
-                super::visualizer::render_menu_visualizer(
-                    frame,
-                    theme,
-                    visualizer,
-                    visualizer_area,
-                    app,
-                );
-            }
+        if let Some(menu) = menu.current_menu()
+            && menu.has_visualizer()
+            && let Some(visualizer) = menu.visualizer.as_ref()
+        {
+            super::visualizer::render_menu_visualizer(
+                frame,
+                theme,
+                visualizer,
+                visualizer_area,
+                app,
+            );
         }
 
         // Bottom bar should span the width of the items area panel when a visualizer exists.
@@ -321,6 +317,7 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                 theme,
                 menu,
                 has_visualizer,
+                (current_index, total_items),
             );
         }
     }
