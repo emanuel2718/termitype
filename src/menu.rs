@@ -457,9 +457,10 @@ impl Menu {
         let ui_height = self.ui_height;
         // in the command palette we want to reset to index 0, is cleaner that way
         if let Some(menu) = self.current_menu_mut()
-            && menu.is_cmd_palette {
-                menu.reset_selection(ui_height);
-            }
+            && menu.is_cmd_palette
+        {
+            menu.reset_selection(ui_height);
+        }
     }
 
     pub fn init_search(&mut self) {
@@ -472,11 +473,12 @@ impl Menu {
         self.search_query.clear();
         // in the command palette we want to reset to index 0, is cleaner that way
         if let Some(menu) = self.current_menu_mut()
-            && menu.is_cmd_palette {
-                let _ = self.close();
-                // menu.set_current_index(0);
-                // menu.scroll_offset = 0;
-            }
+            && menu.is_cmd_palette
+        {
+            let _ = self.close();
+            // menu.set_current_index(0);
+            // menu.scroll_offset = 0;
+        }
     }
 
     pub fn is_searching(&self) -> bool {

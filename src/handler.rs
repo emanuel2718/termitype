@@ -74,9 +74,10 @@ impl AppHandler {
         if app.menu.is_open() {
             // if the cmd palette is currently open, do nothing
             if let Some(current_menu) = app.menu.current_menu()
-                && current_menu.is_cmd_palette {
-                    return Ok(());
-                }
+                && current_menu.is_cmd_palette
+            {
+                return Ok(());
+            }
             // we don't want cmd palette and the actual menu to be open at the same time,
             // thus if the menu is currently opened, then close it
             AppHandler.handle_menu_close(app)?;
@@ -125,10 +126,11 @@ impl AppHandler {
 
     pub fn handle_menu_shortcut(self, app: &mut App, shortcut: char) -> Result<(), AppError> {
         if let Some(menu) = app.menu.current_menu_mut()
-            && let Some((idx, _)) = menu.find_by_shortcut(shortcut) {
-                menu.set_current_index(idx);
-                return AppHandler.handle_menu_select(app);
-            }
+            && let Some((idx, _)) = menu.find_by_shortcut(shortcut)
+        {
+            menu.set_current_index(idx);
+            return AppHandler.handle_menu_select(app);
+        }
         Ok(())
     }
 
@@ -148,9 +150,10 @@ impl AppHandler {
     pub fn handle_menu_exit_search(self, app: &mut App) -> Result<(), AppError> {
         // if we are in command palette we should close the whole menu
         if let Some(menu) = app.menu.current_menu()
-            && menu.is_cmd_palette {
-                return AppHandler.handle_menu_close(app);
-            }
+            && menu.is_cmd_palette
+        {
+            return AppHandler.handle_menu_close(app);
+        }
         // we are in the normal menu, just exit search and enter normal mode
         app.menu.exit_search();
         Ok(())
@@ -215,26 +218,29 @@ impl AppHandler {
                 ModalContext::CustomTime => {
                     // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
                     if let Ok(val) = modal.get_value()
-                        && let Ok(secs) = val.parse::<usize>() {
-                            app.config.change_mode(Mode::with_time(secs))?;
-                            app.restart()?
-                        }
+                        && let Ok(secs) = val.parse::<usize>()
+                    {
+                        app.config.change_mode(Mode::with_time(secs))?;
+                        app.restart()?
+                    }
                 }
                 ModalContext::CustomWordCount => {
                     // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
                     if let Ok(val) = modal.get_value()
-                        && let Ok(count) = val.parse::<usize>() {
-                            app.config.change_mode(Mode::with_words(count))?;
-                            app.restart()?
-                        }
+                        && let Ok(count) = val.parse::<usize>()
+                    {
+                        app.config.change_mode(Mode::with_words(count))?;
+                        app.restart()?
+                    }
                 }
                 ModalContext::CustomLineCount => {
                     // TODO: find a cleaner way of doing this. Maybe have get_value handle the parsing inside?
                     if let Ok(val) = modal.get_value()
-                        && let Ok(count) = val.parse::<u8>() {
-                            app.config.change_visible_lines_count(count);
-                            app.restart()?
-                        }
+                        && let Ok(count) = val.parse::<u8>()
+                    {
+                        app.config.change_visible_lines_count(count);
+                        app.restart()?
+                    }
                 }
                 ModalContext::ExitConfirmation => app.quit()?,
             }

@@ -57,12 +57,13 @@ pub fn fuzzy_match(text: &str, pattern: &str) -> bool {
 
     for ch in text.chars().flat_map(char::to_lowercase) {
         if let Some(c) = current
-            && ch == c {
-                current = pattern_chars.next();
-                if current.is_none() {
-                    return true;
-                }
+            && ch == c
+        {
+            current = pattern_chars.next();
+            if current.is_none() {
+                return true;
             }
+        }
     }
     false
 }

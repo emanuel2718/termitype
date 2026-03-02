@@ -108,9 +108,10 @@ impl ColorSupport {
     pub fn detect_color_support() -> Self {
         // TODO: improve this
         if let Ok(ct) = std::env::var("COLORTERM")
-            && Self::is_truecolor_term(&ct) {
-                return ColorSupport::TrueColor;
-            }
+            && Self::is_truecolor_term(&ct)
+        {
+            return ColorSupport::TrueColor;
+        }
         ColorSupport::Basic
     }
 

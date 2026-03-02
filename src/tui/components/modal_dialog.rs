@@ -138,12 +138,13 @@ impl ModalDialog {
 
     fn render_modal_error_message(frame: &mut Frame, modal: &Modal, theme: &Theme, area: Rect) {
         if let Some(buffer) = &modal.buffer
-            && let Some(error_msg) = &buffer.error {
-                let error_text = Paragraph::new(error_msg.as_str())
-                    .style(Style::default().fg(theme.error()))
-                    .alignment(Alignment::Center);
-                frame.render_widget(error_text, area);
-            }
+            && let Some(error_msg) = &buffer.error
+        {
+            let error_text = Paragraph::new(error_msg.as_str())
+                .style(Style::default().fg(theme.error()))
+                .alignment(Alignment::Center);
+            frame.render_widget(error_text, area);
+        }
     }
 
     fn render_button(frame: &mut Frame, kind: &ModalKind, theme: &Theme, area: Rect) {

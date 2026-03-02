@@ -450,16 +450,17 @@ impl App {
         }
 
         if let Some(item) = self.menu.current_item()
-            && item.has_preview {
-                match &item.action {
-                    MenuAction::Action(Action::SetTheme(name)) => theme::set_as_preview_theme(name),
-                    MenuAction::Action(Action::SetCursorVariant(variant)) => {
-                        let _ = execute!(stdout(), variant.to_crossterm());
-                        Ok(())
-                    }
-                    _ => Ok(()),
-                }?;
-            }
+            && item.has_preview
+        {
+            match &item.action {
+                MenuAction::Action(Action::SetTheme(name)) => theme::set_as_preview_theme(name),
+                MenuAction::Action(Action::SetCursorVariant(variant)) => {
+                    let _ = execute!(stdout(), variant.to_crossterm());
+                    Ok(())
+                }
+                _ => Ok(()),
+            }?;
+        }
         Ok(())
     }
 
@@ -504,9 +505,10 @@ impl App {
     fn handle_debounce(&self) -> bool {
         if self.tracker.is_complete()
             && let Some(end_time) = self.tracker.end_time
-                && end_time.elapsed() < Duration::from_millis(500) {
-                    return true;
-                }
+            && end_time.elapsed() < Duration::from_millis(500)
+        {
+            return true;
+        }
         false
     }
 

@@ -44,9 +44,10 @@ impl Input {
         if event.code == KeyCode::Esc {
             let now = Instant::now();
             if let Some(last) = self.last_esc_time
-                && now.duration_since(last) < Duration::from_millis(20) {
-                    return Self::wrap_input_result(Action::NoOp, false);
-                }
+                && now.duration_since(last) < Duration::from_millis(20)
+            {
+                return Self::wrap_input_result(Action::NoOp, false);
+            }
             self.last_esc_time = Some(now);
         }
 
@@ -84,22 +85,25 @@ impl Input {
 
         // try handling menu shortcuts key inputs
         if self.is_menu_shortcut_input(event, &ctx)
-            && let Some(c) = event.code.as_char() {
-                return Self::wrap_input_result(Action::MenuShortcut(c), false);
-            }
+            && let Some(c) = event.code.as_char()
+        {
+            return Self::wrap_input_result(Action::MenuShortcut(c), false);
+        }
 
         // handle menu search query input
         if self.is_menu_search_input(event, &ctx)
-            && let Some(c) = event.code.as_char() {
-                let action = Action::MenuUpdateSearch(c.to_string());
-                return Self::wrap_input_result(action, false);
-            }
+            && let Some(c) = event.code.as_char()
+        {
+            let action = Action::MenuUpdateSearch(c.to_string());
+            return Self::wrap_input_result(action, false);
+        }
 
         // handle modal inputs
         if self.is_modal_input(event, &ctx)
-            && let Some(c) = event.code.as_char() {
-                return Self::wrap_input_result(Action::ModalInput(c), false);
-            }
+            && let Some(c) = event.code.as_char()
+        {
+            return Self::wrap_input_result(Action::ModalInput(c), false);
+        }
 
         Self::wrap_input_result(Action::NoOp, false)
     }

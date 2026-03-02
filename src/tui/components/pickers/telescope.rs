@@ -222,29 +222,27 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
                     style = style.add_modifier(Modifier::DIM);
                 }
 
-                if is_toggle
-                    && let MenuAction::Action(Action::Toggle(setting)) = &item.action {
-                        let enabled = app.config.is_enabled(setting.clone());
-                        if !enabled {
-                            style = style.add_modifier(Modifier::DIM);
-                        } else {
-                            style = style.fg(theme.success())
-                        }
+                if is_toggle && let MenuAction::Action(Action::Toggle(setting)) = &item.action {
+                    let enabled = app.config.is_enabled(setting.clone());
+                    if !enabled {
+                        style = style.add_modifier(Modifier::DIM);
+                    } else {
+                        style = style.fg(theme.success())
                     }
+                }
 
                 if item.is_disabled {
                     style = style.add_modifier(Modifier::DIM);
                 }
 
-                if is_toggle
-                    && let MenuAction::Action(Action::Toggle(setting)) = &item.action {
-                        let enabled = app.config.is_enabled(setting.clone());
-                        if !enabled {
-                            style = style.add_modifier(Modifier::DIM);
-                        } else {
-                            style = style.fg(theme.success())
-                        }
+                if is_toggle && let MenuAction::Action(Action::Toggle(setting)) = &item.action {
+                    let enabled = app.config.is_enabled(setting.clone());
+                    if !enabled {
+                        style = style.add_modifier(Modifier::DIM);
+                    } else {
+                        style = style.fg(theme.success())
                     }
+                }
 
                 let indicator = if is_toggle {
                     if let MenuAction::Action(Action::Toggle(setting)) = &item.action {
@@ -292,15 +290,16 @@ pub fn render_telescope_picker(frame: &mut Frame, app: &mut App, theme: &Theme, 
         // render visualization
         if let Some(menu) = menu.current_menu()
             && menu.has_visualizer()
-                && let Some(visualizer) = menu.visualizer.as_ref() {
-                    super::visualizer::render_menu_visualizer(
-                        frame,
-                        theme,
-                        visualizer,
-                        visualizer_area,
-                        app,
-                    );
-                }
+            && let Some(visualizer) = menu.visualizer.as_ref()
+        {
+            super::visualizer::render_menu_visualizer(
+                frame,
+                theme,
+                visualizer,
+                visualizer_area,
+                app,
+            );
+        }
 
         // Bottom bar should span the width of the items area panel when a visualizer exists.
         // Otherwise, it spans the classic overlay width.
