@@ -21,7 +21,7 @@ use crate::{
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use crossterm::execute;
-use ratatui::{Terminal, prelude::Backend};
+use ratatui::{prelude::Backend, Terminal};
 use std::io::stdout;
 use std::time::{Duration, Instant};
 
@@ -141,9 +141,11 @@ fn maybe_draw_frame<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> an
 
 fn draw_frame<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> anyhow::Result<()> {
     let draw_started_at = app.perf.on_draw_started();
-    terminal.draw(|frame| {
-        let _ = tui::renderer::draw_ui(frame, app);
-    })?;
+    terminal
+        .draw(|frame| {
+            let _ = tui::renderer::draw_ui(frame, app);
+        })
+        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
     app.on_did_draw();
     app.perf
         .on_draw_completed(draw_started_at, app.last_event_started_at);
