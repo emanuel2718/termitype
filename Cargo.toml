@@ -36,10 +36,6 @@ path = "bin/simulation.rs"
 name = "seed"
 path = "bin/seed.rs"
 
-[[bin]]
-name = "perf"
-path = "bin/perf.rs"
-
 [profile.release]
 codegen-units = 1
 debug = true
